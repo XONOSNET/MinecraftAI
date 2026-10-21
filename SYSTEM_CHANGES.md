@@ -10,3 +10,5 @@ Created a new persistent survival world (seed 74219083) and two enclosed 41×41 
 
 npm audit reports six moderate transitive advisories, primarily UUID/auth dependency chains. The suggested force fix downgrades Mineflayer to 1.4.0 and would break current protocol support; not applied. Offline bot authentication bypasses those login flows, but advisories remain and should be rechecked before enabling authenticated network operation.
 
+Dashboard update: restarted the existing local lab to load background-training progress endpoints and the guided interface. No new dependency or system-level installation. Local browser authentication now uses an HttpOnly, SameSite=Strict session; API tokens and loopback bindings are preserved. The updated workflow was exercised using the existing collected examples; checkpoints and the persistent world remain local.
+

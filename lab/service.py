@@ -9,6 +9,8 @@ import numpy as np, torch, psutil
 from fastapi import FastAPI,Header,HTTPException,Depends,Request
 from fastapi.responses import HTMLResponse
 from .model import Policy
+from .jobs import TrainingJobs, TrainingCancelled
+import copy
 ROOT=Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 torch.set_num_threads(4);torch.manual_seed(42);random.seed(42);np.random.seed(42)
@@ -32,6 +34,8 @@ if Path('checkpoints/latest.pt').exists():
 mode='paused';run='idle';agents={};samples=deque(maxlen=50000);server=None;logfile=None;lock=threading.RLock();started=time.time();training=False
 system_cpu=0.0
 shutting_down=False
+training_jobs=TrainingJobs()
+last_training_result=json.loads(Path('data/training-result.json').read_text(encoding='utf-8')) if Path('data/training-result.json').exists() else None
 if Path('data/demonstrations.npz').exists():
     demonstrations=np.load('data/demonstrations.npz')
     samples.extend(zip(demonstrations['obs'].tolist(),demonstrations['actions'].tolist()))
@@ -39,6 +43,68 @@ if Path('data/demonstrations.npz').exists():
 
 def event(name,payload):
     db.execute('INSERT INTO events(time,event,payload) VALUES(?,?,?)',(time.time(),name,json.dumps(payload)));db.commit()
+
+def start_training(background=False):
+    global mode,training
+    with lock:
+        if training_jobs.running:raise HTTPException(409,'Training is already running. Watch the progress panel.')
+        if len(samples)<100:raise HTTPException(400,'Collect at least 100 examples before training. Click Collect examples first.')
+        mode='paused';training=True
+        observations=list(samples)
+        initial_model=copy.deepcopy(model.state_dict())
+        initial_optimizer=copy.deepcopy(opt.state_dict())
+        width=model.net[0].out_features
+        event('training_started',{'samples':len(observations),'epochs':100})
+
+        def work(progress,cancel):
+            global model,opt,training,last_training_result
+            try:
+                torch.set_num_threads(4)
+                candidate=Policy(width);candidate.load_state_dict(initial_model)
+                candidate_optimizer=torch.optim.Adam(candidate.parameters(),lr=.003)
+                candidate_optimizer.load_state_dict(initial_optimizer)
+                x=torch.tensor(np.array([s[0] for s in observations]),dtype=torch.float32)
+                y=torch.tensor([s[1] for s in observations])
+                temporary=Path('data/demonstrations.tmp')
+                with temporary.open('wb') as f:np.savez_compressed(f,obs=x.numpy(),actions=y.numpy())
+                os.replace(temporary,'data/demonstrations.npz')
+                losses=[];t=time.time()
+                for epoch in range(100):
+                    for ix in torch.randperm(len(y)).split(128):
+                        if cancel.is_set() or shutting_down:raise TrainingCancelled()
+                        loss=torch.nn.functional.cross_entropy(candidate(x[ix]),y[ix])
+                        candidate_optimizer.zero_grad();loss.backward();candidate_optimizer.step()
+                    losses.append(float(loss.detach()))
+                    progress(phase='learning',epoch=epoch+1,epochs=100,percent=round((epoch+1)*.95,1),
+                             loss=losses[-1],message=f'Learning from {len(y):,} examples. Training pass {epoch+1} of 100.')
+                if cancel.is_set() or shutting_down:raise TrainingCancelled()
+                training_jobs.begin_saving()
+                with lock:
+                    previous_model,previous_optimizer=model,opt
+                    model,opt=candidate,candidate_optimizer
+                    try:version=checkpoint()
+                    except Exception:
+                        model,opt=previous_model,previous_optimizer
+                        raise
+                    result={'version':version,'samples':len(y),'seconds':time.time()-t,
+                            'loss_start':losses[0],'loss_end':losses[-1],'parameters':model.parameters_count,
+                            'finished_at':time.time()}
+                    Path('data/training-result.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
+                    last_training_result=result;event('training',result)
+                return result
+            except TrainingCancelled:
+                with lock:event('training_cancelled',{})
+                raise
+            except Exception as error:
+                with lock:event('training_failed',{'error':str(error)})
+                raise
+            finally:
+                with lock:training=False
+        job=training_jobs.start(work,samples=len(observations),epochs=100,epoch=0)
+    if background:return {'accepted':True,'job':job}
+    finished=training_jobs.wait()
+    if finished['status']=='completed':return finished['result']
+    raise HTTPException(409 if finished['status']=='cancelled' else 500,finished.get('error',finished['message']))
 def console(command):
     if not server or server.poll() is not None:raise RuntimeError('Minecraft server is not running')
     server.stdin.write(command+'\n');server.stdin.flush()
@@ -107,6 +173,8 @@ async def lifespan(app):
     launch();threading.Thread(target=watchdog,daemon=True).start()
     yield
     shutting_down=True
+    if training_jobs.running:
+        training_jobs.cancel();training_jobs.wait()
     with lock:
         checkpoint()
         if server and server.poll() is None:
@@ -117,13 +185,17 @@ async def lifespan(app):
 app=FastAPI(lifespan=lifespan)
 def auth(request:Request,x_lab_token:str=Header(default='')):
     if request.headers.get('origin') not in (None,'http://127.0.0.1:8000','http://localhost:8000'):raise HTTPException(403,'Invalid origin')
-    if not secrets.compare_digest(x_lab_token,TOKEN):raise HTTPException(403,'Token required')
+    credential=x_lab_token or request.cookies.get('lab_session','')
+    if not secrets.compare_digest(credential,TOKEN):raise HTTPException(403,'Open the dashboard on this computer again to enable controls.')
+@app.post('/access',dependencies=[Depends(auth)])
+def access():return {'ok':True}
 @app.get('/status')
 def status():
     with lock:
         metrics=db.execute('''WITH ranked AS (SELECT *,row_number() OVER(PARTITION BY run,agent ORDER BY id) AS sequence FROM episodes)
             SELECT run,count(*),sum(success),avg(steps) FROM ranked WHERE sequence<=3 OR run LIKE '%teacher%' GROUP BY run''').fetchall()
-        return {'mode':mode,'run':run,'agents':agents,'parameters':model.parameters_count,'samples':len(samples),'server_alive':server is not None and server.poll() is None,'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0]}
+        activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause') ORDER BY id DESC LIMIT 20")]
+        return {'mode':mode,'run':run,'agents':agents,'parameters':model.parameters_count,'samples':len(samples),'server_alive':server is not None and server.poll() is None,'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':last_training_result,'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0]}
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:
@@ -188,7 +260,15 @@ def episode(d:dict):
 @app.post('/control/{command}',dependencies=[Depends(auth)])
 def control(command:str,d:dict={}):
     global mode,run,training,model,opt,shutting_down
+    if command=='train':return start_training(background=bool(d.get('background',False)))
+    if command=='cancel-training':
+        if not training_jobs.cancel():raise HTTPException(409,'No cancellable training job. It may already be saving or finished.')
+        return {'ok':True}
+    if command=='shutdown' and training_jobs.running:
+        shutting_down=True;training_jobs.cancel();training_jobs.wait()
     with lock:
+        if training_jobs.running and command not in ('shutdown',):
+            raise HTTPException(409,'Training is in progress. Wait for it to finish or cancel training first.')
         if command in ('teacher','evaluate','untrained','random','heuristic','paused'):
             mode=command;run=d.get('run',command+'-'+str(int(time.time())));event('mode',{'mode':mode,'run':run});return {'run':run}
         if command=='shutdown':
@@ -223,24 +303,11 @@ def control(command:str,d:dict={}):
                 for x in (cx-20,cx+20):console(f'fill {x} 181 -20 {x} 183 20 minecraft:glass')
             return {'ok':True}
         if command=='backup':backup();return {'ok':True}
-        if command=='train':
-            if len(samples)<100:raise HTTPException(400,'Collect at least 100 teacher observations')
-            mode='paused';training=True
-            try:
-                torch.set_num_threads(4)
-                x=torch.tensor(np.array([s[0] for s in samples]),dtype=torch.float32);y=torch.tensor([s[1] for s in samples])
-                np.savez_compressed('data/demonstrations.npz',obs=x.numpy(),actions=y.numpy())
-                losses=[];t=time.time()
-                for epoch in range(100):
-                    indices=torch.randperm(len(y))
-                    for ix in indices.split(128):
-                        loss=torch.nn.functional.cross_entropy(model(x[ix]),y[ix]);opt.zero_grad();loss.backward();opt.step()
-                    losses.append(float(loss.detach()))
-                version=checkpoint();result={'version':version,'samples':len(y),'seconds':time.time()-t,'loss_start':losses[0],'loss_end':losses[-1],'parameters':model.parameters_count}
-                Path('data/training-result.json').write_text(json.dumps(result,indent=2));event('training',result);return result
-            finally:training=False
         raise HTTPException(400,'Unknown command')
 @app.get('/',response_class=HTMLResponse)
-def dashboard():return Path('lab/dashboard.html').read_text()
+def dashboard():
+    response=HTMLResponse(Path('lab/dashboard.html').read_text(encoding='utf-8'),headers={'Cache-Control':'no-store'})
+    response.set_cookie('lab_session',TOKEN,httponly=True,samesite='strict',path='/')
+    return response
 
 
