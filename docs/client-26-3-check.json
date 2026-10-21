@@ -1,0 +1,7 @@
+{
+  "client": "Java 26.3",
+  "protocol": 777,
+  "address": "192.168.1.24:25565",
+  "login_accepted": true,
+  "full_graphical_client_test": false
+}

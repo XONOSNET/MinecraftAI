@@ -15,3 +15,6 @@ Reviewed official sources 2026-10-21. Final controller uses Mineflayer 4.39.0, w
 No assertion is made that these research repositories are actively maintained or compatible on this machine; none has passed a local compatibility test. This release deliberately avoids depending on them. Compatible demonstrations are collected locally using our exact observation/action contract. Behavioral cloning is actual gradient learning but initially transfers a simple steering teacher, not general Minecraft knowledge.
 
 Normal 20 TPS remains selected. World time changes do not speed player physics or learning. Tick-rate acceleration must measure server MSPT, client physics synchronization and actual decisions/sec before being reported. No acceleration result yet. Raw power measurements are unavailable, so performance per watt is unreported.
+
+
+Java 26.3 compatibility uses official ViaVersion 5.12.1 (https://github.com/ViaVersion/ViaVersion/releases/tag/5.12.1), preserving Paper/Mineflayer 1.21.4 compatibility. Protocol 777 login succeeded and Xonosnet subsequently joined using the graphical client.

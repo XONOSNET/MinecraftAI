@@ -48,6 +48,8 @@ node --test tests/perception.test.js
 
 Inspect `logs/service-error.log`, `logs/bots-error.log`, and `logs/minecraft-console.log`. Initial Paper startup downloads Mojang files and can take longer than subsequent starts. Wait for `Done` before spawning bots. Port conflicts fail instead of starting a second server. A failed arena command (`That position is not loaded`) invalidates an experiment; the current arena setup force-loads both courses before building them.
 
-The server and dashboard bind to loopback only. Local bot identities use offline authentication. Do not change binding to LAN/public with offline mode enabled. RCON is disabled. No firewall/router/security settings were changed. EULA accepted explicitly by the operator in chat on 2026-10-21.
+Minecraft and the authenticated dashboard bind to loopback. A bounded bridge exposes Minecraft only at 192.168.1.24:25565 to 192.168.1.0/24. The scoped Windows firewall rule permits that LAN connection; no router forwarding is configured. Local offline identities are suitable for this trusted LAN and do not authenticate account ownership. RCON remains disabled. EULA accepted explicitly in chat on 2026-10-21.
+
+Java 26.3 clients can join through pinned ViaVersion 5.12.1 while the server and bots stay on 1.21.4. The dashboard shows online players, saved operator levels, server readiness, RAM and tick metrics. Start/Stop/Restart run in the background, preserve the world/model/examples, and leave the dashboard available. Learning stays paused after server operations. Player administration supports OP/deop, game modes, teleport, heal, feed and disconnect through validated commands. Xonosnet was granted operator level 4.
 
 See ARCHITECTURE.md, RESEARCH.md, EXPERIMENTS.md, PROGRESS.md, and SYSTEM_CHANGES.md for scope and evidence.

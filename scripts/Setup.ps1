@@ -28,3 +28,11 @@ if($AcceptEula){
  if(Test-Path server/eula.txt){Copy-Item server/eula.txt ('backups/eula-'+(Get-Date -Format yyyyMMddHHmmss)+'.txt')}
  'eula=true'|Set-Content server/eula.txt
 }elseif(!(Test-Path server/eula.txt)){throw 'Read https://www.minecraft.net/eula and rerun with -AcceptEula only if you agree.'}
+
+New-Item -ItemType Directory -Force server/plugins | Out-Null
+$viaPath='server/plugins/ViaVersion-5.12.1.jar'
+$viaHash='b8033807e7182c35003a45962352dd642c1e91880ca281da3a43cb6f481a95a2'
+if(!(Test-Path $viaPath)){
+ Invoke-WebRequest 'https://github.com/ViaVersion/ViaVersion/releases/download/5.12.1/ViaVersion-5.12.1.jar' -OutFile $viaPath
+}
+if((Get-FileHash $viaPath -Algorithm SHA256).Hash.ToLower() -ne $viaHash){throw 'ViaVersion checksum mismatch'}

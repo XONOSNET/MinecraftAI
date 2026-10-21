@@ -12,3 +12,6 @@ npm audit reports six moderate transitive advisories, primarily UUID/auth depend
 
 Dashboard update: restarted the existing local lab to load background-training progress endpoints and the guided interface. No new dependency or system-level installation. Local browser authentication now uses an HttpOnly, SameSite=Strict session; API tokens and loopback bindings are preserved. The updated workflow was exercised using the existing collected examples; checkpoints and the persistent world remain local.
 
+
+
+LAN enabled through config/lan.json and a bounded subnet-restricted TCP bridge. Added Windows inbound rule MinecraftAILab-LAN-25565 for TCP 25565, local 192.168.1.24, remote 192.168.1.0/24, Ethernet2, profiles Any (existing Public network category unchanged), edge traversal blocked. Receipt: data/lan-firewall-result.json; prior properties backed up in backups/. Dashboard and RCON remain inaccessible from LAN. Installed official ViaVersion 5.12.1, SHA256 b8033807e7182c35003a45962352dd642c1e91880ca281da3a43cb6f481a95a2. Added pinned installation to Setup.ps1. Granted Xonosnet OP level 4 via console; verified server/ops.json.
