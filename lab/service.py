@@ -121,7 +121,9 @@ def auth(request:Request,x_lab_token:str=Header(default='')):
 @app.get('/status')
 def status():
     with lock:
-        return {'mode':mode,'run':run,'agents':agents,'parameters':model.parameters_count,'samples':len(samples),'server_alive':server is not None and server.poll() is None,'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r)) for r in db.execute('SELECT run,count(*),sum(success),avg(steps) FROM episodes GROUP BY run')]}
+        metrics=db.execute('''WITH ranked AS (SELECT *,row_number() OVER(PARTITION BY run,agent ORDER BY id) AS sequence FROM episodes)
+            SELECT run,count(*),sum(success),avg(steps) FROM ranked WHERE sequence<=3 OR run LIKE '%teacher%' GROUP BY run''').fetchall()
+        return {'mode':mode,'run':run,'agents':agents,'parameters':model.parameters_count,'samples':len(samples),'server_alive':server is not None and server.poll() is None,'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0]}
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:
@@ -132,6 +134,9 @@ def nearby_memory(agent:str):
 @app.post('/assignment',dependencies=[Depends(auth)])
 def assignment(d:dict):
     with lock:
+        if 'position' in d:
+            state=agents.setdefault(d['agent'],{'goal':None,'steps':0,'reward':0,'action':4,'inference_ms':0,'perception_ms':0,'rays':[]})
+            state.update(position=d['position'],health=d['health'],food=d['food'],last_seen=time.time(),run=run)
         # Repeated calls during a lifetime return the same assignment; next episode changes it.
         rng=random.Random(8000+d['index']*1000+d['episode'])
         finished=db.execute('SELECT count(*) FROM episodes WHERE run=? AND agent=?',(run,d['agent'])).fetchone()[0]

@@ -5,12 +5,16 @@ const bots=[];let quitting=false;
 async function api(path,data){const r=await fetch('http://127.0.0.1:8000'+path,{method:'POST',headers:{'Content-Type':'application/json','X-Lab-Token':token},body:JSON.stringify(data)});if(!r.ok)throw Error(await r.text());return r.json();}
 function spawn(i){if(quitting)return;const name='LabAI'+i;const b=mineflayer.createBot({host:'127.0.0.1',port:25565,username:name,auth:'offline',version:'1.21.4',respawn:true});bots[i]=b;let tick=0,busy=false,goal=null,lastDistance=null,steps=0,phase='',episode=0;
  b.on('spawn',()=>{goal=null;lastDistance=null;console.log(JSON.stringify({event:'spawn',name}));});
- b.on('error',e=>console.error(name,e.message));b.on('kicked',r=>console.error(name,JSON.stringify(r)));
- b.on('end',()=>{console.log(name,'disconnected');if(!quitting)setTimeout(()=>spawn(i),5000);});
+ const write=b._client.write.bind(b._client);b._client.write=(packet,data)=>{if(['position','position_look','look'].includes(packet)&&Object.values(data).some(v=>typeof v==='number'&&!Number.isFinite(v)))console.error('INVALID_PACKET',name,packet,JSON.stringify(data),JSON.stringify({yaw:b.entity?.yaw,pitch:b.entity?.pitch,velocity:b.entity?.velocity}));return write(packet,data);};
+ b.on('error',e=>console.error(name,e.message));b.on('kicked',r=>console.error(name,JSON.stringify(r),JSON.stringify({position:b.entity?.position,yaw:b.entity?.yaw,pitch:b.entity?.pitch,velocity:b.entity?.velocity})));
+ function interrupted(reason){if(goal&&!quitting){api('/episode',{agent:name,run:phase,success:false,steps,distance:lastDistance,reason}).catch(e=>console.error(name,e.message));goal=null;}}
+ b.on('death',()=>interrupted('death'));
+ b.on('end',()=>{interrupted('disconnect');console.log(name,'disconnected');if(!quitting)setTimeout(()=>spawn(i),5000);});
  b.on('physicsTick',async()=>{if(++tick%5||busy||!b.entity)return;busy=true;try{
- let state=await api('/assignment',{agent:name,index:i,episode});
- if(phase!==state.run){episode=0;state=await api('/assignment',{agent:name,index:i,episode});}
- if(state.mode==='paused'){b.clearControlStates();return;}
+ const heartbeat=()=>({agent:name,index:i,episode,position:[b.entity.position.x,b.entity.position.y,b.entity.position.z],health:b.health,food:b.food});
+ let state=await api('/assignment',heartbeat());
+ if(phase!==state.run){episode=0;state=await api('/assignment',heartbeat());}
+ if(state.mode==='paused'){b.clearControlStates();goal=null;return;}
  if(phase!==state.run||!goal||steps>=120||(lastDistance!==null&&lastDistance<1.25)||b.health<=0){
   if(goal&&phase===state.run)await api('/episode',{agent:name,run:phase,success:lastDistance!==null&&lastDistance<1.25&&b.health>0&&Math.abs(b.entity.position.y-goal[1])<1.5,steps,distance:lastDistance});
   phase=state.run;episode++;steps=0;goal=state.goal;lastDistance=null;

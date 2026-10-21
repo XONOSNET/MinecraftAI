@@ -1,0 +1,116 @@
+[
+  {
+    "run": "baseline-valid-001",
+    "episodes": 15,
+    "successes": 0,
+    "mean_steps": 120.0
+  },
+  {
+    "run": "diagnose-neural",
+    "episodes": 12,
+    "successes": 11,
+    "mean_steps": 14.75
+  },
+  {
+    "run": "heuristic-valid-001",
+    "episodes": 15,
+    "successes": 15,
+    "mean_steps": 16.6
+  },
+  {
+    "run": "random-valid-001",
+    "episodes": 15,
+    "successes": 1,
+    "mean_steps": 112.53333333333333
+  },
+  {
+    "run": "release-teacher",
+    "episodes": 84,
+    "successes": 84,
+    "mean_steps": 17.80952380952381
+  },
+  {
+    "run": "release-trained",
+    "episodes": 12,
+    "successes": 12,
+    "mean_steps": 15.416666666666666
+  },
+  {
+    "run": "release-untrained",
+    "episodes": 15,
+    "successes": 0,
+    "mean_steps": 120.0
+  },
+  {
+    "run": "release2-heuristic",
+    "episodes": 15,
+    "successes": 15,
+    "mean_steps": 16.8
+  },
+  {
+    "run": "release2-medium",
+    "episodes": 15,
+    "successes": 15,
+    "mean_steps": 16.533333333333335
+  },
+  {
+    "run": "release2-random",
+    "episodes": 15,
+    "successes": 0,
+    "mean_steps": 110.86666666666666
+  },
+  {
+    "run": "release2-small",
+    "episodes": 15,
+    "successes": 15,
+    "mean_steps": 16.8
+  },
+  {
+    "run": "release2-tiny",
+    "episodes": 15,
+    "successes": 15,
+    "mean_steps": 16.8
+  },
+  {
+    "run": "release2-trained",
+    "episodes": 15,
+    "successes": 15,
+    "mean_steps": 17.133333333333333
+  },
+  {
+    "run": "release2-untrained",
+    "episodes": 15,
+    "successes": 0,
+    "mean_steps": 102.93333333333334
+  },
+  {
+    "run": "size-medium-valid-001",
+    "episodes": 15,
+    "successes": 15,
+    "mean_steps": 16.533333333333335
+  },
+  {
+    "run": "size-small-valid-001",
+    "episodes": 15,
+    "successes": 15,
+    "mean_steps": 16.666666666666668
+  },
+  {
+    "run": "size-tiny-valid-001",
+    "episodes": 15,
+    "successes": 15,
+    "mean_steps": 16.666666666666668
+  },
+  {
+    "run": "teacher-valid-001",
+    "episodes": 80,
+    "successes": 80,
+    "mean_steps": 18.5375
+  },
+  {
+    "run": "trained-valid-001",
+    "episodes": 15,
+    "successes": 15,
+    "mean_steps": 16.533333333333335
+  }
+]

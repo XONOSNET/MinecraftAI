@@ -1,0 +1,35 @@
+[
+  {
+    "size": "tiny",
+    "width": 128,
+    "parameters": 9604,
+    "epochs": 30,
+    "samples": 1525,
+    "training_seconds": 0.2406330108642578,
+    "final_loss": 0.07801652699708939,
+    "checkpoint_bytes": 120369,
+    "single_inference_ms": 0.027069999996456318
+  },
+  {
+    "size": "small",
+    "width": 1333,
+    "parameters": 99979,
+    "epochs": 30,
+    "samples": 1525,
+    "training_seconds": 0.3941338062286377,
+    "final_loss": 0.08108693361282349,
+    "checkpoint_bytes": 1205191,
+    "single_inference_ms": 0.03595299996959511
+  },
+  {
+    "size": "medium",
+    "width": 13333,
+    "parameters": 999979,
+    "epochs": 30,
+    "samples": 1525,
+    "training_seconds": 3.7740142345428467,
+    "final_loss": 0.04415690526366234,
+    "checkpoint_bytes": 12005213,
+    "single_inference_ms": 0.18154900004446972
+  }
+]

@@ -1,6 +1,6 @@
 # Research notes
 
-Reviewed official sources 2026-10-21. Upstream is newer than the chosen compatibility baseline: npm registry reports Mineflayer 4.39.0, while installed 4.33.0 explicitly lists 1.21.4 among tested versions. Paper build 232 is the final stable 1.21.4 build returned by its official API; this older pin is for a local experiment, not a public production server recommendation.
+Reviewed official sources 2026-10-21. Final controller uses Mineflayer 4.39.0, which explicitly lists 1.21.4 among tested versions. An initial 4.33.0 pin resolved newer transitive protocol data with vector velocity fields while its entity handler expected separate fields; live velocity packets produced NaN positions. Upgrading the controller fixes that protocol contract. The lockfile preserves the tested combination. Paper build 232 is the final stable 1.21.4 build returned by its official API; this older server pin is for a local experiment, not a public production server recommendation.
 
 - Paper Java compatibility: https://docs.papermc.io/paper/getting-started/ . 1.21.4 uses Java 21. New 26.x Paper uses Java 25; do not mix versions blindly.
 - Mineflayer: https://github.com/PrismarineJS/mineflayer . Installed lib/version.js confirms compatibility. Its collision-shape world raycast is used directly and tested for occlusion.

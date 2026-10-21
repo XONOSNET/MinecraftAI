@@ -1,0 +1,20 @@
+[
+  {
+    "size": "tiny",
+    "format": "torch.export",
+    "bytes": 50956,
+    "roundtrip": "passed"
+  },
+  {
+    "size": "small",
+    "format": "torch.export",
+    "bytes": 412441,
+    "roundtrip": "passed"
+  },
+  {
+    "size": "medium",
+    "format": "torch.export",
+    "bytes": 4012454,
+    "roundtrip": "passed"
+  }
+]

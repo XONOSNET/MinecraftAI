@@ -1,21 +1,23 @@
 {
-  "seconds": 10.035543203353882,
-  "decisions": 190,
-  "mean_cpu_percent": 4.610000000000001,
-  "peak_ram_percent": 49.1,
-  "mean_inference_ms": 0.2650700001686346,
-  "mean_perception_ms": 3.664160000000047,
+  "seconds": 10.039091110229492,
+  "decisions": 199,
+  "mean_cpu_percent": 3.53,
+  "peak_ram_percent": 50.5,
+  "mean_inference_ms": 0.5861860002914909,
+  "mean_perception_ms": 2.7118759999988833,
   "agents": 5,
-  "population_decisions_per_second": 18.93270709417124,
+  "population_decisions_per_second": 19.822511601396442,
   "process_tree_rss_mib": {
     "server": {
-      "rss_mib": 1389.44140625
+      "rss_mib": 1503.1015625
     },
     "service": {
-      "rss_mib": 1709.77734375
+      "rss_mib": 1843.87109375
     },
     "bots": {
-      "rss_mib": 304.55078125
+      "rss_mib": 335.45703125
     }
-  }
+  },
+  "mode": "random",
+  "parameters": 999979
 }

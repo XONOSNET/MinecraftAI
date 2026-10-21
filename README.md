@@ -12,6 +12,8 @@ From PowerShell in this directory:
 
 Dashboard: http://127.0.0.1:8000. For dashboard controls, paste the value of `data/api-token` into its password field locally. Never publish this token. Minecraft Java **1.21.4**: Multiplayer → Direct Connection → `127.0.0.1:25565`. Select/install the matching Java Edition release in the launcher first. Human client connectivity requires manual confirmation; bot connectivity is measured separately.
 
+For a fresh checkout, first run `./scripts/Setup.ps1 -AcceptEula` only after reading and agreeing to the Minecraft EULA. Python 3.11 and Node.js 22+ must be available. Setup downloads project-local Java and Paper and installs locked packages. First startup creates the two research courses once and preserves `data/arena.initialized` with the world. Keep that marker when restoring the world so startup does not rebuild the courses.
+
 ```powershell
 ./scripts/Stop-Lab.ps1
 ```
