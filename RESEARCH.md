@@ -1,0 +1,17 @@
+# Research notes
+
+Reviewed official sources 2026-10-21. Upstream is newer than the chosen compatibility baseline: npm registry reports Mineflayer 4.39.0, while installed 4.33.0 explicitly lists 1.21.4 among tested versions. Paper build 232 is the final stable 1.21.4 build returned by its official API; this older pin is for a local experiment, not a public production server recommendation.
+
+- Paper Java compatibility: https://docs.papermc.io/paper/getting-started/ . 1.21.4 uses Java 21. New 26.x Paper uses Java 25; do not mix versions blindly.
+- Mineflayer: https://github.com/PrismarineJS/mineflayer . Installed lib/version.js confirms compatibility. Its collision-shape world raycast is used directly and tested for occlusion.
+- AMD support matrix: https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/compatibility/compatibilityrad/windows/windows_compatibility.html . RX 5700 XT is absent from the listed supported Windows PyTorch hardware. Native ROCm is not selected.
+- Microsoft DirectML: https://learn.microsoft.com/en-us/windows/ai/directml/pytorch-windows . Public-preview training/inference on DX12 GPUs is a possible separate-environment benchmark. Not installed or measured. CPU is the supported baseline here. Vulkan/ONNX inference requires export/backend work and is not assumed faster for a 9.6K network.
+- MineRL: https://github.com/minerllabs/minerl . Minecraft-specific environment/demonstration infrastructure, not a drop-in shared Paper/Mineflayer structured-ray policy. Version/environment and dataset licenses need independent verification before importing artifacts.
+- MineDojo: https://github.com/MineDojo/MineDojo . Rich simulator/research assets; integrating a separate simulator would not meet the single shared Paper world requirement without substantial adaptation. No code or datasets reused.
+- VPT: https://github.com/openai/Video-Pre-Training . Video/image observations and large policy artifacts differ from these ray tensors. Direct checkpoint transfer is unsupported. No artifacts downloaded; separate model/data licenses must be checked before reuse.
+- Voyager: https://github.com/MineDojo/Voyager . LLM/code-driven skills offer teacher ideas, but are not evidence for small neural control. No cloud LLM integrated or private game data uploaded.
+- Geyser/Floodgate: https://geysermc.org/wiki/geyser/ and https://geysermc.org/wiki/floodgate/ . Cross-edition translation/authentication is a later integration. Current version support differs from 1.21.4 and may require protocol translation plugins. Deferred to avoid delaying the measured Java pipeline.
+
+No assertion is made that these research repositories are actively maintained or compatible on this machine; none has passed a local compatibility test. This release deliberately avoids depending on them. Compatible demonstrations are collected locally using our exact observation/action contract. Behavioral cloning is actual gradient learning but initially transfers a simple steering teacher, not general Minecraft knowledge.
+
+Normal 20 TPS remains selected. World time changes do not speed player physics or learning. Tick-rate acceleration must measure server MSPT, client physics synchronization and actual decisions/sec before being reported. No acceleration result yet. Raw power measurements are unavailable, so performance per watt is unreported.

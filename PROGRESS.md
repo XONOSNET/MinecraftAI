@@ -1,0 +1,9 @@
+# Progress
+
+Implemented and locally exercised: project-local Java/Paper/Python/Node dependencies; localhost persistent survival server; five independent player clients; 256 collision-shape raycasts; compact observation tensors; 9.6K neural policy; live demonstration collection; gradient training; checkpoint reload; held-out location evaluation; 100K/1M model variants; per-agent observed-block SQLite memory; local dashboard; start/stop/restart/health scripts; world backup; resource watchdog; reconnect handling; experiment records.
+
+The first complete calibration experiment demonstrated steering learning. Corrected eye-height release replication and final verification are tracked in EXPERIMENTS.md and docs/results.json. Tests cover empty rays, solid-wall occlusion, exact eye origin, model updates and checkpoint equivalence. Backup ZIP integrity and graceful restart/recovery have been exercised.
+
+Still outside this first increment: general obstacle/terrain navigation, memory-assisted decisions, damage-aware rewards, reinforcement learning, population evolution/genealogy, full personality-driven objectives, food/crafting/combat, entity ray intersections, automatic population scaling, crossplay, accelerated simulation, GPU acceleration and Raspberry Pi deployment. Basic personality/permission data is present; social behaviors are not implemented. Server crash recovery is bounded to three paused restart attempts; it is not a Windows service manager. Human Java client connectivity remains separately reported from bot tests.
+
+Next scientific milestone: varied obstacle courses and held-out geometry; evaluate the trained policy against a teacher on matched tasks, add independent-seed replications, then fine-tune using reinforcement learning. Do not count teacher actions as neural evaluation. Preserve the shared world and previous checkpoints.

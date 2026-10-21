@@ -1,0 +1,21 @@
+{
+  "seconds": 10.035543203353882,
+  "decisions": 190,
+  "mean_cpu_percent": 4.610000000000001,
+  "peak_ram_percent": 49.1,
+  "mean_inference_ms": 0.2650700001686346,
+  "mean_perception_ms": 3.664160000000047,
+  "agents": 5,
+  "population_decisions_per_second": 18.93270709417124,
+  "process_tree_rss_mib": {
+    "server": {
+      "rss_mib": 1389.44140625
+    },
+    "service": {
+      "rss_mib": 1709.77734375
+    },
+    "bots": {
+      "rss_mib": 304.55078125
+    }
+  }
+}

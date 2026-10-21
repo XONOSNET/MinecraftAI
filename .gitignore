@@ -1,0 +1,10 @@
+runtime/
+.venv/
+node_modules/
+server/
+data/
+logs/
+backups/
+checkpoints/
+__pycache__/
+.pytest_cache/

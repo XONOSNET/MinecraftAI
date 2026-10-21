@@ -1,0 +1,19 @@
+# Architecture
+
+Paper 1.21.4 / Java 21 owns a persistent survival world. Five Mineflayer clients represent ordinary players. Node controls movement and samples observations every five local physics ticks. FastAPI/PyTorch performs batched-by-request CPU inference and explicit training. SQLite separates spatial observations from network weights. A local dashboard reads live telemetry.
+
+## Observation boundary
+
+Only the perception module reads loaded block data; it performs first-intersection raycasts using actual block collision shapes. Rays originate at eye height, horizontal FOV 90°, vertical FOV 60°, range 16 blocks, 256 rays. Empty block shapes do not occlude. No neighboring-block disclosure is performed. Only first-hit blocks enter per-agent memory. This is a collision-surface sensor: transparent solids still occlude and fluids/noncollision vegetation may not. Entity ray intersections are not yet implemented. Loaded terrain is available to the controller library, but neither the policy nor teacher receives unrestricted chunk data.
+
+512 numeric ray features pool into 32 depth/occupancy pairs. Add goal bearing sin/cos, normalized horizontal distance, health, hunger, ground contact: 70 float32 inputs. The policy has one tanh hidden layer of 128 units and four action logits: forward, turn left, turn right, forward+jump. 9,604 trainable parameters, 38,416 raw float32 weight bytes. Optimizer and serialization add storage. SQLite memory is external and not counted as learned parameters. Memory is currently recorded but not used by the policy; no memory-assisted claim is made.
+
+## Training boundary
+
+Behavioral cloning with Adam, lr .003, minibatches 128, 100 epochs. Teacher labels come from observations gathered during legitimate player movement. A privileged curriculum reset sets individual starting positions and goals at episode boundaries; the policy cannot teleport or issue server commands. Arena construction is explicit administration in a new research world. The shared world never resets per episode. Evaluation course is 80 blocks away, held out from demonstration collection. Both courses are flat: this measures heading/goal control, not terrain reasoning. Evaluation agent seeds match between baseline and trained runs. Concurrent agents can interact, so scheduling and collision differences remain a confound.
+
+Reward is clipped progress minus .01 per decision; currently logged, not optimized. Reinforcement learning, evolutionary selection, recurrent state, personality-based goal selection, food gathering, crafting and combat remain future milestones.
+
+## Operations
+
+The service owns Minecraft stdin/stdout. Token-protected local POST endpoints provide curriculum control, training, pause, checkpoint, backup, restart and shutdown. No arbitrary console endpoint. Minecraft is capped at 4 GB heap; PyTorch inference is explicitly limited to one thread in each inference worker, with four threads for gradient training. OMP/MKL/OpenBLAS defaults are set before imports. A >90% system RAM watchdog pauses decisions. Maintenance checkpoints and world backups run every ten minutes. Backup waits for the server's save-complete acknowledgment before copying. Automatic bot reconnect is bounded to one connection per identity every five seconds. Server crash recovery is limited to three paused restart attempts. No service installs or automatic Windows boot tasks.
