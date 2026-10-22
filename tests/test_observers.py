@@ -216,3 +216,25 @@ def test_angled_cameras_aim_at_fixed_torso_height(view):
     command=camera_move('LabAI0','camera',view,7,4,3)
     assert command.endswith('facing ~ ~0.9 ~') and ' eyes' not in command
     if view=='stationary':assert 'run rotate' in command
+
+
+@pytest.mark.parametrize('view',['side','trail'])
+def test_camera_bearing_ignores_head_and_tracks_travel(tmp_path,view):
+    import math
+    commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:100,settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0','view':view},['Xonosnet'])
+    a={'connected':True,'last_seen':100,'entity_id':1,'position':[0,181,0],'run':'one','yaw':0}
+    def tick():
+        o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':a},True)
+        return [c for c in commands if 'run tp @e[tag=lab_camera_' in c][-1]
+    initial=tick()
+    a.update(yaw=math.pi,pitch=1.2)
+    assert tick()==initial
+    assert 'rotated as' not in initial and '^' not in initial
+    a['position']=[0,181,1]
+    tick();s=o.sessions['Xonosnet']
+    assert s['travel_heading']==math.pi/2 and 0<s['camera_heading']<=.025
+    for _ in range(70):tick()
+    assert s['camera_heading']==pytest.approx(math.pi/2)
+    a['position']=[100,181,0];tick()
+    assert s['camera_heading']==0  # Arena teleports are not movement bearings.

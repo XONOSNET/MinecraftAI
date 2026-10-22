@@ -16,23 +16,24 @@ def player_name(value):
     if re.fullmatch(r'LabAI[0-9]+',value,re.IGNORECASE):raise ValueError('The observer must be a human player, not a training bot')
     return value
 
-def camera_move(target,tag,view,distance,height,elapsed):
+def camera_move(target,tag,view,distance,height,elapsed,heading=0):
     if view=='stationary':return f'execute at {target} run rotate @e[tag={tag},limit=1] facing ~ ~0.9 ~'
     if view=='overhead':offset=f'~ ~{height+distance:.3f} ~';context=''
     elif view=='orbit':
         angle=elapsed*.22;offset=f'~{math.cos(angle)*distance:.3f} ~{height:.3f} ~{math.sin(angle)*distance:.3f}';context=''
     else:
-        offset=f"^{distance if view=='side' else 0:.3f} ^{height:.3f} ^{-distance if view=='trail' else 0:.3f}";context=f' rotated as {target} rotated ~ 0'
+        angle=heading-(math.pi/2 if view=='side' else math.pi)
+        offset=f'~{math.cos(angle)*distance:.3f} ~{height:.3f} ~{math.sin(angle)*distance:.3f}';context=''
     return f'execute at {target}{context} run tp @e[tag={tag},limit=1] {offset} facing ~ ~0.9 ~'
 
-def viewer_transfer(owner,target,view,distance,height,elapsed):
+def viewer_transfer(owner,target,view,distance,height,elapsed,heading=0):
     if view=='first_person':return f'tp {owner} {target}'
-    return camera_move(target,'transfer',view,distance,height,elapsed).replace('@e[tag=transfer,limit=1]',owner)
+    return camera_move(target,'transfer',view,distance,height,elapsed,heading).replace('@e[tag=transfer,limit=1]',owner)
 
-def camera_spawn(owner,target,tag,view,distance,height,elapsed):
+def camera_spawn(owner,target,tag,view,distance,height,elapsed,heading=0):
     nbt=f'{{teleport_duration:3,interpolation_duration:3,view_range:2f,Invulnerable:1b,Silent:1b,Tags:["{tag}","lab_observer_camera"]}}'
     if view=='stationary':return f'execute at {owner} run summon minecraft:item_display ~ ~ ~ {nbt}'
-    prefix,tail=camera_move(target,tag,view,distance,height,elapsed).split(' run tp ',1)
+    prefix,tail=camera_move(target,tag,view,distance,height,elapsed,heading).split(' run tp ',1)
     coordinates=tail.split(' facing ',1)[0].split(' ',1)[1]
     return f'{prefix} positioned {coordinates} run summon minecraft:item_display ~ ~ ~ {nbt}'
 
@@ -245,6 +246,19 @@ class Observers:
             mobile=s['view']!='stationary'
             if token!=tuple(s.get('target_token',[])) or (mobile and (jumped or changed_run)):
                 s.update(target_token=list(token),attached=False,attach_ready_at=None)
+            # Travel bearing is independent of the bot's head/look rotation.
+            motion_key=(target,*token,agent.get('run'))
+            if list(motion_key)!=s.get('motion_key') or jumped:
+                s.update(motion_key=list(motion_key),motion_anchor=copy.deepcopy(position),camera_heading=0,travel_heading=0)
+            anchor=s.get('motion_anchor')
+            if position is not None and anchor is not None:
+                dx,dz=position[0]-anchor[0],position[2]-anchor[2]
+                if math.hypot(dx,dz)>=.75:
+                    s.update(travel_heading=math.atan2(dz,dx),motion_anchor=copy.deepcopy(position))
+            elif position is not None:s['motion_anchor']=copy.deepcopy(position)
+            heading=s.get('camera_heading',0)
+            delta=(s.get('travel_heading',heading)-heading+math.pi)%(2*math.pi)-math.pi
+            s['camera_heading']=heading+max(-.025,min(.025,delta))
             s.update(last_target_position=copy.deepcopy(position),follow_run=agent.get('run'))
             camera,ret=self.tags(s)
             if not s['attached']:
@@ -252,7 +266,7 @@ class Observers:
                     self.command(f'execute as {owner} run spectate')
                     self.command(f'gamemode spectator {owner}')
                     self.kill_camera(s)
-                    if mobile:self.command(viewer_transfer(owner,target,s['view'],s['distance'],s['height'],self.clock()-s['started_at']))
+                    if mobile:self.command(viewer_transfer(owner,target,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
                     s.update(attach_ready_at=self.clock()+(self.settle_delay if mobile else 0),status='transferring',message=f'Moving your viewpoint to {target} and loading the simulation before attaching the camera.')
                     self.save()
                 if self.clock()<s['attach_ready_at']:
@@ -261,11 +275,11 @@ class Observers:
                 else:
                     self.kill_camera(s)
                     anchor=owner if s['view']=='stationary' else target
-                    self.command(camera_spawn(owner,target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at']))
-                    self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at']))
+                    self.command(camera_spawn(owner,target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
+                    self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
                     self.command(f"execute at {owner if s['view']=='stationary' else target} run spectate @e[tag={camera},limit=1] {owner}");s['camera_created']=True
                 s.update(attached=True,attach_ready_at=None,attached_at=self.clock());self.save()
-            if s['view']!='first_person':self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at']))
+            if s['view']!='first_person':self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
             s.update(status='following',message=(f"Watching {target} from a stationary position. Switch bots to look around; use a following view to travel between arenas." if s['view']=='stationary' else f"Following {target}: {s['view'].replace('_',' ')}. Camera follows arena transfers and respawns."),simulation=agent.get('simulation','Waiting'),target_position=agent.get('position'))
 
             self.update_hud(s,agent,mode)
