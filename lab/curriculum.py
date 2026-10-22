@@ -32,7 +32,7 @@ class Curriculum:
     def __init__(self,path,hooks,clock=time.time):
         self.path=Path(path);self.h=hooks;self.clock=clock
         self.state={'enabled':False,'phase':'idle','stage':0,'cycle':0,'streak':0,'history':[],
-                    'message':'Ready for autonomous navigation training.','max_cycles':80,'max_hours':6,
+                    'message':'Ready for autonomous navigation training.','max_cycles':112,'max_hours':6,
                     'examples_per_cycle':1500,'threshold':.9,'restore_pending':False}
         if self.path.exists():
             saved=json.loads(self.path.read_text(encoding='utf-8'));self.state.update(saved)
@@ -48,7 +48,11 @@ class Curriculum:
                 self.state.update(stage=16,phase='paused',streak=0,message='More simulations are ready. Resume to continue.')
         if self.state.get('agent_count',5)!=AGENT_COUNT:
             self.state['streak']=0
-        self.state.update(catalog_version=3,agent_count=AGENT_COUNT)
+        if self.state.get('catalog_version',1)<4:
+            if self.state['max_cycles']==80:self.state['max_cycles']=112
+            if self.state['phase']=='completed' and self.state['stage']==31:
+                self.state.update(stage=32,phase='paused',streak=0,message='Terrain curricula are ready to resume.')
+        self.state.update(catalog_version=4,agent_count=AGENT_COUNT)
     def save(self):
         self.path.parent.mkdir(exist_ok=True,parents=True)
         tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps(self.state,indent=2),encoding='utf-8');tmp.replace(self.path)

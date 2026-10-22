@@ -9,7 +9,7 @@ def test_count_validation():
         with pytest.raises(ValueError):validate_agents({'count':count,'episodes_per_agent':3})
 
 def test_spectator_follows_respawn_and_restores_original_mode(tmp_path):
-    commands=[];o=Observers(tmp_path/'observer.json',commands.append,lambda:100)
+    commands=[];o=Observers(tmp_path/'observer.json',commands.append,lambda:100,settle_delay=0)
     o.start({'player':'Xonosnet','target':f'LabAI{AGENT_COUNT-1}','view':'trail'},['Xonosnet'])
     agents={f'LabAI{AGENT_COUNT-1}':{'entity_id':42,'connected':True,'last_seen':100,'dimension':'overworld'}}
     o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},agents,True)
@@ -25,13 +25,40 @@ def test_spectator_follows_respawn_and_restores_original_mode(tmp_path):
     assert 'gamemode creative Xonosnet' in commands
     assert any('lab_return_xonosnet' in c and 'run tp Xonosnet' in c for c in commands)
 
+@pytest.mark.parametrize('view',['first_person','trail','side','overhead','orbit'])
+def test_same_entity_teleport_moves_viewer_then_waits_before_camera_attachment(tmp_path,view):
+    now=[100.0];commands=[];o=Observers(tmp_path/'state',commands.append,lambda:now[0])
+    o.start({'player':'Xonosnet','target':'LabAI0','view':view},['Xonosnet'])
+    agents={'LabAI0':{'connected':True,'last_seen':100,'entity_id':42,'dimension':'overworld','run':'one','position':[464,181,0]}}
+    tick=lambda:o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':now[0]}},agents,True)
+    tick();assert o.sessions['Xonosnet']['status']=='transferring'
+    assert 'tp Xonosnet LabAI0' in commands and not any(c.startswith('spectate ') or 'run spectate @e' in c for c in commands)
+    now[0]+=1;tick();assert o.sessions['Xonosnet']['attached']
+    commands.clear();agents['LabAI0']['position']=[304,181,0]
+    tick();assert o.sessions['Xonosnet']['status']=='transferring'
+    assert 'tp Xonosnet LabAI0' in commands
+    assert not any(c.startswith('spectate ') or 'run spectate @e' in c for c in commands)
+    now[0]+=1;tick();assert o.sessions['Xonosnet']['attached']
+    commands.clear();agents['LabAI0']['position'][0]+=.5;tick()
+    assert 'tp Xonosnet LabAI0' not in commands
+    assert o.sessions['Xonosnet']['saved_mode']==1 and o.sessions['Xonosnet']['return_created']
+
+def test_stationary_camera_does_not_relocate_on_arena_transfer(tmp_path):
+    commands=[];o=Observers(tmp_path/'state',commands.append,lambda:100)
+    o.start({'player':'Xonosnet','target':'LabAI0','view':'stationary'},['Xonosnet'])
+    agents={'LabAI0':{'connected':True,'last_seen':100,'entity_id':42,'position':[464,181,0],'run':'one'}}
+    tick=lambda:o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},agents,True)
+    tick();commands.clear();agents['LabAI0'].update(position=[304,181,0],run='two');tick()
+    assert not any(c.startswith('tp Xonosnet') or 'summon' in c for c in commands)
+    assert o.sessions['Xonosnet']['attached']
+
 def test_offline_stop_restores_when_player_returns_after_restart(tmp_path):
-    commands=[];path=tmp_path/'observer.json';o=Observers(path,commands.append,lambda:100)
+    commands=[];path=tmp_path/'observer.json';o=Observers(path,commands.append,lambda:100,settle_delay=0)
     o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
     agents={'LabAI0':{'connected':True,'last_seen':100,'entity_id':4}}
     o.tick(['Xonosnet'],{'Xonosnet':{'mode':0,'seen':100}},agents,True)
     o.stop('Xonosnet',[])
-    restarted=Observers(path,commands.append,lambda:100)
+    restarted=Observers(path,commands.append,lambda:100,settle_delay=0)
     commands.clear();restarted.tick(['Xonosnet'],{},agents,True)
     assert 'gamemode survival Xonosnet' in commands
     assert restarted.sessions['Xonosnet']['saved_mode'] is None
@@ -53,7 +80,7 @@ def test_eight_agents_wait_for_all_twenty_four_episodes(tmp_path):
     assert c.state['phase']=='collecting'
 
 def test_stationary_view_stays_at_viewer_and_can_switch_targets(tmp_path):
-    commands=[];o=Observers(tmp_path/'state',commands.append,lambda:100)
+    commands=[];o=Observers(tmp_path/'state',commands.append,lambda:100,settle_delay=0)
     agents={name:{'connected':True,'last_seen':100,'entity_id':i} for i,name in enumerate(('LabAI0','LabAI1'))}
     for target in agents:
         o.start({'player':'Xonosnet','target':target,'view':'stationary'},['Xonosnet'])

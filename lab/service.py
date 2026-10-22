@@ -19,6 +19,7 @@ from .skills import SkillBank, SKILL_INPUTS, SKILL_ACTIONS
 from .tasks import task_spec, arena_commands, reset_commands, task_success, SKILLS, minecraft_yaw
 from .config import AGENT_COUNT, EPISODES_PER_AGENT, EXPECTED_EPISODES, LANE_END, is_agent
 from .observers import Observers
+from .protection import PracticeProtection
 import copy
 import re
 ROOT=Path(__file__).resolve().parents[1]
@@ -150,6 +151,7 @@ def console(command):
     if not server or server.poll() is not None:raise RuntimeError('Minecraft server is not running')
     server.stdin.write(command+'\n');server.stdin.flush()
 observers=Observers('data/observers.json',console)
+practice_protection=PracticeProtection(console)
 
 def checkpoint():
     stamp=str(time.time_ns());p=Path('checkpoints')/(stamp+'.pt')
@@ -294,9 +296,7 @@ def watchdog():
             if psutil.virtual_memory().percent>90:
                 globals()['mode']='paused';event('memory_pause',{})
             lifecycle=server_control.snapshot()
-            if lifecycle['ready'] and not lifecycle['busy'] and (curriculum.state['enabled'] or practice) and time.time()-last_practice_sweep>10:
-                for center in (160,240,320,480):console(f'kill @e[type=minecraft:phantom,x={center-24},y=175,z=-24,dx=48,dy=50,dz={LANE_END+26}]')
-                last_practice_sweep=time.time()
+            if lifecycle['ready'] and not lifecycle['busy']:practice_protection.tick(server.pid,time.time())
             if server and server.poll() is not None and lifecycle['desired_running'] and not lifecycle['busy'] and retries<3:
                 mode='paused';retries+=1
                 try:server_control.request('restart');event('server_recovery',{'attempt':retries})
@@ -343,7 +343,7 @@ def status():
             SELECT run,count(*),sum(success),avg(steps) FROM ranked WHERE sequence<={EPISODES_PER_AGENT} OR run LIKE '%teacher%' GROUP BY run''').fetchall()
         run_sizes={r[0]:r[1]*r[2] for r in db.execute('SELECT * FROM run_config')}
         activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error') ORDER BY id DESC LIMIT 20")]
-        return {'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':EPISODES_PER_AGENT,'expected_episodes':EXPECTED_EPISODES},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
+        return {'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':EPISODES_PER_AGENT,'expected_episodes':EXPECTED_EPISODES},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:

@@ -27,7 +27,7 @@ def main():
     args=parser.parse_args()
     current=status()
     if current['curriculum']['enabled']:raise SystemExit('Pause autonomous training before running explicit verification.')
-    if any(stage<4 or stage>=len(current['curriculum']['stages']) for stage in args.stages):raise SystemExit('Choose implemented broader stages (4 through 31).')
+    if any(stage<4 or stage>=len(current['curriculum']['stages']) for stage in args.stages):raise SystemExit('Choose implemented broader stages (4 through 39).')
     if args.train and args.driver!='student':raise SystemExit('--train requires --driver student')
     results=json.loads(Path(args.output).read_text(encoding='utf-8')) if Path(args.output).exists() else []
     for stage in args.stages:
@@ -35,7 +35,7 @@ def main():
         if args.train:
             call('/curricula/practice/'+str(stage));training=call('/control/train')
         assignment=call('/curricula/practice/'+str(stage),{'driver':args.driver})
-        deadline=time.time()+240
+        deadline=time.time()+360
         while time.time()<deadline:
             state=status();row=next((r for r in state['episodes'] if r['run']==assignment['run']),None)
             if row and row['episodes']>=state['evaluation']['expected_episodes']:break

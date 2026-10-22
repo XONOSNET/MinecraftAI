@@ -1,6 +1,6 @@
 # Minecraft Autonomous AI Evolution Laboratory
 
-Local research prototype for eight configurable neural agents in one persistent Paper survival world. Eight curriculum tracks cover navigation and bounded survival foundations in elevated practice arenas. Normal world survival remains enabled. This is an initial learning experiment, not a complete autonomous survival player.
+Local research prototype for eight configurable neural agents in one persistent Paper survival world. Nine curriculum tracks cover navigation and bounded survival foundations in elevated practice arenas. Normal world survival remains enabled. This is an initial learning experiment, not a complete autonomous survival player.
 
 ## Run
 
@@ -70,9 +70,9 @@ Use **Start / resume autonomous training**. The scheduler resumes the saved stag
 | Shelter | Near/far roofs, compact canopy, doorway approach | Reach a goal-marked roof and verify overhead cover |
 | Integration | Hurdles with water or magma | Reach the goal without hazard contact or substantial damage |
 
-There are 32 stages across eight tracks. Navigation requires two accepted tests at 90% or better; other tracks require two at 80% or better. Each cycle evaluates the protected model, collects fresh teacher examples on different seeds/arenas, trains, and evaluates the candidate on the same held-out tasks as its baseline. Equal or higher scores keep the candidate; lower scores restore that track's protected weights and optimizer. Navigation uses its original 70-input/four-action model. Each broader track has an independent 82-input/seven-action model initialized from navigation, independent replay (15,000-example cap), and independent checkpoints. New skills do not overwrite navigation weights.
+There are 40 stages across nine tracks. Navigation requires two accepted tests at 90% or better; other tracks require two at 80% or better. Each cycle evaluates the protected model, collects fresh teacher examples on different seeds/arenas, trains, and evaluates the candidate on the same held-out tasks as its baseline. Equal or higher scores keep the candidate; lower scores restore that track's protected weights and optimizer. Navigation uses its original 70-input/four-action model. Each broader track has an independent 82-input/seven-action model initialized from navigation, independent replay (15,000-example cap), and independent checkpoints. New skills do not overwrite navigation weights.
 
-Collection targets are 1,500 examples per cycle, or 150 for nutrition because eating has long preparation/consumption intervals. Sessions stop after 80 cycles, six hours, a ten-minute phase timeout, a plateau, missing bots, unsafe memory/disk headroom, or completion. State persists in `data/curriculum.json`; skill data lives in `data/skills` and `checkpoints/skills`. Interrupted unaccepted candidates are restored before recovery continues. Existing navigation state is migrated without clearing its history or examples.
+Collection targets are 1,500 examples per cycle, or 150 for nutrition because eating has long preparation/consumption intervals. Sessions stop after 112 cycles, six hours, a ten-minute phase timeout, a plateau, missing bots, unsafe memory/disk headroom, or completion. State persists in `data/curriculum.json`; skill data lives in `data/skills` and `checkpoints/skills`. Interrupted unaccepted candidates are restored before recovery continues. Existing navigation state is migrated without clearing its history or examples.
 
 Under **Practice and test a skill**, pause automation, select a stage, and choose a teacher reference or neural policy test. Teacher references collect demonstrations without updating weights. After at least 100 examples, **Train this skill** trains the selected head; **Test this skill** runs it on fresh tasks without teacher control. Teacher results and neural results have different labels. Practice runs do not bypass autonomous promotion gates.
 
@@ -98,3 +98,14 @@ Stages 17–32 append offset/alternating doorways, four hurdles, a raised causew
 
 
 `node scripts/verify_observers.cjs` joins a temporary non-OP test viewer, checks all six views, switches stationary targets and verifies mode/position restoration. Add `--transfer` while autonomy is running to wait for a natural arena transfer and verify that the first-person camera travels with the target. The script leaves human players untouched and disconnects its test viewer when finished. Gathering action 5 can sweep its camera up/down within the assigned lane to rediscover logs outside the current view; actual digging still requires a visible ray hit and reach checks.
+
+
+## Terrain navigation and protected courses
+
+Eight appended terrain stages cover a three-block stepped ridge with safe descent, rolling hills, a narrow raised water crossing, an offset crossing, seeded boulder slaloms, a two-block-clearance passage, ridges with magma avoidance, and varied ridge profiles with slippery patches. Layout offsets, boulder widths, crossing sides, starting headings and mixed profiles vary by seed; demonstrations and evaluations use separate arenas and seed namespaces. Terrain has its own 82-input/seven-action policy and replay. No finite curriculum guarantees natural-terrain generalization: the test measures each named course, and promotion still requires two accepted held-out comparisons.
+
+Practice arenas now have high canopies at Y=224, outside both the shelter sensor and every configured camera position. These prevent phantom spawning over training players. Local phantom cleanup runs every two seconds and other scoped hostile cleanup every ten seconds, including when learning is paused. World difficulty, day/night cycle and monster spawning elsewhere remain unchanged. The dashboard shows protection status. Bots previously killed while paused are returned to practice when training starts; this update does not introduce combat training.
+
+Console broadcasts to operators are disabled through broadcast-console-to-ops=false. Commands you type keep their normal feedback; camera movement and housekeeping stay in server logs rather than operator chat. The previous live server.properties was backed up locally before changing this setting.
+
+Mobile observer sessions detect long teleports, respawns and run changes. They clear the old camera, move the viewer into the new arena, wait briefly for chunks, and attach the requested view. A live same-entity transfer regression checks all five moving views plus fixed stationary behavior, loaded viewpoint chunks, and return-mode/position restoration. Run node scripts/verify_observer_transfers.cjs with autonomous learning and manual activity paused to repeat that operational check. Temporary NPC positions are restored afterward.

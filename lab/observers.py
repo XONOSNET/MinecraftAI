@@ -26,10 +26,10 @@ def camera_move(target,tag,view,distance,height,elapsed):
     return f'execute at {target}{context} run tp @e[tag={tag},limit=1] {offset} facing entity {target} eyes'
 
 class Observers:
-    def __init__(self,path,command,clock=time.time):
-        self.path=Path(path);self.command=command;self.clock=clock;self.sessions={}
+    def __init__(self,path,command,clock=time.time,settle_delay=.8):
+        self.path=Path(path);self.command=command;self.clock=clock;self.settle_delay=settle_delay;self.sessions={}
         if self.path.exists():self.sessions=json.loads(self.path.read_text(encoding='utf-8'))
-        for s in self.sessions.values():s.update(attached=False,camera_created=False,status='waiting',message='Waiting for Minecraft and your player to reconnect.')
+        for s in self.sessions.values():s.update(attached=False,attach_ready_at=None,camera_created=False,status='waiting',message='Waiting for Minecraft and your player to reconnect.')
     def save(self):
         self.path.parent.mkdir(parents=True,exist_ok=True);tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps(self.sessions,indent=2),encoding='utf-8');tmp.replace(self.path)
     def snapshot(self):return {'views':list(VIEWS),'sessions':copy.deepcopy(list(self.sessions.values()))}
@@ -43,7 +43,7 @@ class Observers:
         except (ValueError,TypeError):raise ValueError('Enter numeric camera distance and height')
         if not math.isfinite(distance) or not 3<=distance<=16 or not math.isfinite(height) or not 2<=height<=12:raise ValueError('Camera distance must be 3–16 blocks and height 2–12')
         s=self.sessions.get(owner,{'player':owner,'saved_mode':None,'return_created':False})
-        s.update(enabled=True,target=target,view=view,distance=distance,height=height,attached=False,
+        s.update(enabled=True,target=target,view=view,distance=distance,height=height,attached=False,attach_ready_at=None,
                  camera_created=False,status='waiting',message='Waiting for your player and the selected bot. Follow will start automatically when both are online.',started_at=self.clock())
         self.sessions[owner]=s;self.save();return copy.deepcopy(s)
     def tags(self,s):
@@ -51,7 +51,7 @@ class Observers:
     def kill_camera(self,s):
         camera,_=self.tags(s)
         for dimension in DIMENSIONS:self.command(f'execute in {dimension} run kill @e[tag={camera}]')
-        s.update(camera_created=False,attached=False)
+        s.update(camera_created=False,attached=False,attach_ready_at=None)
     def release(self,s,online,mode_restore=True):
         owner=s['player'];_,ret=self.tags(s)
         if owner not in online:
@@ -88,10 +88,10 @@ class Observers:
                 if s.get('saved_mode') is not None and owner in online:self.release(s,online);self.kill_camera(s);self.save()
                 continue
             if owner not in online:
-                s.update(attached=False,status='waiting_player',message='Join Minecraft to start or resume following.');continue
+                s.update(attached=False,attach_ready_at=None,status='waiting_player',message='Join Minecraft to start or resume following.');continue
             target=s['target'];agent=agents.get(target,{})
             if not agent.get('connected',False) or self.clock()-agent.get('last_seen',0)>8 or agent.get('health',20)<=0:
-                s.update(attached=False,status='waiting_target',message=f'Waiting for {target} to connect or respawn.');continue
+                s.update(attached=False,attach_ready_at=None,status='waiting_target',message=f'Waiting for {target} to connect or respawn.');continue
             state=states.get(owner,{})
             if s.get('saved_mode') is None:
                 if self.clock()-state.get('seen',0)>15 or state.get('mode') not in range(4):
@@ -102,15 +102,23 @@ class Observers:
                 self.command(f'execute at {owner} rotated as {owner} run tp @e[tag={ret},limit=1] ~ ~ ~ ~ ~')
                 s['return_created']=True;self.command(f'gamemode spectator {owner}');self.save()
             dimension=agent.get('dimension','overworld');token=(agent.get('entity_id'),dimension)
-            if token!=tuple(s.get('target_token',[])):
-                s['target_token']=list(token);s['attached']=False
-                if s.get('camera_created'):self.kill_camera(s)
+            position=agent.get('position');previous=s.get('last_target_position')
+            jumped=position is not None and previous is not None and math.dist(position,previous)>24
+            changed_run=s.get('follow_run')!=agent.get('run')
+            mobile=s['view']!='stationary'
+            if token!=tuple(s.get('target_token',[])) or (mobile and (jumped or changed_run)):
+                s.update(target_token=list(token),attached=False,attach_ready_at=None)
+            s.update(last_target_position=copy.deepcopy(position),follow_run=agent.get('run'))
             camera,ret=self.tags(s)
             if not s['attached']:
-                self.command(f'execute as {owner} run spectate')
-                self.command(f'gamemode spectator {owner}')
-                if s['view']!='stationary':self.command(f'tp {owner} {target}')
-                self.kill_camera(s)
+                if s.get('attach_ready_at') is None:
+                    self.command(f'execute as {owner} run spectate')
+                    self.command(f'gamemode spectator {owner}')
+                    self.kill_camera(s)
+                    if mobile:self.command(f'tp {owner} {target}')
+                    s.update(attach_ready_at=self.clock()+(self.settle_delay if mobile else 0),status='transferring',message=f'Moving your viewpoint to {target} and loading the simulation before attaching the camera.')
+                    self.save()
+                if self.clock()<s['attach_ready_at']:continue
                 if s['view']=='first_person':self.command(f'spectate {target} {owner}')
                 else:
                     self.kill_camera(s)
@@ -118,6 +126,6 @@ class Observers:
                     self.command(f'execute at {anchor} run summon minecraft:armor_stand ~ ~ ~ {{Invisible:1b,Marker:1b,NoGravity:1b,Invulnerable:1b,Silent:1b,Tags:["{camera}","lab_observer_camera"]}}')
                     self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],0))
                     self.command(f"execute at {owner if s['view']=='stationary' else target} run spectate @e[tag={camera},limit=1] {owner}");s['camera_created']=True
-                s.update(attached=True,attached_at=self.clock());self.save()
+                s.update(attached=True,attach_ready_at=None,attached_at=self.clock());self.save()
             if s['view']!='first_person':self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at']))
             s.update(status='following',message=(f"Watching {target} from a stationary position. Switch bots to look around; use a following view to travel between arenas." if s['view']=='stationary' else f"Following {target}: {s['view'].replace('_',' ')}. Camera follows arena transfers and respawns."),simulation=agent.get('simulation','Waiting'),target_position=agent.get('position'))

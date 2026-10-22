@@ -53,7 +53,7 @@ function teacherAction(bot,task,sensed,runtime,angle){
   const target=Math.atan2(-(point[0]-p.x),-(point[2]-p.z));angle=Math.atan2(Math.sin(target-bot.entity.yaw),Math.cos(target-bot.entity.yaw));
  }
  const action=turnAction(angle);
- if(action===0&&['jump','mixed'].includes(task.kind)&&sensed.frontBlocked&&!sensed.headBlocked)return 3;
+ if(action===0&&['jump','mixed','terrain'].includes(task.kind)&&sensed.frontBlocked&&!sensed.headBlocked)return 3;
  return action;
 }
 function inPracticeBounds(bot,task){const p=bot.entity.position;return p.x>task.bounds[0]&&p.x<task.bounds[1]&&p.z>task.bounds[2]&&p.z<task.bounds[3]&&p.y>=179&&p.y<=186;}

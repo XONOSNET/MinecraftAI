@@ -1,0 +1,79 @@
+{
+  "roof_block": "sea_lantern",
+  "roof_y": 224,
+  "paused_seconds": 35,
+  "health_samples": [
+    {
+      "LabAI2": 20,
+      "LabAI1": 20,
+      "LabAI3": 20,
+      "LabAI0": 20,
+      "LabAI4": 20,
+      "LabAI5": 20,
+      "LabAI6": 20,
+      "LabAI7": 20
+    },
+    {
+      "LabAI2": 20,
+      "LabAI1": 20,
+      "LabAI3": 20,
+      "LabAI0": 20,
+      "LabAI4": 20,
+      "LabAI5": 20,
+      "LabAI6": 20,
+      "LabAI7": 20
+    },
+    {
+      "LabAI2": 20,
+      "LabAI1": 20,
+      "LabAI3": 20,
+      "LabAI0": 20,
+      "LabAI4": 20,
+      "LabAI5": 20,
+      "LabAI6": 20,
+      "LabAI7": 20
+    },
+    {
+      "LabAI2": 20,
+      "LabAI1": 20,
+      "LabAI3": 20,
+      "LabAI0": 20,
+      "LabAI4": 20,
+      "LabAI5": 20,
+      "LabAI6": 20,
+      "LabAI7": 20
+    },
+    {
+      "LabAI2": 20,
+      "LabAI1": 20,
+      "LabAI3": 20,
+      "LabAI0": 20,
+      "LabAI4": 20,
+      "LabAI5": 20,
+      "LabAI6": 20,
+      "LabAI7": 20
+    },
+    {
+      "LabAI2": 20,
+      "LabAI1": 20,
+      "LabAI3": 20,
+      "LabAI0": 20,
+      "LabAI4": 20,
+      "LabAI5": 20,
+      "LabAI6": 20,
+      "LabAI7": 20
+    },
+    {
+      "LabAI2": 20,
+      "LabAI1": 20,
+      "LabAI3": 20,
+      "LabAI0": 20,
+      "LabAI4": 20,
+      "LabAI5": 20,
+      "LabAI6": 20,
+      "LabAI7": 20
+    }
+  ],
+  "phantoms_visible": 0,
+  "console_broadcasts_disabled": true
+}

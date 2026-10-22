@@ -1,0 +1,132 @@
+{
+  "results": [
+    {
+      "view": "first_person",
+      "passed": true,
+      "target_entity_id": 315,
+      "camera_id": 315,
+      "viewer_from": [
+        304.5,
+        181,
+        0
+      ],
+      "viewer_to": [
+        464.5,
+        181,
+        0
+      ],
+      "camera_to": [
+        464.5,
+        181,
+        0
+      ]
+    },
+    {
+      "view": "trail",
+      "passed": true,
+      "target_entity_id": 315,
+      "camera_id": 573,
+      "viewer_from": [
+        304.5,
+        182.89044745325998,
+        -6.999999999999999
+      ],
+      "viewer_to": [
+        464.5,
+        184.53584062504456,
+        -6.999999999999999
+      ],
+      "camera_to": [
+        464.5,
+        185,
+        -6.999999999999999
+      ]
+    },
+    {
+      "view": "side",
+      "passed": true,
+      "target_entity_id": 315,
+      "camera_id": 592,
+      "viewer_from": [
+        311.5,
+        181,
+        -3.885780586188048e-16
+      ],
+      "viewer_to": [
+        471.5,
+        181,
+        -3.885780586188048e-16
+      ],
+      "camera_to": [
+        471.5,
+        185,
+        -3.6739405577555036e-16
+      ]
+    },
+    {
+      "view": "overhead",
+      "passed": true,
+      "target_entity_id": 315,
+      "camera_id": 604,
+      "viewer_from": [
+        304.5,
+        191.53584062504456,
+        0
+      ],
+      "viewer_to": [
+        464.5,
+        189.89044745325998,
+        0
+      ],
+      "camera_to": [
+        464.5,
+        192,
+        0
+      ]
+    },
+    {
+      "view": "orbit",
+      "passed": true,
+      "target_entity_id": 315,
+      "camera_id": 623,
+      "viewer_from": [
+        311.5,
+        181,
+        0
+      ],
+      "viewer_to": [
+        471.5,
+        181,
+        0
+      ],
+      "camera_to": [
+        464.553869140625,
+        185,
+        7.000009765625
+      ]
+    },
+    {
+      "view": "stationary",
+      "passed": true,
+      "target_entity_id": 315,
+      "camera_id": 628,
+      "viewer_from": [
+        304.5,
+        181,
+        0
+      ],
+      "viewer_to": [
+        304.5,
+        181,
+        0
+      ],
+      "camera_to": [
+        304.5,
+        181,
+        0
+      ]
+    }
+  ],
+  "restored_mode": "spectator",
+  "return_distance": 0
+}

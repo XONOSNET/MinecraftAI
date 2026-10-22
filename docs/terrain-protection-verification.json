@@ -1,0 +1,136 @@
+{
+  "checked_at": 1792642275.3358462,
+  "tests": {
+    "python": 53,
+    "node": 12
+  },
+  "terrain_teacher_references": {
+    "stages": 8,
+    "successes": 192,
+    "episodes": 192,
+    "navigation_unchanged": true
+  },
+  "camera_views_checked": [
+    "first_person",
+    "trail",
+    "side",
+    "overhead",
+    "orbit",
+    "stationary"
+  ],
+  "viewer_chunks_and_camera_transfers_passed": true,
+  "stationary_position_unchanged": true,
+  "protection": {
+    "roof_block": "sea_lantern",
+    "roof_y": 224,
+    "paused_seconds": 35,
+    "health_samples": [
+      {
+        "LabAI2": 20,
+        "LabAI1": 20,
+        "LabAI3": 20,
+        "LabAI0": 20,
+        "LabAI4": 20,
+        "LabAI5": 20,
+        "LabAI6": 20,
+        "LabAI7": 20
+      },
+      {
+        "LabAI2": 20,
+        "LabAI1": 20,
+        "LabAI3": 20,
+        "LabAI0": 20,
+        "LabAI4": 20,
+        "LabAI5": 20,
+        "LabAI6": 20,
+        "LabAI7": 20
+      },
+      {
+        "LabAI2": 20,
+        "LabAI1": 20,
+        "LabAI3": 20,
+        "LabAI0": 20,
+        "LabAI4": 20,
+        "LabAI5": 20,
+        "LabAI6": 20,
+        "LabAI7": 20
+      },
+      {
+        "LabAI2": 20,
+        "LabAI1": 20,
+        "LabAI3": 20,
+        "LabAI0": 20,
+        "LabAI4": 20,
+        "LabAI5": 20,
+        "LabAI6": 20,
+        "LabAI7": 20
+      },
+      {
+        "LabAI2": 20,
+        "LabAI1": 20,
+        "LabAI3": 20,
+        "LabAI0": 20,
+        "LabAI4": 20,
+        "LabAI5": 20,
+        "LabAI6": 20,
+        "LabAI7": 20
+      },
+      {
+        "LabAI2": 20,
+        "LabAI1": 20,
+        "LabAI3": 20,
+        "LabAI0": 20,
+        "LabAI4": 20,
+        "LabAI5": 20,
+        "LabAI6": 20,
+        "LabAI7": 20
+      },
+      {
+        "LabAI2": 20,
+        "LabAI1": 20,
+        "LabAI3": 20,
+        "LabAI0": 20,
+        "LabAI4": 20,
+        "LabAI5": 20,
+        "LabAI6": 20,
+        "LabAI7": 20
+      }
+    ],
+    "phantoms_visible": 0,
+    "console_broadcasts_disabled": true
+  },
+  "runtime": {
+    "server": {
+      "phase": "online",
+      "busy": false,
+      "desired_running": true,
+      "message": "Minecraft is ready. Bots and LAN players can connect.",
+      "action": null,
+      "error": null,
+      "alive": true,
+      "ready": true,
+      "version": "Paper 1.21.4",
+      "java_client": "26.3 (ViaVersion 5.12.1)",
+      "pid": 24092,
+      "uptime_seconds": 691.3259596824646,
+      "bots_online": 8,
+      "ram_mib": 1492.703125,
+      "tps": 20.0,
+      "mspt": 2.5,
+      "timing_sample_at": 1792642259.9048991,
+      "players_online": 9,
+      "player_limit": 12,
+      "players_updated_at": 1792642273.9280856
+    },
+    "curriculum_enabled": true,
+    "stage": 17,
+    "phase": "baseline",
+    "practice_protection": {
+      "enabled": true,
+      "roof_ready": true,
+      "scope": "Owned elevated practice arenas only",
+      "message": "Practice arenas protected from phantoms and hostile interference, including while paused."
+    }
+  },
+  "limit": "Teacher references establish feasibility; the new terrain network must pass the ordinary held-out promotion gates."
+}

@@ -1,0 +1,114 @@
+[
+  {
+    "stage": 32,
+    "name": "Climb and descend a stepped ridge",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-32-1792641699",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 34.75,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 33,
+    "name": "Cross rolling hills",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-33-1792641729",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 36.125,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 34,
+    "name": "Cross a narrow raised bridge",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-34-1792641760",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 34.0,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 35,
+    "name": "Find an offset raised crossing",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-35-1792641790",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 40.625,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 36,
+    "name": "Navigate a boulder slalom",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-36-1792641826",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 47.375,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 37,
+    "name": "Navigate a low-ceiling passage",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-37-1792641865",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 48.416666666666664,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 38,
+    "name": "Cross ridges and avoid magma",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-38-1792641906",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 38.708333333333336,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 39,
+    "name": "Navigate varied held-out terrain",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-39-1792641939",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 34.583333333333336,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  }
+]

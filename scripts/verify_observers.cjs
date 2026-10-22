@@ -24,7 +24,7 @@ const bot=mineflayer.createBot({host:'127.0.0.1',port:25565,username:name,auth:'
    const state=await status(),target=state.agents.LabAI0;
    if(Math.abs(target.position[0]-before[0])>100){
     await delay(1500);assert.equal(cameraId,target.entity_id);
-    const camera=bot.entities[cameraId];assert.ok(camera&&Math.hypot(camera.position.x-target.position[0],camera.position.z-target.position[2])<5,'render camera entity follows arena transfer: '+JSON.stringify({camera:camera?.position,body:bot.entity.position,target:target.position}));
+    const freshTarget=(await status()).agents.LabAI0;assert.ok(Math.hypot(bot.entity.position.x-freshTarget.position[0],bot.entity.position.z-freshTarget.position[2])<32,'viewer relocated into target arena');target.position=freshTarget.position;const camera=bot.entities[cameraId];assert.ok(camera&&Math.hypot(camera.position.x-target.position[0],camera.position.z-target.position[2])<5,'render camera entity follows arena transfer: '+JSON.stringify({camera:camera?.position,body:bot.entity.position,target:target.position}));
     evidence={arena_transfer:true,from:before,to:target.position,camera_id:cameraId,viewer_position:bot.entity.position.toArray(),camera_position:bot.entities[cameraId].position.toArray()};break;
    }
    await delay(1000);

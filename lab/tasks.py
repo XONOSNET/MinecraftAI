@@ -2,6 +2,7 @@
 import math
 import random
 from .config import AGENT_COUNT, LANE_END, is_agent
+from .terrain import TERRAIN_STAGES, layout as terrain_layout
 
 EXTRA_STAGES=[
  {'name':'Single-block hurdles','skill':'traversal','task':'jump','difficulty':1},
@@ -33,10 +34,11 @@ EXTRA_STAGES=[
  {'name':'Hurdle and water course','skill':'integration','task':'mixed','difficulty':1},
  {'name':'Hurdles and magma course','skill':'integration','task':'mixed','difficulty':2},
 ]
+EXTRA_STAGES.extend(TERRAIN_STAGES)
 for stage in EXTRA_STAGES:
     stage.update(threshold=.8)
     if stage['skill']=='nutrition':stage['examples_per_cycle']=150
-SKILLS=['navigation','traversal','hazards','exploration','gathering','nutrition','shelter','integration']
+SKILLS=['navigation','traversal','hazards','exploration','gathering','nutrition','shelter','integration','terrain']
 
 def task_spec(stage,seed,index,evaluation):
     if not 0<=index<AGENT_COUNT:raise ValueError('Unknown practice lane')
@@ -56,8 +58,10 @@ def task_spec(stage,seed,index,evaluation):
         waypoints.append(goal)
     if stage.get('hazard_length'):waypoints=[[x-5,181.1,z+4],[x+5,181.1,z+4],goal]
     if stage.get('twin_hazards'):waypoints=[[x-9,181.1,z+4],[x+9,181.1,z+4],goal]
-    return {'kind':kind,'skill':stage['skill'],'difficulty':difficulty,'center':center,'lane_z':z,'feature_x':x,
-            'start':start,'goal':goal,'yaw':-math.pi/2+rng.uniform(-.35,.35),'max_steps':240,
+    terrain_blocks=[]
+    if kind=='terrain':terrain_blocks,waypoints=terrain_layout(stage['terrain'],rng,x,z,goal)
+    return {'terrain_blocks':terrain_blocks,'terrain_style':stage.get('terrain'),'kind':kind,'skill':stage['skill'],'difficulty':difficulty,'center':center,'lane_z':z,'feature_x':x,
+            'start':start,'goal':goal,'yaw':-math.pi/2+rng.uniform(-.35,.35),'max_steps':320 if kind=='terrain' else 240,
             'wood_target':stage.get('wood_target',1 if difficulty==1 else 3),'coverage_target':stage.get('coverage_target',10 if difficulty==1 else 18),'food_target':stage.get('food_target',18),
             'doors':doors,'hurdles':stage.get('hurdles',[-3] if difficulty==1 else [-7,0,7]),'causeway':stage.get('causeway',False),'pillars':stage.get('pillars',False),'roof_radius':stage.get('roof_radius',3),'hazard_length':stage.get('hazard_length',3),'twin_hazards':stage.get('twin_hazards',False),
             'waypoints':waypoints,
@@ -79,6 +83,8 @@ def reset_commands(task,name):
               f'fill {c-23} 181 {z-5} {c+23} 185 {z+5} minecraft:air',
               f'kill @e[type=minecraft:item,x={c-23},y=179,z={z-5},dx=46,dy=7,dz=10]',
               f'clear {name}',f'effect clear {name}',f'effect give {name} minecraft:instant_health 1 5 true']
+    if kind=='terrain':
+        for x1,y1,z1,x2,y2,z2,block in task['terrain_blocks']:commands.append(f'fill {x1} {y1} {z1} {x2} {y2} {z2} minecraft:{block}')
     if kind=='jump' and not task.get('causeway'):
         for offset in task['hurdles']:commands.append(f'fill {x+offset} 181 {z-5} {x+offset} 181 {z+5} minecraft:oak_planks')
     elif kind=='jump' and task.get('causeway'):
