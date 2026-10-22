@@ -92,3 +92,27 @@ def test_stationary_view_stays_at_viewer_and_can_switch_targets(tmp_path):
     assert commands==[] and not o.sessions['Xonosnet']['enabled']
     o.tick(['Xonosnet'],{},agents,True)
     assert 'gamemode creative Xonosnet' in commands
+
+
+def test_personal_hud_reports_real_actions_throttles_and_cleans_up(tmp_path):
+    now=[100.0];commands=[];o=Observers(tmp_path/'hud',commands.append,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    agent={'connected':True,'last_seen':100,'entity_id':42,'position':[0,181,0],'goal':[3,181,4],'action':3,'health':18,'food':16,'simulation':'Ridge'}
+    o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':agent},True,'evaluate')
+    assert any('Jumping forward' in c and 'Goal 5.0 blocks' in c for c in commands)
+    assert 'bossbar set lab:observer_xonosnet_state players Xonosnet' in commands
+    assert not any('@a' in c for c in commands if c.startswith('bossbar'))
+    commands.clear();o.tick(['Xonosnet'],{}, {'LabAI0':agent},True,'evaluate')
+    assert not any(c.startswith('bossbar') for c in commands)
+    now[0]+=2;o.tick(['Xonosnet'],{}, {'LabAI0':agent},True,'paused')
+    assert any('Movement paused' in c for c in commands)
+    commands.clear();o.stop('Xonosnet',['Xonosnet'])
+    assert 'bossbar remove lab:observer_xonosnet_state' in commands
+
+
+def test_missing_bot_hud_never_reports_stale_action(tmp_path):
+    commands=[];o=Observers(tmp_path/'hud',commands.append,lambda:100)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    o.tick(['Xonosnet'],{}, {'LabAI0':{'connected':False,'action':3}},True,'teacher')
+    assert any('Waiting for bot telemetry' in c for c in commands)
+    assert not any('Jumping forward' in c for c in commands)

@@ -29,7 +29,7 @@ class Observers:
     def __init__(self,path,command,clock=time.time,settle_delay=.8):
         self.path=Path(path);self.command=command;self.clock=clock;self.settle_delay=settle_delay;self.sessions={}
         if self.path.exists():self.sessions=json.loads(self.path.read_text(encoding='utf-8'))
-        for s in self.sessions.values():s.update(attached=False,attach_ready_at=None,camera_created=False,status='waiting',message='Waiting for Minecraft and your player to reconnect.')
+        for s in self.sessions.values():s.update(hud_ready=False,hud_at=None,attached=False,attach_ready_at=None,camera_created=False,status='waiting',message='Waiting for Minecraft and your player to reconnect.')
     def save(self):
         self.path.parent.mkdir(parents=True,exist_ok=True);tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps(self.sessions,indent=2),encoding='utf-8');tmp.replace(self.path)
     def snapshot(self):return {'views':list(VIEWS),'sessions':copy.deepcopy(list(self.sessions.values()))}
@@ -52,7 +52,42 @@ class Observers:
         camera,_=self.tags(s)
         for dimension in DIMENSIONS:self.command(f'execute in {dimension} run kill @e[tag={camera}]')
         s.update(camera_created=False,attached=False,attach_ready_at=None)
+    def clear_hud(self,s):
+        for suffix in ('task','state'):
+            self.command(f"bossbar remove lab:observer_{s['player'].lower()}_{suffix}")
+        s.pop('hud_ready',None);s.pop('hud_at',None)
+    def update_hud(self,s,agent,mode):
+        now=self.clock()
+        if s.get('hud_at') is not None and now-s['hud_at']<1:return
+        s['hud_at']=now
+        owner=s['player'];prefix=f'lab:observer_{owner.lower()}'
+        labels=('Moving forward','Turning left','Turning right','Jumping forward','Waiting','Gathering wood','Eating')
+        action=agent.get('action',4)
+        fresh=now-agent.get('last_seen',0)<=8 and agent.get('connected',False)
+        activity=labels[action] if type(action) is int and 0<=action<len(labels) else 'Waiting'
+        controller={'teacher':'Teacher demonstration','heuristic':'Teacher reference','evaluate':'Neural policy','untrained':'Untrained policy','random':'Random actions','paused':'Paused / training'}.get(mode,mode)
+        if not fresh:activity='Waiting for bot telemetry'
+        elif mode=='paused':activity='Movement paused'
+        elif s.get('status')!='following':activity=s.get('status','waiting').replace('_',' ')
+        health=max(0,min(20,round(agent.get('health',0))))
+        lines={'task':f"{s['target']} | {agent.get('simulation','Waiting')} | {controller}",
+               'state':f"{activity} | HP {health}/20 | Food {agent.get('food',0):.0f}/20"}
+        position=agent.get('position');goal=agent.get('goal')
+        if fresh and position and goal:
+            lines['state']+=f" | Goal {math.dist(position,goal):.1f} blocks"
+        for suffix,value in lines.items():
+            key=prefix+'_'+suffix;name=json.dumps({'text':value,'color':'aqua' if suffix=='task' else 'white'})
+            if not s.get('hud_ready'):
+                self.command(f'bossbar remove {key}')
+                self.command(f'bossbar add {key} {name}')
+                self.command(f'bossbar set {key} color '+('blue' if suffix=='task' else 'green'))
+                self.command(f'bossbar set {key} max 20')
+            self.command(f'bossbar set {key} name {name}')
+            self.command(f'bossbar set {key} value {20 if suffix=="task" else health}')
+            self.command(f'bossbar set {key} players {owner}')
+        s['hud_ready']=True
     def release(self,s,online,mode_restore=True):
+        self.clear_hud(s)
         owner=s['player'];_,ret=self.tags(s)
         if owner not in online:
             s.update(status='restore_pending',message='Your previous game mode and return point will be restored when you reconnect.');return False
@@ -68,6 +103,7 @@ class Observers:
         owner=player_name(owner);key=next((n for n in self.sessions if n.casefold()==owner.casefold()),owner)
         if key not in self.sessions:return {'enabled':False,'player':owner,'status':'stopped','message':'No follow session is active.'}
         s=self.sessions[key];s['enabled']=False
+        if ready:self.clear_hud(s)
         if not ready:
             s.update(attached=False,status='restore_pending' if s.get('saved_mode') is not None else 'stopped',message='Follow disabled. Your previous game mode and return point will be restored when Minecraft and your player reconnect.')
             self.save();return copy.deepcopy(s)
@@ -80,7 +116,7 @@ class Observers:
             self.kill_camera(s)
             if s['enabled']:s.update(status='waiting',message='Waiting for the server and player to reconnect.')
         self.save()
-    def tick(self,online,states,agents,ready):
+    def tick(self,online,states,agents,ready,mode='paused'):
         if not ready:return
         for s in self.sessions.values():
             owner=s['player']
@@ -88,10 +124,12 @@ class Observers:
                 if s.get('saved_mode') is not None and owner in online:self.release(s,online);self.kill_camera(s);self.save()
                 continue
             if owner not in online:
+                if s.get('hud_ready'):self.clear_hud(s)
                 s.update(attached=False,attach_ready_at=None,status='waiting_player',message='Join Minecraft to start or resume following.');continue
             target=s['target'];agent=agents.get(target,{})
             if not agent.get('connected',False) or self.clock()-agent.get('last_seen',0)>8 or agent.get('health',20)<=0:
-                s.update(attached=False,attach_ready_at=None,status='waiting_target',message=f'Waiting for {target} to connect or respawn.');continue
+                s.update(attached=False,attach_ready_at=None,status='waiting_target',message=f'Waiting for {target} to connect or respawn.')
+                self.update_hud(s,agent,mode);continue
             state=states.get(owner,{})
             if s.get('saved_mode') is None:
                 if self.clock()-state.get('seen',0)>15 or state.get('mode') not in range(4):
@@ -118,7 +156,8 @@ class Observers:
                     if mobile:self.command(f'tp {owner} {target}')
                     s.update(attach_ready_at=self.clock()+(self.settle_delay if mobile else 0),status='transferring',message=f'Moving your viewpoint to {target} and loading the simulation before attaching the camera.')
                     self.save()
-                if self.clock()<s['attach_ready_at']:continue
+                if self.clock()<s['attach_ready_at']:
+                    self.update_hud(s,agent,mode);continue
                 if s['view']=='first_person':self.command(f'spectate {target} {owner}')
                 else:
                     self.kill_camera(s)
@@ -129,3 +168,5 @@ class Observers:
                 s.update(attached=True,attach_ready_at=None,attached_at=self.clock());self.save()
             if s['view']!='first_person':self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at']))
             s.update(status='following',message=(f"Watching {target} from a stationary position. Switch bots to look around; use a following view to travel between arenas." if s['view']=='stationary' else f"Following {target}: {s['view'].replace('_',' ')}. Camera follows arena transfers and respawns."),simulation=agent.get('simulation','Waiting'),target_position=agent.get('position'))
+
+            self.update_hud(s,agent,mode)

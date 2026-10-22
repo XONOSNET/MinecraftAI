@@ -636,7 +636,7 @@ def observer_worker():
     while not shutting_down:
         try:
             with lock:
-                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'])
+                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode)
         except Exception as error:
             with lock:
                 for session in observers.sessions.values():
