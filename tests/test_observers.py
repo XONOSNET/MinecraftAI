@@ -32,11 +32,11 @@ def test_same_entity_teleport_moves_viewer_then_waits_before_camera_attachment(t
     agents={'LabAI0':{'connected':True,'last_seen':100,'entity_id':42,'dimension':'overworld','run':'one','position':[464,181,0]}}
     tick=lambda:o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':now[0]}},agents,True)
     tick();assert o.sessions['Xonosnet']['status']=='transferring'
-    assert any(('tp Xonosnet LabAI0'==c if view=='first_person' else 'run tp Xonosnet' in c and 'facing entity LabAI0 eyes' in c) for c in commands) and not any(c.startswith('spectate ') or 'run spectate @e' in c for c in commands)
+    assert any(('tp Xonosnet LabAI0'==c if view=='first_person' else 'run tp Xonosnet' in c and 'facing ~ ~0.9 ~' in c) for c in commands) and not any(c.startswith('spectate ') or 'run spectate @e' in c for c in commands)
     now[0]+=1;tick();assert o.sessions['Xonosnet']['attached']
     commands.clear();agents['LabAI0']['position']=[304,181,0]
     tick();assert o.sessions['Xonosnet']['status']=='transferring'
-    assert any(('tp Xonosnet LabAI0'==c if view=='first_person' else 'run tp Xonosnet' in c and 'facing entity LabAI0 eyes' in c) for c in commands)
+    assert any(('tp Xonosnet LabAI0'==c if view=='first_person' else 'run tp Xonosnet' in c and 'facing ~ ~0.9 ~' in c) for c in commands)
     assert not any(c.startswith('spectate ') or 'run spectate @e' in c for c in commands)
     now[0]+=1;tick();assert o.sessions['Xonosnet']['attached']
     commands.clear();agents['LabAI0']['position'][0]+=.5;tick()
@@ -87,7 +87,7 @@ def test_stationary_view_stays_at_viewer_and_can_switch_targets(tmp_path):
         o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},agents,True)
         assert not any(c==f'tp Xonosnet {target}' for c in commands)
         assert any('execute at Xonosnet run summon minecraft:item_display' in c for c in commands)
-        assert any(f'~ ~ ~ facing entity {target} eyes' in c for c in commands)
+        assert any(f'execute at {target} run rotate' in c and 'facing ~ ~0.9 ~' in c for c in commands)
     commands.clear();o.stop('Xonosnet',[],ready=False)
     assert commands==[] and not o.sessions['Xonosnet']['enabled']
     o.tick(['Xonosnet'],{},agents,True)
@@ -169,7 +169,7 @@ def test_camera_uses_native_display_interpolation(tmp_path):
 def test_angled_transfer_and_spawn_start_outside_target_head(view):
     transfer=viewer_transfer('Xonosnet','LabAI0',view,7,4,8)
     spawn=camera_spawn('Xonosnet','LabAI0','camera',view,7,4,8)
-    assert 'run tp Xonosnet' in transfer and 'facing entity LabAI0 eyes' in transfer
+    assert 'run tp Xonosnet' in transfer and 'facing ~ ~0.9 ~' in transfer
     assert transfer!='tp Xonosnet LabAI0'
     assert ' positioned ' in spawn and 'run summon minecraft:item_display' in spawn
 
@@ -209,3 +209,10 @@ def test_bot_cycling_is_independent_of_view(tmp_path,view):
     o=Observers(tmp_path/'camera',lambda cmd:None,lambda:100)
     session=o.start({'player':'Xonosnet','target':'LabAI0','view':view,'cycle_enabled':True},['Xonosnet'])
     assert session['view']==view and session['cycle_enabled'] and session['cycle_seconds']==30
+
+
+@pytest.mark.parametrize('view',['trail','side','overhead','orbit','stationary'])
+def test_angled_cameras_aim_at_fixed_torso_height(view):
+    command=camera_move('LabAI0','camera',view,7,4,3)
+    assert command.endswith('facing ~ ~0.9 ~') and ' eyes' not in command
+    if view=='stationary':assert 'run rotate' in command

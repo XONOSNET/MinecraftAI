@@ -17,13 +17,13 @@ def player_name(value):
     return value
 
 def camera_move(target,tag,view,distance,height,elapsed):
-    if view=='stationary':return f'execute as @e[tag={tag},limit=1] at @s run tp @s ~ ~ ~ facing entity {target} eyes'
+    if view=='stationary':return f'execute at {target} run rotate @e[tag={tag},limit=1] facing ~ ~0.9 ~'
     if view=='overhead':offset=f'~ ~{height+distance:.3f} ~';context=''
     elif view=='orbit':
         angle=elapsed*.22;offset=f'~{math.cos(angle)*distance:.3f} ~{height:.3f} ~{math.sin(angle)*distance:.3f}';context=''
     else:
         offset=f"^{distance if view=='side' else 0:.3f} ^{height:.3f} ^{-distance if view=='trail' else 0:.3f}";context=f' rotated as {target} rotated ~ 0'
-    return f'execute at {target}{context} run tp @e[tag={tag},limit=1] {offset} facing entity {target} eyes'
+    return f'execute at {target}{context} run tp @e[tag={tag},limit=1] {offset} facing ~ ~0.9 ~'
 
 def viewer_transfer(owner,target,view,distance,height,elapsed):
     if view=='first_person':return f'tp {owner} {target}'
@@ -33,7 +33,7 @@ def camera_spawn(owner,target,tag,view,distance,height,elapsed):
     nbt=f'{{teleport_duration:3,interpolation_duration:3,view_range:2f,Invulnerable:1b,Silent:1b,Tags:["{tag}","lab_observer_camera"]}}'
     if view=='stationary':return f'execute at {owner} run summon minecraft:item_display ~ ~ ~ {nbt}'
     prefix,tail=camera_move(target,tag,view,distance,height,elapsed).split(' run tp ',1)
-    coordinates=tail.split(' facing entity ',1)[0].split(' ',1)[1]
+    coordinates=tail.split(' facing ',1)[0].split(' ',1)[1]
     return f'{prefix} positioned {coordinates} run summon minecraft:item_display ~ ~ ~ {nbt}'
 
 class Observers:
