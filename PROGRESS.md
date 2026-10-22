@@ -50,3 +50,6 @@ Trial HUD correction: replaced invalid spaced scoreboard holders with stable bot
 
 
 Orbit smoothing: replaced armor-stand camera anchors with invisible item displays using native teleport_duration=3 interpolation, reduced orbit angular speed from .35 to .22 rad/s, and compensated worker scheduling for command time. Angled camera transfers now place the viewer at the selected offset while chunks load; camera anchors spawn at that offset rather than interpolating outward from the NPC head. First-person remains intentionally at the NPC viewpoint. 63 Python and 13 Node tests passed. No client dependencies.
+
+
+Resolved stage-25 promotion stall: passing saved models now receive fresh-seed confirmation without retraining; two complete passing evaluations advance normally. Failed validations reset the streak, candidates still compare to same-seed baselines and regressions roll back. Three rejected candidates stop even when scores vary. Live gathering model passed cycles 154 and 155 and advanced to stage 26 with no fabricated scores or stage override. Evidence docs/saved-model-promotion-check.json. 67 Python and 13 Node tests passed.

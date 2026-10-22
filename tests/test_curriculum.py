@@ -23,16 +23,17 @@ def cycle(c,w,before=15,after=15):
 def test_promotes_only_after_two_passing_comparisons(tmp_path):
     w=World();c=Curriculum(tmp_path/'state.json',w.hooks(),lambda:w.time);c.start()
     cycle(c,w,12,14);assert c.state['stage']==0 and c.state['streak']==1
-    cycle(c,w,13,14);assert c.state['stage']==1 and c.state['streak']==0
-    assert w.restores==0 and len(c.state['history'])==2
+    cycle(c,w,13,14);assert c.state['stage']==0 and c.state['streak']==1
+    c.tick();w.score=14;c.tick();assert c.state['stage']==1 and c.state['streak']==0
+    assert w.restores==0 and len(c.state['history'])==3
 
 def test_regression_restores_champion_and_training_is_not_restored_early(tmp_path):
     w=World();c=Curriculum(tmp_path/'state.json',w.hooks(),lambda:w.time);c.start()
-    cycle(c,w,15,10)
+    cycle(c,w,13,10)
     assert w.model==1 and w.restores==1 and not c.state['history'][-1]['accepted']
 
 def test_pause_waits_for_training_before_restore_and_restart_recovers(tmp_path):
-    w=World();path=tmp_path/'state.json';c=Curriculum(path,w.hooks(),lambda:w.time);c.start()
+    w=World();w.score=10;path=tmp_path/'state.json';c=Curriculum(path,w.hooks(),lambda:w.time);c.start()
     c.tick();c.tick();w.count=1500;c.tick();assert w.model==2
     c.pause();c.tick();assert w.model==2
     w.job={'status':'cancelled'};c.tick();assert w.model==1 and not c.state['restore_pending']
@@ -48,7 +49,8 @@ def test_resource_failure_and_time_budget_pause(tmp_path):
 def test_curriculum_completes_and_does_not_repeat_forever(tmp_path):
     w=World();c=Curriculum(tmp_path/'state.json',w.hooks(),lambda:w.time);c.start()
     c.state['max_cycles']=100
-    for _ in range(len(STAGES)*2):cycle(c,w)
+    for _ in range(len(STAGES)*2):
+        c.tick();w.score=15;c.tick()
     assert c.state['phase']=='completed' and not c.state['enabled'] and c.state['stage']==len(STAGES)-1
 
 
@@ -78,3 +80,26 @@ def test_waits_for_arena_preparation_before_creating_a_test_run(tmp_path):
     c=Curriculum(tmp_path/'state.json',hooks,lambda:w.time);c.start();c.tick()
     assert c.state['phase']=='waiting' and 'seed' not in c.state
     hooks['prepare']=lambda:True;c.tick();assert c.state['phase']=='baseline'
+
+
+def test_passing_saved_model_advances_on_two_distinct_fresh_seeds_without_training(tmp_path):
+    w=World();c=Curriculum(tmp_path/'state',w.hooks(),lambda:w.time);c.start();c.state['stage']=24
+    c.tick();seed1=c.state['seed'];c.tick()
+    assert c.state['stage']==24 and c.state['streak']==1 and w.model==1 and w.count==0
+    c.tick();seed2=c.state['seed'];c.tick()
+    assert seed1!=seed2 and c.state['stage']==25 and w.model==1 and w.job['status']=='idle'
+    assert all(r['kind']=='saved_model_validation' for r in c.state['history'])
+
+
+def test_saved_validation_failure_resets_streak_and_collects_examples(tmp_path):
+    w=World();c=Curriculum(tmp_path/'state',w.hooks(),lambda:w.time);c.start()
+    c.tick();c.tick();assert c.state['streak']==1
+    c.tick();w.score=10;c.tick()
+    assert c.state['streak']==0 and c.state['phase']=='collecting'
+
+
+def test_three_variable_rejected_candidates_stop_instead_of_repeating(tmp_path):
+    w=World();c=Curriculum(tmp_path/'state',w.hooks(),lambda:w.time);c.start()
+    for score in (2,11,6):cycle(c,w,13,score)
+    assert not c.state['enabled'] and w.model==1 and w.restores==3
+    assert 'No useful model progress' in c.state['message']

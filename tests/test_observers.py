@@ -77,7 +77,7 @@ def test_eight_agents_wait_for_all_twenty_four_episodes(tmp_path):
     c=Curriculum(tmp_path/'state',hooks,lambda:0);c.start();c.tick();c.tick()
     assert c.state['phase']=='baseline'
     rows.update(episodes=24,successes=24);c.tick()
-    assert c.state['phase']=='collecting'
+    assert c.state['phase']=='waiting' and c.state['streak']==1
 
 def test_stationary_view_stays_at_viewer_and_can_switch_targets(tmp_path):
     commands=[];o=Observers(tmp_path/'state',commands.append,lambda:100,settle_delay=0)

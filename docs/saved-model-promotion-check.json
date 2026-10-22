@@ -1,0 +1,54 @@
+{
+  "stage": 26,
+  "history": [
+    {
+      "cycle": 151,
+      "stage": 24,
+      "skill": "gathering",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 0.625,
+      "accepted": false,
+      "time": 1792680991.2860794
+    },
+    {
+      "cycle": 152,
+      "stage": 24,
+      "skill": "gathering",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 0.3333333333333333,
+      "accepted": false,
+      "time": 1792681417.053605
+    },
+    {
+      "cycle": 154,
+      "stage": 24,
+      "skill": "gathering",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 1.0,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 15408381,
+      "time": 1792681546.397184
+    },
+    {
+      "cycle": 155,
+      "stage": 24,
+      "skill": "gathering",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 1.0,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 15508384,
+      "time": 1792681616.640759
+    }
+  ],
+  "enabled": true
+}
