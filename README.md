@@ -53,3 +53,16 @@ Minecraft and the authenticated dashboard bind to loopback. A bounded bridge exp
 Java 26.3 clients can join through pinned ViaVersion 5.12.1 while the server and bots stay on 1.21.4. The dashboard shows online players, saved operator levels, server readiness, RAM and tick metrics. Start/Stop/Restart run in the background, preserve the world/model/examples, and leave the dashboard available. Learning stays paused after server operations. Player administration supports OP/deop, game modes, teleport, heal, feed and disconnect through validated commands. Xonosnet was granted operator level 4.
 
 See ARCHITECTURE.md, RESEARCH.md, EXPERIMENTS.md, PROGRESS.md, and SYSTEM_CHANGES.md for scope and evidence.
+
+
+## Autonomous navigation training
+
+Use **Start / resume autonomous training** on the dashboard. You can close the browser while the local lab service and computer remain running. Sleeping or shutting down the computer stops progress. Pause autonomous training before taking manual control of learning. Server Stop/Restart also pauses the scheduler; resume it explicitly afterward.
+
+Each cycle evaluates the current model on 15 seeded routes, collects 1,500 fresh teacher demonstrations on different routes, trains for 100 passes, and evaluates the candidate on the same held-out routes used for the baseline. Equal or higher scores keep the candidate; lower scores restore the protected champion, including optimizer state. Two consecutive candidate tests at 90% or better advance the stage. Different cycles use different seeds.
+
+Stages: short routes (3–7 blocks, ±0.6 rad initial heading error), longer routes (7–14 blocks, ±1.5 rad), full turns (10–22 blocks, ±π), and long routes with full turns (20–30 blocks, ±π). Dedicated flat training/test arenas are prepared at X=160 and X=240, Y=181, Z=0; the earlier arenas are preserved. This is behavioral cloning with measured candidate selection, not reinforcement learning, architecture evolution, or autonomous survival. These small tests are promotion gates, not statistical evidence of broad generalization.
+
+The dashboard reports phase, fresh examples, training progress, test completion, stage and comparison history. Sessions stop after 12 cycles or 6 hours, a ten-minute phase timeout, three stagnant below-threshold results, unsafe memory/disk headroom, or loss of server/bots. Completion pauses the bots after the final stage passes twice. Resume starts a fresh session at the saved stage. There is no unbounded background compute or automatic spending.
+
+State lives in `data/curriculum.json`; protected weights and optimizer in `checkpoints/champion.pt`; examples and results retain the normal data locations. An unexpected service restart restores an interrupted candidate and restarts the comparison cycle when the scheduler was enabled. Intentional server operations pause it. Keep the computer awake yourself if you want unattended progress; no Windows power settings are changed.

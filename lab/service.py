@@ -14,6 +14,7 @@ from .lan import LanBridge
 from .server_control import ServerControl
 from .minecraft_status import query_status
 from .admin import build_admin_command
+from .curriculum import Curriculum, sample_route, route_seed
 import copy
 import re
 ROOT=Path(__file__).resolve().parents[1]
@@ -38,6 +39,8 @@ if Path('checkpoints/latest.pt').exists():
     model.load_state_dict(saved['model']);opt.load_state_dict(saved['optimizer'])
 mode='paused';run='idle';agents={};samples=deque(maxlen=50000);server=None;logfile=None;lock=threading.RLock();started=time.time();training=False
 system_cpu=0.0
+example_counter=0
+curriculum=None
 shutting_down=False
 lan_bridge=None
 lan_error=None
@@ -162,6 +165,8 @@ def server_ready():
 def prepare_server_operation():
     global mode,run
     with lock:
+        if curriculum and curriculum.state['enabled']:curriculum.pause('Paused for a server operation. Resume autonomous training when ready.')
+    with lock:
         mode='paused';run='paused-'+str(int(time.time()))
         event('mode',{'mode':'paused','run':run,'reason':'server_operation'})
     if training_jobs.running:
@@ -271,7 +276,7 @@ server_control=ServerControl(launch_minecraft,stop_minecraft,prepare_server_oper
 @asynccontextmanager
 async def lifespan(app):
     global shutting_down,lan_bridge,lan_error
-    launch();threading.Thread(target=watchdog,daemon=True).start()
+    launch();threading.Thread(target=watchdog,daemon=True).start();threading.Thread(target=curriculum_worker,daemon=True).start()
     if Path('config/lan.json').exists():
         config=json.loads(Path('config/lan.json').read_text(encoding='utf-8'))
         if config.get('enabled'):
@@ -301,8 +306,8 @@ def status():
     with lock:
         metrics=db.execute('''WITH ranked AS (SELECT *,row_number() OVER(PARTITION BY run,agent ORDER BY id) AS sequence FROM episodes)
             SELECT run,count(*),sum(success),avg(steps) FROM ranked WHERE sequence<=3 OR run LIKE '%teacher%' GROUP BY run''').fetchall()
-        activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action') ORDER BY id DESC LIMIT 20")]
-        return {'mode':mode,'run':run,'agents':agents,'parameters':model.parameters_count,'samples':len(samples),'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':last_training_result,'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0],'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
+        activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error') ORDER BY id DESC LIMIT 20")]
+        return {'mode':mode,'run':run,'agents':agents,'parameters':model.parameters_count,'samples':len(samples),'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':last_training_result,'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0],'curriculum':curriculum.snapshot(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:
@@ -324,6 +329,10 @@ def assignment(d:dict):
         center=80 if mode in ('untrained','evaluate','random','heuristic') else 0
         start=[center+rng.uniform(-10,10),181.1,rng.uniform(-10,10)]
         theta=rng.uniform(-math.pi,math.pi);goal=[center+rng.uniform(-10,10),181.1,rng.uniform(-10,10)]
+        if curriculum.state['enabled'] and mode in ('teacher','evaluate'):
+            center=240 if mode=='evaluate' else 160
+            seed=route_seed(curriculum.state['seed'],d['index'],d['episode'],mode=='evaluate')
+            start,goal,theta=sample_route(curriculum.state['stage'],seed,center)
         return {'mode':mode,'run':run,'start':start,'goal':goal,'yaw':theta}
 @app.post('/reset',dependencies=[Depends(auth)])
 def reset(d:dict):
@@ -334,18 +343,19 @@ def reset(d:dict):
     return {'ok':True}
 @app.post('/step',dependencies=[Depends(auth)])
 def step(d:dict):
+    global example_counter
     with lock:
         torch.set_num_threads(1)
         if len(d['obs'])!=70 or not np.isfinite(d['obs']).all():raise HTTPException(400,'Invalid observation')
         t=time.perf_counter()
         with torch.no_grad():action=int(model(torch.tensor(d['obs'],dtype=torch.float32)).argmax())
         latency=(time.perf_counter()-t)*1000
-        if mode=='teacher':samples.append((d['obs'],d['teacher']));action=d['teacher']
+        if mode=='teacher':samples.append((d['obs'],d['teacher']));example_counter+=1;action=d['teacher']
         elif mode=='heuristic':action=d['teacher']
         elif mode=='random':action=random.randrange(4)
         elif mode=='paused':action=4
         agents[d['agent']]={k:d[k] for k in ('position','health','food','goal','steps','reward','perception_ms')}
-        agents[d['agent']].update(action=action,inference_ms=latency,last_seen=time.time(),run=run)
+        agents[d['agent']].update(connected=True,action=action,inference_ms=latency,last_seen=time.time(),run=run)
         agents[d['agent']]['rays']=d['obs'][:64]
         db.execute('INSERT OR IGNORE INTO agents VALUES(?,?,?)',(d['agent'],json.dumps({'personality':json.loads(Path('config/personality.json').read_text()),'generation':0}), '{}'))
         db.execute('UPDATE agents SET state=? WHERE id=?',(json.dumps(agents[d['agent']]),d['agent']))
@@ -384,6 +394,12 @@ def admin_action(d:dict):
 @app.post('/control/{command}',dependencies=[Depends(auth)])
 def control(command:str,d:dict={}):
     global mode,run,training,model,opt,shutting_down
+    with lock:
+        if curriculum.state.get('restore_pending') and not curriculum.state['enabled'] and command in ('train','load','new-policy','teacher','evaluate','random','heuristic','untrained'):
+            raise HTTPException(409,'Restoring the saved champion model. Try again shortly.')
+        if curriculum.state['enabled'] and command not in ('start-server','stop-server','restart-server','shutdown','paused','checkpoint','timing'):
+            raise HTTPException(409,'Pause autonomous training before using manual learning controls.')
+        if command=='paused' and curriculum.state['enabled']:curriculum.pause()
     if command in ('start-server','stop-server','restart-server','shutdown'):
         if command=='shutdown':
             shutting_down=True
@@ -434,6 +450,84 @@ def control(command:str,d:dict={}):
             return {'ok':True}
         if command=='backup':backup();return {'ok':True}
         raise HTTPException(400,'Unknown command')
+
+def auto_mode(value,identifier=None):
+    global mode,run
+    mode=value
+    if identifier:run=identifier
+
+def auto_protect():
+    payload={'model':copy.deepcopy(model.state_dict()),'optimizer':copy.deepcopy(opt.state_dict()),'width':model.net[0].out_features}
+    torch.save(payload,'checkpoints/champion.tmp');os.replace('checkpoints/champion.tmp','checkpoints/champion.pt')
+
+def auto_restore():
+    global model,opt
+    if not Path('checkpoints/champion.pt').exists():return
+    saved=torch.load('checkpoints/champion.pt',weights_only=True);model=Policy(saved['width']);model.load_state_dict(saved['model'])
+    opt=torch.optim.Adam(model.parameters(),lr=.003);opt.load_state_dict(saved['optimizer']);checkpoint()
+
+def auto_results(identifier):
+    rows=db.execute('SELECT agent,success FROM episodes WHERE run=? ORDER BY id',(identifier,)).fetchall()
+    counts={};successes=0
+    for name,success in rows:
+        counts[name]=counts.get(name,0)+1
+        if counts[name]<=3:successes+=success
+    return {'episodes':sum(min(v,3) for v in counts.values()),'successes':successes}
+
+def auto_health():
+    if psutil.virtual_memory().percent>88:return 'System memory is above 88%.'
+    if psutil.disk_usage(str(ROOT)).free<2*1024**3:return 'Less than 2 GiB of disk space remains.'
+    if not server_ready() or server_control.snapshot()['busy']:return 'Waiting for Minecraft to be ready.'
+    if sum(time.time()-a.get('last_seen',0)<8 and a.get('connected',True) for a in agents.values())<5:return 'Waiting for all five bots to connect.'
+    return None
+
+auto_arena={'pid':None,'phase':0,'time':0,'offset':0}
+def auto_prepare():
+    if auto_arena['pid']!=server.pid:auto_arena.update(pid=server.pid,phase=0)
+    if auto_arena['phase']==0:
+        for center in (160,240):console(f'forceload add {center-20} -20 {center+20} 20')
+        auto_arena.update(phase=1,time=time.time());return False
+    if auto_arena['phase']==1:
+        if time.time()-auto_arena['time']<5:return False
+        auto_arena['offset']=Path('logs/minecraft-console.log').stat().st_size
+        for center in (160,240):
+            console(f'fill {center-20} 181 -20 {center+20} 185 20 minecraft:air')
+            console(f'fill {center-20} 180 -20 {center+20} 180 20 minecraft:stone')
+            for z in (-20,20):console(f'fill {center-20} 181 {z} {center+20} 183 {z} minecraft:glass')
+            for x in (center-20,center+20):console(f'fill {x} 181 -20 {x} 183 20 minecraft:glass')
+        auto_arena.update(phase=2,time=time.time());return False
+    if auto_arena['phase']==2:
+        if time.time()-auto_arena['time']<2:return False
+        log=Path('logs/minecraft-console.log').read_bytes()[auto_arena['offset']:].decode(errors='replace')
+        if 'not loaded' in log or 'too many blocks' in log.lower():raise RuntimeError('Simulation arena preparation failed. Check the Minecraft console log.')
+        if log.count('Successfully filled')<2:raise RuntimeError('Simulation arena construction was not acknowledged.')
+        auto_arena['phase']=3
+    return True
+
+curriculum=Curriculum('data/curriculum.json',{'pause':lambda:auto_mode('paused'),'cancel':training_jobs.cancel,
+    'job':training_jobs.snapshot,'mode':auto_mode,'protect':auto_protect,'restore':auto_restore,
+    'results':auto_results,'count':lambda:example_counter,'train':lambda:start_training(background=True),
+    'health':auto_health,'prepare':auto_prepare,'event':lambda result:event('curriculum_cycle',result)})
+
+def curriculum_worker():
+    while not shutting_down:
+        try:
+            with lock:curriculum.tick()
+        except Exception as error:
+            with lock:
+                curriculum.pause('Autonomous training stopped: '+str(error));event('curriculum_error',{'error':str(error)})
+        time.sleep(1)
+
+@app.post('/autonomy/{action}',dependencies=[Depends(auth)])
+def autonomy(action:str):
+    with lock:
+        if action=='pause':return curriculum.pause()
+        if action!='start':raise HTTPException(400,'Unknown autonomous training action')
+        if training_jobs.running or server_control.snapshot()['busy']:raise HTTPException(409,'Wait for the current training or server operation to finish.')
+        if curriculum.state.get('restore_pending'):raise HTTPException(409,'Restoring the previous model. Try again shortly.')
+        try:return curriculum.start()
+        except ValueError as error:raise HTTPException(409,str(error))
+
 @app.get('/',response_class=HTMLResponse)
 def dashboard():
     response=HTMLResponse(Path('lab/dashboard.html').read_text(encoding='utf-8'),headers={'Cache-Control':'no-store'})

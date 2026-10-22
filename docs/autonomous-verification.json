@@ -1,0 +1,98 @@
+{
+  "curriculum": {
+    "enabled": true,
+    "phase": "collecting",
+    "stage": 0,
+    "cycle": 4,
+    "streak": 1,
+    "history": [
+      {
+        "cycle": 2,
+        "stage": 0,
+        "baseline": 1.0,
+        "score": 1.0,
+        "accepted": true,
+        "time": 1792627211.3513181
+      }
+    ],
+    "message": "Collecting fresh examples for Short routes.",
+    "max_cycles": 12,
+    "max_hours": 6,
+    "examples_per_cycle": 1500,
+    "threshold": 0.9,
+    "restore_pending": false,
+    "session_cycles": 1,
+    "started_at": 1792627283.1467788,
+    "phase_at": 1792627301.4924364,
+    "seed": 407931,
+    "run": "auto-4-baseline-1792627285476721100",
+    "baseline": 1.0,
+    "collected_start": 0,
+    "collected": 510,
+    "stages": [
+      {
+        "name": "Short routes",
+        "min_distance": 3,
+        "max_distance": 7,
+        "yaw": 0.6
+      },
+      {
+        "name": "Longer routes",
+        "min_distance": 7,
+        "max_distance": 14,
+        "yaw": 1.5
+      },
+      {
+        "name": "Full turns",
+        "min_distance": 10,
+        "max_distance": 22,
+        "yaw": 3.141593
+      },
+      {
+        "name": "Long routes and full turns",
+        "min_distance": 20,
+        "max_distance": 30,
+        "yaw": 3.141593
+      }
+    ],
+    "stage_name": "Short routes"
+  },
+  "training_job": {
+    "id": null,
+    "status": "idle",
+    "phase": "idle",
+    "percent": 0
+  },
+  "server": {
+    "phase": "online",
+    "busy": false,
+    "desired_running": true,
+    "message": "Minecraft is ready. Bots and LAN players can connect.",
+    "action": null,
+    "error": null,
+    "alive": true,
+    "ready": true,
+    "version": "Paper 1.21.4",
+    "java_client": "26.3 (ViaVersion 5.12.1)",
+    "pid": 19704,
+    "uptime_seconds": 71.2250349521637,
+    "bots_online": 5,
+    "ram_mib": 1463.8125,
+    "tps": 20.0,
+    "mspt": 2.6,
+    "timing_sample_at": 1792627299.5802414,
+    "players_online": 5,
+    "player_limit": 12,
+    "players_updated_at": 1792627327.6514657
+  },
+  "python_tests_passed": 23,
+  "node_tests_passed": 3,
+  "verified": [
+    "Live full collect/train/evaluate cycle: baseline 15/15, candidate 15/15, candidate kept",
+    "Authenticated dashboard start, pause and resume preserve stage and passing streak",
+    "Manual training rejected with 409 while automation is enabled",
+    "Unauthenticated autonomous control rejected with 403",
+    "Dedicated arenas acknowledged before test assignments",
+    "Final deployment running with five connected bots"
+  ]
+}
