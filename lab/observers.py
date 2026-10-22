@@ -132,7 +132,6 @@ class Observers:
         if fresh and mode!='paused' and agent.get('reset_seconds') is not None:
             lines['state']+=f" | Reset ~{agent['reset_seconds']}s ({agent.get('reset_steps_left',0)} steps left)"
         if not fresh:lines['state']='Waiting for bot telemetry';progress=0
-        if agent.get('serial'):lines['state']+=f" | {agent['serial']} deaths {agent.get('deaths',0)}"
         if context.get('stage'):
             lines={'stage':(f"Review {context['round']} | " if context.get('round') else '')+f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
         for suffix,value in lines.items():
@@ -167,12 +166,12 @@ class Observers:
             name=f'LabAI{index}';a=agents.get(name,{})
             fresh=a.get('connected') and now-a.get('last_seen',0)<8
             action=a.get('action',4)
-            activity='Offline' if not fresh else 'Training / paused' if mode=='paused' else labels[action] if type(action) is int and 0<=action<len(labels) else 'Wait'
-            if fresh and mode!='paused' and a.get('speed',1)<.05 and action in (0,3):activity='Blocked / no movement'
+            activity='Offline' if not fresh else 'Training' if mode=='paused' and getattr(self,'progress_context',{}).get('job',{}).get('status') in ('running','cancelling') else 'Paused' if mode=='paused' else labels[action] if type(action) is int and 0<=action<len(labels) else 'Wait'
+            if fresh and mode!='paused' and a.get('speed',1)<.05 and action in (0,3):activity='Blocked'
             if fresh and mode!='paused' and a.get('reset_seconds') is not None:activity+=f" ~{a['reset_seconds']}s"
             if a.get('skill')=='advanced' and action==5:activity='Open door'
             if mode in ('evaluate','untrained','random','heuristic') and a.get('trial_completed',0)>=getattr(self,'progress_context',{}).get('episodes',3):activity='Done; waiting'
-            row=f"{a.get('serial',name)} {name}: {activity} D{a.get('deaths',0)}"
+            row=f"{name}: {activity}"
             previous=self.roster_rows.get(name)
             if previous==row:continue
             self.command(f'scoreboard players set {name} lab_bots {100-index}')

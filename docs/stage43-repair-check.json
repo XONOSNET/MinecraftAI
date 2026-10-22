@@ -1,0 +1,197 @@
+{
+  "observations": [
+    {
+      "stage": 42,
+      "cycle": 213,
+      "phase": "waiting",
+      "streak": 0,
+      "collected": 1515,
+      "message": "Waiting for Minecraft and all configured bots.",
+      "samples": 0,
+      "episodes": 10,
+      "successes": 10
+    },
+    {
+      "stage": 42,
+      "cycle": 214,
+      "phase": "baseline",
+      "streak": 0,
+      "collected": 1515,
+      "message": "Testing the saved model before training.",
+      "samples": 0,
+      "episodes": 8,
+      "successes": 5
+    },
+    {
+      "stage": 42,
+      "cycle": 215,
+      "phase": "baseline",
+      "streak": 1,
+      "collected": 1515,
+      "message": "Testing the saved model before training.",
+      "samples": 0,
+      "episodes": 0,
+      "successes": 0
+    },
+    {
+      "stage": 42,
+      "cycle": 215,
+      "phase": "baseline",
+      "streak": 1,
+      "collected": 1515,
+      "message": "Testing the saved model before training.",
+      "samples": 0,
+      "episodes": 17,
+      "successes": 8
+    },
+    {
+      "stage": 42,
+      "cycle": 215,
+      "phase": "collecting",
+      "streak": 0,
+      "collected": 199,
+      "message": "Collecting fresh examples for Narrow bridge crossing.",
+      "samples": 231,
+      "episodes": 24,
+      "successes": 14
+    },
+    {
+      "stage": 42,
+      "cycle": 215,
+      "phase": "collecting",
+      "streak": 0,
+      "collected": 788,
+      "message": "Collecting fresh examples for Narrow bridge crossing.",
+      "samples": 810,
+      "episodes": 24,
+      "successes": 14
+    },
+    {
+      "stage": 42,
+      "cycle": 215,
+      "phase": "collecting",
+      "streak": 0,
+      "collected": 1364,
+      "message": "Collecting fresh examples for Narrow bridge crossing.",
+      "samples": 1395,
+      "episodes": 24,
+      "successes": 14
+    },
+    {
+      "stage": 42,
+      "cycle": 215,
+      "phase": "evaluating",
+      "streak": 0,
+      "collected": 1510,
+      "message": "Testing the candidate on the same held-out routes.",
+      "samples": 1510,
+      "episodes": 8,
+      "successes": 8
+    },
+    {
+      "stage": 42,
+      "cycle": 216,
+      "phase": "baseline",
+      "streak": 1,
+      "collected": 1510,
+      "message": "Testing the saved model before training.",
+      "samples": 1510,
+      "episodes": 0,
+      "successes": 0
+    },
+    {
+      "stage": 42,
+      "cycle": 216,
+      "phase": "baseline",
+      "streak": 1,
+      "collected": 1510,
+      "message": "Testing the saved model before training.",
+      "samples": 1510,
+      "episodes": 16,
+      "successes": 16
+    },
+    {
+      "stage": 43,
+      "cycle": 217,
+      "phase": "baseline",
+      "streak": 0,
+      "collected": 1510,
+      "message": "Testing the saved model before training.",
+      "samples": 1510,
+      "episodes": 0,
+      "successes": 0
+    }
+  ],
+  "history": [
+    {
+      "cycle": 207,
+      "stage": 42,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.4583333333333333,
+      "score": 0.3333333333333333,
+      "accepted": false,
+      "time": 1792697806.8188713
+    },
+    {
+      "cycle": 209,
+      "stage": 42,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.6666666666666666,
+      "score": 0.3333333333333333,
+      "accepted": false,
+      "time": 1792703298.2856596
+    },
+    {
+      "cycle": 210,
+      "stage": 42,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.625,
+      "score": 0.20833333333333334,
+      "accepted": false,
+      "time": 1792704783.848149
+    },
+    {
+      "cycle": 214,
+      "stage": 42,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.8333333333333334,
+      "score": 0.8333333333333334,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 21408561,
+      "time": 1792705888.5783458
+    },
+    {
+      "cycle": 215,
+      "stage": 42,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.5833333333333334,
+      "score": 1.0,
+      "accepted": true,
+      "time": 1792706007.5117328
+    },
+    {
+      "cycle": 216,
+      "stage": 42,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 1.0,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 21608567,
+      "time": 1792706040.4170043
+    }
+  ]
+}

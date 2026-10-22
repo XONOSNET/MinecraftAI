@@ -38,7 +38,8 @@ def layout(features,c,z):
    points=[[c+lo-2,181.1,z+.6],[c-1,181.1,z+.6],[c,181.1,z+2.6],[c+hi+2,181.1,z+2.6]]
   else:
    block(lo,180,left+offset,hi,180,right+offset,'oak_planks')
-   points=[[c+lo-2,181.1,z+offset+.6],[c+hi+2,181.1,z+offset+.6]]
+   mid=offset+(left+right+1)/2
+   points=[[c+lo-2,181.1,z+mid],[c+hi+2,181.1,z+mid]]
  for j in range(features.get('traps',0)):
   x=0+j*8;side=-1 if features.get('alternate') and j%2 else 1
   block(x-1,180,-1,x+1,180,1,'magma_block' if features.get('magma') else 'water')
@@ -54,5 +55,7 @@ def layout(features,c,z):
   block(x,181,gap,x,181,gap,'oak_door[facing=east,half=lower,hinge=left,open=false]')
   block(x,182,gap,x,182,gap,'oak_door[facing=east,half=upper,hinge=left,open=false]')
   points.extend([[c+x-2,181.1,z+gap+.6],[c+x+2,181.1,z+gap+.6]])
- points.sort(key=lambda p:p[0]);points.append([c+16,181.1,z+.6])
+ points.sort(key=lambda p:p[0])
+ exit_z=points[-1][2] if features.get('bridge') and not features.get('door_count') else z+.6
+ points.append([c+16,181.1,exit_z])
  return blocks,points,doors

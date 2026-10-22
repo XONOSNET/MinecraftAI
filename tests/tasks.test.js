@@ -81,3 +81,23 @@ test('closed practice doors use an explicit bounded actuator and require observe
  assert.equal(await interact(bot,task,sensed,runtime,5,{open_practice_doors:true}),true);
  assert.equal(sensed.metrics.doors_opened,0);sensed=observeTask(bot,task,{hits:[]},runtime);assert.equal(sensed.metrics.doors_opened,1);assert.equal(calls,1);
 });
+
+
+test('advanced teacher and neural observation share the same checkpoint bearing',()=>{
+ const {navigationTarget}=require('../controller/tasks');
+ const {task,bot,runtime}=fixture();task.kind='advanced';task.waypoints=[[304,181,2],[320,181,2],task.goal];
+ const point=navigationTarget(bot,task,runtime);
+ const angle=Math.atan2(Math.sin(Math.atan2(-(point[0]-bot.entity.position.x),-(point[2]-bot.entity.position.z))-bot.entity.yaw),Math.cos(Math.atan2(-(point[0]-bot.entity.position.x),-(point[2]-bot.entity.position.z))-bot.entity.yaw));
+ assert.equal(teacherAction(bot,task,{},runtime,angle),angle>0?1:2);
+ bot.entity.position=new Vec3(304,181,2);
+ assert.deepEqual(navigationTarget(bot,task,runtime),task.waypoints[1]);
+ assert.equal(runtime.waypoint,1);
+});
+
+
+test('advanced hazard contact terminates a trial that can no longer pass',()=>{
+ const {failed}=require('../controller/tasks');
+ assert.equal(failed({kind:'advanced'},{hazard_contacts:0}),false);
+ assert.equal(failed({kind:'advanced'},{hazard_contacts:1}),true);
+ assert.equal(failed({kind:'gather'},{hazard_contacts:1}),false);
+});

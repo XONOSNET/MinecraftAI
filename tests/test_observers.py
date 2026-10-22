@@ -123,7 +123,7 @@ def test_roster_updates_activity_and_removes_when_no_viewers(tmp_path):
     o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
     agents={'LabAI0':{'connected':True,'last_seen':100,'action':0,'speed':0,'entity_id':1}}
     o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},agents,True,'teacher')
-    assert any('LabAI0: Blocked / no movement' in c for c in commands)
+    assert any('LabAI0: Blocked' in c for c in commands)
     assert 'scoreboard objectives setdisplay sidebar lab_bots' in commands
     commands.clear();now[0]+=2;o.tick([],{},agents,True)
     assert 'scoreboard objectives remove lab_bots' in commands
@@ -238,3 +238,13 @@ def test_camera_bearing_ignores_head_and_tracks_travel(tmp_path,view):
     assert s['camera_heading']==pytest.approx(math.pi/2)
     a['position']=[100,181,0];tick()
     assert s['camera_heading']==0  # Arena teleports are not movement bearings.
+
+
+def test_native_roster_keeps_identity_metadata_out_of_labels(tmp_path):
+    commands=[];o=Observers(tmp_path/'hud',commands.append,lambda:100,settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    a={'connected':True,'last_seen':100,'serial':'A0001','deaths':0,'action':0,'speed':0,'reset_seconds':15}
+    o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':a},True,'evaluate')
+    labels=[c for c in commands if 'display name' in c or 'bossbar' in c]
+    assert not any('A0001' in c or ' D0' in c or 'deaths' in c for c in labels)
+    assert any('LabAI0: Blocked ~15s' in c for c in labels)

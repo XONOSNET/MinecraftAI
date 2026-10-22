@@ -22,8 +22,9 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  if(state.mode==='paused'){activity='Waiting for next learning phase';b.clearControlStates();goal=null;return;}
  if(Date.now()<readyAt){activity='Loading arena / settling after teleport';b.clearControlStates();return;}
  const finishedTask=task&&lastMetrics&&tasks.reached(task,lastMetrics);
+ const failedTask=task&&lastMetrics&&tasks.failed(task,lastMetrics);
  const escaped=task&&lastMetrics&&(!lastMetrics.inside||Math.abs(lastMetrics.y-181)>5);
- if(phase!==state.run||!goal||steps>=(task?.max_steps||120)||(!task&&lastDistance!==null&&lastDistance<1.25)||finishedTask||escaped||b.health<=0){
+ if(phase!==state.run||!goal||steps>=(task?.max_steps||120)||(!task&&lastDistance!==null&&lastDistance<1.25)||finishedTask||failedTask||escaped||b.health<=0){
   if(goal&&phase===state.run){
    await api('/episode',{agent:name,run:phase,success:lastDistance!==null&&lastDistance<1.25&&b.health>0&&Math.abs(b.entity.position.y-goal[1])<1.5,steps,distance:lastDistance,task:task?.kind,metrics:lastMetrics||{health:0}});
    state=await api('/assignment',heartbeat());
@@ -35,7 +36,8 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  }
  const decisionAt=performance.now();if(lastDecisionAt)decisionMs=.8*decisionMs+.2*(decisionAt-lastDecisionAt);lastDecisionAt=decisionAt;
  const p=b.entity.position;const dx=goal[0]-p.x,dz=goal[2]-p.z;const distance=Math.hypot(dx,dz);
- const desired=Math.atan2(-dx,-dz);const angle=Math.atan2(Math.sin(desired-b.entity.yaw),Math.cos(desired-b.entity.yaw));
+ const cue=task?.kind==='advanced'?tasks.navigationTarget(b,task,runtime):goal;
+ const desired=Math.atan2(-(cue[0]-p.x),-(cue[2]-p.z));const angle=Math.atan2(Math.sin(desired-b.entity.yaw),Math.cos(desired-b.entity.yaw));
  const t=performance.now(),s=scan(b);let obs=[...s.pooled,Math.sin(angle),Math.cos(angle),Math.min(distance/32,1),b.health/20,b.food/20,b.entity.onGround?1:0];
  let teacher=Math.abs(angle)>.18?(angle>0?1:2):0;let sensed=null;
  if(task){sensed=tasks.observeTask(b,task,s,runtime);lastMetrics=sensed.metrics;obs.push(...sensed.extra);teacher=tasks.teacherAction(b,task,sensed,runtime,angle);if(task.kind==='explore'||task.kind==='eat'){obs[64]=0;obs[65]=1;obs[66]=0;}}

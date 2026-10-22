@@ -161,3 +161,23 @@ def test_bent_bridge_waypoints_keep_clear_of_open_door_leaf():
     task=task_spec(ADVANCED_STAGES[-1],123,0,True);door_x=task['actual_doors'][0][0]
     near=[point for point in task['waypoints'] if abs(point[0]-door_x)<=2]
     assert near and all(.3<point[2]-task['lane_z']<.8 for point in near)
+
+
+def test_narrow_bridge_waypoints_and_goal_follow_deck_center():
+    from lab.advanced import ADVANCED_STAGES
+    task=task_spec(ADVANCED_STAGES[2],123,0,True)
+    deck=next(b for b in task['terrain_blocks'] if b[-1]=='oak_planks')
+    center=(deck[2]+deck[5]+1)/2
+    assert all(p[2]==center for p in task['waypoints'])
+    assert task['goal'][2]==center
+
+
+def test_advanced_observation_migration_archives_only_incompatible_replay(tmp_path):
+    import numpy as np
+    root=tmp_path/'data';root.mkdir()
+    np.savez(root/'advanced.npz',obs=np.zeros((100,82)),actions=np.zeros(100,dtype=int))
+    bank=SkillBank(root,tmp_path/'weights');entry=bank.get('advanced',Policy())
+    assert not entry['samples'] and len(list(root.glob('advanced-v1-*.npz')))==1
+    entry['samples'].append(([0.0]*82,1));bank.save_replay('advanced');bank.save('advanced')
+    loaded=SkillBank(root,tmp_path/'weights').get('advanced',Policy())
+    assert len(loaded['samples'])==1 and loaded['samples'][0][1]==1

@@ -34,7 +34,12 @@ class SkillBank:
         if saved:optimizer.load_state_dict(saved['optimizer'])
         samples=deque(maxlen=15000);replay=self.root/(skill+'.npz')
         if replay.exists():
-            with np.load(replay) as data:samples.extend(zip(data['obs'].tolist(),data['actions'].tolist()))
+            with np.load(replay) as data:
+                compatible=skill!='advanced' or int(data.get('observation_version',0))==2
+                if compatible:samples.extend(zip(data['obs'].tolist(),data['actions'].tolist()))
+            if not compatible:
+                # Preserve old demonstrations, whose hidden teacher waypoint made labels inconsistent.
+                replay.replace(replay.with_name(f'advanced-v1-{time.time_ns()}.npz'))
         entry={'model':policy,'optimizer':optimizer,'samples':samples,'count':0};self.entries[skill]=entry;return entry
     def payload(self,entry):
         return {'model':entry['model'].state_dict(),'optimizer':entry['optimizer'].state_dict(),'width':entry['model'].net[0].out_features,'inputs':SKILL_INPUTS,'actions':SKILL_ACTIONS}
@@ -53,7 +58,7 @@ class SkillBank:
     def save_replay(self,skill):
         samples=self.entries[skill]['samples'];path=self.root/(skill+'.npz');tmp=path.with_suffix('.tmp')
         if not samples:return
-        with tmp.open('wb') as stream:np.savez_compressed(stream,obs=np.asarray([s[0] for s in samples],dtype=np.float32),actions=np.asarray([s[1] for s in samples]))
+        with tmp.open('wb') as stream:np.savez_compressed(stream,obs=np.asarray([s[0] for s in samples],dtype=np.float32),actions=np.asarray([s[1] for s in samples]),observation_version=2 if skill=='advanced' else 1)
         os.replace(tmp,path);self.metadata(skill)
 
     def metadata(self,skill):

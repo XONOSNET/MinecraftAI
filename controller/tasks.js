@@ -27,6 +27,7 @@ function observeTask(bot,task,scan,runtime){
  const metrics={doors_opened:runtime.openedDoors.size,health:bot.health,food:bot.food,wood,eaten:runtime.eaten,hunger_observed:runtime.hungerObserved,coverage:runtime.visited.size,sheltered,distance,y:p.y,hazard_contacts:runtime.hazardContacts,inside};
  return {extra,metrics,resource,door,frontBlocked:lowBlocked,headBlocked,frontHazard,leftUnsafe,rightUnsafe,forward,left};
 }
+function failed(task,m){return task.kind==='advanced'&&m.hazard_contacts>0;}
 function reached(task,m){
  if(m.health<=0||!m.inside||Math.abs(m.y-181)>1.5)return false;
  if(task.kind==='gather')return m.wood>=task.wood_target;
@@ -35,6 +36,13 @@ function reached(task,m){
  if(task.kind==='shelter')return m.sheltered&&m.distance<3;
  if(task.kind==='advanced'&&m.doors_opened<(task.actual_doors?.length||0))return false;
  return m.distance<1.25&&m.health>=18&&m.hazard_contacts===0;
+}
+// Both controllers receive the same route checkpoint; the neural policy still chooses every action.
+function navigationTarget(bot,task,runtime){
+ if(!task.waypoints?.length)return task.goal;
+ const p=bot.entity.position;let point=task.waypoints[runtime.waypoint];
+ while(Math.hypot(point[0]-p.x,point[2]-p.z)<1&&runtime.waypoint<task.waypoints.length-1)point=task.waypoints[++runtime.waypoint];
+ return point;
 }
 function turnAction(angle){return Math.abs(angle)>.18?(angle>0?1:2):0;}
 function teacherAction(bot,task,sensed,runtime,angle){
@@ -51,8 +59,7 @@ function teacherAction(bot,task,sensed,runtime,angle){
   return sensed.frontBlocked||sensed.frontHazard?1:0;
  }
  if(task.waypoints?.length>1){
-  const p=bot.entity.position;let point=task.waypoints[runtime.waypoint];
-  if(Math.hypot(point[0]-p.x,point[2]-p.z)<1&&runtime.waypoint<task.waypoints.length-1)point=task.waypoints[++runtime.waypoint];
+  const point=navigationTarget(bot,task,runtime),p=bot.entity.position;
   const target=Math.atan2(-(point[0]-p.x),-(point[2]-p.z));angle=Math.atan2(Math.sin(target-bot.entity.yaw),Math.cos(target-bot.entity.yaw));
  }
  const action=task.kind==='advanced'?(Math.abs(angle)>.08?(angle>0?1:2):0):turnAction(angle);
@@ -80,4 +87,4 @@ async function interact(bot,task,sensed,runtime,action,permissions={}){
  }
  return false;
 }
-module.exports={createRuntime,observeTask,reached,teacherAction,interact,inPracticeBounds};
+module.exports={failed,navigationTarget,createRuntime,observeTask,reached,teacherAction,interact,inPracticeBounds};
