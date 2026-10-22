@@ -139,3 +139,19 @@ def test_pause_reason_and_goal_bar_progress(tmp_path):
     assert 'bossbar set lab:observer_xonosnet_task value 50' in commands
     now[0]+=2;o.tick(['Xonosnet'],{}, {'LabAI0':a},True,'paused',pause_reason='Saving checkpoint (97%)')
     assert any('Saving checkpoint (97%)' in c for c in commands)
+
+
+def test_trial_and_training_pass_counters_and_named_roster(tmp_path):
+    now=[100.0];commands=[];o=Observers(tmp_path/'hud',commands.append,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    a={'connected':True,'last_seen':100,'entity_id':1,'trial_completed':1}
+    tick=lambda mode,ctx:o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':a},True,mode,progress_context=ctx)
+    tick('evaluate',{'episodes':3})
+    assert any('Trial 2/3 | 2 left' in c for c in commands)
+    assert any('scoreboard players display name LabAI0 lab_bots' in c for c in commands)
+    assert sum(c.startswith('scoreboard players set LabAI') for c in commands)==AGENT_COUNT
+    assert not any('scoreboard players set "' in c for c in commands)
+    now[0]+=2;commands.clear()
+    tick('paused',{'job':{'status':'running','epoch':42,'epochs':100,'percent':40,'samples':1500,'phase':'learning'}})
+    assert any('Training pass 42/100 | 58 left' in c for c in commands)
+    assert 'bossbar set lab:observer_xonosnet_state value 40' in commands

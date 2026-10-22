@@ -82,8 +82,26 @@ class Observers:
                 s.update(progress_start=max(distance,1),progress_run=agent.get('run'),progress_goal=copy.deepcopy(goal))
             s['progress_steps']=agent.get('steps',0)
             progress=round(100*max(0,min(1,1-distance/s.get('progress_start',max(distance,1)))))
-        lines['task']+=' | Route progress'
-        if mode=='paused':lines['task']=f"{s['target']} | {activity}"
+        context=getattr(self,'progress_context',{});job=context.get('job',{})
+        total=context.get('episodes',3);completed=min(total,agent.get('trial_completed',0))
+        trial=min(total,completed+1)
+        if context and mode in ('evaluate','untrained','random','heuristic'):
+            lines['task']=f"{s['target']} | Trial {trial}/{total} | {total-completed} left"
+            lines['state']=f"{activity} | Trials completed {completed}/{total}"
+            progress=round(100*completed/total)
+        elif mode=='teacher':
+            count=context.get('examples',0);target=max(1,context.get('target',1500))
+            lines['task']=f"{s['target']} | Demo pass {agent.get('trial',1)}"
+            lines['state']=f"Examples {count}/{target} | {max(0,target-count)} left"
+            progress=min(100,round(100*count/target))
+        else:lines['task']+=' | Route progress'
+        if job.get('status') in ('running','cancelling'):
+            epoch=job.get('epoch',0);epochs=job.get('epochs',100)
+            lines['task']=f"Training pass {epoch}/{epochs} | {max(0,epochs-epoch)} left"
+            lines['state']=f"{job.get('phase','Preparing').title()} | {job.get('samples',0):,} examples | {job.get('percent',0):.0f}%"
+            progress=round(job.get('percent',0))
+        if mode=='paused' and job.get('status') not in ('running','cancelling'):lines['task']=f"{s['target']} | Paused";lines['state']=activity[:95]
+        if not fresh:lines['state']='Waiting for bot telemetry';progress=0
         for suffix,value in lines.items():
             key=prefix+'_'+suffix;name=json.dumps({'text':value,'color':'aqua' if suffix=='task' else 'white'})
             if not s.get('hud_ready'):
@@ -92,7 +110,7 @@ class Observers:
                 self.command(f'bossbar set {key} color '+('blue' if suffix=='task' else 'green'))
                 self.command(f'bossbar set {key} max 100')
             self.command(f'bossbar set {key} name {name}')
-            self.command(f'bossbar set {key} value {progress if suffix=="task" else health*5}')
+            self.command(f'bossbar set {key} value {progress}')
             self.command(f'bossbar set {key} players {owner}')
         s['hud_ready']=True
     def update_roster(self,online,agents,mode):
@@ -110,7 +128,9 @@ class Observers:
             self.command('scoreboard objectives setdisplay sidebar lab_bots')
             self.roster_ready=True;self.roster_rows={}
         labels=('Forward','Turn left','Turn right','Jump','Wait','Gather','Eat')
-        for index,(name,a) in enumerate(sorted(agents.items())):
+        from .config import AGENT_COUNT
+        for index in range(AGENT_COUNT):
+            name=f'LabAI{index}';a=agents.get(name,{})
             fresh=a.get('connected') and now-a.get('last_seen',0)<8
             action=a.get('action',4)
             activity='Offline' if not fresh else 'Training / paused' if mode=='paused' else labels[action] if type(action) is int and 0<=action<len(labels) else 'Wait'
@@ -118,8 +138,8 @@ class Observers:
             row=f'{name}: {activity}'
             previous=self.roster_rows.get(name)
             if previous==row:continue
-            if previous:self.command(f'scoreboard players reset {json.dumps(previous)} lab_bots')
-            self.command(f'scoreboard players set {json.dumps(row)} lab_bots {100-index}')
+            self.command(f'scoreboard players set {name} lab_bots {100-index}')
+            self.command(f'scoreboard players display name {name} lab_bots '+json.dumps({'text':row}))
             self.roster_rows[name]=row
     def release(self,s,online,mode_restore=True):
         self.clear_hud(s)
@@ -151,8 +171,9 @@ class Observers:
             self.kill_camera(s)
             if s['enabled']:s.update(status='waiting',message='Waiting for the server and player to reconnect.')
         self.save()
-    def tick(self,online,states,agents,ready,mode='paused',pause_reason='Movement paused'):
+    def tick(self,online,states,agents,ready,mode='paused',pause_reason='Movement paused',progress_context=None):
         if not ready:return
+        self.progress_context=progress_context or {}
         self.pause_reason=pause_reason
         self.update_roster(online,agents,mode)
         for s in self.sessions.values():

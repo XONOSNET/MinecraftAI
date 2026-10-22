@@ -44,3 +44,6 @@ Observer HUD: personal Minecraft bossbars show followed bot, simulation, control
 
 
 Camera/activity update: camera worker 20 Hz; controller preserves held forward/jump controls across matching actions without changing policy decision frequency or turn semantics. Added speed/activity telemetry, explicit pause/training messages, route-distance progress bossbar, shared in-game right sidebar and dashboard roster. 57 Python + 13 Node tests passed. Native probe verified sidebar, bossbar lifecycle and at least 20 camera movement packets during its orbit check. Training resumed at saved stage 25.
+
+
+Trial HUD correction: replaced invalid spaced scoreboard holders with stable bot names plus display-name components. Native client now confirms all eight scoreboard_score rows. HUD shows current trial/total and remaining trials, demo pass plus bounded examples target, or training epoch/total and remaining epochs. Bossbar values track phase progress instead of static full health; training text is split into two concise lines. Dashboard always renders all configured bot rows. Observer suite 17 passed; native sidebar/HUD lifecycle verified.

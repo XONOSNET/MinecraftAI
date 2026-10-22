@@ -366,6 +366,7 @@ def assignment(d:dict):
         # Repeated calls during a lifetime return the same assignment; next episode changes it.
         rng=random.Random(8000+d['index']*1000+d['episode'])
         finished=db.execute('SELECT count(*) FROM episodes WHERE run=? AND agent=?',(run,d['agent'])).fetchone()[0]
+        agents[d['agent']].update(trial=max(1,int(d.get('episode',0))),trial_completed=finished)
         if mode in ('untrained','evaluate','random','heuristic') and finished>=EPISODES_PER_AGENT:return {'mode':'paused','run':run}
         center=80 if mode in ('untrained','evaluate','random','heuristic') else 0
         start=[center+rng.uniform(-10,10),181.1,rng.uniform(-10,10)]
@@ -413,7 +414,7 @@ def step(d:dict):
         elif mode=='paused':action=4
         previous=agents.get(d['agent'],{})
         agents[d['agent']]={k:d[k] for k in ('position','health','food','goal','steps','reward','perception_ms')}
-        agents[d['agent']].update({k:previous.get(k) for k in ('entity_id','dimension','simulation','activity','speed')})
+        agents[d['agent']].update({k:previous.get(k) for k in ('entity_id','dimension','simulation','activity','speed','trial','trial_completed')})
         agents[d['agent']].update(connected=True,action=action,inference_ms=latency,last_seen=time.time(),run=run)
         agents[d['agent']]['rays']=d['obs'][:64]
         agents[d['agent']]['skill']=skill;agents[d['agent']]['metrics']=d.get('metrics')
@@ -637,7 +638,7 @@ def observer_worker():
     while not shutting_down:
         try:
             with lock:
-                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
+                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,progress_context={'job':training_jobs.snapshot(),'phase':curriculum.state.get('phase'),'examples':curriculum.state.get('collected',0),'target':STAGES[curriculum.state['stage']].get('examples_per_cycle',curriculum.state['examples_per_cycle']),'episodes':EPISODES_PER_AGENT},pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
         except Exception as error:
             with lock:
                 for session in observers.sessions.values():
