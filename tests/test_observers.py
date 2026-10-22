@@ -172,3 +172,13 @@ def test_angled_transfer_and_spawn_start_outside_target_head(view):
     assert 'run tp Xonosnet' in transfer and 'facing entity LabAI0 eyes' in transfer
     assert transfer!='tp Xonosnet LabAI0'
     assert ' positioned ' in spawn and 'run summon minecraft:item_display' in spawn
+
+
+def test_curriculum_stage_header_matches_dashboard(tmp_path):
+    commands=[];o=Observers(tmp_path/'hud',commands.append,lambda:100,settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':{'connected':True,'last_seen':100,'entity_id':1}},True,'teacher',progress_context={'stage':25,'stages':40,'stage_name':'Harvest four logs'})
+    assert any('Stage 25 of 40 | Harvest four logs' in c for c in commands)
+    assert 'bossbar set lab:observer_xonosnet_stage value 60' in commands
+    o.stop('Xonosnet',['Xonosnet'])
+    assert 'bossbar remove lab:observer_xonosnet_stage' in commands

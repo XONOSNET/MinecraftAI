@@ -64,7 +64,7 @@ class Observers:
         for dimension in DIMENSIONS:self.command(f'execute in {dimension} run kill @e[tag={camera}]')
         s.update(camera_created=False,attached=False,attach_ready_at=None)
     def clear_hud(self,s):
-        for suffix in ('task','state'):
+        for suffix in ('stage','task','state'):
             self.command(f"bossbar remove lab:observer_{s['player'].lower()}_{suffix}")
         s.pop('hud_ready',None);s.pop('hud_at',None)
     def update_hud(self,s,agent,mode):
@@ -113,15 +113,18 @@ class Observers:
             progress=round(job.get('percent',0))
         if mode=='paused' and job.get('status') not in ('running','cancelling'):lines['task']=f"{s['target']} | Paused";lines['state']=activity[:95]
         if not fresh:lines['state']='Waiting for bot telemetry';progress=0
+        if context.get('stage'):
+            lines={'stage':f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
         for suffix,value in lines.items():
             key=prefix+'_'+suffix;name=json.dumps({'text':value,'color':'aqua' if suffix=='task' else 'white'})
             if not s.get('hud_ready'):
                 self.command(f'bossbar remove {key}')
                 self.command(f'bossbar add {key} {name}')
-                self.command(f'bossbar set {key} color '+('blue' if suffix=='task' else 'green'))
+                self.command(f'bossbar set {key} color '+('yellow' if suffix=='stage' else 'blue' if suffix=='task' else 'green'))
                 self.command(f'bossbar set {key} max 100')
             self.command(f'bossbar set {key} name {name}')
-            self.command(f'bossbar set {key} value {progress}')
+            value=round(100*(context['stage']-1)/context['stages']) if suffix=='stage' else progress
+            self.command(f'bossbar set {key} value {value}')
             self.command(f'bossbar set {key} players {owner}')
         s['hud_ready']=True
     def update_roster(self,online,agents,mode):

@@ -639,7 +639,7 @@ def observer_worker():
     while not shutting_down:
         try:
             with lock:
-                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,progress_context={'job':training_jobs.snapshot(),'phase':curriculum.state.get('phase'),'examples':curriculum.state.get('collected',0),'target':STAGES[curriculum.state['stage']].get('examples_per_cycle',curriculum.state['examples_per_cycle']),'episodes':EPISODES_PER_AGENT},pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
+                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,progress_context={'stage':curriculum.state['stage']+1,'stages':len(STAGES),'stage_name':STAGES[curriculum.state['stage']]['name'],'job':training_jobs.snapshot(),'phase':curriculum.state.get('phase'),'examples':curriculum.state.get('collected',0),'target':STAGES[curriculum.state['stage']].get('examples_per_cycle',curriculum.state['examples_per_cycle']),'episodes':EPISODES_PER_AGENT},pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
         except Exception as error:
             with lock:
                 for session in observers.sessions.values():
