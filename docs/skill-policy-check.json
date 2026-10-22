@@ -1,0 +1,25 @@
+{
+  "training": {
+    "skill": "traversal",
+    "version": "checkpoints\\skills\\traversal.pt",
+    "samples": 667,
+    "seconds": 0.3588528633117676,
+    "loss_start": 7.529353618621826,
+    "loss_end": 0.00026271413662470877,
+    "parameters": 11527,
+    "finished_at": 1792628552.377713
+  },
+  "navigation_checkpoint_unchanged": true,
+  "student_result": {
+    "stage": 4,
+    "name": "Single-block hurdles",
+    "run": "skilltest-4-1792628552",
+    "driver": "student",
+    "result": {
+      "run": "skilltest-4-1792628552",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 31.733333333333334
+    }
+  }
+}

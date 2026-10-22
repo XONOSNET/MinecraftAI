@@ -1,0 +1,516 @@
+{
+  "teacher_references": [
+    {
+      "stage": 4,
+      "name": "Single-block hurdles",
+      "run": "practice-4-1792628057",
+      "driver": "teacher",
+      "result": {
+        "run": "practice-4-1792628057",
+        "episodes": 15,
+        "successes": 15,
+        "mean_steps": 44.46666666666667
+      }
+    },
+    {
+      "stage": 6,
+      "name": "Avoid water hazards",
+      "run": "practice-6-1792628093",
+      "driver": "teacher",
+      "result": {
+        "run": "practice-6-1792628093",
+        "episodes": 15,
+        "successes": 15,
+        "mean_steps": 47.93333333333333
+      }
+    },
+    {
+      "stage": 8,
+      "name": "Explore new ground",
+      "run": "practice-8-1792628425",
+      "driver": "teacher",
+      "result": {
+        "run": "practice-8-1792628425",
+        "episodes": 15,
+        "successes": 13,
+        "mean_steps": 46.266666666666666
+      }
+    },
+    {
+      "stage": 10,
+      "name": "Harvest and collect a log",
+      "run": "practice-10-1792628206",
+      "driver": "teacher",
+      "result": {
+        "run": "practice-10-1792628206",
+        "episodes": 15,
+        "successes": 15,
+        "mean_steps": 44.13333333333333
+      }
+    },
+    {
+      "stage": 12,
+      "name": "Eat when hungry",
+      "run": "practice-12-1792628264",
+      "driver": "teacher",
+      "result": {
+        "run": "practice-12-1792628264",
+        "episodes": 15,
+        "successes": 15,
+        "mean_steps": 3.6666666666666665
+      }
+    },
+    {
+      "stage": 14,
+      "name": "Find overhead shelter",
+      "run": "practice-14-1792628298",
+      "driver": "teacher",
+      "result": {
+        "run": "practice-14-1792628298",
+        "episodes": 15,
+        "successes": 15,
+        "mean_steps": 30.8
+      }
+    },
+    {
+      "stage": 5,
+      "name": "Repeated hurdles",
+      "run": "practice-5-1792628820",
+      "driver": "teacher",
+      "result": {
+        "run": "practice-5-1792628820",
+        "episodes": 15,
+        "successes": 15,
+        "mean_steps": 34.13333333333333
+      }
+    },
+    {
+      "stage": 7,
+      "name": "Avoid magma hazards",
+      "run": "practice-7-1792628851",
+      "driver": "teacher",
+      "result": {
+        "run": "practice-7-1792628851",
+        "episodes": 15,
+        "successes": 15,
+        "mean_steps": 36.93333333333333
+      }
+    },
+    {
+      "stage": 9,
+      "name": "Explore a larger area",
+      "run": "practice-9-1792628883",
+      "driver": "teacher",
+      "result": {
+        "run": "practice-9-1792628883",
+        "episodes": 15,
+        "successes": 15,
+        "mean_steps": 32.86666666666667
+      }
+    },
+    {
+      "stage": 11,
+      "name": "Harvest and collect three logs",
+      "run": "practice-11-1792629153",
+      "driver": "teacher",
+      "result": {
+        "run": "practice-11-1792629153",
+        "episodes": 15,
+        "successes": 15,
+        "mean_steps": 55.53333333333333
+      }
+    },
+    {
+      "stage": 13,
+      "name": "Recover from severe hunger",
+      "run": "practice-13-1792629254",
+      "driver": "teacher",
+      "result": {
+        "run": "practice-13-1792629254",
+        "episodes": 15,
+        "successes": 15,
+        "mean_steps": 5.0
+      }
+    },
+    {
+      "stage": 15,
+      "name": "Seek shelter from farther away",
+      "run": "practice-15-1792629298",
+      "driver": "teacher",
+      "result": {
+        "run": "practice-15-1792629298",
+        "episodes": 15,
+        "successes": 15,
+        "mean_steps": 25.8
+      }
+    }
+  ],
+  "neural_policy_checks": [
+    {
+      "training": {
+        "skill": "traversal",
+        "version": "checkpoints\\skills\\traversal.pt",
+        "samples": 667,
+        "seconds": 0.3588528633117676,
+        "loss_start": 7.529353618621826,
+        "loss_end": 0.00026271413662470877,
+        "parameters": 11527,
+        "finished_at": 1792628552.377713
+      },
+      "navigation_checkpoint_unchanged": true,
+      "student_result": {
+        "stage": 4,
+        "name": "Single-block hurdles",
+        "run": "skilltest-4-1792628552",
+        "driver": "student",
+        "result": {
+          "run": "skilltest-4-1792628552",
+          "episodes": 15,
+          "successes": 15,
+          "mean_steps": 31.733333333333334
+        }
+      }
+    },
+    {
+      "training": {
+        "skill": "nutrition",
+        "version": "checkpoints\\skills\\nutrition.pt",
+        "samples": 130,
+        "seconds": 0.11094331741333008,
+        "loss_start": 54.752197265625,
+        "loss_end": 0.309948205947876,
+        "parameters": 11527,
+        "finished_at": 1792629326.651469
+      },
+      "navigation_checkpoint_unchanged": true,
+      "student_result": {
+        "stage": 13,
+        "name": "Recover from severe hunger",
+        "run": "skilltest-13-1792629326",
+        "driver": "student",
+        "result": {
+          "run": "skilltest-13-1792629326",
+          "episodes": 15,
+          "successes": 15,
+          "mean_steps": 5.0
+        }
+      }
+    }
+  ],
+  "python_tests_passed": 33,
+  "node_tests_passed": 9,
+  "scope": "Bounded survival foundations; teacher references do not establish learned mastery.",
+  "fixes": [
+    "Local lighting and hostile cleanup protect controlled arenas",
+    "Yaw conversion matches installed Mineflayer",
+    "Practice bounds match physical walls",
+    "Near-foot probes detect close barriers",
+    "Exploration avoids wall-turn oscillation",
+    "Three-log targets are vertical trees with reachable drops",
+    "Water fixtures have sealed supporting floors",
+    "Completed tests stop before resetting an extra episode"
+  ],
+  "final_runtime": {
+    "curriculum": {
+      "enabled": true,
+      "phase": "collecting",
+      "stage": 1,
+      "cycle": 15,
+      "streak": 0,
+      "history": [
+        {
+          "cycle": 2,
+          "stage": 0,
+          "baseline": 1.0,
+          "score": 1.0,
+          "accepted": true,
+          "time": 1792627211.3513181
+        },
+        {
+          "cycle": 4,
+          "stage": 0,
+          "baseline": 1.0,
+          "score": 1.0,
+          "accepted": true,
+          "time": 1792627403.6458838
+        },
+        {
+          "cycle": 5,
+          "stage": 1,
+          "baseline": 1.0,
+          "score": 0.8666666666666667,
+          "accepted": false,
+          "time": 1792627529.865214
+        },
+        {
+          "cycle": 6,
+          "stage": 1,
+          "baseline": 0.8666666666666667,
+          "score": 0.06666666666666667,
+          "accepted": false,
+          "time": 1792627655.0516388
+        },
+        {
+          "cycle": 7,
+          "stage": 1,
+          "baseline": 0.26666666666666666,
+          "score": 0.26666666666666666,
+          "accepted": true,
+          "time": 1792627781.2411938
+        },
+        {
+          "cycle": 8,
+          "stage": 1,
+          "baseline": 0.3333333333333333,
+          "score": 0.4,
+          "accepted": true,
+          "time": 1792627910.4290445
+        }
+      ],
+      "message": "Collecting fresh examples for Longer routes.",
+      "max_cycles": 48,
+      "max_hours": 6,
+      "examples_per_cycle": 1500,
+      "threshold": 0.9,
+      "restore_pending": false,
+      "session_cycles": 1,
+      "started_at": 1792629435.236897,
+      "phase_at": 1792629455.2668633,
+      "seed": 1507964,
+      "run": "auto-15-baseline-1792629442254364600",
+      "baseline": 1.0,
+      "collected_start": 0,
+      "collected": 1162,
+      "catalog_version": 2,
+      "champion_skill": "navigation",
+      "stages": [
+        {
+          "name": "Short routes",
+          "min_distance": 3,
+          "max_distance": 7,
+          "yaw": 0.6
+        },
+        {
+          "name": "Longer routes",
+          "min_distance": 7,
+          "max_distance": 14,
+          "yaw": 1.5
+        },
+        {
+          "name": "Full turns",
+          "min_distance": 10,
+          "max_distance": 22,
+          "yaw": 3.141593
+        },
+        {
+          "name": "Long routes and full turns",
+          "min_distance": 20,
+          "max_distance": 30,
+          "yaw": 3.141593
+        },
+        {
+          "name": "Single-block hurdles",
+          "skill": "traversal",
+          "task": "jump",
+          "difficulty": 1,
+          "threshold": 0.8
+        },
+        {
+          "name": "Repeated hurdles",
+          "skill": "traversal",
+          "task": "jump",
+          "difficulty": 2,
+          "threshold": 0.8
+        },
+        {
+          "name": "Avoid water hazards",
+          "skill": "hazards",
+          "task": "hazard",
+          "difficulty": 1,
+          "threshold": 0.8
+        },
+        {
+          "name": "Avoid magma hazards",
+          "skill": "hazards",
+          "task": "hazard",
+          "difficulty": 2,
+          "threshold": 0.8
+        },
+        {
+          "name": "Explore new ground",
+          "skill": "exploration",
+          "task": "explore",
+          "difficulty": 1,
+          "threshold": 0.8
+        },
+        {
+          "name": "Explore a larger area",
+          "skill": "exploration",
+          "task": "explore",
+          "difficulty": 2,
+          "threshold": 0.8
+        },
+        {
+          "name": "Harvest and collect a log",
+          "skill": "gathering",
+          "task": "gather",
+          "difficulty": 1,
+          "threshold": 0.8
+        },
+        {
+          "name": "Harvest and collect three logs",
+          "skill": "gathering",
+          "task": "gather",
+          "difficulty": 2,
+          "threshold": 0.8
+        },
+        {
+          "name": "Eat when hungry",
+          "skill": "nutrition",
+          "task": "eat",
+          "difficulty": 1,
+          "threshold": 0.8,
+          "examples_per_cycle": 150
+        },
+        {
+          "name": "Recover from severe hunger",
+          "skill": "nutrition",
+          "task": "eat",
+          "difficulty": 2,
+          "threshold": 0.8,
+          "examples_per_cycle": 150
+        },
+        {
+          "name": "Find overhead shelter",
+          "skill": "shelter",
+          "task": "shelter",
+          "difficulty": 1,
+          "threshold": 0.8
+        },
+        {
+          "name": "Seek shelter from farther away",
+          "skill": "shelter",
+          "task": "shelter",
+          "difficulty": 2,
+          "threshold": 0.8
+        }
+      ],
+      "stage_name": "Longer routes",
+      "skill": "navigation",
+      "active_examples": 1500,
+      "active_threshold": 0.9
+    },
+    "skills": [
+      {
+        "id": "navigation",
+        "status": "active",
+        "stages": [
+          "Short routes",
+          "Longer routes",
+          "Full turns",
+          "Long routes and full turns"
+        ],
+        "samples": 19503,
+        "best_score": 1.0,
+        "parameters": 9604
+      },
+      {
+        "id": "traversal",
+        "status": "locked",
+        "stages": [
+          "Single-block hurdles",
+          "Repeated hurdles"
+        ],
+        "samples": 3124,
+        "best_score": null,
+        "parameters": 11527
+      },
+      {
+        "id": "hazards",
+        "status": "locked",
+        "stages": [
+          "Avoid water hazards",
+          "Avoid magma hazards"
+        ],
+        "samples": 1762,
+        "best_score": null,
+        "parameters": 11527
+      },
+      {
+        "id": "exploration",
+        "status": "locked",
+        "stages": [
+          "Explore new ground",
+          "Explore a larger area"
+        ],
+        "samples": 1700,
+        "best_score": null,
+        "parameters": 11527
+      },
+      {
+        "id": "gathering",
+        "status": "locked",
+        "stages": [
+          "Harvest and collect a log",
+          "Harvest and collect three logs"
+        ],
+        "samples": 3284,
+        "best_score": null,
+        "parameters": 11527
+      },
+      {
+        "id": "nutrition",
+        "status": "locked",
+        "stages": [
+          "Eat when hungry",
+          "Recover from severe hunger"
+        ],
+        "samples": 130,
+        "best_score": null,
+        "parameters": 11527
+      },
+      {
+        "id": "shelter",
+        "status": "locked",
+        "stages": [
+          "Find overhead shelter",
+          "Seek shelter from farther away"
+        ],
+        "samples": 849,
+        "best_score": null,
+        "parameters": 11527
+      }
+    ],
+    "server": {
+      "phase": "online",
+      "busy": false,
+      "desired_running": true,
+      "message": "Minecraft is ready. Bots and LAN players can connect.",
+      "action": null,
+      "error": null,
+      "alive": true,
+      "ready": true,
+      "version": "Paper 1.21.4",
+      "java_client": "26.3 (ViaVersion 5.12.1)",
+      "pid": 17216,
+      "uptime_seconds": 120.34488201141357,
+      "bots_online": 5,
+      "ram_mib": 1504.4296875,
+      "tps": 20.0,
+      "mspt": 2.2,
+      "timing_sample_at": 1792629500.5844312,
+      "players_online": 5,
+      "player_limit": 12,
+      "players_updated_at": 1792629516.6307402
+    },
+    "navigation_last_training": {
+      "version": "1792627891365369900",
+      "samples": 17851,
+      "seconds": 9.917688369750977,
+      "loss_start": 0.02307383343577385,
+      "loss_end": 0.0029618602711707354,
+      "parameters": 9604,
+      "finished_at": 1792627891.3724627
+    }
+  }
+}

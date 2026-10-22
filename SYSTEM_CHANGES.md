@@ -18,3 +18,6 @@ LAN enabled through config/lan.json and a bounded subnet-restricted TCP bridge. 
 
 
 Added local autonomous curriculum scheduling, authenticated start/pause endpoints, dashboard progress/results, persistent curriculum state and a protected champion checkpoint. Reused existing dependencies, arenas and CPU training limits. No cloud service, recurring Codex task, spending, OS scheduler, or power-setting changes. Restarted the lab to deploy the scheduler; world, demonstrations and operator privileges preserved.
+
+
+Broader curriculum implementation adds no dependency or external service. Added independent skill checkpoints/replays and config/curriculum-permissions.json for visible practice oak-log harvesting and bread consumption only. General config/permissions.json remains unchanged. Extended owned practice areas to X=320/480, Y=180 floor, Z=-6..54; per-bot reset regions do not touch human inventories or external builds. Changed practice floors to sea lanterns and remove scoped hostile mobs/phantoms to prevent creeper damage from invalidating experiments; no global gamerule, difficulty, weather or user game-mode changes. Fixed teleport yaw conversion and practice bounds. Restarted the existing lab to deploy controller/backend changes, preserving navigation data/history, world and operator privileges.

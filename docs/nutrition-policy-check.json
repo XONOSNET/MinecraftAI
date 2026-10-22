@@ -1,0 +1,25 @@
+{
+  "training": {
+    "skill": "nutrition",
+    "version": "checkpoints\\skills\\nutrition.pt",
+    "samples": 130,
+    "seconds": 0.11094331741333008,
+    "loss_start": 54.752197265625,
+    "loss_end": 0.309948205947876,
+    "parameters": 11527,
+    "finished_at": 1792629326.651469
+  },
+  "navigation_checkpoint_unchanged": true,
+  "student_result": {
+    "stage": 13,
+    "name": "Recover from severe hunger",
+    "run": "skilltest-13-1792629326",
+    "driver": "student",
+    "result": {
+      "run": "skilltest-13-1792629326",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 5.0
+    }
+  }
+}

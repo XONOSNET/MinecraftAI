@@ -14,7 +14,9 @@ from .lan import LanBridge
 from .server_control import ServerControl
 from .minecraft_status import query_status
 from .admin import build_admin_command
-from .curriculum import Curriculum, sample_route, route_seed
+from .curriculum import Curriculum, STAGES, sample_route, route_seed
+from .skills import SkillBank, SKILL_INPUTS, SKILL_ACTIONS
+from .tasks import task_spec, arena_commands, reset_commands, task_success, SKILLS, minecraft_yaw
 import copy
 import re
 ROOT=Path(__file__).resolve().parents[1]
@@ -50,7 +52,14 @@ server_ready_seen=False
 last_timing_request=None
 player_status={'players':{},'sampled_at':None}
 training_jobs=TrainingJobs()
+skill_bank=SkillBank()
+assigned_tasks={}
+pending_tasks={}
+practice=None
 last_training_result=json.loads(Path('data/training-result.json').read_text(encoding='utf-8')) if Path('data/training-result.json').exists() else None
+training_results={}
+for row in db.execute("SELECT payload FROM events WHERE event='training' ORDER BY id DESC"):
+    result=json.loads(row[0]);training_results.setdefault(result.get('skill','navigation'),result)
 if Path('data/demonstrations.npz').exists():
     demonstrations=np.load('data/demonstrations.npz')
     samples.extend(zip(demonstrations['obs'].tolist(),demonstrations['actions'].tolist()))
@@ -59,68 +68,80 @@ if Path('data/demonstrations.npz').exists():
 def event(name,payload):
     db.execute('INSERT INTO events(time,event,payload) VALUES(?,?,?)',(time.time(),name,json.dumps(payload)));db.commit()
 
+def active_skill():
+    if practice:return STAGES[practice['stage']]['skill']
+    return STAGES[curriculum.state['stage']].get('skill','navigation') if curriculum and curriculum.state['enabled'] else 'navigation'
+
+def learning_context(skill=None):
+    skill=skill or active_skill()
+    if skill=='navigation':return model,opt,samples
+    entry=skill_bank.get(skill,model);return entry['model'],entry['optimizer'],entry['samples']
+
 def start_training(background=False):
     global mode,training
     with lock:
         if server_control.snapshot()['busy']:raise HTTPException(409,'A server operation is in progress. Wait for Minecraft to be ready.')
         if training_jobs.running:raise HTTPException(409,'Training is already running. Watch the progress panel.')
-        if len(samples)<100:raise HTTPException(400,'Collect at least 100 examples before training. Click Collect examples first.')
-        mode='paused';training=True
-        observations=list(samples)
-        initial_model=copy.deepcopy(model.state_dict())
-        initial_optimizer=copy.deepcopy(opt.state_dict())
-        width=model.net[0].out_features
-        event('training_started',{'samples':len(observations),'epochs':100})
-
+        skill=active_skill();policy,optimizer,replay=learning_context(skill)
+        if len(replay)<100:raise HTTPException(400,'Collect at least 100 examples before training.')
+        mode='paused';training=True;observations=list(replay)
+        initial_model=copy.deepcopy(policy.state_dict());initial_optimizer=copy.deepcopy(optimizer.state_dict())
+        width=policy.net[0].out_features;inputs=policy.net[0].in_features;actions=policy.net[2].out_features
+        event('training_started',{'skill':skill,'samples':len(observations),'epochs':100})
         def work(progress,cancel):
             global model,opt,training,last_training_result
             try:
                 torch.set_num_threads(4)
-                candidate=Policy(width);candidate.load_state_dict(initial_model)
-                candidate_optimizer=torch.optim.Adam(candidate.parameters(),lr=.003)
-                candidate_optimizer.load_state_dict(initial_optimizer)
-                x=torch.tensor(np.array([s[0] for s in observations]),dtype=torch.float32)
-                y=torch.tensor([s[1] for s in observations])
-                temporary=Path('data/demonstrations.tmp')
-                with temporary.open('wb') as f:np.savez_compressed(f,obs=x.numpy(),actions=y.numpy())
-                os.replace(temporary,'data/demonstrations.npz')
+                candidate=Policy(width,inputs=inputs,actions=actions);candidate.load_state_dict(initial_model)
+                candidate_optimizer=torch.optim.Adam(candidate.parameters(),lr=.003);candidate_optimizer.load_state_dict(initial_optimizer)
+                x=torch.tensor(np.array([s[0] for s in observations]),dtype=torch.float32);y=torch.tensor([s[1] for s in observations])
+                if skill=='navigation':
+                    temporary=Path('data/demonstrations.tmp')
+                    with temporary.open('wb') as f:np.savez_compressed(f,obs=x.numpy(),actions=y.numpy())
+                    os.replace(temporary,'data/demonstrations.npz')
+                else:skill_bank.save_replay(skill)
+                counts=torch.bincount(y,minlength=actions).float().clamp(min=1)
+                weights=(counts.sum()/counts).sqrt().clamp(max=15);weights=weights/weights.mean()
                 losses=[];t=time.time()
                 for epoch in range(100):
                     for ix in torch.randperm(len(y)).split(128):
                         if cancel.is_set() or shutting_down:raise TrainingCancelled()
-                        loss=torch.nn.functional.cross_entropy(candidate(x[ix]),y[ix])
+                        loss=torch.nn.functional.cross_entropy(candidate(x[ix]),y[ix],weight=weights if skill!='navigation' else None)
                         candidate_optimizer.zero_grad();loss.backward();candidate_optimizer.step()
                     losses.append(float(loss.detach()))
-                    progress(phase='learning',epoch=epoch+1,epochs=100,percent=round((epoch+1)*.95,1),
-                             loss=losses[-1],message=f'Learning from {len(y):,} examples. Training pass {epoch+1} of 100.')
+                    progress(phase='learning',epoch=epoch+1,epochs=100,percent=round((epoch+1)*.95,1),loss=losses[-1],
+                             message=f'{skill.title()}: learning from {len(y):,} examples. Pass {epoch+1} of 100.')
                 if cancel.is_set() or shutting_down:raise TrainingCancelled()
                 training_jobs.begin_saving()
                 with lock:
-                    previous_model,previous_optimizer=model,opt
-                    model,opt=candidate,candidate_optimizer
-                    try:version=checkpoint()
-                    except Exception:
-                        model,opt=previous_model,previous_optimizer
-                        raise
-                    result={'version':version,'samples':len(y),'seconds':time.time()-t,
-                            'loss_start':losses[0],'loss_end':losses[-1],'parameters':model.parameters_count,
-                            'finished_at':time.time()}
+                    if skill=='navigation':
+                        previous_model,previous_optimizer=model,opt;model,opt=candidate,candidate_optimizer
+                        try:version=checkpoint()
+                        except Exception:model,opt=previous_model,previous_optimizer;raise
+                    else:
+                        entry=skill_bank.entries[skill];previous_model,previous_optimizer=entry['model'],entry['optimizer']
+                        entry.update(model=candidate,optimizer=candidate_optimizer)
+                        try:version=skill_bank.save(skill)
+                        except Exception:entry.update(model=previous_model,optimizer=previous_optimizer);raise
+                    result={'skill':skill,'version':version,'samples':len(y),'seconds':time.time()-t,'loss_start':losses[0],
+                            'loss_end':losses[-1],'parameters':candidate.parameters_count,'finished_at':time.time()}
                     Path('data/training-result.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
-                    last_training_result=result;event('training',result)
+                    last_training_result=result;training_results[skill]=result;event('training',result)
                 return result
             except TrainingCancelled:
-                with lock:event('training_cancelled',{})
+                with lock:event('training_cancelled',{'skill':skill})
                 raise
             except Exception as error:
-                with lock:event('training_failed',{'error':str(error)})
+                with lock:event('training_failed',{'error':str(error),'skill':skill})
                 raise
             finally:
                 with lock:training=False
-        job=training_jobs.start(work,samples=len(observations),epochs=100,epoch=0)
+        job=training_jobs.start(work,skill=skill,samples=len(observations),epochs=100,epoch=0)
     if background:return {'accepted':True,'job':job}
     finished=training_jobs.wait()
     if finished['status']=='completed':return finished['result']
     raise HTTPException(409 if finished['status']=='cancelled' else 500,finished.get('error',finished['message']))
+
 def console(command):
     if not server or server.poll() is not None:raise RuntimeError('Minecraft server is not running')
     server.stdin.write(command+'\n');server.stdin.flush()
@@ -173,6 +194,8 @@ def prepare_server_operation():
         training_jobs.cancel();training_jobs.wait()
     with lock:
         checkpoint()
+        for skill in skill_bank.entries:
+            skill_bank.save(skill);skill_bank.save_replay(skill)
         if samples:
             with Path('data/demonstrations.tmp').open('wb') as stream:
                 np.savez_compressed(stream,obs=np.asarray([s[0] for s in samples],dtype=np.float32),actions=np.asarray([s[1] for s in samples]))
@@ -247,6 +270,7 @@ def backup():
 def watchdog():
     global system_cpu,mode,last_timing_request,player_status
     last=time.time()
+    last_practice_sweep=0
     retries=0
     psutil.cpu_percent()
     while not shutting_down:
@@ -262,6 +286,9 @@ def watchdog():
             if psutil.virtual_memory().percent>90:
                 globals()['mode']='paused';event('memory_pause',{})
             lifecycle=server_control.snapshot()
+            if lifecycle['ready'] and not lifecycle['busy'] and (curriculum.state['enabled'] or practice) and time.time()-last_practice_sweep>10:
+                for center in (160,240,320,480):console(f'kill @e[type=minecraft:phantom,x={center-24},y=175,z=-24,dx=48,dy=50,dz=80]')
+                last_practice_sweep=time.time()
             if server and server.poll() is not None and lifecycle['desired_running'] and not lifecycle['busy'] and retries<3:
                 mode='paused';retries+=1
                 try:server_control.request('restart');event('server_recovery',{'attempt':retries})
@@ -307,7 +334,7 @@ def status():
         metrics=db.execute('''WITH ranked AS (SELECT *,row_number() OVER(PARTITION BY run,agent ORDER BY id) AS sequence FROM episodes)
             SELECT run,count(*),sum(success),avg(steps) FROM ranked WHERE sequence<=3 OR run LIKE '%teacher%' GROUP BY run''').fetchall()
         activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error') ORDER BY id DESC LIMIT 20")]
-        return {'mode':mode,'run':run,'agents':agents,'parameters':model.parameters_count,'samples':len(samples),'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':last_training_result,'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0],'curriculum':curriculum.snapshot(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
+        return {'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:
@@ -329,50 +356,72 @@ def assignment(d:dict):
         center=80 if mode in ('untrained','evaluate','random','heuristic') else 0
         start=[center+rng.uniform(-10,10),181.1,rng.uniform(-10,10)]
         theta=rng.uniform(-math.pi,math.pi);goal=[center+rng.uniform(-10,10),181.1,rng.uniform(-10,10)]
-        if curriculum.state['enabled'] and mode in ('teacher','evaluate'):
+        if (curriculum.state['enabled'] and mode in ('teacher','evaluate')) or (practice and mode in ('heuristic','evaluate')):
             center=240 if mode=='evaluate' else 160
-            seed=route_seed(curriculum.state['seed'],d['index'],d['episode'],mode=='evaluate')
+            seed=route_seed(practice['seed'] if practice else curriculum.state['seed'],d['index'],d['episode'],mode in ('evaluate','heuristic'))
+            stage=STAGES[practice['stage'] if practice else curriculum.state['stage']]
+            if stage.get('skill','navigation')!='navigation':
+                task=task_spec(stage,seed,d['index'],mode in ('evaluate','heuristic'));pending_tasks[d['agent']]={'run':run,'task':task}
+                return {'mode':mode,'run':run,'start':task['start'],'goal':task['goal'],'yaw':task['yaw'],'task':task}
             start,goal,theta=sample_route(curriculum.state['stage'],seed,center)
         return {'mode':mode,'run':run,'start':start,'goal':goal,'yaw':theta}
 @app.post('/reset',dependencies=[Depends(auth)])
 def reset(d:dict):
-    import re
-    if not re.fullmatch(r'LabAI[0-4]',d['agent']):raise HTTPException(400,'Unknown agent')
-    p=d['position'];console(f"tp {d['agent']} {p[0]} {p[1]} {p[2]} {(-d['yaw']*180/math.pi)%360} 0")
-    console(f"effect give {d['agent']} minecraft:saturation 2 5 true")
-    return {'ok':True}
+    with lock:
+        if not re.fullmatch(r'LabAI[0-4]',d['agent']):raise HTTPException(400,'Unknown agent')
+        task=pending_tasks.get(d['agent'])
+        if task and task['run']==run and d.get('run')==run and active_skill()!='navigation':
+            assigned_tasks[d['agent']]=copy.deepcopy(task)
+            for command in reset_commands(task['task'],d['agent']):console(command)
+            p=task['task']['start'];yaw=task['task']['yaw']
+        else:p=d['position'];yaw=d['yaw']
+        console(f"tp {d['agent']} {p[0]} {p[1]} {p[2]} {minecraft_yaw(yaw)} 0")
+        if active_skill()=='navigation':console(f"effect give {d['agent']} minecraft:saturation 2 5 true")
+        return {'ok':True}
 @app.post('/step',dependencies=[Depends(auth)])
 def step(d:dict):
     global example_counter
     with lock:
         torch.set_num_threads(1)
-        if len(d['obs'])!=70 or not np.isfinite(d['obs']).all():raise HTTPException(400,'Invalid observation')
+        if d.get('run')!=run or mode=='paused':return {'action':4,'inference_ms':0}
+        skill=active_skill();policy,optimizer,replay=learning_context(skill)
+        if len(d['obs'])!=policy.net[0].in_features or not np.isfinite(d['obs']).all():raise HTTPException(400,'Invalid observation')
         t=time.perf_counter()
-        with torch.no_grad():action=int(model(torch.tensor(d['obs'],dtype=torch.float32)).argmax())
+        with torch.no_grad():action=int(policy(torch.tensor(d['obs'],dtype=torch.float32)).argmax())
         latency=(time.perf_counter()-t)*1000
-        if mode=='teacher':samples.append((d['obs'],d['teacher']));example_counter+=1;action=d['teacher']
+        if mode=='teacher' or (practice and mode=='heuristic'):
+            if not isinstance(d.get('teacher'),int) or not 0<=d['teacher']<policy.net[2].out_features:raise HTTPException(400,'Invalid teacher action')
+            replay.append((d['obs'],d['teacher']));example_counter+=1;action=d['teacher']
+            if skill!='navigation':skill_bank.entries[skill]['count']+=1
         elif mode=='heuristic':action=d['teacher']
         elif mode=='random':action=random.randrange(4)
         elif mode=='paused':action=4
         agents[d['agent']]={k:d[k] for k in ('position','health','food','goal','steps','reward','perception_ms')}
         agents[d['agent']].update(connected=True,action=action,inference_ms=latency,last_seen=time.time(),run=run)
         agents[d['agent']]['rays']=d['obs'][:64]
+        agents[d['agent']]['skill']=skill;agents[d['agent']]['metrics']=d.get('metrics')
         db.execute('INSERT OR IGNORE INTO agents VALUES(?,?,?)',(d['agent'],json.dumps({'personality':json.loads(Path('config/personality.json').read_text()),'generation':0}), '{}'))
         db.execute('UPDATE agents SET state=? WHERE id=?',(json.dumps(agents[d['agent']]),d['agent']))
         for h in d['hits']:
             p=h['position'];db.execute('INSERT OR REPLACE INTO memory VALUES(?,?,?,?,?,?)',(d['agent'],p['x'],p['y'],p['z'],h['name'],time.time()))
-        if len(samples)%20==0:db.commit()
+        if len(replay)%20==0:db.commit()
         # Append numeric trajectories as compact float32 rows, including action/reward.
-        trajectory=Path('data/transitions.f32')
+        trajectory=Path('data/transitions.f32') if skill=='navigation' else Path('data/skills')/(skill+'-transitions.f32')
         if trajectory.exists() and trajectory.stat().st_size>100_000_000:
-            os.replace(trajectory,'data/transitions-previous.f32')
+            os.replace(trajectory,trajectory.with_name(trajectory.stem+'-previous.f32'))
         with open(trajectory,'ab') as f:np.asarray(d['obs']+[action,d['reward']],dtype=np.float32).tofile(f)
-        if mode=='teacher' and len(samples)%100==0:
+        if (mode=='teacher' or (practice and mode=='heuristic')) and skill!='navigation' and len(replay)%100==0:skill_bank.save_replay(skill)
+        if mode=='teacher' and skill=='navigation' and len(samples)%100==0:
             np.savez_compressed('data/demonstrations.npz',obs=np.asarray([s[0] for s in samples],dtype=np.float32),actions=np.asarray([s[1] for s in samples]))
-        return {'action':action,'inference_ms':latency}
+        return {'action':action,'inference_ms':latency,'skill':skill}
 @app.post('/episode',dependencies=[Depends(auth)])
 def episode(d:dict):
     with lock:
+        if d.get('task'):
+            assigned=assigned_tasks.get(d['agent'])
+            if not assigned or assigned['run']!=d['run']:return {'ok':True,'ignored':'stale task'}
+            metrics=d.get('metrics',{});d['success']=not d.get('reason') and bool(task_success(assigned['task'],metrics))
+            event('skill_episode',{'run':d['run'],'agent':d['agent'],'task':assigned['task']['kind'],'success':d['success'],'metrics':metrics})
         db.execute('INSERT INTO episodes(run,agent,success,steps,distance,time) VALUES(?,?,?,?,?,?)',(d['run'],d['agent'],d['success'],d['steps'],d['distance'],time.time()));db.commit()
         return {'ok':True}
 @app.post('/agent-disconnected',dependencies=[Depends(auth)])
@@ -393,7 +442,7 @@ def admin_action(d:dict):
         return {'accepted':True,'command':command,'message':'Command sent to Minecraft. Player status updates automatically.'}
 @app.post('/control/{command}',dependencies=[Depends(auth)])
 def control(command:str,d:dict={}):
-    global mode,run,training,model,opt,shutting_down
+    global mode,run,training,model,opt,shutting_down,practice
     with lock:
         if curriculum.state.get('restore_pending') and not curriculum.state['enabled'] and command in ('train','load','new-policy','teacher','evaluate','random','heuristic','untrained'):
             raise HTTPException(409,'Restoring the saved champion model. Try again shortly.')
@@ -422,7 +471,11 @@ def control(command:str,d:dict={}):
         if training_jobs.running and command not in ('shutdown',):
             raise HTTPException(409,'Training is in progress. Wait for it to finish or cancel training first.')
         if command in ('teacher','evaluate','untrained','random','heuristic','paused'):
-            mode=command;run=d.get('run',command+'-'+str(int(time.time())));event('mode',{'mode':mode,'run':run});return {'run':run}
+            if command=='evaluate' and practice:
+                practice['driver']='student';practice['seed']=time.time_ns();mode='evaluate';run='skilltest-'+str(practice['stage'])+'-'+str(int(time.time()))
+            else:
+                practice=None;mode=command;run=d.get('run',command+'-'+str(int(time.time())))
+            event('mode',{'mode':mode,'run':run});return {'run':run}
         if command=='checkpoint':return {'version':checkpoint()}
         if command=='new-policy':
             checkpoint();mode='paused';torch.manual_seed(42)
@@ -444,12 +497,27 @@ def control(command:str,d:dict={}):
                 console(f'forceload add {cx-20} -20 {cx+20} 20')
             time.sleep(4)
             for cx in (0,80):
-                console(f'fill {cx-20} 180 -20 {cx+20} 180 20 minecraft:stone')
+                console(f'fill {cx-20} 180 -20 {cx+20} 180 20 minecraft:sea_lantern')
                 for z in (-20,20):console(f'fill {cx-20} 181 {z} {cx+20} 183 {z} minecraft:glass')
                 for x in (cx-20,cx+20):console(f'fill {x} 181 -20 {x} 183 20 minecraft:glass')
             return {'ok':True}
         if command=='backup':backup();return {'ok':True}
         raise HTTPException(400,'Unknown command')
+
+def skill_status():
+    result=[]
+    for skill in SKILLS:
+        stages=[(i,stage) for i,stage in enumerate(STAGES) if stage.get('skill','navigation')==skill]
+        history=[row for row in curriculum.state['history'] if STAGES[row['stage']].get('skill','navigation')==skill]
+        status='active' if active_skill()==skill and curriculum.state['enabled'] else 'unlocked' if stages[0][0]<=curriculum.state['stage'] else 'locked'
+        if all(i<curriculum.state['stage'] for i,_ in stages) or (curriculum.state['phase']=='completed' and all(i<=curriculum.state['stage'] for i,_ in stages)):status='passed'
+        if practice and STAGES[practice['stage']]['skill']==skill:status='teacher reference' if practice['driver']=='teacher' else 'neural test'
+        summary=skill_bank.summary(skill) if skill!='navigation' else {'samples':len(samples),'parameters':model.parameters_count}
+        count=summary['samples']
+        result.append({'id':skill,'status':status,'stages':[stage['name'] for _,stage in stages],
+                       'samples':count,'best_score':max((row['score'] for row in history),default=None),
+                       'parameters':summary['parameters']})
+    return result
 
 def auto_mode(value,identifier=None):
     global mode,run
@@ -457,11 +525,17 @@ def auto_mode(value,identifier=None):
     if identifier:run=identifier
 
 def auto_protect():
+    skill=active_skill();curriculum.state['champion_skill']=skill
+    if skill!='navigation':
+        skill_bank.get(skill,model);skill_bank.save(skill,champion=True);return
     payload={'model':copy.deepcopy(model.state_dict()),'optimizer':copy.deepcopy(opt.state_dict()),'width':model.net[0].out_features}
     torch.save(payload,'checkpoints/champion.tmp');os.replace('checkpoints/champion.tmp','checkpoints/champion.pt')
 
 def auto_restore():
     global model,opt
+    skill=curriculum.state.get('champion_skill','navigation')
+    if skill!='navigation':
+        skill_bank.get(skill,model);skill_bank.restore(skill);return
     if not Path('checkpoints/champion.pt').exists():return
     saved=torch.load('checkpoints/champion.pt',weights_only=True);model=Policy(saved['width']);model.load_state_dict(saved['model'])
     opt=torch.optim.Adam(model.parameters(),lr=.003);opt.load_state_dict(saved['optimizer']);checkpoint()
@@ -485,16 +559,21 @@ auto_arena={'pid':None,'phase':0,'time':0,'offset':0}
 def auto_prepare():
     if auto_arena['pid']!=server.pid:auto_arena.update(pid=server.pid,phase=0)
     if auto_arena['phase']==0:
-        for center in (160,240):console(f'forceload add {center-20} -20 {center+20} 20')
+        for center in (160,240,320,480):
+            for mob in ('creeper','zombie','skeleton','spider','witch','enderman','slime','phantom'):
+                console(f'kill @e[type=minecraft:{mob},x={center-24},y=175,z=-24,dx=48,dy=50,dz=80]')
+            console(f'forceload add {center-24} -8 {center+24} 56')
         auto_arena.update(phase=1,time=time.time());return False
     if auto_arena['phase']==1:
         if time.time()-auto_arena['time']<5:return False
         auto_arena['offset']=Path('logs/minecraft-console.log').stat().st_size
         for center in (160,240):
             console(f'fill {center-20} 181 -20 {center+20} 185 20 minecraft:air')
-            console(f'fill {center-20} 180 -20 {center+20} 180 20 minecraft:stone')
+            console(f'fill {center-20} 180 -20 {center+20} 180 20 minecraft:sea_lantern')
             for z in (-20,20):console(f'fill {center-20} 181 {z} {center+20} 183 {z} minecraft:glass')
             for x in (center-20,center+20):console(f'fill {x} 181 -20 {x} 183 20 minecraft:glass')
+        for center in (320,480):
+            for command in arena_commands(center):console(command)
         auto_arena.update(phase=2,time=time.time());return False
     if auto_arena['phase']==2:
         if time.time()-auto_arena['time']<2:return False
@@ -518,13 +597,30 @@ def curriculum_worker():
                 curriculum.pause('Autonomous training stopped: '+str(error));event('curriculum_error',{'error':str(error)})
         time.sleep(1)
 
+@app.post('/curricula/practice/{stage_index}',dependencies=[Depends(auth)])
+def practice_stage(stage_index:int,d:dict={}):
+    global practice,mode,run
+    with lock:
+        if not 4<=stage_index<len(STAGES):raise HTTPException(400,'Choose an implemented broader stage')
+        if curriculum.state['enabled'] or curriculum.state.get('restore_pending') or training_jobs.running or server_control.snapshot()['busy']:
+            raise HTTPException(409,'Pause autonomous training and wait for saving before starting a teacher demonstration.')
+        if not server_ready() or auto_arena['phase']!=3:raise HTTPException(409,'Simulation arenas are not ready. Start autonomous training once to prepare them.')
+        driver=d.get('driver','teacher')
+        if driver not in ('teacher','student'):raise HTTPException(400,'Choose teacher or student')
+        practice={'stage':stage_index,'seed':time.time_ns(),'driver':driver};mode='heuristic' if driver=='teacher' else 'evaluate'
+        run=('practice-' if driver=='teacher' else 'skilltest-')+str(stage_index)+'-'+str(int(time.time()))
+        event('mode',{'mode':mode,'run':run,'stage':STAGES[stage_index]['name'],'reference':driver=='teacher'})
+        return {'run':run,'stage':STAGES[stage_index],'message':'Teacher reference started; demonstrations are collected. This measures task feasibility, not learned performance.' if driver=='teacher' else 'Neural policy test started on fresh routes, without teacher control.'}
+
 @app.post('/autonomy/{action}',dependencies=[Depends(auth)])
 def autonomy(action:str):
+    global practice
     with lock:
         if action=='pause':return curriculum.pause()
         if action!='start':raise HTTPException(400,'Unknown autonomous training action')
         if training_jobs.running or server_control.snapshot()['busy']:raise HTTPException(409,'Wait for the current training or server operation to finish.')
         if curriculum.state.get('restore_pending'):raise HTTPException(409,'Restoring the previous model. Try again shortly.')
+        practice=None
         try:return curriculum.start()
         except ValueError as error:raise HTTPException(409,str(error))
 

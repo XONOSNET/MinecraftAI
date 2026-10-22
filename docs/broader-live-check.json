@@ -1,0 +1,194 @@
+[
+  {
+    "stage": 4,
+    "name": "Single-block hurdles",
+    "run": "practice-4-1792628057",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-4-1792628057",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 44.46666666666667
+    }
+  },
+  {
+    "stage": 6,
+    "name": "Avoid water hazards",
+    "run": "practice-6-1792628093",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-6-1792628093",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 47.93333333333333
+    }
+  },
+  {
+    "stage": 8,
+    "name": "Explore new ground",
+    "run": "practice-8-1792628133",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-8-1792628133",
+      "episodes": 15,
+      "successes": 0,
+      "mean_steps": 34.2
+    }
+  },
+  {
+    "stage": 10,
+    "name": "Harvest and collect a log",
+    "run": "practice-10-1792628206",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-10-1792628206",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 44.13333333333333
+    }
+  },
+  {
+    "stage": 12,
+    "name": "Eat when hungry",
+    "run": "practice-12-1792628264",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-12-1792628264",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 3.6666666666666665
+    }
+  },
+  {
+    "stage": 14,
+    "name": "Find overhead shelter",
+    "run": "practice-14-1792628298",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-14-1792628298",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 30.8
+    }
+  },
+  {
+    "stage": 8,
+    "name": "Explore new ground",
+    "run": "practice-8-1792628425",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-8-1792628425",
+      "episodes": 15,
+      "successes": 13,
+      "mean_steps": 46.266666666666666
+    }
+  },
+  {
+    "stage": 4,
+    "name": "Single-block hurdles",
+    "run": "skilltest-4-1792628552",
+    "driver": "student",
+    "result": {
+      "run": "skilltest-4-1792628552",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 31.733333333333334
+    }
+  },
+  {
+    "stage": 5,
+    "name": "Repeated hurdles",
+    "run": "practice-5-1792628641",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-5-1792628641",
+      "episodes": 15,
+      "successes": 8,
+      "mean_steps": 129.66666666666666
+    }
+  },
+  {
+    "stage": 5,
+    "name": "Repeated hurdles",
+    "run": "practice-5-1792628820",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-5-1792628820",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 34.13333333333333
+    }
+  },
+  {
+    "stage": 7,
+    "name": "Avoid magma hazards",
+    "run": "practice-7-1792628851",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-7-1792628851",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 36.93333333333333
+    }
+  },
+  {
+    "stage": 9,
+    "name": "Explore a larger area",
+    "run": "practice-9-1792628883",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-9-1792628883",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 32.86666666666667
+    }
+  },
+  {
+    "stage": 11,
+    "name": "Harvest and collect three logs",
+    "run": "practice-11-1792629153",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-11-1792629153",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 55.53333333333333
+    }
+  },
+  {
+    "stage": 13,
+    "name": "Recover from severe hunger",
+    "run": "practice-13-1792629254",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-13-1792629254",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 5.0
+    }
+  },
+  {
+    "stage": 15,
+    "name": "Seek shelter from farther away",
+    "run": "practice-15-1792629298",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-15-1792629298",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 25.8
+    }
+  },
+  {
+    "stage": 13,
+    "name": "Recover from severe hunger",
+    "run": "skilltest-13-1792629326",
+    "driver": "student",
+    "result": {
+      "run": "skilltest-13-1792629326",
+      "episodes": 15,
+      "successes": 15,
+      "mean_steps": 5.0
+    }
+  }
+]

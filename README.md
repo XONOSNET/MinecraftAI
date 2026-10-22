@@ -1,6 +1,6 @@
 # Minecraft Autonomous AI Evolution Laboratory
 
-Local research prototype for five neural agents in one persistent Paper survival world. First curriculum: point-goal navigation on two elevated, enclosed flat courses in that world. Normal world survival remains enabled. This is an initial learning experiment, not a complete autonomous survival player.
+Local research prototype for five neural agents in one persistent Paper survival world. Seven curriculum tracks cover navigation and bounded survival foundations in elevated practice arenas. Normal world survival remains enabled. This is an initial learning experiment, not a complete autonomous survival player.
 
 ## Run
 
@@ -12,7 +12,7 @@ From PowerShell in this directory:
 
 Dashboard: http://127.0.0.1:8000. It now guides you through **Collect examples → Train the network → Test learned behavior → Review**. Each stage explains what the bots are doing and highlights the next action. Training deliberately pauses movement; its live progress, completion notice and saved checkpoint appear on the page. No token pasting is needed in the browser: the localhost page establishes a same-site, HttpOnly session. Command-line clients still use `data/api-token`; never publish that token.
 
-Minecraft Java **1.21.4**: Multiplayer → Direct Connection → `127.0.0.1:25565`. Select/install the matching Java Edition release in the launcher first. Human client connectivity requires manual confirmation; bot connectivity is measured separately.
+Minecraft Java **26.3** clients can join via ViaVersion while Paper and bots remain on 1.21.4. Multiplayer → Direct Connection → `127.0.0.1:25565` on this computer, or `192.168.1.24:25565` from the trusted LAN. Human and bot connectivity have both been verified.
 
 For a fresh checkout, first run `./scripts/Setup.ps1 -AcceptEula` only after reading and agreeing to the Minecraft EULA. Python 3.11 and Node.js 22+ must be available. Setup downloads project-local Java and Paper and installs locked packages. First startup creates the two research courses once and preserves `data/arena.initialized` with the world. Keep that marker when restoring the world so startup does not rebuild the courses.
 
@@ -24,9 +24,9 @@ Shutdown pauses learning, atomically checkpoints the policy/optimizer, stops Min
 
 ## Experiment
 
-`./.venv/Scripts/python scripts/experiment.py` runs untrained/current-checkpoint and random evaluations, collects live teacher demonstrations, trains with behavioral cloning, and evaluates the neural student independently. A current checkpoint must not be called untrained if it has already learned. Use fresh data/checkpoint directories for independent replications; preserve existing results first. Evaluation uses 3 episodes per agent, 120 decisions maximum, 5 physics ticks per action, and deterministic per-agent task seeds. Do not run two experiment drivers simultaneously.
+Pause autonomous training before running the original navigation experiment driver. `./.venv/Scripts/python scripts/experiment.py` runs untrained/current-checkpoint and random evaluations, collects live teacher demonstrations, trains with behavioral cloning, and evaluates the neural student independently. A current checkpoint must not be called untrained if it has already learned. Use fresh data/checkpoint directories for independent replications; preserve existing results first. Evaluation uses 3 episodes per agent, 120 decisions maximum, 5 physics ticks per action, and deterministic per-agent task seeds. Do not run two experiment drivers simultaneously.
 
-The teacher turns toward a supplied point goal and walks forward. It does not use pathfinding. Teacher movement is explicitly labeled. Student evaluation selects every action from a PyTorch neural network, without teacher fallback. Flat-course success does not establish obstacle avoidance or natural-terrain generalization.
+The original navigation teacher turns toward a supplied point goal and walks forward. It does not use pathfinding. Teacher movement is explicitly labeled. Student evaluation selects every action from a PyTorch neural network, without teacher fallback. Flat-course success does not establish obstacle avoidance or natural-terrain generalization.
 
 The dashboard starts training as a background job so status and agent heartbeats keep updating. You can cancel before checkpoint saving begins; cancelled or failed training keeps the previous active model. Only one training job can run at a time. Older scripts that call `/control/train` without `{"background":true}` still wait for the final result. A test automatically stops each bot after its three tasks; the page explains this waiting state and shows the completed result.
 
@@ -55,14 +55,31 @@ Java 26.3 clients can join through pinned ViaVersion 5.12.1 while the server and
 See ARCHITECTURE.md, RESEARCH.md, EXPERIMENTS.md, PROGRESS.md, and SYSTEM_CHANGES.md for scope and evidence.
 
 
-## Autonomous navigation training
+## Autonomous skill curricula
 
-Use **Start / resume autonomous training** on the dashboard. You can close the browser while the local lab service and computer remain running. Sleeping or shutting down the computer stops progress. Pause autonomous training before taking manual control of learning. Server Stop/Restart also pauses the scheduler; resume it explicitly afterward.
+Use **Start / resume autonomous training**. The scheduler resumes the saved stage and unlocks broader tasks after navigation passes. You can close the browser while the lab and computer remain running; sleep or shutdown stops progress. Server Stop/Restart pauses automation, which can be resumed explicitly. The dashboard shows phase, samples, tests, stage history and each skill track.
 
-Each cycle evaluates the current model on 15 seeded routes, collects 1,500 fresh teacher demonstrations on different routes, trains for 100 passes, and evaluates the candidate on the same held-out routes used for the baseline. Equal or higher scores keep the candidate; lower scores restore the protected champion, including optimizer state. Two consecutive candidate tests at 90% or better advance the stage. Different cycles use different seeds.
+| Track | Practice stages | Measured success |
+|---|---|---|
+| Navigation | Short routes, longer routes, full turns, long routes with full turns | Reach the goal alive |
+| Traversal | One hurdle, three hurdles | Jump over one-block barriers and reach the goal |
+| Hazards | Water, magma | Reach the goal without contacting the hazard or substantial damage |
+| Exploration | 10, then 18 new grid cells | Visit distinct two-block cells without a goal-direction oracle |
+| Gathering | One, then three logs | Break visible practice oak logs and actually pick up the drops |
+| Nutrition | Hungry, severely hungry | Consume supplied bread after hunger is observed; recover to at least 18 food |
+| Shelter | Near, then farther shelter | Reach a goal-marked roof and verify overhead cover |
 
-Stages: short routes (3–7 blocks, ±0.6 rad initial heading error), longer routes (7–14 blocks, ±1.5 rad), full turns (10–22 blocks, ±π), and long routes with full turns (20–30 blocks, ±π). Dedicated flat training/test arenas are prepared at X=160 and X=240, Y=181, Z=0; the earlier arenas are preserved. This is behavioral cloning with measured candidate selection, not reinforcement learning, architecture evolution, or autonomous survival. These small tests are promotion gates, not statistical evidence of broad generalization.
+There are 16 stages across seven tracks. Navigation requires two accepted tests at 90% or better; other tracks require two at 80% or better. Each cycle evaluates the protected model, collects fresh teacher examples on different seeds/arenas, trains, and evaluates the candidate on the same held-out tasks as its baseline. Equal or higher scores keep the candidate; lower scores restore that track's protected weights and optimizer. Navigation uses its original 70-input/four-action model. Each broader track has an independent 82-input/seven-action model initialized from navigation, independent replay (15,000-example cap), and independent checkpoints. New skills do not overwrite navigation weights.
 
-The dashboard reports phase, fresh examples, training progress, test completion, stage and comparison history. Sessions stop after 12 cycles or 6 hours, a ten-minute phase timeout, three stagnant below-threshold results, unsafe memory/disk headroom, or loss of server/bots. Completion pauses the bots after the final stage passes twice. Resume starts a fresh session at the saved stage. There is no unbounded background compute or automatic spending.
+Collection targets are 1,500 examples per cycle, or 150 for nutrition because eating has long preparation/consumption intervals. Sessions stop after 48 cycles, six hours, a ten-minute phase timeout, a plateau, missing bots, unsafe memory/disk headroom, or completion. State persists in `data/curriculum.json`; skill data lives in `data/skills` and `checkpoints/skills`. Interrupted unaccepted candidates are restored before recovery continues. Existing navigation state is migrated without clearing its history or examples.
 
-State lives in `data/curriculum.json`; protected weights and optimizer in `checkpoints/champion.pt`; examples and results retain the normal data locations. An unexpected service restart restores an interrupted candidate and restarts the comparison cycle when the scheduler was enabled. Intentional server operations pause it. Keep the computer awake yourself if you want unattended progress; no Windows power settings are changed.
+Under **Practice and test a skill**, pause automation, select a stage, and choose a teacher reference or neural policy test. Teacher references collect demonstrations without updating weights. After at least 100 examples, **Train this skill** trains the selected head; **Test this skill** runs it on fresh tasks without teacher control. Teacher results and neural results have different labels. Practice runs do not bypass autonomous promotion gates.
+
+Navigation arenas remain at X=160/240, Y=181. Broader training/testing arenas are at X=320/480 with separate bot lanes at Z=0,12,24,36,48. Only these practice areas are rebuilt. Two-layer floors contain water fixtures. Lighting and scoped hostile-mob cleanup protect the exercises from unrelated creeper explosions; the surrounding survival world keeps its normal rules. Task resets clear only bot inventories, replenish practice materials, and restore bot health. Nutrition intentionally reduces food through a temporary hunger effect. `config/curriculum-permissions.json` permits only visible practice oak-log harvesting and supplied bread consumption within the assigned lane; general digging, placement, combat and inventory automation remain disabled.
+
+The additional 12 features are local forward foot/head obstruction, local hazard/edge and side-clearance probes, log/food inventory counts, overhead cover, nearby visited-cell memory, and coverage progress. Resource harvesting additionally requires a ray-observed visible log and Minecraft reach checks. Exploration suppresses point-goal inputs. Gathering and shelter use goal-marked exercises. All policy actions in neural tests come from the network; scripted teachers only provide demonstrations/reference measurements.
+
+These are bounded survival foundations using behavioral cloning and candidate selection, not general survival, crafting, combat, reinforcement learning, or architecture evolution. Keep the computer awake yourself for unattended training; Windows power settings are unchanged.
+
+
+For explicit validation after pausing automation, run `./.venv/Scripts/python scripts/verify_curricula.py --stages 4 5 --driver teacher` (reference demonstrations), or `--stages 4 --driver student --train` to train/test that independent head. The tool preserves navigation weights and writes a labeled JSON report. It intentionally refuses to interrupt an active autonomous run.

@@ -6,11 +6,13 @@ import copy
 import json
 import time
 from pathlib import Path
+from .tasks import EXTRA_STAGES
 
 STAGES=[{'name':'Short routes','min_distance':3,'max_distance':7,'yaw':.6},
         {'name':'Longer routes','min_distance':7,'max_distance':14,'yaw':1.5},
         {'name':'Full turns','min_distance':10,'max_distance':22,'yaw':3.141593},
         {'name':'Long routes and full turns','min_distance':20,'max_distance':30,'yaw':3.141593}]
+STAGES.extend(EXTRA_STAGES)
 
 def route_seed(cycle_seed,agent,episode,evaluation):
     identity=f"{cycle_seed}:{agent}:{episode}:{'test' if evaluation else 'teacher'}"
@@ -29,21 +31,26 @@ class Curriculum:
     def __init__(self,path,hooks,clock=time.time):
         self.path=Path(path);self.h=hooks;self.clock=clock
         self.state={'enabled':False,'phase':'idle','stage':0,'cycle':0,'streak':0,'history':[],
-                    'message':'Ready for autonomous navigation training.','max_cycles':12,'max_hours':6,
+                    'message':'Ready for autonomous navigation training.','max_cycles':48,'max_hours':6,
                     'examples_per_cycle':1500,'threshold':.9,'restore_pending':False}
         if self.path.exists():
             saved=json.loads(self.path.read_text(encoding='utf-8'));self.state.update(saved)
+            if self.state.get('catalog_version',1)<2:
+                if self.state['max_cycles']==12:self.state['max_cycles']=48
+                if self.state['phase']=='completed' and self.state['stage']==3:
+                    self.state.update(stage=4,phase='paused',streak=0,message='Navigation passed. Broader skills are ready to resume.')
             if self.state['enabled']:
                 self.state.update(phase='recovering',phase_at=self.clock(),message='Recovering the saved curriculum after restart.')
+        self.state['catalog_version']=2
     def save(self):
         self.path.parent.mkdir(exist_ok=True,parents=True)
         tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps(self.state,indent=2),encoding='utf-8');tmp.replace(self.path)
     def snapshot(self):
-        s=copy.deepcopy(self.state);s['stages']=STAGES;s['stage_name']=STAGES[s['stage']]['name'];return s
+        s=copy.deepcopy(self.state);s['stages']=STAGES;s['stage_name']=STAGES[s['stage']]['name'];s['skill']=STAGES[s['stage']].get('skill','navigation');s['active_examples']=STAGES[s['stage']].get('examples_per_cycle',s['examples_per_cycle']);s['active_threshold']=STAGES[s['stage']].get('threshold',s['threshold']);return s
     def start(self):
         s=self.state
         if s['enabled']:return self.snapshot()
-        if s['phase']=='completed':raise ValueError('The navigation curriculum is complete. Review its results before adding harder skills.')
+        if s['phase']=='completed':raise ValueError('All implemented curricula are complete. Review the results before adding further skills.')
         self.h['pause']()
         s.update(enabled=True,phase='waiting',session_cycles=0,started_at=self.clock(),phase_at=self.clock(),message='Waiting for Minecraft and all five bots.');self.save();return self.snapshot()
     def pause(self,reason='Autonomous training paused by you.'):
@@ -86,21 +93,21 @@ class Curriculum:
             if accepted:self.h['protect']()
             else:self.h['restore']()
             s['restore_pending']=False
-            s['streak']=s['streak']+1 if accepted and score>=s['threshold'] else 0
-            s['history'].append({'cycle':s['cycle'],'stage':s['stage'],'baseline':s['baseline'],'score':score,'accepted':accepted,'time':self.clock()});s['history']=s['history'][-100:]
+            s['streak']=s['streak']+1 if accepted and score>=STAGES[s['stage']].get('threshold',s['threshold']) else 0
+            s['history'].append({'cycle':s['cycle'],'stage':s['stage'],'skill':STAGES[s['stage']].get('skill','navigation'),'baseline':s['baseline'],'score':score,'accepted':accepted,'time':self.clock()});s['history']=s['history'][-100:]
             self.h['event'](s['history'][-1])
             if s['streak']>=2:
                 if s['stage']==len(STAGES)-1:
-                    s.update(enabled=False,phase='completed',message='All four navigation stages passed twice at 90% or better. Curriculum complete; bots paused.');self.save();return
+                    s.update(enabled=False,phase='completed',message='All implemented skill stages passed their promotion gates twice. Curriculum complete; bots paused.');self.save();return
                 s['stage']+=1;s['streak']=0
             recent=[r for r in s['history'][-3:] if r['stage']==s['stage']]
-            if len(recent)==3 and all(r['score']<s['threshold'] for r in recent) and max(r['score'] for r in recent)-min(r['score'] for r in recent)<.07:
+            if len(recent)==3 and all(r['score']<STAGES[s['stage']].get('threshold',s['threshold']) for r in recent) and max(r['score'] for r in recent)-min(r['score'] for r in recent)<.07:
                 return self.pause('Progress plateaued for three cycles. Best model kept. Review results before resuming.')
             if s['session_cycles']>=s['max_cycles']:return self.pause('Cycle limit reached. Best model and curriculum saved; resume when ready.')
             self.phase('waiting','Cycle complete. Preparing the next routes.');return
         if s['phase']=='collecting':
             s['collected']=self.h['count']()-s['collected_start']
-            if s['collected']>=s['examples_per_cycle']:
+            if s['collected']>=STAGES[s['stage']].get('examples_per_cycle',s['examples_per_cycle']):
                 self.h['pause']();self.h['train']();s['restore_pending']=True;self.phase('training','Training a candidate model. Bots wait while it learns.')
         elif s['phase']=='training':
             if job['status']=='completed':
