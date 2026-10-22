@@ -7,7 +7,7 @@ const agentConfig=JSON.parse(fs.readFileSync('config/agents.json','utf8'));if(!N
 const {applyMotion}=require('./motion');
 const bots=[];let quitting=false;
 async function api(path,data){const r=await fetch('http://127.0.0.1:8000'+path,{method:'POST',headers:{'Content-Type':'application/json','X-Lab-Token':token},body:JSON.stringify(data)});if(!r.ok)throw Error(await r.text());return r.json();}
-async function spawn(i){if(quitting)return;try{const status=await(await fetch('http://127.0.0.1:8000/status',{signal:AbortSignal.timeout(2000)})).json();if(status.server&&!status.server.ready){setTimeout(()=>spawn(i),2000);return;}}catch{setTimeout(()=>spawn(i),2000);return;}if(quitting)return;const name='LabAI'+i;const b=mineflayer.createBot({host:'127.0.0.1',port:25565,username:name,auth:'offline',version:'1.21.4',respawn:true});bots[i]=b;let tick=0,busy=false,goal=null,lastDistance=null,steps=0,phase='',episode=0,task=null,runtime=tasks.createRuntime(),readyAt=0,lastMetrics=null,activity='Connecting';
+async function spawn(i){if(quitting)return;try{const status=await(await fetch('http://127.0.0.1:8000/status',{signal:AbortSignal.timeout(2000)})).json();if(status.server&&!status.server.ready){setTimeout(()=>spawn(i),2000);return;}}catch{setTimeout(()=>spawn(i),2000);return;}if(quitting)return;const name='LabAI'+i;const b=mineflayer.createBot({host:'127.0.0.1',port:25565,username:name,auth:'offline',version:'1.21.4',respawn:true});bots[i]=b;let tick=0,busy=false,goal=null,lastDistance=null,steps=0,phase='',episode=0,task=null,runtime=tasks.createRuntime(),readyAt=0,lastMetrics=null,activity='Connecting',decisionMs=250,lastDecisionAt=0;
  b.on('spawn',()=>{goal=null;lastDistance=null;console.log(JSON.stringify({event:'spawn',name}));});
  const write=b._client.write.bind(b._client);b._client.write=(packet,data)=>{if(['position','position_look','look'].includes(packet)&&Object.values(data).some(v=>typeof v==='number'&&!Number.isFinite(v)))console.error('INVALID_PACKET',name,packet,JSON.stringify(data),JSON.stringify({yaw:b.entity?.yaw,pitch:b.entity?.pitch,velocity:b.entity?.velocity}));return write(packet,data);};
  b.on('error',e=>console.error(name,e.message));b.on('kicked',r=>console.error(name,JSON.stringify(r),JSON.stringify({position:b.entity?.position,yaw:b.entity?.yaw,pitch:b.entity?.pitch,velocity:b.entity?.velocity})));
@@ -15,7 +15,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  b.on('death',()=>interrupted('death'));
  b.on('end',()=>{interrupted('disconnect');api('/agent-disconnected',{agent:name}).catch(()=>{});console.log(name,'disconnected');if(!quitting)setTimeout(()=>spawn(i),5000);});
  b.on('physicsTick',async()=>{if(++tick%5||busy||!b.entity)return;busy=true;try{
- const heartbeat=()=>({agent:name,index:i,episode,position:[b.entity.position.x,b.entity.position.y,b.entity.position.z],health:b.health,food:b.food,entity_id:b.entity.id,dimension:b.game.dimension,activity,speed:Math.hypot(b.entity.velocity.x,b.entity.velocity.z)*20,players:Object.values(b.players).map(p=>({name:p.username,mode:p.gamemode}))});
+ const heartbeat=()=>({agent:name,index:i,episode,position:[b.entity.position.x,b.entity.position.y,b.entity.position.z],health:b.health,food:b.food,entity_id:b.entity.id,dimension:b.game.dimension,activity,reset_seconds:goal?Math.ceil(Math.max(0,(task?.max_steps||120)-steps)*decisionMs/1000):null,reset_steps_left:goal?Math.max(0,(task?.max_steps||120)-steps):null,speed:Math.hypot(b.entity.velocity.x,b.entity.velocity.z)*20,players:Object.values(b.players).map(p=>({name:p.username,mode:p.gamemode}))});
  let state=await api('/assignment',heartbeat());
  if(phase!==state.run){episode=0;state=await api('/assignment',heartbeat());}
  if(state.mode==='paused'){activity='Waiting for next learning phase';b.clearControlStates();goal=null;return;}
@@ -28,10 +28,11 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
    state=await api('/assignment',heartbeat());
    if(state.mode==='paused'){activity='Waiting for next learning phase';b.clearControlStates();goal=null;return;}
   }
-  phase=state.run;episode++;steps=0;goal=state.goal;lastDistance=null;task=state.task||null;runtime=tasks.createRuntime();lastMetrics=null;
+  phase=state.run;episode++;steps=0;lastDecisionAt=0;decisionMs=250;goal=state.goal;lastDistance=null;task=state.task||null;runtime=tasks.createRuntime();lastMetrics=null;
   activity='Resetting task / teleporting';b.clearControlStates();
   await api('/reset',{agent:name,position:state.start,yaw:state.yaw,run:phase});b.clearControlStates();readyAt=Date.now()+(task?.reset_wait||.2)*1000;return;
  }
+ const decisionAt=performance.now();if(lastDecisionAt)decisionMs=.8*decisionMs+.2*(decisionAt-lastDecisionAt);lastDecisionAt=decisionAt;
  const p=b.entity.position;const dx=goal[0]-p.x,dz=goal[2]-p.z;const distance=Math.hypot(dx,dz);
  const desired=Math.atan2(-dx,-dz);const angle=Math.atan2(Math.sin(desired-b.entity.yaw),Math.cos(desired-b.entity.yaw));
  const t=performance.now(),s=scan(b);let obs=[...s.pooled,Math.sin(angle),Math.cos(angle),Math.min(distance/32,1),b.health/20,b.food/20,b.entity.onGround?1:0];

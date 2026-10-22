@@ -361,7 +361,7 @@ def assignment(d:dict):
         if 'position' in d:
             state=agents.setdefault(d['agent'],{'goal':None,'steps':0,'reward':0,'action':4,'inference_ms':0,'perception_ms':0,'rays':[]})
             state.update(position=d['position'],health=d['health'],food=d['food'],last_seen=time.time(),run=run)
-            state.update(activity=str(d.get('activity','Waiting'))[:160],speed=d.get('speed',0))
+            state.update(activity=str(d.get('activity','Waiting'))[:160],speed=d.get('speed',0),reset_seconds=d.get('reset_seconds'),reset_steps_left=d.get('reset_steps_left'))
             state.update(connected=True,entity_id=d.get('entity_id'),dimension=d.get('dimension'),simulation=STAGES[practice['stage'] if practice else curriculum.state['stage']]['name'] if practice or curriculum.state['enabled'] else 'Manual navigation')
         # Repeated calls during a lifetime return the same assignment; next episode changes it.
         rng=random.Random(8000+d['index']*1000+d['episode'])
@@ -414,7 +414,7 @@ def step(d:dict):
         elif mode=='paused':action=4
         previous=agents.get(d['agent'],{})
         agents[d['agent']]={k:d[k] for k in ('position','health','food','goal','steps','reward','perception_ms')}
-        agents[d['agent']].update({k:previous.get(k) for k in ('entity_id','dimension','simulation','activity','speed','trial','trial_completed')})
+        agents[d['agent']].update({k:previous.get(k) for k in ('entity_id','dimension','simulation','activity','speed','trial','trial_completed','reset_seconds','reset_steps_left')})
         agents[d['agent']].update(connected=True,action=action,inference_ms=latency,last_seen=time.time(),run=run)
         agents[d['agent']]['rays']=d['obs'][:64]
         agents[d['agent']]['skill']=skill;agents[d['agent']]['metrics']=d.get('metrics')

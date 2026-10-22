@@ -105,6 +105,7 @@ function renderTrialHud(s,a){
  else{text('hud-trials','Waiting for next phase');label='Paused';}
  $('hud-progress').value=percent;text('hud-progress-label',label);
 }
+function resetCountdown(s,a){return s.mode!=='paused'&&a?.connected&&Date.now()/1000-(a.last_seen||0)<8&&a.reset_seconds!=null?` · reset ~${a.reset_seconds}s (${a.reset_steps_left} steps left)`:'';}
 function botActivity(s,a){
  if(!a?.connected||Date.now()/1000-(a.last_seen||0)>8)return 'Offline / waiting for telemetry';
  if(activeJob(s))return `Training pass ${s.training_job?.epoch||0} / ${s.training_job?.epochs||100} — movement paused`;
@@ -115,12 +116,12 @@ function botActivity(s,a){
  return action;
 }
 function renderObserver(s){
- const roster=$('bot-roster-rows');roster.replaceChildren();for(const name of Array.from({length:s.agent_count||8},(_,i)=>'LabAI'+i)){const row=document.createElement('div'),title=document.createElement('b'),detail=document.createElement('small');title.textContent=name;detail.textContent=botActivity(s,s.agents?.[name]);row.append(title,detail);roster.append(row);}
+ const roster=$('bot-roster-rows');roster.replaceChildren();for(const name of Array.from({length:s.agent_count||8},(_,i)=>'LabAI'+i)){const row=document.createElement('div'),title=document.createElement('b'),detail=document.createElement('small');title.textContent=name;detail.textContent=botActivity(s,s.agents?.[name])+resetCountdown(s,s.agents?.[name]);row.append(title,detail);roster.append(row);}
 
  choices('observer-target',Array.from({length:s.agent_count||5},(_,i)=>'LabAI'+i),'LabAI0');
  const session=(s.observer?.sessions||[]).find(o=>o.player.toLowerCase()===$('observer-player').value.trim().toLowerCase());
  const a=s.agents?.[session?.target];const hud=$('follow-hud');hud.classList.toggle('hidden',!session?.enabled);
- if(session?.enabled){const fresh=!!a?.connected&&Date.now()/1000-(a.last_seen||0)<8;const actions=['Moving forward','Turning left','Turning right','Jumping forward','Waiting','Gathering wood','Eating'];text('hud-bot',session.target+' · '+session.status.replaceAll('_',' '));text('hud-task',a?.simulation||'Waiting for simulation');text('hud-action',botActivity(s,a));renderTrialHud(s,a);text('hud-vitals',a?`Health ${a.health}/20 · Food ${a.food}/20`:'');text('hud-goal',fresh&&a.goal&&a.position?`Goal ${Math.hypot(...a.goal.map((v,i)=>v-a.position[i])).toFixed(1)} blocks · Decision ${(a.inference_ms||0).toFixed(2)} ms`:'');}
+ if(session?.enabled){const fresh=!!a?.connected&&Date.now()/1000-(a.last_seen||0)<8;const actions=['Moving forward','Turning left','Turning right','Jumping forward','Waiting','Gathering wood','Eating'];text('hud-bot',session.target+' · '+session.status.replaceAll('_',' '));text('hud-task',a?.simulation||'Waiting for simulation');text('hud-action',botActivity(s,a)+resetCountdown(s,a));renderTrialHud(s,a);text('hud-vitals',a?`Health ${a.health}/20 · Food ${a.food}/20`:'');text('hud-goal',fresh&&a.goal&&a.position?`Goal ${Math.hypot(...a.goal.map((v,i)=>v-a.position[i])).toFixed(1)} blocks · Decision ${(a.inference_ms||0).toFixed(2)} ms`:'');}
  if(!session)text('observer-message' ,'Ready. Join Minecraft, choose a view, then click Follow / change view.');
  const fixed=['stationary','first_person'].includes($('observer-view').value);$('observer-distance').disabled=fixed;$('observer-height').disabled=fixed;
  if(session)text('observer-message',session.message+(session.status==='following'?' Current simulation: '+session.simulation+'.':''));

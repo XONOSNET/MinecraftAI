@@ -182,3 +182,12 @@ def test_curriculum_stage_header_matches_dashboard(tmp_path):
     assert 'bossbar set lab:observer_xonosnet_stage value 60' in commands
     o.stop('Xonosnet',['Xonosnet'])
     assert 'bossbar remove lab:observer_xonosnet_stage' in commands
+
+
+def test_trial_reset_estimate_in_personal_hud_and_roster(tmp_path):
+    commands=[];o=Observers(tmp_path/'hud',commands.append,lambda:100,settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    a={'connected':True,'last_seen':100,'entity_id':1,'reset_seconds':18,'reset_steps_left':60}
+    o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':a},True,'evaluate')
+    assert any('Reset ~18s (60 steps left)' in c for c in commands)
+    assert any('~18s' in c and 'scoreboard players display name' in c for c in commands)

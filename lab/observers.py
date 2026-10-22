@@ -112,6 +112,8 @@ class Observers:
             lines['state']=f"{job.get('phase','Preparing').title()} | {job.get('samples',0):,} examples | {job.get('percent',0):.0f}%"
             progress=round(job.get('percent',0))
         if mode=='paused' and job.get('status') not in ('running','cancelling'):lines['task']=f"{s['target']} | Paused";lines['state']=activity[:95]
+        if fresh and mode!='paused' and agent.get('reset_seconds') is not None:
+            lines['state']+=f" | Reset ~{agent['reset_seconds']}s ({agent.get('reset_steps_left',0)} steps left)"
         if not fresh:lines['state']='Waiting for bot telemetry';progress=0
         if context.get('stage'):
             lines={'stage':f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
@@ -149,6 +151,7 @@ class Observers:
             action=a.get('action',4)
             activity='Offline' if not fresh else 'Training / paused' if mode=='paused' else labels[action] if type(action) is int and 0<=action<len(labels) else 'Wait'
             if fresh and mode!='paused' and a.get('speed',1)<.05 and action in (0,3):activity='Blocked / no movement'
+            if fresh and mode!='paused' and a.get('reset_seconds') is not None:activity+=f" ~{a['reset_seconds']}s"
             row=f'{name}: {activity}'
             previous=self.roster_rows.get(name)
             if previous==row:continue
