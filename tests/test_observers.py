@@ -116,3 +116,26 @@ def test_missing_bot_hud_never_reports_stale_action(tmp_path):
     o.tick(['Xonosnet'],{}, {'LabAI0':{'connected':False,'action':3}},True,'teacher')
     assert any('Waiting for bot telemetry' in c for c in commands)
     assert not any('Jumping forward' in c for c in commands)
+
+
+def test_roster_updates_activity_and_removes_when_no_viewers(tmp_path):
+    now=[100.0];commands=[];o=Observers(tmp_path/'hud',commands.append,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    agents={'LabAI0':{'connected':True,'last_seen':100,'action':0,'speed':0,'entity_id':1}}
+    o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},agents,True,'teacher')
+    assert any('LabAI0: Blocked / no movement' in c for c in commands)
+    assert 'scoreboard objectives setdisplay sidebar lab_bots' in commands
+    commands.clear();now[0]+=2;o.tick([],{},agents,True)
+    assert 'scoreboard objectives remove lab_bots' in commands
+
+
+def test_pause_reason_and_goal_bar_progress(tmp_path):
+    now=[100.0];commands=[];o=Observers(tmp_path/'hud',commands.append,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    a={'connected':True,'last_seen':100,'entity_id':1,'position':[0,181,0],'goal':[10,181,0],'steps':1,'run':'test'}
+    o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':a},True,'evaluate')
+    commands.clear();now[0]+=2;a.update(position=[5,181,0],steps=2)
+    o.tick(['Xonosnet'],{}, {'LabAI0':a},True,'evaluate')
+    assert 'bossbar set lab:observer_xonosnet_task value 50' in commands
+    now[0]+=2;o.tick(['Xonosnet'],{}, {'LabAI0':a},True,'paused',pause_reason='Saving checkpoint (97%)')
+    assert any('Saving checkpoint (97%)' in c for c in commands)

@@ -361,6 +361,7 @@ def assignment(d:dict):
         if 'position' in d:
             state=agents.setdefault(d['agent'],{'goal':None,'steps':0,'reward':0,'action':4,'inference_ms':0,'perception_ms':0,'rays':[]})
             state.update(position=d['position'],health=d['health'],food=d['food'],last_seen=time.time(),run=run)
+            state.update(activity=str(d.get('activity','Waiting'))[:160],speed=d.get('speed',0))
             state.update(connected=True,entity_id=d.get('entity_id'),dimension=d.get('dimension'),simulation=STAGES[practice['stage'] if practice else curriculum.state['stage']]['name'] if practice or curriculum.state['enabled'] else 'Manual navigation')
         # Repeated calls during a lifetime return the same assignment; next episode changes it.
         rng=random.Random(8000+d['index']*1000+d['episode'])
@@ -412,7 +413,7 @@ def step(d:dict):
         elif mode=='paused':action=4
         previous=agents.get(d['agent'],{})
         agents[d['agent']]={k:d[k] for k in ('position','health','food','goal','steps','reward','perception_ms')}
-        agents[d['agent']].update({k:previous.get(k) for k in ('entity_id','dimension','simulation')})
+        agents[d['agent']].update({k:previous.get(k) for k in ('entity_id','dimension','simulation','activity','speed')})
         agents[d['agent']].update(connected=True,action=action,inference_ms=latency,last_seen=time.time(),run=run)
         agents[d['agent']]['rays']=d['obs'][:64]
         agents[d['agent']]['skill']=skill;agents[d['agent']]['metrics']=d.get('metrics')
@@ -636,12 +637,12 @@ def observer_worker():
     while not shutting_down:
         try:
             with lock:
-                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode)
+                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
         except Exception as error:
             with lock:
                 for session in observers.sessions.values():
                     if session.get('enabled'):session.update(status='error',message='Camera update failed: '+str(error))
-        time.sleep(.2)
+        time.sleep(.05)
 
 @app.post('/observer/{action}',dependencies=[Depends(auth)])
 def observer_action(action:str,d:dict):

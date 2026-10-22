@@ -1,6 +1,11 @@
 {
   "bossbars_added": 2,
-  "updates": 3,
+  "updates": 1,
   "removed": 2,
+  "roster_packets": [
+    "scoreboard_objective",
+    "scoreboard_display_objective"
+  ],
+  "camera_teleports": 22,
   "passed": true
 }

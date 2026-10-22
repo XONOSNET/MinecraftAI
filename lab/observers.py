@@ -67,7 +67,7 @@ class Observers:
         activity=labels[action] if type(action) is int and 0<=action<len(labels) else 'Waiting'
         controller={'teacher':'Teacher demonstration','heuristic':'Teacher reference','evaluate':'Neural policy','untrained':'Untrained policy','random':'Random actions','paused':'Paused / training'}.get(mode,mode)
         if not fresh:activity='Waiting for bot telemetry'
-        elif mode=='paused':activity='Movement paused'
+        elif mode=='paused':activity=getattr(self,'pause_reason','Movement paused')
         elif s.get('status')!='following':activity=s.get('status','waiting').replace('_',' ')
         health=max(0,min(20,round(agent.get('health',0))))
         lines={'task':f"{s['target']} | {agent.get('simulation','Waiting')} | {controller}",
@@ -75,17 +75,52 @@ class Observers:
         position=agent.get('position');goal=agent.get('goal')
         if fresh and position and goal:
             lines['state']+=f" | Goal {math.dist(position,goal):.1f} blocks"
+        progress=0
+        if fresh and position and goal:
+            distance=math.dist(position,goal)
+            if s.get('progress_run')!=agent.get('run') or agent.get('steps',0)<s.get('progress_steps',0) or s.get('progress_goal')!=goal:
+                s.update(progress_start=max(distance,1),progress_run=agent.get('run'),progress_goal=copy.deepcopy(goal))
+            s['progress_steps']=agent.get('steps',0)
+            progress=round(100*max(0,min(1,1-distance/s.get('progress_start',max(distance,1)))))
+        lines['task']+=' | Route progress'
+        if mode=='paused':lines['task']=f"{s['target']} | {activity}"
         for suffix,value in lines.items():
             key=prefix+'_'+suffix;name=json.dumps({'text':value,'color':'aqua' if suffix=='task' else 'white'})
             if not s.get('hud_ready'):
                 self.command(f'bossbar remove {key}')
                 self.command(f'bossbar add {key} {name}')
                 self.command(f'bossbar set {key} color '+('blue' if suffix=='task' else 'green'))
-                self.command(f'bossbar set {key} max 20')
+                self.command(f'bossbar set {key} max 100')
             self.command(f'bossbar set {key} name {name}')
-            self.command(f'bossbar set {key} value {20 if suffix=="task" else health}')
+            self.command(f'bossbar set {key} value {progress if suffix=="task" else health*5}')
             self.command(f'bossbar set {key} players {owner}')
         s['hud_ready']=True
+    def update_roster(self,online,agents,mode):
+        now=self.clock()
+        if now-getattr(self,'roster_at',-100)<1:return
+        self.roster_at=now
+        active=any(s.get('enabled') and s['player'] in online for s in self.sessions.values())
+        if not active:
+            if getattr(self,'roster_ready',False):self.command('scoreboard objectives remove lab_bots');self.roster_ready=False
+            return
+        if not getattr(self,'roster_ready',False):
+            self.command('scoreboard objectives remove lab_bots')
+            self.command('scoreboard objectives add lab_bots dummy {"text":"AI activity","color":"aqua"}')
+            self.command('scoreboard objectives modify lab_bots numberformat blank')
+            self.command('scoreboard objectives setdisplay sidebar lab_bots')
+            self.roster_ready=True;self.roster_rows={}
+        labels=('Forward','Turn left','Turn right','Jump','Wait','Gather','Eat')
+        for index,(name,a) in enumerate(sorted(agents.items())):
+            fresh=a.get('connected') and now-a.get('last_seen',0)<8
+            action=a.get('action',4)
+            activity='Offline' if not fresh else 'Training / paused' if mode=='paused' else labels[action] if type(action) is int and 0<=action<len(labels) else 'Wait'
+            if fresh and mode!='paused' and a.get('speed',1)<.05 and action in (0,3):activity='Blocked / no movement'
+            row=f'{name}: {activity}'
+            previous=self.roster_rows.get(name)
+            if previous==row:continue
+            if previous:self.command(f'scoreboard players reset {json.dumps(previous)} lab_bots')
+            self.command(f'scoreboard players set {json.dumps(row)} lab_bots {100-index}')
+            self.roster_rows[name]=row
     def release(self,s,online,mode_restore=True):
         self.clear_hud(s)
         owner=s['player'];_,ret=self.tags(s)
@@ -116,8 +151,10 @@ class Observers:
             self.kill_camera(s)
             if s['enabled']:s.update(status='waiting',message='Waiting for the server and player to reconnect.')
         self.save()
-    def tick(self,online,states,agents,ready,mode='paused'):
+    def tick(self,online,states,agents,ready,mode='paused',pause_reason='Movement paused'):
         if not ready:return
+        self.pause_reason=pause_reason
+        self.update_roster(online,agents,mode)
         for s in self.sessions.values():
             owner=s['player']
             if not s['enabled']:
