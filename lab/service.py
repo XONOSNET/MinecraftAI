@@ -19,6 +19,8 @@ from .skills import SkillBank, SKILL_INPUTS, SKILL_ACTIONS
 from .tasks import task_spec, arena_commands, reset_commands, task_success, SKILLS, minecraft_yaw
 from .config import AGENT_COUNT, EPISODES_PER_AGENT, EXPECTED_EPISODES, LANE_END, is_agent
 from .observers import Observers
+from .camera_input import CameraInput
+from .identities import Identities
 from .protection import PracticeProtection
 import copy
 import re
@@ -38,6 +40,7 @@ CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY,time REAL,event TEXT,pa
 CREATE TABLE IF NOT EXISTS models(version TEXT PRIMARY KEY,metadata TEXT);
 CREATE TABLE IF NOT EXISTS run_config(run TEXT PRIMARY KEY,agent_count INT,episodes_per_agent INT);
 ''')
+identities=Identities(db,AGENT_COUNT)
 model=Policy();opt=torch.optim.Adam(model.parameters(),lr=.003)
 if Path('checkpoints/latest.pt').exists():
     saved=torch.load('checkpoints/latest.pt',weights_only=True)
@@ -99,6 +102,8 @@ def start_training(background=False):
                 torch.set_num_threads(4)
                 candidate=Policy(width,inputs=inputs,actions=actions);candidate.load_state_dict(initial_model)
                 candidate_optimizer=torch.optim.Adam(candidate.parameters(),lr=.003);candidate_optimizer.load_state_dict(initial_optimizer)
+                scale=curriculum.state.get('learning_rate_scales',{}).get(str(curriculum.state['stage']),1)
+                for group in candidate_optimizer.param_groups:group['lr']=.003*scale
                 x=torch.tensor(np.array([s[0] for s in observations]),dtype=torch.float32);y=torch.tensor([s[1] for s in observations])
                 if skill=='navigation':
                     temporary=Path('data/demonstrations.tmp')
@@ -151,6 +156,7 @@ def console(command):
     if not server or server.poll() is not None:raise RuntimeError('Minecraft server is not running')
     server.stdin.write(command+'\n');server.stdin.flush()
 observers=Observers('data/observers.json',console)
+camera_input=CameraInput('logs/minecraft-console.log',console)
 practice_protection=PracticeProtection(console)
 
 def checkpoint():
@@ -361,6 +367,7 @@ def assignment(d:dict):
         if 'position' in d:
             state=agents.setdefault(d['agent'],{'goal':None,'steps':0,'reward':0,'action':4,'inference_ms':0,'perception_ms':0,'rays':[]})
             state.update(position=d['position'],health=d['health'],food=d['food'],last_seen=time.time(),run=run)
+            state.update(identities.get(d['agent']))
             state.update(activity=str(d.get('activity','Waiting'))[:160],speed=d.get('speed',0),reset_seconds=d.get('reset_seconds'),reset_steps_left=d.get('reset_steps_left'))
             state.update(connected=True,entity_id=d.get('entity_id'),dimension=d.get('dimension'),simulation=STAGES[practice['stage'] if practice else curriculum.state['stage']]['name'] if practice or curriculum.state['enabled'] else 'Manual navigation')
         # Repeated calls during a lifetime return the same assignment; next episode changes it.
@@ -414,7 +421,7 @@ def step(d:dict):
         elif mode=='paused':action=4
         previous=agents.get(d['agent'],{})
         agents[d['agent']]={k:d[k] for k in ('position','health','food','goal','steps','reward','perception_ms')}
-        agents[d['agent']].update({k:previous.get(k) for k in ('entity_id','dimension','simulation','activity','speed','trial','trial_completed','reset_seconds','reset_steps_left')})
+        agents[d['agent']].update({k:previous.get(k) for k in ('entity_id','dimension','simulation','activity','speed','trial','trial_completed','reset_seconds','reset_steps_left','serial','tracked_since','deaths','spawns','trials','successful_trials')})
         agents[d['agent']].update(connected=True,action=action,inference_ms=latency,last_seen=time.time(),run=run)
         agents[d['agent']]['rays']=d['obs'][:64]
         agents[d['agent']]['skill']=skill;agents[d['agent']]['metrics']=d.get('metrics')
@@ -441,6 +448,12 @@ def episode(d:dict):
             event('skill_episode',{'run':d['run'],'agent':d['agent'],'task':assigned['task']['kind'],'success':d['success'],'metrics':metrics})
         db.execute('INSERT INTO episodes(run,agent,success,steps,distance,time) VALUES(?,?,?,?,?,?)',(d['run'],d['agent'],d['success'],d['steps'],d['distance'],time.time()));db.commit()
         return {'ok':True}
+@app.post('/agent-life',dependencies=[Depends(auth)])
+def agent_life(d:dict):
+    with lock:
+        try:
+            result=identities.record(d.get('agent'),d.get('event'),d.get('id'));agents.setdefault(d['agent'],{}).update(result);return result
+        except ValueError as error:raise HTTPException(400,str(error))
 @app.post('/agent-disconnected',dependencies=[Depends(auth)])
 def agent_disconnected(d:dict):
     with lock:
@@ -639,6 +652,8 @@ def observer_worker():
     while not shutting_down:
         try:
             with lock:
+                if server_ready() and not server_control.snapshot()['busy']:
+                    camera_input.tick(observers,[p['name'] for p in online_players()],agents)
                 observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,progress_context={'round':curriculum.state.get('round',0),'stage':curriculum.state['stage']+1,'stages':len(STAGES),'stage_name':STAGES[curriculum.state['stage']]['name'],'job':training_jobs.snapshot(),'phase':curriculum.state.get('phase'),'examples':curriculum.state.get('collected',0),'target':STAGES[curriculum.state['stage']].get('examples_per_cycle',curriculum.state['examples_per_cycle']),'episodes':EPISODES_PER_AGENT},pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
         except Exception as error:
             with lock:
@@ -653,7 +668,8 @@ def observer_action(action:str,d:dict):
         try:
             online=[p['name'] for p in online_players()]
             if action=='stop':return observers.stop(d.get('player','Xonosnet'),online,server_ready() and not server_control.snapshot()['busy'])
-            if action!='start':raise ValueError('Choose start or stop')
+            if action=='next':return observers.next_bot(d.get('player','Xonosnet'),agents)
+            if action!='start':raise ValueError('Choose start, stop or next')
             cached=json.loads(Path('server/usercache.json').read_text(encoding='utf-8'))
             result=observers.start(d,online+[p['name'] for p in cached]);event('observer_started',result);return result
         except (ValueError,TypeError) as error:raise HTTPException(400,str(error))

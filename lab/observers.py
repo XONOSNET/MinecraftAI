@@ -62,6 +62,15 @@ class Observers:
         s.update(cycle_enabled=cycle_enabled,cycle_seconds=cycle_seconds,cycle_at=self.clock()+cycle_seconds,enabled=True,target=target,view='trail' if view=='cycle' else view,distance=distance,height=height,attached=False,attach_ready_at=None,
                  camera_created=False,status='waiting',message='Waiting for your player and the selected bot. Follow will start automatically when both are online.',started_at=self.clock())
         self.sessions[owner]=s;self.save();return copy.deepcopy(s)
+    def next_bot(self,owner,agents):
+        owner=player_name(owner)
+        s=next((v for k,v in self.sessions.items() if k.casefold()==owner.casefold()),None)
+        if not s or not s.get('enabled') or not s.get('cycle_enabled'):raise ValueError('Enable Cycle bots before using Next AI')
+        available=sorted(n for n,a in agents.items() if is_agent(n) and a.get('connected') and self.clock()-a.get('last_seen',0)<8 and a.get('health',20)>0)
+        if not available:raise ValueError('No AI bots are online')
+        index=available.index(s['target']) if s['target'] in available else -1
+        s.update(target=available[(index+1)%len(available)],attached=False,attach_ready_at=None,cycle_at=self.clock()+s.get('cycle_seconds',30))
+        self.save();return copy.deepcopy(s)
     def tags(self,s):
         suffix=s['player'].lower();return 'lab_camera_'+suffix,'lab_return_'+suffix
     def kill_camera(self,s):
@@ -122,6 +131,7 @@ class Observers:
         if fresh and mode!='paused' and agent.get('reset_seconds') is not None:
             lines['state']+=f" | Reset ~{agent['reset_seconds']}s ({agent.get('reset_steps_left',0)} steps left)"
         if not fresh:lines['state']='Waiting for bot telemetry';progress=0
+        if agent.get('serial'):lines['state']+=f" | {agent['serial']} deaths {agent.get('deaths',0)}"
         if context.get('stage'):
             lines={'stage':(f"Review {context['round']} | " if context.get('round') else '')+f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
         for suffix,value in lines.items():
@@ -161,7 +171,7 @@ class Observers:
             if fresh and mode!='paused' and a.get('reset_seconds') is not None:activity+=f" ~{a['reset_seconds']}s"
             if a.get('skill')=='advanced' and action==5:activity='Open door'
             if mode in ('evaluate','untrained','random','heuristic') and a.get('trial_completed',0)>=getattr(self,'progress_context',{}).get('episodes',3):activity='Done; waiting'
-            row=f'{name}: {activity}'
+            row=f"{a.get('serial',name)} {name}: {activity} D{a.get('deaths',0)}"
             previous=self.roster_rows.get(name)
             if previous==row:continue
             self.command(f'scoreboard players set {name} lab_bots {100-index}')

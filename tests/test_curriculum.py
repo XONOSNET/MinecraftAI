@@ -99,7 +99,7 @@ def test_saved_validation_failure_resets_streak_and_collects_examples(tmp_path):
 
 
 def test_three_variable_rejected_candidates_stop_instead_of_repeating(tmp_path):
-    w=World();c=Curriculum(tmp_path/'state',w.hooks(),lambda:w.time);c.start()
+    w=World();c=Curriculum(tmp_path/'state',w.hooks(),lambda:w.time);c.start();c.state['continuous']=False
     for score in (2,11,6):cycle(c,w,13,score)
     assert not c.state['enabled'] and w.model==1 and w.restores==3
     assert 'No useful model progress' in c.state['message']
@@ -118,3 +118,10 @@ def test_old_completed_catalogue_unlocks_twenty_new_stages(tmp_path):
     path=tmp_path/'state';path.write_text(json.dumps({'catalog_version':4,'phase':'completed','stage':39,'enabled':False}))
     c=Curriculum(path,World().hooks())
     assert len(STAGES)==60 and c.state['stage']==40 and c.state['phase']=='paused'
+
+
+def test_continuous_plateau_recovers_without_discarding_champion(tmp_path):
+    w=World();c=Curriculum(tmp_path/'state',w.hooks(),lambda:w.time);c.start();c.state['stage']=42
+    for score in (2,7,3):cycle(c,w,10,score)
+    assert c.state['enabled'] and c.state['stage']==41 and c.state['learning_rate_scales']['42']==.5
+    assert w.model==1 and w.restores==3

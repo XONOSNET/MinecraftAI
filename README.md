@@ -112,3 +112,8 @@ Mobile observer sessions detect long teleports, respawns and run changes. They c
 
 
 Enable **Cycle bots** independently of the observer View selector (Orbit, Side, Behind, and other views remain available) to automatically follow online bots in sequence. The interval defaults to 30 seconds and accepts 5-3600 seconds; unavailable/dead bots are skipped. Stop following restores the viewer as usual. No client mods are required.
+
+
+With Cycle bots enabled, Jump (Space by default) selects the next online bot in-game; key edges are detected using vanilla input predicates, with no client mod. The dashboard also provides Next AI and a Space shortcut outside form controls. Continuous-mode learning plateaus revisit the preceding stage within the same skill track, keep the protected model, and halve the failed stage learning rate down to 1/8. Explicit pauses and resource/runtime safeguards remain.
+
+Agent serials A0001-A0008 persist across respawns and restarts. They identify persistent workers, not selected individuals: policies are shared within each skill track and no bots are permanently eliminated. Death/spawn records begin when identity tracking is installed; successful-trial totals include all recorded controllers.

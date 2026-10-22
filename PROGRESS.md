@@ -61,3 +61,10 @@ Completed catalogue v5 deployment: all 20 new courses cleared teacher feasibilit
 
 
 Camera torso targeting: all angled views now aim at a fixed point 0.9 blocks above the bot feet instead of the eye anchor; stationary uses rotation-only targeting and preserves position. First-person is unchanged. Camera-spawn coordinate parsing updated for position-facing syntax. 36 observer tests passed; native side and stationary views matched expected torso pitch within .04 radians. Training resumed.
+
+
+Space/Jump next-camera control implemented without client dependencies using scoped vanilla player-input predicates, tag edge latching and console-event consumption; preserves camera view and resets cycling interval. Added dashboard Next AI and guarded Space shortcut. Native input hold/release test advanced LabAI0 -> LabAI1 -> LabAI2 without repeated cycling while held.
+
+Stage-43 stagnation recovery: continuous-mode three-rejection plateaus now keep the champion, return one stage within the same skill track for a refresher, and halve that failed stage training rate to a floor of 1/8. Passing thresholds and manual/resource/runtime pauses remain. No new learned-stage completion is claimed yet.
+
+Persistent identities A0001-A0008 and deduplicated spawn/death events added to SQLite, exposed on HUD, activity roster and cards. Death tracking starts at installation; trial success totals include teacher and policy records. Bots are not eliminated and serials persist through respawns; skill policies remain shared. 88 Python plus 14 Node tests passed, native Jump test passed, and dashboard IDs verified. Autonomy resumed.

@@ -5,14 +5,15 @@ const permissions=JSON.parse(fs.readFileSync('config/permissions.json','utf8'));
 const curriculumPermissions=JSON.parse(fs.readFileSync('config/curriculum-permissions.json','utf8'));
 const agentConfig=JSON.parse(fs.readFileSync('config/agents.json','utf8'));if(!Number.isInteger(agentConfig.count)||agentConfig.count<1||agentConfig.count>10)throw Error('Agent count must be 1-10');
 const {applyMotion}=require('./motion');
+const {randomUUID}=require('crypto');
 const bots=[];let quitting=false;
 async function api(path,data){const r=await fetch('http://127.0.0.1:8000'+path,{method:'POST',headers:{'Content-Type':'application/json','X-Lab-Token':token},body:JSON.stringify(data)});if(!r.ok)throw Error(await r.text());return r.json();}
 async function spawn(i){if(quitting)return;try{const status=await(await fetch('http://127.0.0.1:8000/status',{signal:AbortSignal.timeout(2000)})).json();if(status.server&&!status.server.ready){setTimeout(()=>spawn(i),2000);return;}}catch{setTimeout(()=>spawn(i),2000);return;}if(quitting)return;const name='LabAI'+i;const b=mineflayer.createBot({host:'127.0.0.1',port:25565,username:name,auth:'offline',version:'1.21.4',respawn:true});bots[i]=b;let tick=0,busy=false,goal=null,lastDistance=null,steps=0,phase='',episode=0,task=null,runtime=tasks.createRuntime(),readyAt=0,lastMetrics=null,activity='Connecting',decisionMs=250,lastDecisionAt=0;
- b.on('spawn',()=>{goal=null;lastDistance=null;console.log(JSON.stringify({event:'spawn',name}));});
+ b.on('spawn',()=>{api('/agent-life',{agent:name,event:'spawn',id:randomUUID()}).catch(e=>console.error(name,e.message));goal=null;lastDistance=null;console.log(JSON.stringify({event:'spawn',name}));});
  const write=b._client.write.bind(b._client);b._client.write=(packet,data)=>{if(['position','position_look','look'].includes(packet)&&Object.values(data).some(v=>typeof v==='number'&&!Number.isFinite(v)))console.error('INVALID_PACKET',name,packet,JSON.stringify(data),JSON.stringify({yaw:b.entity?.yaw,pitch:b.entity?.pitch,velocity:b.entity?.velocity}));return write(packet,data);};
  b.on('error',e=>console.error(name,e.message));b.on('kicked',r=>console.error(name,JSON.stringify(r),JSON.stringify({position:b.entity?.position,yaw:b.entity?.yaw,pitch:b.entity?.pitch,velocity:b.entity?.velocity})));
  function interrupted(reason){if(goal&&!quitting){api('/episode',{agent:name,run:phase,success:false,steps,distance:lastDistance,reason,task:task?.kind,metrics:lastMetrics||{health:0}}).catch(e=>console.error(name,e.message));goal=null;}}
- b.on('death',()=>interrupted('death'));
+ b.on('death',()=>{api('/agent-life',{agent:name,event:'death',id:randomUUID()}).catch(e=>console.error(name,e.message));interrupted('death');});
  b.on('end',()=>{interrupted('disconnect');api('/agent-disconnected',{agent:name}).catch(()=>{});console.log(name,'disconnected');if(!quitting)setTimeout(()=>spawn(i),5000);});
  b.on('physicsTick',async()=>{if(++tick%5||busy||!b.entity)return;busy=true;try{
  const heartbeat=()=>({agent:name,index:i,episode,position:[b.entity.position.x,b.entity.position.y,b.entity.position.z],health:b.health,food:b.food,entity_id:b.entity.id,dimension:b.game.dimension,activity,reset_seconds:goal?Math.ceil(Math.max(0,(task?.max_steps||120)-steps)*decisionMs/1000):null,reset_steps_left:goal?Math.max(0,(task?.max_steps||120)-steps):null,speed:Math.hypot(b.entity.velocity.x,b.entity.velocity.z)*20,players:Object.values(b.players).map(p=>({name:p.username,mode:p.gamemode}))});

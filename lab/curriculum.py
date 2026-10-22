@@ -82,9 +82,14 @@ class Curriculum:
             if s['stage']==len(STAGES)-1:
                 s.update(enabled=False,phase='completed',message='All implemented skill stages passed their promotion gates twice. Curriculum complete; bots paused.');self.save();return
             s['stage']+=1;s['streak']=0
+            if s.get('recovery_target')==s['stage']:s.pop('recovery_target')
         recent=[r for r in s['history'][-3:] if r['stage']==s['stage']]
         if len(recent)==3 and (all(not r['accepted'] for r in recent) or (all(r['score']<STAGES[s['stage']].get('threshold',s['threshold']) for r in recent) and max(r['score'] for r in recent)-min(r['score'] for r in recent)<.07)):
-            return self.pause('No useful model progress for three cycles. Best model kept. Review results before resuming.')
+            if not s.get('continuous',True):return self.pause('No useful model progress for three cycles. Best model kept. Review results before resuming.')
+            target=s['stage'];scales=s.setdefault('learning_rate_scales',{});scales[str(target)]=max(.125,scales.get(str(target),1)*.5)
+            skill=STAGES[target].get('skill','navigation');first=next(i for i,stage in enumerate(STAGES) if stage.get('skill','navigation')==skill)
+            s.update(recovery_target=s.get('recovery_target',target),stage=max(first,target-1),streak=0)
+            self.phase('waiting',f'Automatic refresher before stage {target+1}; best model kept and retraining rate reduced.');return
         if s['session_cycles']>=s['max_cycles']:
             if not s.get('continuous',True):return self.pause('Cycle limit reached. Best model and curriculum saved; resume when ready.')
             s.update(session_cycles=0,started_at=self.clock())
