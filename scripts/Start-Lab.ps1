@@ -17,4 +17,5 @@ if(!(Test-Path data/arena.initialized)){
  'Research courses initialized; preserve this marker with the world.'|Set-Content data/arena.initialized
 }
 if(!$NoBots){& "$PSScriptRoot/Start-Bots.ps1"}
+& "$PSScriptRoot/Start-DashboardLan.ps1"
 Write-Host 'Lab ready. Dashboard http://127.0.0.1:8000. Minecraft Java 1.21.4: 127.0.0.1:25565.'

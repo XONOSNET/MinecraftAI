@@ -1,0 +1,8 @@
+{
+  "certificate_verified": true,
+  "dashboard_served": true,
+  "secure_cookie": true,
+  "same_origin_auth": true,
+  "foreign_origin_rejected": true,
+  "remote_pc_connection": "requires firewall approval and certificate import"
+}
