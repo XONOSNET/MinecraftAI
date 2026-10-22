@@ -33,7 +33,7 @@ class Curriculum:
         self.path=Path(path);self.h=hooks;self.clock=clock
         self.state={'enabled':False,'phase':'idle','stage':0,'cycle':0,'streak':0,'history':[],
                     'message':'Ready for autonomous navigation training.','max_cycles':112,'max_hours':6,
-                    'examples_per_cycle':1500,'threshold':.9,'restore_pending':False}
+                    'continuous':True,'round':0,'examples_per_cycle':1500,'threshold':.9,'restore_pending':False}
         if self.path.exists():
             saved=json.loads(self.path.read_text(encoding='utf-8'));self.state.update(saved)
             if self.state.get('catalog_version',1)<2:
@@ -52,7 +52,9 @@ class Curriculum:
             if self.state['max_cycles']==80:self.state['max_cycles']=112
             if self.state['phase']=='completed' and self.state['stage']==31:
                 self.state.update(stage=32,phase='paused',streak=0,message='Terrain curricula are ready to resume.')
-        self.state.update(catalog_version=4,agent_count=AGENT_COUNT)
+        if self.state.get('catalog_version',1)<5 and self.state['phase']=='completed' and self.state['stage']==39:
+            self.state.update(stage=40,phase='paused',streak=0,message='Twenty advanced courses are ready to resume.')
+        self.state.update(catalog_version=5,agent_count=AGENT_COUNT)
     def save(self):
         self.path.parent.mkdir(exist_ok=True,parents=True)
         tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps(self.state,indent=2),encoding='utf-8');tmp.replace(self.path)
@@ -74,20 +76,27 @@ class Curriculum:
     def finish_cycle(self):
         s=self.state
         if s['streak']>=2:
+            if s['stage']==len(STAGES)-1 and s.get('continuous',True):
+                s.update(stage=0,streak=0,round=s.get('round',0)+1,session_cycles=0,started_at=self.clock())
+                self.phase('waiting','Curriculum passed. Starting automatic fresh-seed skill review.');return
             if s['stage']==len(STAGES)-1:
                 s.update(enabled=False,phase='completed',message='All implemented skill stages passed their promotion gates twice. Curriculum complete; bots paused.');self.save();return
             s['stage']+=1;s['streak']=0
         recent=[r for r in s['history'][-3:] if r['stage']==s['stage']]
         if len(recent)==3 and (all(not r['accepted'] for r in recent) or (all(r['score']<STAGES[s['stage']].get('threshold',s['threshold']) for r in recent) and max(r['score'] for r in recent)-min(r['score'] for r in recent)<.07)):
             return self.pause('No useful model progress for three cycles. Best model kept. Review results before resuming.')
-        if s['session_cycles']>=s['max_cycles']:return self.pause('Cycle limit reached. Best model and curriculum saved; resume when ready.')
+        if s['session_cycles']>=s['max_cycles']:
+            if not s.get('continuous',True):return self.pause('Cycle limit reached. Best model and curriculum saved; resume when ready.')
+            s.update(session_cycles=0,started_at=self.clock())
         self.phase('waiting','Cycle complete. Preparing the next routes.');return
     def tick(self):
         s=self.state;job=self.h['job']()
         if s['restore_pending'] and (not s['enabled'] or s['phase']=='recovering') and job['status'] not in ('running','cancelling'):
             self.h['restore']();s['restore_pending']=False;self.save()
         if not s['enabled']:return
-        if self.clock()-s['started_at']>s['max_hours']*3600:return self.pause('Session time limit reached. Progress saved; resume when ready.')
+        if self.clock()-s['started_at']>s['max_hours']*3600:
+            if not s.get('continuous',True):return self.pause('Session time limit reached. Progress saved; resume when ready.')
+            s.update(session_cycles=0,started_at=self.clock());self.save()
         problem=self.h['health']()
         if problem:
             self.h['pause']();s['message']=problem

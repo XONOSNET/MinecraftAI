@@ -44,11 +44,11 @@ def test_pause_waits_for_training_before_restore_and_restart_recovers(tmp_path):
 def test_resource_failure_and_time_budget_pause(tmp_path):
     w=World();c=Curriculum(tmp_path/'state.json',w.hooks(),lambda:w.time);c.start();c.tick()
     w.problem='Low memory';c.tick();assert not c.state['enabled']
-    w.problem=None;c.start();w.time=6*3600+1;c.tick();assert not c.state['enabled']
+    w.problem=None;c.start();c.state['continuous']=False;w.time=6*3600+1;c.tick();assert not c.state['enabled']
 
 def test_curriculum_completes_and_does_not_repeat_forever(tmp_path):
     w=World();c=Curriculum(tmp_path/'state.json',w.hooks(),lambda:w.time);c.start()
-    c.state['max_cycles']=100
+    c.state['max_cycles']=200;c.state['continuous']=False
     for _ in range(len(STAGES)*2):
         c.tick();w.score=15;c.tick()
     assert c.state['phase']=='completed' and not c.state['enabled'] and c.state['stage']==len(STAGES)-1
@@ -103,3 +103,18 @@ def test_three_variable_rejected_candidates_stop_instead_of_repeating(tmp_path):
     for score in (2,11,6):cycle(c,w,13,score)
     assert not c.state['enabled'] and w.model==1 and w.restores==3
     assert 'No useful model progress' in c.state['message']
+
+
+def test_continuous_curriculum_reviews_after_last_stage_and_renews_session(tmp_path):
+    w=World();c=Curriculum(tmp_path/'state',w.hooks(),lambda:w.time);c.start()
+    c.state.update(stage=len(STAGES)-1,streak=1)
+    c.tick();c.tick()
+    assert c.state['enabled'] and c.state['stage']==0 and c.state['round']==1
+    w.time=6*3600+1;c.tick();assert c.state['enabled']
+
+
+def test_old_completed_catalogue_unlocks_twenty_new_stages(tmp_path):
+    import json
+    path=tmp_path/'state';path.write_text(json.dumps({'catalog_version':4,'phase':'completed','stage':39,'enabled':False}))
+    c=Curriculum(path,World().hooks())
+    assert len(STAGES)==60 and c.state['stage']==40 and c.state['phase']=='paused'

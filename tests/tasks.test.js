@@ -69,3 +69,15 @@ test('harvest action searches with the camera when a nearby log leaves the field
  const actions=Array.from({length:4},()=>teacherAction(bot,task,sensed,runtime,0));
  assert.deepEqual(actions,[5,5,5,0]);
 });
+
+
+test('closed practice doors use an explicit bounded actuator and require observed opening',async()=>{
+ const {task,bot,runtime}=fixture();task.kind='advanced';task.actual_doors=[[305,0]];let open=false,calls=0;
+ const original=bot.blockAt;const door={name:'oak_door',position:new Vec3(305,181,0),boundingBox:'block',getProperties:()=>({open})};
+ bot.blockAt=p=>Math.floor(p.x)===305&&Math.floor(p.y)===181&&Math.floor(p.z)===0?door:original(p);
+ bot.activateBlock=async()=>{calls++;open=true};let sensed=observeTask(bot,task,{hits:[]},runtime);
+ assert.equal(sensed.extra[5],1);assert.equal(teacherAction(bot,task,sensed,runtime,0),5);
+ assert.equal(await interact(bot,task,sensed,runtime,5,{}),false);
+ assert.equal(await interact(bot,task,sensed,runtime,5,{open_practice_doors:true}),true);
+ assert.equal(sensed.metrics.doors_opened,0);sensed=observeTask(bot,task,{hits:[]},runtime);assert.equal(sensed.metrics.doors_opened,1);assert.equal(calls,1);
+});

@@ -191,3 +191,21 @@ def test_trial_reset_estimate_in_personal_hud_and_roster(tmp_path):
     o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':a},True,'evaluate')
     assert any('Reset ~18s (60 steps left)' in c for c in commands)
     assert any('~18s' in c and 'scoreboard players display name' in c for c in commands)
+
+
+def test_camera_cycle_uses_interval_and_skips_offline_bots(tmp_path):
+    now=[100.];commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0','view':'cycle','cycle_seconds':30},['Xonosnet'])
+    agents={'LabAI0':{'connected':True,'last_seen':100,'entity_id':1},'LabAI2':{'connected':True,'last_seen':100,'entity_id':3}}
+    tick=lambda:o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':now[0]}},agents,True)
+    tick();assert o.sessions['Xonosnet']['target']=='LabAI0'
+    now[0]=131
+    for a in agents.values():a['last_seen']=131
+    tick();assert o.sessions['Xonosnet']['target']=='LabAI2' and o.sessions['Xonosnet']['cycle_at']==161
+
+
+@pytest.mark.parametrize('view',['orbit','side','trail','overhead','first_person','stationary'])
+def test_bot_cycling_is_independent_of_view(tmp_path,view):
+    o=Observers(tmp_path/'camera',lambda cmd:None,lambda:100)
+    session=o.start({'player':'Xonosnet','target':'LabAI0','view':view,'cycle_enabled':True},['Xonosnet'])
+    assert session['view']==view and session['cycle_enabled'] and session['cycle_seconds']==30

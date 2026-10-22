@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from .config import is_agent
 
-VIEWS=('first_person','trail','side','overhead','orbit','stationary')
+VIEWS=('first_person','trail','side','overhead','orbit','stationary','cycle')
 DIMENSIONS=('minecraft:overworld','minecraft:the_nether','minecraft:the_end')
 MODES=('survival','creative','adventure','spectator')
 
@@ -52,9 +52,14 @@ class Observers:
         if view not in VIEWS:raise ValueError('Choose a supported camera view')
         try:distance=float(request.get('distance',7));height=float(request.get('height',4))
         except (ValueError,TypeError):raise ValueError('Enter numeric camera distance and height')
-        if not math.isfinite(distance) or not 3<=distance<=16 or not math.isfinite(height) or not 2<=height<=12:raise ValueError('Camera distance must be 3–16 blocks and height 2–12')
+        if not math.isfinite(distance) or not 3<=distance<=16 or not math.isfinite(height) or not 2<=height<=12:raise ValueError('Camera distance must be 3â€“16 blocks and height 2â€“12')
+        cycle_enabled=request.get('cycle_enabled',view=='cycle')
+        if type(cycle_enabled) is not bool:raise ValueError('Cycle bots must be enabled or disabled')
+        try:cycle_seconds=float(request.get('cycle_seconds',30))
+        except (TypeError,ValueError):raise ValueError('Cycle interval must be 5-3600 seconds')
+        if not math.isfinite(cycle_seconds) or not 5<=cycle_seconds<=3600:raise ValueError('Cycle interval must be 5-3600 seconds')
         s=self.sessions.get(owner,{'player':owner,'saved_mode':None,'return_created':False})
-        s.update(enabled=True,target=target,view=view,distance=distance,height=height,attached=False,attach_ready_at=None,
+        s.update(cycle_enabled=cycle_enabled,cycle_seconds=cycle_seconds,cycle_at=self.clock()+cycle_seconds,enabled=True,target=target,view='trail' if view=='cycle' else view,distance=distance,height=height,attached=False,attach_ready_at=None,
                  camera_created=False,status='waiting',message='Waiting for your player and the selected bot. Follow will start automatically when both are online.',started_at=self.clock())
         self.sessions[owner]=s;self.save();return copy.deepcopy(s)
     def tags(self,s):
@@ -76,6 +81,7 @@ class Observers:
         action=agent.get('action',4)
         fresh=now-agent.get('last_seen',0)<=8 and agent.get('connected',False)
         activity=labels[action] if type(action) is int and 0<=action<len(labels) else 'Waiting'
+        if agent.get('skill')=='advanced' and action==5:activity='Opening door'
         controller={'teacher':'Teacher demonstration','heuristic':'Teacher reference','evaluate':'Neural policy','untrained':'Untrained policy','random':'Random actions','paused':'Paused / training'}.get(mode,mode)
         if not fresh:activity='Waiting for bot telemetry'
         elif mode=='paused':activity=getattr(self,'pause_reason','Movement paused')
@@ -96,6 +102,7 @@ class Observers:
         context=getattr(self,'progress_context',{});job=context.get('job',{})
         total=context.get('episodes',3);completed=min(total,agent.get('trial_completed',0))
         trial=min(total,completed+1)
+        if mode in ('evaluate','untrained','random','heuristic') and completed>=total:activity='Trials finished; waiting for other bots'
         if context and mode in ('evaluate','untrained','random','heuristic'):
             lines['task']=f"{s['target']} | Trial {trial}/{total} | {total-completed} left"
             lines['state']=f"{activity} | Trials completed {completed}/{total}"
@@ -116,7 +123,7 @@ class Observers:
             lines['state']+=f" | Reset ~{agent['reset_seconds']}s ({agent.get('reset_steps_left',0)} steps left)"
         if not fresh:lines['state']='Waiting for bot telemetry';progress=0
         if context.get('stage'):
-            lines={'stage':f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
+            lines={'stage':(f"Review {context['round']} | " if context.get('round') else '')+f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
         for suffix,value in lines.items():
             key=prefix+'_'+suffix;name=json.dumps({'text':value,'color':'aqua' if suffix=='task' else 'white'})
             if not s.get('hud_ready'):
@@ -152,6 +159,8 @@ class Observers:
             activity='Offline' if not fresh else 'Training / paused' if mode=='paused' else labels[action] if type(action) is int and 0<=action<len(labels) else 'Wait'
             if fresh and mode!='paused' and a.get('speed',1)<.05 and action in (0,3):activity='Blocked / no movement'
             if fresh and mode!='paused' and a.get('reset_seconds') is not None:activity+=f" ~{a['reset_seconds']}s"
+            if a.get('skill')=='advanced' and action==5:activity='Open door'
+            if mode in ('evaluate','untrained','random','heuristic') and a.get('trial_completed',0)>=getattr(self,'progress_context',{}).get('episodes',3):activity='Done; waiting'
             row=f'{name}: {activity}'
             previous=self.roster_rows.get(name)
             if previous==row:continue
@@ -201,6 +210,11 @@ class Observers:
             if owner not in online:
                 if s.get('hud_ready'):self.clear_hud(s)
                 s.update(attached=False,attach_ready_at=None,status='waiting_player',message='Join Minecraft to start or resume following.');continue
+            if s.get('cycle_enabled') and self.clock()>=s.get('cycle_at',0):
+                available=sorted(n for n,a in agents.items() if is_agent(n) and a.get('connected') and self.clock()-a.get('last_seen',0)<8 and a.get('health',20)>0)
+                if available:
+                    current=available.index(s['target']) if s['target'] in available else -1
+                    s.update(target=available[(current+1)%len(available)],attached=False,attach_ready_at=None,cycle_at=self.clock()+s.get('cycle_seconds',30))
             target=s['target'];agent=agents.get(target,{})
             if not agent.get('connected',False) or self.clock()-agent.get('last_seen',0)>8 or agent.get('health',20)<=0:
                 s.update(attached=False,attach_ready_at=None,status='waiting_target',message=f'Waiting for {target} to connect or respawn.')

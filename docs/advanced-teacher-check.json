@@ -1,0 +1,122 @@
+[
+  {
+    "stage": 41,
+    "name": "Wide bridge over water",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 42,
+    "name": "Long bridge over water",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 43,
+    "name": "Narrow bridge crossing",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 44,
+    "name": "Offset bridge approach",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 45,
+    "name": "Bridge with a turn",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 46,
+    "name": "Open a wooden door",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 47,
+    "name": "Open two wooden doors",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 48,
+    "name": "Offset closed doorway",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 49,
+    "name": "Alternating closed doorways",
+    "passed": 23,
+    "total": 24
+  },
+  {
+    "stage": 50,
+    "name": "Avoid a shallow water pit",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 51,
+    "name": "Avoid two shallow pits",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 52,
+    "name": "Magma trap detour",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 53,
+    "name": "Alternating trap detours",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 54,
+    "name": "Hurdle before a trap",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 55,
+    "name": "Door before a bridge",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 56,
+    "name": "Bridge then closed door",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 57,
+    "name": "Door and trap sequence",
+    "passed": 23,
+    "total": 24
+  },
+  {
+    "stage": 58,
+    "name": "Two doors and a narrow bridge",
+    "passed": 23,
+    "total": 24
+  },
+  {
+    "stage": 59,
+    "name": "Door hurdle and magma trap",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 60,
+    "name": "Advanced bridge door gauntlet",
+    "passed": 24,
+    "total": 24
+  }
+]

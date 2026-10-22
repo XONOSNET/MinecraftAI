@@ -41,7 +41,7 @@ def test_construction_commands_fit_vanilla_fill_limits():
 def test_success_requires_real_objective_health_and_practice_bounds():
     basic={'health':20,'inside':True,'y':181,'distance':.5,'hazard_contacts':0}
     for stage in EXTRA_STAGES:
-        task=task_spec(stage,1,0,False);m={**basic,'wood':task['wood_target'],'food':20,'eaten':2,'hunger_observed':True,'coverage':task['coverage_target'],'sheltered':True}
+        task=task_spec(stage,1,0,False);m={**basic,'wood':task['wood_target'],'food':20,'eaten':2,'hunger_observed':True,'coverage':task['coverage_target'],'sheltered':True,'doors_opened':len(task.get('actual_doors',[]))}
         assert task_success(task,m)
         for bad in ({'health':0},{'inside':False},{'y':100}):assert not task_success(task,{**m,**bad})
         if task['kind']=='eat':assert not task_success(task,{**m,'eaten':0})
@@ -137,3 +137,27 @@ def test_completed_32_stage_catalogue_migrates_to_terrain(tmp_path):
     path=tmp_path/'state';path.write_text(json.dumps({'catalog_version':3,'enabled':False,'phase':'completed','stage':31,'streak':2,'max_cycles':80}))
     c=Curriculum(path,{})
     assert c.state['stage']==32 and c.state['phase']=='paused' and c.state['max_cycles']==112
+
+
+def test_advanced_courses_have_real_doors_and_require_observed_openings():
+    from lab.advanced import ADVANCED_STAGES
+    assert len(ADVANCED_STAGES)==20
+    for i,stage in enumerate(ADVANCED_STAGES):
+        task=task_spec(stage,123,0,True);commands=reset_commands(task,'LabAI0')
+        assert all(task['bounds'][0]<p[0]<task['bounds'][1] and task['bounds'][2]<p[2]<task['bounds'][3] for p in task['waypoints'])
+        if task['actual_doors']:
+            assert any('oak_door[' in cmd and 'open=false' in cmd for cmd in commands)
+            assert not task_success(task,{'health':20,'inside':True,'y':181,'distance':0,'hazard_contacts':0,'doors_opened':0})
+
+
+def test_final_bridge_exit_door_aligns_with_bent_deck():
+    from lab.advanced import ADVANCED_STAGES
+    task=task_spec(ADVANCED_STAGES[-1],123,0,True)
+    assert task['actual_doors'][-1][1]==task['lane_z']+2
+
+
+def test_bent_bridge_waypoints_keep_clear_of_open_door_leaf():
+    from lab.advanced import ADVANCED_STAGES
+    task=task_spec(ADVANCED_STAGES[-1],123,0,True);door_x=task['actual_doors'][0][0]
+    near=[point for point in task['waypoints'] if abs(point[0]-door_x)<=2]
+    assert near and all(.3<point[2]-task['lane_z']<.8 for point in near)
