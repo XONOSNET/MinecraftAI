@@ -1,0 +1,38 @@
+[
+  {
+    "z": 0.3,
+    "y": 181,
+    "name": "oak_door",
+    "visible": false
+  },
+  {
+    "z": 0.3,
+    "y": 182,
+    "name": "oak_door",
+    "visible": true
+  },
+  {
+    "z": 0.6,
+    "y": 181,
+    "name": "oak_door",
+    "visible": false
+  },
+  {
+    "z": 0.6,
+    "y": 182,
+    "name": "oak_door",
+    "visible": true
+  },
+  {
+    "z": 0.9,
+    "y": 181,
+    "name": "oak_door",
+    "visible": false
+  },
+  {
+    "z": 0.9,
+    "y": 182,
+    "name": "oak_door",
+    "visible": true
+  }
+]

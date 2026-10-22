@@ -1,0 +1,234 @@
+{
+  "observations": [
+    {
+      "stage": 45,
+      "phase": "baseline",
+      "cycle": 224,
+      "streak": 0,
+      "collected": 1510,
+      "message": "Testing the saved model before training.",
+      "episodes": 0,
+      "successes": 0,
+      "opened": 0
+    },
+    {
+      "stage": 45,
+      "phase": "baseline",
+      "cycle": 224,
+      "streak": 0,
+      "collected": 1510,
+      "message": "Testing the saved model before training.",
+      "episodes": 9,
+      "successes": 0,
+      "opened": 0
+    },
+    {
+      "stage": 45,
+      "phase": "baseline",
+      "cycle": 224,
+      "streak": 0,
+      "collected": 1510,
+      "message": "Testing the saved model before training.",
+      "episodes": 17,
+      "successes": 0,
+      "opened": 0
+    },
+    {
+      "stage": 45,
+      "phase": "baseline",
+      "cycle": 224,
+      "streak": 0,
+      "collected": 1510,
+      "message": "Testing the saved model before training.",
+      "episodes": 19,
+      "successes": 0,
+      "opened": 0
+    },
+    {
+      "stage": 45,
+      "phase": "baseline",
+      "cycle": 224,
+      "streak": 0,
+      "collected": 1510,
+      "message": "Testing the saved model before training.",
+      "episodes": 19,
+      "successes": 0,
+      "opened": 0
+    },
+    {
+      "stage": 45,
+      "phase": "baseline",
+      "cycle": 224,
+      "streak": 0,
+      "collected": 1510,
+      "message": "Testing the saved model before training.",
+      "episodes": 20,
+      "successes": 0,
+      "opened": 0
+    },
+    {
+      "stage": 45,
+      "phase": "baseline",
+      "cycle": 224,
+      "streak": 0,
+      "collected": 1510,
+      "message": "Testing the saved model before training.",
+      "episodes": 23,
+      "successes": 0,
+      "opened": 0
+    },
+    {
+      "stage": 45,
+      "phase": "collecting",
+      "cycle": 224,
+      "streak": 0,
+      "collected": 399,
+      "message": "Collecting fresh examples for Open a wooden door.",
+      "episodes": 8,
+      "successes": 8,
+      "opened": 5
+    },
+    {
+      "stage": 45,
+      "phase": "collecting",
+      "cycle": 224,
+      "streak": 0,
+      "collected": 961,
+      "message": "Collecting fresh examples for Open a wooden door.",
+      "episodes": 23,
+      "successes": 23,
+      "opened": 2
+    },
+    {
+      "stage": 45,
+      "phase": "training",
+      "cycle": 224,
+      "streak": 0,
+      "collected": 1526,
+      "message": "Training a candidate model. Bots wait while it learns.",
+      "episodes": 34,
+      "successes": 34,
+      "opened": 8
+    },
+    {
+      "stage": 45,
+      "phase": "evaluating",
+      "cycle": 224,
+      "streak": 0,
+      "collected": 1526,
+      "message": "Testing the candidate on the same held-out routes.",
+      "episodes": 6,
+      "successes": 6,
+      "opened": 8
+    },
+    {
+      "stage": 45,
+      "phase": "evaluating",
+      "cycle": 224,
+      "streak": 0,
+      "collected": 1526,
+      "message": "Testing the candidate on the same held-out routes.",
+      "episodes": 22,
+      "successes": 22,
+      "opened": 7
+    },
+    {
+      "stage": 45,
+      "phase": "baseline",
+      "cycle": 225,
+      "streak": 1,
+      "collected": 1526,
+      "message": "Testing the saved model before training.",
+      "episodes": 5,
+      "successes": 5,
+      "opened": 8
+    },
+    {
+      "stage": 45,
+      "phase": "baseline",
+      "cycle": 225,
+      "streak": 1,
+      "collected": 1526,
+      "message": "Testing the saved model before training.",
+      "episodes": 16,
+      "successes": 16,
+      "opened": 8
+    },
+    {
+      "stage": 46,
+      "phase": "baseline",
+      "cycle": 226,
+      "streak": 0,
+      "collected": 1526,
+      "message": "Testing the saved model before training.",
+      "episodes": 8,
+      "successes": 8,
+      "opened": 5
+    }
+  ],
+  "history": [
+    {
+      "cycle": 218,
+      "stage": 43,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 1.0,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 21808573,
+      "time": 1792706126.5388052
+    },
+    {
+      "cycle": 219,
+      "stage": 44,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 1.0,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 21908576,
+      "time": 1792706182.082156
+    },
+    {
+      "cycle": 220,
+      "stage": 44,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 1.0,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 22008579,
+      "time": 1792706240.9465609
+    },
+    {
+      "cycle": 224,
+      "stage": 45,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.0,
+      "score": 1.0,
+      "accepted": true,
+      "time": 1792706767.4461668
+    },
+    {
+      "cycle": 225,
+      "stage": 45,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 1.0,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 22508594,
+      "time": 1792706803.1477952
+    }
+  ]
+}

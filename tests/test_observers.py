@@ -161,7 +161,8 @@ def test_camera_uses_native_display_interpolation(tmp_path):
     commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:100,settle_delay=0)
     o.start({'player':'Xonosnet','target':'LabAI0','view':'orbit'},['Xonosnet'])
     o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':{'connected':True,'last_seen':100,'entity_id':1}},True)
-    assert any('summon minecraft:item_display' in c and 'teleport_duration:3' in c for c in commands)
+    assert any('summon minecraft:item_display' in c and 'teleport_duration:0' in c and 'Rotation:[' in c for c in commands)
+    assert any('data merge entity' in c and 'teleport_duration:3' in c for c in commands)
     assert not any('armor_stand' in c for c in commands)
 
 
@@ -248,3 +249,20 @@ def test_native_roster_keeps_identity_metadata_out_of_labels(tmp_path):
     labels=[c for c in commands if 'display name' in c or 'bossbar' in c]
     assert not any('A0001' in c or ' D0' in c or 'deaths' in c for c in labels)
     assert any('LabAI0: Blocked ~15s' in c for c in labels)
+
+
+@pytest.mark.parametrize('view',['trail','side','overhead','orbit'])
+def test_camera_spawns_with_torso_facing_rotation_before_attachment(tmp_path,view):
+    from lab.observers import camera_rotation
+    import math
+    yaw,pitch=camera_rotation(view,7,4,0)
+    assert 0<pitch<=90
+    assert pitch==pytest.approx(90 if view=='overhead' else math.degrees(math.atan2(3.1,7)))
+    spawn=camera_spawn('Xonosnet','LabAI0','camera',view,7,4,0)
+    assert f'Rotation:[{yaw:.5f}f,{pitch:.5f}f]' in spawn
+    commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:100,settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0','view':view},['Xonosnet'])
+    o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':{'connected':True,'last_seen':100,'entity_id':1}},True)
+    attach=next(i for i,c in enumerate(commands) if 'run spectate @e[tag=lab_camera_' in c)
+    smooth=next(i for i,c in enumerate(commands) if 'data merge entity' in c)
+    assert smooth<attach

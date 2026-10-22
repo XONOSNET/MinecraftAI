@@ -75,7 +75,7 @@ test('closed practice doors use an explicit bounded actuator and require observe
  const {task,bot,runtime}=fixture();task.kind='advanced';task.actual_doors=[[305,0]];let open=false,calls=0;
  const original=bot.blockAt;const door={name:'oak_door',position:new Vec3(305,181,0),boundingBox:'block',getProperties:()=>({open})};
  bot.blockAt=p=>Math.floor(p.x)===305&&Math.floor(p.y)===181&&Math.floor(p.z)===0?door:original(p);
- bot.activateBlock=async()=>{calls++;open=true};let sensed=observeTask(bot,task,{hits:[]},runtime);
+ bot.look=async()=>{};bot.activateBlock=async()=>{calls++;open=true};let sensed=observeTask(bot,task,{hits:[]},runtime);
  assert.equal(sensed.extra[5],1);assert.equal(teacherAction(bot,task,sensed,runtime,0),5);
  assert.equal(await interact(bot,task,sensed,runtime,5,{}),false);
  assert.equal(await interact(bot,task,sensed,runtime,5,{open_practice_doors:true}),true);
@@ -100,4 +100,34 @@ test('advanced hazard contact terminates a trial that can no longer pass',()=>{
  assert.equal(failed({kind:'advanced'},{hazard_contacts:0}),false);
  assert.equal(failed({kind:'advanced'},{hazard_contacts:1}),true);
  assert.equal(failed({kind:'gather'},{hazard_contacts:1}),false);
+});
+
+
+test('door upper half remains detectable and actionable when it hides the lower half',async()=>{
+ const {task,bot,runtime}=fixture();task.kind='advanced';task.actual_doors=[[305,0]];
+ const base=bot.blockAt;let opened=false,clicked=null;
+ bot.blockAt=p=>p.x===305&&p.z===0&&[181,182].includes(p.y)?{name:'oak_door',position:p.clone(),getProperties:()=>({open:opened})}:base(p);
+ bot.canSeeBlock=b=>b.position.y===182;
+ bot.activateBlock=async b=>{clicked=b.position.y;opened=true};bot.look=async()=>{};
+ const sensed=observeTask(bot,task,{hits:[]},runtime);
+ assert.equal(sensed.extra[5],1);assert.equal(sensed.door.position.y,182);
+ assert.equal(await interact(bot,task,sensed,runtime,5,{open_practice_doors:true}),true);
+ assert.equal(clicked,182);assert.equal(observeTask(bot,task,{hits:[]},runtime).metrics.doors_opened,1);
+});
+
+test('forward motion blocked for eight seconds ends an advanced trial, turning does not',()=>{
+ const {failed}=require('../controller/tasks');const {task,bot,runtime}=fixture();task.kind='advanced';runtime.lastAction=0;
+ let sensed;for(let i=0;i<33;i++)sensed=observeTask(bot,task,{hits:[]},runtime);
+ assert.equal(failed(task,sensed.metrics),true);
+ runtime.lastAction=1;sensed=observeTask(bot,task,{hits:[]},runtime);
+ assert.equal(sensed.metrics.blocked_steps,0);assert.equal(failed(task,sensed.metrics),false);
+});
+
+
+test('intermittent turns cannot extend a no-progress stall forever',()=>{
+ const {failed}=require('../controller/tasks');const {task,bot,runtime}=fixture();task.kind='advanced';let sensed;
+ for(let i=0;i<65;i++){runtime.lastAction=i%2?0:1;sensed=observeTask(bot,task,{hits:[]},runtime);}
+ assert.equal(failed(task,sensed.metrics),true);
+ bot.entity.position.x+=.6;sensed=observeTask(bot,task,{hits:[]},runtime);
+ assert.equal(sensed.metrics.stalled_steps,0);assert.equal(failed(task,sensed.metrics),false);
 });

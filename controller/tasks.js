@@ -18,16 +18,28 @@ function observeTask(bot,task,scan,runtime){
  if(bot.entity.isInWater||(bot.entity.onGround&&standing?.name==='magma_block'))runtime.hazardContacts++;
  let sheltered=false;for(let h=2;h<=6;h++){const block=bot.blockAt(p.offset(0,h,0));if(solid(block)){sheltered=true;break;}}
  const resource=scan.hits.filter(h=>h.name==='oak_log'&&h.distance<=3.6).map(h=>bot.blockAt(new Vec3(h.position.x,h.position.y,h.position.z))).filter(b=>b&&bot.canSeeBlock(b)).sort((a,b)=>a.position.distanceTo(p)-b.position.distanceTo(p))[0]||null;
- let door=null;for(const [x,z] of task.actual_doors||[]){const b=bot.blockAt(new Vec3(x,181,z));if(b?.name==='oak_door'){if(b.getProperties().open)runtime.openedDoors.add(`${x},${z}`);else if(b.position.offset(.5,.5,.5).distanceTo(p)<2.6&&bot.canSeeBlock(b))door=b;}}
+ let door=null;for(const [x,z] of task.actual_doors||[]){const b=bot.blockAt(new Vec3(x,181,z));if(b?.name==='oak_door'){
+  if(b.getProperties().open)runtime.openedDoors.add(`${x},${z}`);
+  else for(const part of [b,bot.blockAt(new Vec3(x,182,z))]){
+   // At close range the upper half can occlude the lower half from the player's eyes.
+   if(part?.name==='oak_door'&&!part.getProperties().open&&part.position.offset(.5,.5,.5).distanceTo(p)<2.6&&bot.canSeeBlock(part)){door=part;break;}
+  }
+ }}
+ const prior=runtime.motionPosition;
+ runtime.blockedSteps=prior&&p.distanceTo(prior)<.05&&[0,3].includes(runtime.lastAction)?(runtime.blockedSteps||0)+1:0;
+ runtime.motionPosition=p.clone();
+ // Brief steering corrections must not reset the no-progress deadline indefinitely.
+ if(!runtime.progressAnchor||p.distanceTo(runtime.progressAnchor)>=.5){runtime.progressAnchor=p.clone();runtime.stalledSteps=0;}
+ else runtime.stalledSteps=(runtime.stalledSteps||0)+1;
  const wood=count(bot,'oak_log'),food=count(bot,'bread');
  const visited=dir=>Math.min(1,(runtime.visited.get(cell(p.plus(dir.scaled(2))))||0)/10);
  const extra=[Number(lowBlocked),Number(headBlocked),Number(frontHazard),Number(leftUnsafe),Number(rightUnsafe),task.kind==='advanced'?Number(!!door):Math.min(wood/3,1),Math.min(food/6,1),Number(sheltered),visited(forward),visited(left),visited(left.scaled(-1)),Math.min(runtime.visited.size/task.coverage_target,1)];
  const distance=Math.hypot(task.goal[0]-p.x,task.goal[2]-p.z);
  const inside=p.x>task.bounds[0]&&p.x<task.bounds[1]&&p.z>task.bounds[2]&&p.z<task.bounds[3];
- const metrics={doors_opened:runtime.openedDoors.size,health:bot.health,food:bot.food,wood,eaten:runtime.eaten,hunger_observed:runtime.hungerObserved,coverage:runtime.visited.size,sheltered,distance,y:p.y,hazard_contacts:runtime.hazardContacts,inside};
+ const metrics={blocked_steps:runtime.blockedSteps,stalled_steps:runtime.stalledSteps,doors_opened:runtime.openedDoors.size,health:bot.health,food:bot.food,wood,eaten:runtime.eaten,hunger_observed:runtime.hungerObserved,coverage:runtime.visited.size,sheltered,distance,y:p.y,hazard_contacts:runtime.hazardContacts,inside};
  return {extra,metrics,resource,door,frontBlocked:lowBlocked,headBlocked,frontHazard,leftUnsafe,rightUnsafe,forward,left};
 }
-function failed(task,m){return task.kind==='advanced'&&m.hazard_contacts>0;}
+function failed(task,m){return task.kind==='advanced'&&(m.hazard_contacts>0||m.blocked_steps>=32||m.stalled_steps>=64);}
 function reached(task,m){
  if(m.health<=0||!m.inside||Math.abs(m.y-181)>1.5)return false;
  if(task.kind==='gather')return m.wood>=task.wood_target;
@@ -69,7 +81,7 @@ function teacherAction(bot,task,sensed,runtime,angle){
 function inPracticeBounds(bot,task){const p=bot.entity.position;return p.x>task.bounds[0]&&p.x<task.bounds[1]&&p.z>task.bounds[2]&&p.z<task.bounds[3]&&p.y>=179&&p.y<=186;}
 async function interact(bot,task,sensed,runtime,action,permissions={}){
  if(!task||!inPracticeBounds(bot,task))return false;
- if(action===5&&task.kind==='advanced'&&permissions.open_practice_doors&&sensed.door){const b=sensed.door;if(b.name!=='oak_door'||!task.actual_doors.some(([x,z])=>b.position.x===x&&b.position.z===z)||!bot.canSeeBlock(b)||b.getProperties().open)return false;await bot.activateBlock(b);return true;}
+ if(action===5&&task.kind==='advanced'&&permissions.open_practice_doors&&sensed.door){const b=sensed.door;if(b.name!=='oak_door'||![181,182].includes(b.position.y)||!task.actual_doors.some(([x,z])=>b.position.x===x&&b.position.z===z)||!bot.canSeeBlock(b)||b.getProperties().open)return false;await bot.activateBlock(b);await bot.look(bot.entity.yaw,0,true);return true;}
  if(action===5&&permissions.harvest_oak_logs&&task.kind==='gather'){
   if(!sensed.resource){
    const pitches=[-.7,0,.7];runtime.lookSweep=(runtime.lookSweep||0)+1;

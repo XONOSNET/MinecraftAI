@@ -1,0 +1,27 @@
+[
+  {
+    "view": "side",
+    "spawn_pitch": 16,
+    "spawn_yaw": 0
+  },
+  {
+    "view": "orbit",
+    "spawn_pitch": 16,
+    "spawn_yaw": 71
+  },
+  {
+    "view": "trail",
+    "spawn_pitch": 16,
+    "spawn_yaw": -64
+  },
+  {
+    "view": "overhead",
+    "spawn_pitch": 64,
+    "spawn_yaw": 0
+  },
+  {
+    "view": "side",
+    "spawn_pitch": 16,
+    "spawn_yaw": 0
+  }
+]

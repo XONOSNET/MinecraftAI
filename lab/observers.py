@@ -30,8 +30,15 @@ def viewer_transfer(owner,target,view,distance,height,elapsed,heading=0):
     if view=='first_person':return f'tp {owner} {target}'
     return camera_move(target,'transfer',view,distance,height,elapsed,heading).replace('@e[tag=transfer,limit=1]',owner)
 
+def camera_rotation(view,distance,height,elapsed,heading=0):
+    if view=='overhead':return 0,90
+    angle=elapsed*.22 if view=='orbit' else heading-(math.pi/2 if view=='side' else math.pi)
+    x,z=math.cos(angle)*distance,math.sin(angle)*distance
+    return math.degrees(math.atan2(x,-z)),math.degrees(math.atan2(height-.9,distance))
+
 def camera_spawn(owner,target,tag,view,distance,height,elapsed,heading=0):
-    nbt=f'{{teleport_duration:3,interpolation_duration:3,view_range:2f,Invulnerable:1b,Silent:1b,Tags:["{tag}","lab_observer_camera"]}}'
+    yaw,pitch=camera_rotation(view,distance,height,elapsed,heading)
+    nbt=f'{{Rotation:[{yaw:.5f}f,{pitch:.5f}f],teleport_duration:0,interpolation_duration:3,view_range:2f,Invulnerable:1b,Silent:1b,Tags:["{tag}","lab_observer_camera"]}}'
     if view=='stationary':return f'execute at {owner} run summon minecraft:item_display ~ ~ ~ {nbt}'
     prefix,tail=camera_move(target,tag,view,distance,height,elapsed,heading).split(' run tp ',1)
     coordinates=tail.split(' facing ',1)[0].split(' ',1)[1]
@@ -262,6 +269,8 @@ class Observers:
             camera,ret=self.tags(s)
             if not s['attached']:
                 if s.get('attach_ready_at') is None:
+                    # Align the player's own view before detaching from the old camera.
+                    if s['view']!='first_person':self.command(viewer_transfer(owner,target,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
                     self.command(f'execute as {owner} run spectate')
                     self.command(f'gamemode spectator {owner}')
                     self.kill_camera(s)
@@ -276,6 +285,7 @@ class Observers:
                     anchor=owner if s['view']=='stationary' else target
                     self.command(camera_spawn(owner,target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
                     self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
+                    self.command(f'execute at {target} run data merge entity @e[tag={camera},limit=1] {{teleport_duration:3}}')
                     self.command(f"execute at {owner if s['view']=='stationary' else target} run spectate @e[tag={camera},limit=1] {owner}");s['camera_created']=True
                 s.update(attached=True,attach_ready_at=None,attached_at=self.clock());self.save()
             if s['view']!='first_person':self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))

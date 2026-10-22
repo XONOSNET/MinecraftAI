@@ -43,6 +43,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  if(task){sensed=tasks.observeTask(b,task,s,runtime);lastMetrics=sensed.metrics;obs.push(...sensed.extra);teacher=tasks.teacherAction(b,task,sensed,runtime,angle);if(task.kind==='explore'||task.kind==='eat'){obs[64]=0;obs[65]=1;obs[66]=0;}}
  const reward=lastDistance===null?0:Math.max(-1,Math.min(1,lastDistance-distance))-.01;
  const res=await api('/step',{agent:name,run:phase,obs,teacher,reward,position:[p.x,p.y,p.z],health:b.health,food:b.food,hits:s.hits,perception_ms:performance.now()-t,steps,goal,task:task?.kind,metrics:lastMetrics});
+ runtime.lastAction=res.action;
  applyMotion(b,res.action,permissions);activity=['Moving forward','Turning left to align','Turning right to align','Jumping forward','Policy chose to wait','Gathering wood','Eating'][res.action]||'Waiting';if(task?.kind==='advanced'&&res.action===5)activity='Opening door';
  if((res.action===1||res.action===2)&&permissions.turn)await b.look(b.entity.yaw+(res.action===1?1:-1)*(task?.kind==='advanced'?.12:.22),0,true);
 
