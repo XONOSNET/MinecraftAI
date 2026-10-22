@@ -3,6 +3,7 @@ const tasks=require('./tasks');
 const fs=require('fs');const token=fs.readFileSync('data/api-token','utf8').trim();
 const permissions=JSON.parse(fs.readFileSync('config/permissions.json','utf8'));
 const curriculumPermissions=JSON.parse(fs.readFileSync('config/curriculum-permissions.json','utf8'));
+const agentConfig=JSON.parse(fs.readFileSync('config/agents.json','utf8'));if(!Number.isInteger(agentConfig.count)||agentConfig.count<1||agentConfig.count>10)throw Error('Agent count must be 1-10');
 const bots=[];let quitting=false;
 async function api(path,data){const r=await fetch('http://127.0.0.1:8000'+path,{method:'POST',headers:{'Content-Type':'application/json','X-Lab-Token':token},body:JSON.stringify(data)});if(!r.ok)throw Error(await r.text());return r.json();}
 async function spawn(i){if(quitting)return;try{const status=await(await fetch('http://127.0.0.1:8000/status',{signal:AbortSignal.timeout(2000)})).json();if(status.server&&!status.server.ready){setTimeout(()=>spawn(i),2000);return;}}catch{setTimeout(()=>spawn(i),2000);return;}if(quitting)return;const name='LabAI'+i;const b=mineflayer.createBot({host:'127.0.0.1',port:25565,username:name,auth:'offline',version:'1.21.4',respawn:true});bots[i]=b;let tick=0,busy=false,goal=null,lastDistance=null,steps=0,phase='',episode=0,task=null,runtime=tasks.createRuntime(),readyAt=0,lastMetrics=null;
@@ -13,7 +14,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  b.on('death',()=>interrupted('death'));
  b.on('end',()=>{interrupted('disconnect');api('/agent-disconnected',{agent:name}).catch(()=>{});console.log(name,'disconnected');if(!quitting)setTimeout(()=>spawn(i),5000);});
  b.on('physicsTick',async()=>{if(++tick%5||busy||!b.entity)return;busy=true;try{
- const heartbeat=()=>({agent:name,index:i,episode,position:[b.entity.position.x,b.entity.position.y,b.entity.position.z],health:b.health,food:b.food});
+ const heartbeat=()=>({agent:name,index:i,episode,position:[b.entity.position.x,b.entity.position.y,b.entity.position.z],health:b.health,food:b.food,entity_id:b.entity.id,dimension:b.game.dimension,players:Object.values(b.players).map(p=>({name:p.username,mode:p.gamemode}))});
  let state=await api('/assignment',heartbeat());
  if(phase!==state.run){episode=0;state=await api('/assignment',heartbeat());}
  if(state.mode==='paused'){b.clearControlStates();goal=null;return;}
@@ -43,7 +44,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  lastDistance=distance;steps++;
  }catch(e){b.clearControlStates();console.error(name,e.message);}finally{busy=false;}});
 }
-for(let i=0;i<5;i++)setTimeout(()=>spawn(i),i*1200);
+for(let i=0;i<agentConfig.count;i++)setTimeout(()=>spawn(i),i*1200);
 function stop(){quitting=true;for(const b of bots)if(b)b.quit('Laboratory shutdown');setTimeout(()=>process.exit(0),1000);}
 process.on('SIGINT',stop);process.on('SIGTERM',stop);
 

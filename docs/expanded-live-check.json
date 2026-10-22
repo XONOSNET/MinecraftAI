@@ -1,0 +1,226 @@
+[
+  {
+    "stage": 16,
+    "name": "Offset doorway",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-16-1792637998",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 35.833333333333336,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 17,
+    "name": "Alternating doorways",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-17-1792638034",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 46.708333333333336,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 18,
+    "name": "Four hurdles",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-18-1792638073",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 35.666666666666664,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 19,
+    "name": "Raised causeway",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-19-1792638104",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 32.25,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 20,
+    "name": "Long water trench",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-20-1792638132",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 37.416666666666664,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 21,
+    "name": "Twin magma islands",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-21-1792638164",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 41.208333333333336,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 22,
+    "name": "Explore around pillars",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-22-1792638200",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 58.291666666666664,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 23,
+    "name": "Explore the perimeter",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-23-1792638533",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 79.58333333333333,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 24,
+    "name": "Harvest four logs",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-24-1792639143",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 38.25,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 25,
+    "name": "Harvest five logs",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-25-1792639213",
+      "episodes": 24,
+      "successes": 23,
+      "mean_steps": 49.291666666666664,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 26,
+    "name": "Eat until full",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-26-1792639339",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 5.0,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 27,
+    "name": "Eat then reach safety",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-27-1792639383",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 35.916666666666664,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 28,
+    "name": "Find a compact canopy",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-28-1792639449",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 27.958333333333332,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 29,
+    "name": "Reach shelter through a doorway",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-29-1792639475",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 30.083333333333332,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 30,
+    "name": "Hurdle and water course",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-30-1792639502",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 37.291666666666664,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  },
+  {
+    "stage": 31,
+    "name": "Hurdles and magma course",
+    "driver": "teacher",
+    "result": {
+      "run": "practice-31-1792639534",
+      "episodes": 24,
+      "successes": 24,
+      "mean_steps": 38.041666666666664,
+      "expected_episodes": 24
+    },
+    "training": null,
+    "navigation_weights_unchanged": true
+  }
+]

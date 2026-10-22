@@ -1,0 +1,72 @@
+[
+  {
+    "view": "first_person",
+    "camera_id": 136,
+    "status": "following",
+    "position": [
+      490.2615503111226,
+      181,
+      0.0021229963915139205
+    ],
+    "game_mode": "spectator"
+  },
+  {
+    "view": "trail",
+    "camera_id": 490,
+    "status": "following",
+    "position": [
+      494.21422794378446,
+      185,
+      -4.989649178443691
+    ],
+    "game_mode": "spectator"
+  },
+  {
+    "view": "side",
+    "camera_id": 497,
+    "status": "following",
+    "position": [
+      490.63298722217155,
+      185,
+      -6.965547123574892
+    ],
+    "game_mode": "spectator"
+  },
+  {
+    "view": "overhead",
+    "camera_id": 501,
+    "status": "following",
+    "position": [
+      490.2521147931249,
+      192,
+      0.06992150696976043
+    ],
+    "game_mode": "spectator"
+  },
+  {
+    "view": "orbit",
+    "camera_id": 503,
+    "status": "following",
+    "position": [
+      494.24025770671176,
+      185,
+      4.948492582787989
+    ],
+    "game_mode": "spectator"
+  },
+  {
+    "view": "stationary",
+    "camera_id": 521,
+    "status": "following",
+    "position": [
+      493.87329585904513,
+      185,
+      5.274496012744324
+    ],
+    "game_mode": "spectator"
+  },
+  {
+    "restored_mode": "survival",
+    "return_distance": 0
+  }
+]

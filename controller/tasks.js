@@ -29,37 +29,48 @@ function observeTask(bot,task,scan,runtime){
 function reached(task,m){
  if(m.health<=0||!m.inside||Math.abs(m.y-181)>1.5)return false;
  if(task.kind==='gather')return m.wood>=task.wood_target;
- if(task.kind==='eat')return m.food>=18&&m.eaten>=1&&m.hunger_observed;
+ if(['eat','eat_route'].includes(task.kind))return m.food>=(task.food_target||18)&&m.eaten>=1&&m.hunger_observed&&(task.kind==='eat'||m.distance<1.25);
  if(task.kind==='explore')return m.coverage>=task.coverage_target;
  if(task.kind==='shelter')return m.sheltered&&m.distance<3;
  return m.distance<1.25&&m.health>=18&&m.hazard_contacts===0;
 }
 function turnAction(angle){return Math.abs(angle)>.18?(angle>0?1:2):0;}
 function teacherAction(bot,task,sensed,runtime,angle){
- if(task.kind==='eat')return bot.food<18&&sensed.extra[6]>0?6:4;
+ if(['eat','eat_route'].includes(task.kind)&&bot.food<(task.food_target||18)&&sensed.extra[6]>0)return 6;
+ if(task.kind==='eat')return 4;
  if(task.kind==='gather'&&sensed.resource)return 5;
+ if(task.kind==='gather'&&sensed.metrics?.distance<3.5){
+  runtime.searchDecision=(runtime.searchDecision||0)+1;
+  if(runtime.searchDecision%4!==0)return 5;
+ }
  if(task.kind==='explore'){
   // Follow open ground, turning consistently at a boundary rather than oscillating.
   return sensed.frontBlocked||sensed.frontHazard?1:0;
  }
- if(task.kind==='hazard'){
+ if(task.waypoints?.length>1){
   const p=bot.entity.position;let point=task.waypoints[runtime.waypoint];
   if(Math.hypot(point[0]-p.x,point[2]-p.z)<1&&runtime.waypoint<task.waypoints.length-1)point=task.waypoints[++runtime.waypoint];
   const target=Math.atan2(-(point[0]-p.x),-(point[2]-p.z));angle=Math.atan2(Math.sin(target-bot.entity.yaw),Math.cos(target-bot.entity.yaw));
  }
  const action=turnAction(angle);
- if(action===0&&task.kind==='jump'&&sensed.frontBlocked&&!sensed.headBlocked)return 3;
+ if(action===0&&['jump','mixed'].includes(task.kind)&&sensed.frontBlocked&&!sensed.headBlocked)return 3;
  return action;
 }
 function inPracticeBounds(bot,task){const p=bot.entity.position;return p.x>task.bounds[0]&&p.x<task.bounds[1]&&p.z>task.bounds[2]&&p.z<task.bounds[3]&&p.y>=179&&p.y<=186;}
 async function interact(bot,task,sensed,runtime,action,permissions={}){
  if(!task||!inPracticeBounds(bot,task))return false;
- if(action===5&&permissions.harvest_oak_logs&&task.kind==='gather'&&sensed.resource){
+ if(action===5&&permissions.harvest_oak_logs&&task.kind==='gather'){
+  if(!sensed.resource){
+   const pitches=[-.7,0,.7];runtime.lookSweep=(runtime.lookSweep||0)+1;
+   await bot.look(bot.entity.yaw,pitches[(runtime.lookSweep-1)%pitches.length],true);return true;
+  }
   const b=sensed.resource;if(b.name!=='oak_log'||!bot.canDigBlock(b)||!bot.canSeeBlock(b))return false;
   if(b.position.x<task.bounds[0]||b.position.x>task.bounds[1]||b.position.z<task.bounds[2]||b.position.z>task.bounds[3])return false;
-  await bot.lookAt(b.position.offset(.5,.5,.5),true);await bot.dig(b);return true;
+  await bot.lookAt(b.position.offset(.5,.5,.5),true);await bot.dig(b);
+  // Return the harvesting actuator to its normal forward gaze between blocks.
+  await bot.look(bot.entity.yaw,0,true);return true;
  }
- if(action===6&&permissions.eat_bread&&task.kind==='eat'&&bot.food<20){
+ if(action===6&&permissions.eat_bread&&['eat','eat_route'].includes(task.kind)&&bot.food<20){
   const food=bot.inventory.items().find(i=>i.name==='bread');if(!food)return false;
   const before=count(bot,'bread');await bot.equip(food,'hand');await bot.consume();runtime.eaten+=Math.max(0,before-count(bot,'bread'));return true;
  }

@@ -1,6 +1,6 @@
 # Minecraft Autonomous AI Evolution Laboratory
 
-Local research prototype for five neural agents in one persistent Paper survival world. Seven curriculum tracks cover navigation and bounded survival foundations in elevated practice arenas. Normal world survival remains enabled. This is an initial learning experiment, not a complete autonomous survival player.
+Local research prototype for eight configurable neural agents in one persistent Paper survival world. Eight curriculum tracks cover navigation and bounded survival foundations in elevated practice arenas. Normal world survival remains enabled. This is an initial learning experiment, not a complete autonomous survival player.
 
 ## Run
 
@@ -62,20 +62,21 @@ Use **Start / resume autonomous training**. The scheduler resumes the saved stag
 | Track | Practice stages | Measured success |
 |---|---|---|
 | Navigation | Short routes, longer routes, full turns, long routes with full turns | Reach the goal alive |
-| Traversal | One hurdle, three hurdles | Jump over one-block barriers and reach the goal |
-| Hazards | Water, magma | Reach the goal without contacting the hazard or substantial damage |
-| Exploration | 10, then 18 new grid cells | Visit distinct two-block cells without a goal-direction oracle |
-| Gathering | One, then three logs | Break visible practice oak logs and actually pick up the drops |
-| Nutrition | Hungry, severely hungry | Consume supplied bread after hunger is observed; recover to at least 18 food |
-| Shelter | Near, then farther shelter | Reach a goal-marked roof and verify overhead cover |
+| Traversal | One, three or four hurdles; doorways; raised causeway | Jump over one-block barriers and reach the goal |
+| Hazards | Water, magma, long trench, twin islands | Reach the goal without contacting the hazard or substantial damage |
+| Exploration | 10, 18, 22 or 32 new cells; pillar and perimeter courses | Visit distinct two-block cells without a goal-direction oracle |
+| Gathering | One, three, four or five logs | Break visible practice oak logs and actually pick up the drops |
+| Nutrition | Hunger recovery, eat to full, eat then navigate | Consume supplied bread after hunger is observed; recover to at least 18 food |
+| Shelter | Near/far roofs, compact canopy, doorway approach | Reach a goal-marked roof and verify overhead cover |
+| Integration | Hurdles with water or magma | Reach the goal without hazard contact or substantial damage |
 
-There are 16 stages across seven tracks. Navigation requires two accepted tests at 90% or better; other tracks require two at 80% or better. Each cycle evaluates the protected model, collects fresh teacher examples on different seeds/arenas, trains, and evaluates the candidate on the same held-out tasks as its baseline. Equal or higher scores keep the candidate; lower scores restore that track's protected weights and optimizer. Navigation uses its original 70-input/four-action model. Each broader track has an independent 82-input/seven-action model initialized from navigation, independent replay (15,000-example cap), and independent checkpoints. New skills do not overwrite navigation weights.
+There are 32 stages across eight tracks. Navigation requires two accepted tests at 90% or better; other tracks require two at 80% or better. Each cycle evaluates the protected model, collects fresh teacher examples on different seeds/arenas, trains, and evaluates the candidate on the same held-out tasks as its baseline. Equal or higher scores keep the candidate; lower scores restore that track's protected weights and optimizer. Navigation uses its original 70-input/four-action model. Each broader track has an independent 82-input/seven-action model initialized from navigation, independent replay (15,000-example cap), and independent checkpoints. New skills do not overwrite navigation weights.
 
-Collection targets are 1,500 examples per cycle, or 150 for nutrition because eating has long preparation/consumption intervals. Sessions stop after 48 cycles, six hours, a ten-minute phase timeout, a plateau, missing bots, unsafe memory/disk headroom, or completion. State persists in `data/curriculum.json`; skill data lives in `data/skills` and `checkpoints/skills`. Interrupted unaccepted candidates are restored before recovery continues. Existing navigation state is migrated without clearing its history or examples.
+Collection targets are 1,500 examples per cycle, or 150 for nutrition because eating has long preparation/consumption intervals. Sessions stop after 80 cycles, six hours, a ten-minute phase timeout, a plateau, missing bots, unsafe memory/disk headroom, or completion. State persists in `data/curriculum.json`; skill data lives in `data/skills` and `checkpoints/skills`. Interrupted unaccepted candidates are restored before recovery continues. Existing navigation state is migrated without clearing its history or examples.
 
 Under **Practice and test a skill**, pause automation, select a stage, and choose a teacher reference or neural policy test. Teacher references collect demonstrations without updating weights. After at least 100 examples, **Train this skill** trains the selected head; **Test this skill** runs it on fresh tasks without teacher control. Teacher results and neural results have different labels. Practice runs do not bypass autonomous promotion gates.
 
-Navigation arenas remain at X=160/240, Y=181. Broader training/testing arenas are at X=320/480 with separate bot lanes at Z=0,12,24,36,48. Only these practice areas are rebuilt. Two-layer floors contain water fixtures. Lighting and scoped hostile-mob cleanup protect the exercises from unrelated creeper explosions; the surrounding survival world keeps its normal rules. Task resets clear only bot inventories, replenish practice materials, and restore bot health. Nutrition intentionally reduces food through a temporary hunger effect. `config/curriculum-permissions.json` permits only visible practice oak-log harvesting and supplied bread consumption within the assigned lane; general digging, placement, combat and inventory automation remain disabled.
+Navigation arenas remain at X=160/240, Y=181. Broader training/testing arenas are at X=320/480 with separate bot lanes at Z=0,12,24,36,48,60,72,84 (eight bots). Only these practice areas are rebuilt. Two-layer floors contain water fixtures. Lighting and scoped hostile-mob cleanup protect the exercises from unrelated creeper explosions; the surrounding survival world keeps its normal rules. Task resets clear only bot inventories, replenish practice materials, and restore bot health. Nutrition intentionally reduces food through a temporary hunger effect. `config/curriculum-permissions.json` permits only visible practice oak-log harvesting and supplied bread consumption within the assigned lane; general digging, placement, combat and inventory automation remain disabled.
 
 The additional 12 features are local forward foot/head obstruction, local hazard/edge and side-clearance probes, log/food inventory counts, overhead cover, nearby visited-cell memory, and coverage progress. Resource harvesting additionally requires a ray-observed visible log and Minecraft reach checks. Exploration suppresses point-goal inputs. Gathering and shelter use goal-marked exercises. All policy actions in neural tests come from the network; scripted teachers only provide demonstrations/reference measurements.
 
@@ -83,3 +84,17 @@ These are bounded survival foundations using behavioral cloning and candidate se
 
 
 For explicit validation after pausing automation, run `./.venv/Scripts/python scripts/verify_curricula.py --stages 4 5 --driver teacher` (reference demonstrations), or `--stages 4 --driver student --train` to train/test that independent head. The tool preserves navigation weights and writes a labeled JSON report. It intentionally refuses to interrupt an active autonomous run.
+
+
+## Watch the bots and scale the cohort
+
+In **Watch in Minecraft**, use player **Xonosnet**, choose LabAI0–LabAI7 and a view, then click **Follow / change view**. First person attaches to the bot; behind, side, overhead and orbit use invisible camera anchors. Following views move with arena transfers and reattach after respawn. Distance and height are adjustable. **Stationary camera (stay here)** anchors at your current location and turns toward the selected bot; selecting another bot and applying keeps that position. Distant bots may be outside Minecraft's render distance; choose a following view to travel to their arena. **Stop following** restores the game mode, position and orientation saved when you entered follow mode. Offline players wait; stopping while disconnected restores the saved state on rejoining. No operator grant is needed for watching. Only click Follow for a player you intend to control.
+
+The measured machine is a Ryzen 9 5900X (12 cores, 24 threads) with 31.9 GiB usable RAM. Eight agents are the deployed starting cohort: three more than before. Observed eight-bot references held 20 TPS at approximately 2–3 ms/tick, around 5% overall CPU and 46% system memory. These are local measurements, not a maximum-capacity guarantee. Consider ten only after watching tick times and memory during a longer training run; reserve slots for humans (the server currently allows 12 players).
+
+`config/agents.json` sets count (1–10) and episodes per agent (default 3); restart the full lab after changing it. Both controller and service read it. Lane construction, connection gates, completion counts, progress displays and verification scripts scale with this setting. Eight bots run **24 tasks per baseline/candidate test**. Old results retain their original 15-task cohort size. Changing count resets the current promotion streak while keeping completed stages, checkpoints, examples and history. Resource pauses remain active; population does not change automatically during a comparison.
+
+Stages 17–32 append offset/alternating doorways, four hurdles, a raised causeway, a longer water trench, twin magma islands, pillar/perimeter exploration, four/five-log compact groves, eating to full, eating then navigating, a compact canopy, shelter through a doorway, and combined hurdle/water or hurdle/magma courses. They reuse scoped practice permissions. The combined courses have their own independent integration policy. New courses remain queued until earlier stages pass; adding a course does not imply its neural policy has mastered it.
+
+
+`node scripts/verify_observers.cjs` joins a temporary non-OP test viewer, checks all six views, switches stationary targets and verifies mode/position restoration. Add `--transfer` while autonomy is running to wait for a natural arena transfer and verify that the first-person camera travels with the target. The script leaves human players untouched and disconnects its test viewer when finished. Gathering action 5 can sweep its camera up/down within the assigned lane to rediscover logs outside the current view; actual digging still requires a visible ray hit and reach checks.

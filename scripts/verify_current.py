@@ -10,7 +10,7 @@ def evaluate(mode,name):
  run=PREFIX+name;call('/control/'+mode,{'run':run});deadline=time.time()+240
  while time.time()<deadline:
   rows=[r for r in status()['episodes'] if r['run']==run]
-  if rows and rows[0]['episodes']>=15:print(json.dumps(rows[0]),flush=True);return
+  if rows and rows[0]['episodes']>=rows[0].get('expected_episodes',15):print(json.dumps(rows[0]),flush=True);return
   time.sleep(2)
  raise RuntimeError('Evaluation timeout '+run)
 if __name__=='__main__':

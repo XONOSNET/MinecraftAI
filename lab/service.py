@@ -17,6 +17,8 @@ from .admin import build_admin_command
 from .curriculum import Curriculum, STAGES, sample_route, route_seed
 from .skills import SkillBank, SKILL_INPUTS, SKILL_ACTIONS
 from .tasks import task_spec, arena_commands, reset_commands, task_success, SKILLS, minecraft_yaw
+from .config import AGENT_COUNT, EPISODES_PER_AGENT, EXPECTED_EPISODES, LANE_END, is_agent
+from .observers import Observers
 import copy
 import re
 ROOT=Path(__file__).resolve().parents[1]
@@ -33,6 +35,7 @@ CREATE TABLE IF NOT EXISTS memory(agent TEXT,x INT,y INT,z INT,block TEXT,seen R
 CREATE TABLE IF NOT EXISTS episodes(id INTEGER PRIMARY KEY,run TEXT,agent TEXT,success INT,steps INT,distance REAL,time REAL);
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY,time REAL,event TEXT,payload TEXT);
 CREATE TABLE IF NOT EXISTS models(version TEXT PRIMARY KEY,metadata TEXT);
+CREATE TABLE IF NOT EXISTS run_config(run TEXT PRIMARY KEY,agent_count INT,episodes_per_agent INT);
 ''')
 model=Policy();opt=torch.optim.Adam(model.parameters(),lr=.003)
 if Path('checkpoints/latest.pt').exists():
@@ -51,6 +54,7 @@ server_started_at=None
 server_ready_seen=False
 last_timing_request=None
 player_status={'players':{},'sampled_at':None}
+player_states={}
 training_jobs=TrainingJobs()
 skill_bank=SkillBank()
 assigned_tasks={}
@@ -145,6 +149,8 @@ def start_training(background=False):
 def console(command):
     if not server or server.poll() is not None:raise RuntimeError('Minecraft server is not running')
     server.stdin.write(command+'\n');server.stdin.flush()
+observers=Observers('data/observers.json',console)
+
 def checkpoint():
     stamp=str(time.time_ns());p=Path('checkpoints')/(stamp+'.pt')
     payload={'model':model.state_dict(),'optimizer':opt.state_dict(),'seed':42,'width':model.net[0].out_features}
@@ -165,6 +171,7 @@ def launch():
     server_log_offset=Path('logs/minecraft-console.log').stat().st_size
     server_started_at=time.time();server_ready_seen=False;last_timing_request=None
     player_status={'players':{},'sampled_at':None}
+    player_states.clear()
     server=subprocess.Popen([str(java.resolve()),'-Xms1G','-Xmx4G','-jar','paper.jar','--nogui'],cwd=ROOT/'server',stdin=subprocess.PIPE,stdout=logfile,stderr=subprocess.STDOUT,text=True,creationflags=subprocess.CREATE_NO_WINDOW)
     Path('data/server.pid').write_text(str(server.pid));event('server_start',{'pid':server.pid})
 
@@ -193,6 +200,7 @@ def prepare_server_operation():
     if training_jobs.running:
         training_jobs.cancel();training_jobs.wait()
     with lock:
+        if server_ready():observers.suspend([p['name'] for p in online_players()])
         checkpoint()
         for skill in skill_bank.entries:
             skill_bank.save(skill);skill_bank.save_replay(skill)
@@ -244,7 +252,7 @@ def online_players():
     if not server_ready():return []
     levels={entry['name'].casefold():entry.get('level',0) for entry in operators()}
     return [{'name':entry['name'],'uuid':entry.get('id'),'operator_level':levels.get(entry['name'].casefold(),0),
-             'is_bot':bool(re.fullmatch(r'LabAI[0-4]',entry['name']))}
+             'is_bot':is_agent(entry['name'])}
             for entry in player_status['players'].get('sample',[]) if re.fullmatch(r'[A-Za-z0-9_]{3,16}',entry.get('name',''))]
 
 def backup():
@@ -287,7 +295,7 @@ def watchdog():
                 globals()['mode']='paused';event('memory_pause',{})
             lifecycle=server_control.snapshot()
             if lifecycle['ready'] and not lifecycle['busy'] and (curriculum.state['enabled'] or practice) and time.time()-last_practice_sweep>10:
-                for center in (160,240,320,480):console(f'kill @e[type=minecraft:phantom,x={center-24},y=175,z=-24,dx=48,dy=50,dz=80]')
+                for center in (160,240,320,480):console(f'kill @e[type=minecraft:phantom,x={center-24},y=175,z=-24,dx=48,dy=50,dz={LANE_END+26}]')
                 last_practice_sweep=time.time()
             if server and server.poll() is not None and lifecycle['desired_running'] and not lifecycle['busy'] and retries<3:
                 mode='paused';retries+=1
@@ -303,7 +311,7 @@ server_control=ServerControl(launch_minecraft,stop_minecraft,prepare_server_oper
 @asynccontextmanager
 async def lifespan(app):
     global shutting_down,lan_bridge,lan_error
-    launch();threading.Thread(target=watchdog,daemon=True).start();threading.Thread(target=curriculum_worker,daemon=True).start()
+    launch();threading.Thread(target=watchdog,daemon=True).start();threading.Thread(target=curriculum_worker,daemon=True).start();threading.Thread(target=observer_worker,daemon=True).start()
     if Path('config/lan.json').exists():
         config=json.loads(Path('config/lan.json').read_text(encoding='utf-8'))
         if config.get('enabled'):
@@ -331,10 +339,11 @@ def access():return {'ok':True}
 @app.get('/status')
 def status():
     with lock:
-        metrics=db.execute('''WITH ranked AS (SELECT *,row_number() OVER(PARTITION BY run,agent ORDER BY id) AS sequence FROM episodes)
-            SELECT run,count(*),sum(success),avg(steps) FROM ranked WHERE sequence<=3 OR run LIKE '%teacher%' GROUP BY run''').fetchall()
+        metrics=db.execute(f'''WITH ranked AS (SELECT *,row_number() OVER(PARTITION BY run,agent ORDER BY id) AS sequence FROM episodes)
+            SELECT run,count(*),sum(success),avg(steps) FROM ranked WHERE sequence<={EPISODES_PER_AGENT} OR run LIKE '%teacher%' GROUP BY run''').fetchall()
+        run_sizes={r[0]:r[1]*r[2] for r in db.execute('SELECT * FROM run_config')}
         activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error') ORDER BY id DESC LIMIT 20")]
-        return {'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
+        return {'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':EPISODES_PER_AGENT,'expected_episodes':EXPECTED_EPISODES},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:
@@ -345,14 +354,18 @@ def nearby_memory(agent:str):
 @app.post('/assignment',dependencies=[Depends(auth)])
 def assignment(d:dict):
     with lock:
+        if not is_agent(d.get('agent')) or d.get('agent')!=f"LabAI{d.get('index')}":raise HTTPException(400,'Unknown agent')
+        for player in d.get('players',[]):
+            if re.fullmatch(r'[A-Za-z0-9_]{3,16}',player.get('name','')) and type(player.get('mode')) is int and player['mode'] in range(4):
+                player_states[player['name']]={'mode':player['mode'],'seen':time.time()}
         if 'position' in d:
             state=agents.setdefault(d['agent'],{'goal':None,'steps':0,'reward':0,'action':4,'inference_ms':0,'perception_ms':0,'rays':[]})
             state.update(position=d['position'],health=d['health'],food=d['food'],last_seen=time.time(),run=run)
-            state['connected']=True
+            state.update(connected=True,entity_id=d.get('entity_id'),dimension=d.get('dimension'),simulation=STAGES[practice['stage'] if practice else curriculum.state['stage']]['name'] if practice or curriculum.state['enabled'] else 'Manual navigation')
         # Repeated calls during a lifetime return the same assignment; next episode changes it.
         rng=random.Random(8000+d['index']*1000+d['episode'])
         finished=db.execute('SELECT count(*) FROM episodes WHERE run=? AND agent=?',(run,d['agent'])).fetchone()[0]
-        if mode in ('untrained','evaluate','random','heuristic') and finished>=3:return {'mode':'paused','run':run}
+        if mode in ('untrained','evaluate','random','heuristic') and finished>=EPISODES_PER_AGENT:return {'mode':'paused','run':run}
         center=80 if mode in ('untrained','evaluate','random','heuristic') else 0
         start=[center+rng.uniform(-10,10),181.1,rng.uniform(-10,10)]
         theta=rng.uniform(-math.pi,math.pi);goal=[center+rng.uniform(-10,10),181.1,rng.uniform(-10,10)]
@@ -368,7 +381,7 @@ def assignment(d:dict):
 @app.post('/reset',dependencies=[Depends(auth)])
 def reset(d:dict):
     with lock:
-        if not re.fullmatch(r'LabAI[0-4]',d['agent']):raise HTTPException(400,'Unknown agent')
+        if not is_agent(d['agent']):raise HTTPException(400,'Unknown agent')
         task=pending_tasks.get(d['agent'])
         if task and task['run']==run and d.get('run')==run and active_skill()!='navigation':
             assigned_tasks[d['agent']]=copy.deepcopy(task)
@@ -391,12 +404,15 @@ def step(d:dict):
         latency=(time.perf_counter()-t)*1000
         if mode=='teacher' or (practice and mode=='heuristic'):
             if not isinstance(d.get('teacher'),int) or not 0<=d['teacher']<policy.net[2].out_features:raise HTTPException(400,'Invalid teacher action')
-            replay.append((d['obs'],d['teacher']));example_counter+=1;action=d['teacher']
-            if skill!='navigation':skill_bank.entries[skill]['count']+=1
+            if skill=='navigation':replay.append((d['obs'],d['teacher']))
+            else:skill_bank.record(skill,d['obs'],d['teacher'])
+            example_counter+=1;action=d['teacher']
         elif mode=='heuristic':action=d['teacher']
         elif mode=='random':action=random.randrange(4)
         elif mode=='paused':action=4
+        previous=agents.get(d['agent'],{})
         agents[d['agent']]={k:d[k] for k in ('position','health','food','goal','steps','reward','perception_ms')}
+        agents[d['agent']].update({k:previous.get(k) for k in ('entity_id','dimension','simulation')})
         agents[d['agent']].update(connected=True,action=action,inference_ms=latency,last_seen=time.time(),run=run)
         agents[d['agent']]['rays']=d['obs'][:64]
         agents[d['agent']]['skill']=skill;agents[d['agent']]['metrics']=d.get('metrics')
@@ -410,8 +426,7 @@ def step(d:dict):
         if trajectory.exists() and trajectory.stat().st_size>100_000_000:
             os.replace(trajectory,trajectory.with_name(trajectory.stem+'-previous.f32'))
         with open(trajectory,'ab') as f:np.asarray(d['obs']+[action,d['reward']],dtype=np.float32).tofile(f)
-        if (mode=='teacher' or (practice and mode=='heuristic')) and skill!='navigation' and len(replay)%100==0:skill_bank.save_replay(skill)
-        if mode=='teacher' and skill=='navigation' and len(samples)%100==0:
+        if mode=='teacher' and skill=='navigation' and example_counter%100==0:
             np.savez_compressed('data/demonstrations.npz',obs=np.asarray([s[0] for s in samples],dtype=np.float32),actions=np.asarray([s[1] for s in samples]))
         return {'action':action,'inference_ms':latency,'skill':skill}
 @app.post('/episode',dependencies=[Depends(auth)])
@@ -438,6 +453,8 @@ def admin_action(d:dict):
         known=[entry['name'] for entry in cached]+[entry['name'] for entry in online_players()]
         try:command=build_admin_command(d,known,[entry['name'] for entry in online_players()])
         except ValueError as error:raise HTTPException(400,str(error))
+        if d.get('action') in ('gamemode','teleport','teleport-coordinates') and any(n.casefold()==d['player'].casefold() for n in observers.sessions):
+            observers.stop(d['player'],[p['name'] for p in online_players()])
         console(command);event('admin_action',{'action':d.get('action'),'player':d.get('player'),'command':command})
         return {'accepted':True,'command':command,'message':'Command sent to Minecraft. Player status updates automatically.'}
 @app.post('/control/{command}',dependencies=[Depends(auth)])
@@ -475,7 +492,7 @@ def control(command:str,d:dict={}):
                 practice['driver']='student';practice['seed']=time.time_ns();mode='evaluate';run='skilltest-'+str(practice['stage'])+'-'+str(int(time.time()))
             else:
                 practice=None;mode=command;run=d.get('run',command+'-'+str(int(time.time())))
-            event('mode',{'mode':mode,'run':run});return {'run':run}
+            record_run();event('mode',{'mode':mode,'run':run});return {'run':run}
         if command=='checkpoint':return {'version':checkpoint()}
         if command=='new-policy':
             checkpoint();mode='paused';torch.manual_seed(42)
@@ -519,10 +536,13 @@ def skill_status():
                        'parameters':summary['parameters']})
     return result
 
+def record_run():
+    db.execute('INSERT OR IGNORE INTO run_config VALUES(?,?,?)',(run,AGENT_COUNT,EPISODES_PER_AGENT));db.commit()
+
 def auto_mode(value,identifier=None):
     global mode,run
     mode=value
-    if identifier:run=identifier
+    if identifier:run=identifier;record_run()
 
 def auto_protect():
     skill=active_skill();curriculum.state['champion_skill']=skill
@@ -545,14 +565,14 @@ def auto_results(identifier):
     counts={};successes=0
     for name,success in rows:
         counts[name]=counts.get(name,0)+1
-        if counts[name]<=3:successes+=success
-    return {'episodes':sum(min(v,3) for v in counts.values()),'successes':successes}
+        if counts[name]<=EPISODES_PER_AGENT:successes+=success
+    return {'episodes':sum(min(v,EPISODES_PER_AGENT) for v in counts.values()),'successes':successes}
 
 def auto_health():
     if psutil.virtual_memory().percent>88:return 'System memory is above 88%.'
     if psutil.disk_usage(str(ROOT)).free<2*1024**3:return 'Less than 2 GiB of disk space remains.'
     if not server_ready() or server_control.snapshot()['busy']:return 'Waiting for Minecraft to be ready.'
-    if sum(time.time()-a.get('last_seen',0)<8 and a.get('connected',True) for a in agents.values())<5:return 'Waiting for all five bots to connect.'
+    if sum(time.time()-a.get('last_seen',0)<8 and a.get('connected',True) for name,a in agents.items() if is_agent(name))<AGENT_COUNT:return f'Waiting for all {AGENT_COUNT} bots to connect.'
     return None
 
 auto_arena={'pid':None,'phase':0,'time':0,'offset':0}
@@ -561,8 +581,8 @@ def auto_prepare():
     if auto_arena['phase']==0:
         for center in (160,240,320,480):
             for mob in ('creeper','zombie','skeleton','spider','witch','enderman','slime','phantom'):
-                console(f'kill @e[type=minecraft:{mob},x={center-24},y=175,z=-24,dx=48,dy=50,dz=80]')
-            console(f'forceload add {center-24} -8 {center+24} 56')
+                console(f'kill @e[type=minecraft:{mob},x={center-24},y=175,z=-24,dx=48,dy=50,dz={LANE_END+26}]')
+            console(f'forceload add {center-24} -8 {center+24} {LANE_END+2}')
         auto_arena.update(phase=1,time=time.time());return False
     if auto_arena['phase']==1:
         if time.time()-auto_arena['time']<5:return False
@@ -586,7 +606,7 @@ def auto_prepare():
 curriculum=Curriculum('data/curriculum.json',{'pause':lambda:auto_mode('paused'),'cancel':training_jobs.cancel,
     'job':training_jobs.snapshot,'mode':auto_mode,'protect':auto_protect,'restore':auto_restore,
     'results':auto_results,'count':lambda:example_counter,'train':lambda:start_training(background=True),
-    'health':auto_health,'prepare':auto_prepare,'event':lambda result:event('curriculum_cycle',result)})
+    'expected_episodes':lambda:EXPECTED_EPISODES,'health':auto_health,'prepare':auto_prepare,'event':lambda result:event('curriculum_cycle',result)})
 
 def curriculum_worker():
     while not shutting_down:
@@ -609,8 +629,30 @@ def practice_stage(stage_index:int,d:dict={}):
         if driver not in ('teacher','student'):raise HTTPException(400,'Choose teacher or student')
         practice={'stage':stage_index,'seed':time.time_ns(),'driver':driver};mode='heuristic' if driver=='teacher' else 'evaluate'
         run=('practice-' if driver=='teacher' else 'skilltest-')+str(stage_index)+'-'+str(int(time.time()))
-        event('mode',{'mode':mode,'run':run,'stage':STAGES[stage_index]['name'],'reference':driver=='teacher'})
+        record_run();event('mode',{'mode':mode,'run':run,'stage':STAGES[stage_index]['name'],'reference':driver=='teacher'})
         return {'run':run,'stage':STAGES[stage_index],'message':'Teacher reference started; demonstrations are collected. This measures task feasibility, not learned performance.' if driver=='teacher' else 'Neural policy test started on fresh routes, without teacher control.'}
+
+def observer_worker():
+    while not shutting_down:
+        try:
+            with lock:
+                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'])
+        except Exception as error:
+            with lock:
+                for session in observers.sessions.values():
+                    if session.get('enabled'):session.update(status='error',message='Camera update failed: '+str(error))
+        time.sleep(.2)
+
+@app.post('/observer/{action}',dependencies=[Depends(auth)])
+def observer_action(action:str,d:dict):
+    with lock:
+        try:
+            online=[p['name'] for p in online_players()]
+            if action=='stop':return observers.stop(d.get('player','Xonosnet'),online,server_ready() and not server_control.snapshot()['busy'])
+            if action!='start':raise ValueError('Choose start or stop')
+            cached=json.loads(Path('server/usercache.json').read_text(encoding='utf-8'))
+            result=observers.start(d,online+[p['name'] for p in cached]);event('observer_started',result);return result
+        except (ValueError,TypeError) as error:raise HTTPException(400,str(error))
 
 @app.post('/autonomy/{action}',dependencies=[Depends(auth)])
 def autonomy(action:str):

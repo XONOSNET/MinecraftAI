@@ -1,6 +1,7 @@
 import json
 import math
 import torch
+from lab.config import AGENT_COUNT
 from lab.model import Policy
 from lab.skills import SkillBank, SKILL_INPUTS, SKILL_ACTIONS
 from lab.tasks import EXTRA_STAGES, task_spec, reset_commands, arena_commands, task_success
@@ -21,7 +22,7 @@ def test_skill_checkpoints_replay_and_rollback_never_change_navigation(tmp_path)
 
 def test_every_task_stays_in_its_own_lane_and_train_test_are_separate():
     for stage in EXTRA_STAGES:
-        for index in range(5):
+        for index in range(AGENT_COUNT):
             for seed in range(10):
                 task=task_spec(stage,seed,index,False);test=task_spec(stage,seed,index,True)
                 assert test['center']-task['center']==160
@@ -53,7 +54,7 @@ def test_navigation_completion_migrates_to_new_skills_without_losing_history(tmp
     path=tmp_path/'state.json';history=[{'stage':3,'score':1,'cycle':8,'baseline':1,'accepted':True}]
     path.write_text(json.dumps({'enabled':False,'phase':'completed','stage':3,'streak':2,'history':history,'max_cycles':12}))
     c=Curriculum(path,{})
-    assert c.state['stage']==4 and c.state['history']==history and c.state['max_cycles']==48
+    assert c.state['stage']==4 and c.state['history']==history and c.state['max_cycles']==80
 
 
 def test_mineflayer_yaw_round_trip_matches_installed_protocol_conversion():
@@ -89,3 +90,32 @@ def test_water_hazards_have_a_sealed_floor_beneath_the_source_blocks():
     commands=reset_commands(task_spec(stage,1,0,False),'LabAI0');floor=commands[0].split()
     assert int(floor[2])==179 and int(floor[5])==180
     assert any('180' in c and c.endswith('minecraft:water') for c in commands)
+
+def test_completed_catalogue_resumes_at_appended_stages_and_count_resets_streak(tmp_path):
+    path=tmp_path/'state.json';history=[{'stage':15,'score':1}]
+    path.write_text(json.dumps({'catalog_version':2,'enabled':False,'phase':'completed','stage':15,'history':history,'streak':2,'agent_count':5,'max_cycles':48}))
+    state=Curriculum(path,{}).state
+    assert state['stage']==16 and state['phase']=='paused' and state['streak']==0
+    assert state['history']==history and state['max_cycles']==80 and state['agent_count']==AGENT_COUNT
+
+def test_largest_configured_arena_still_fits_fill_limit(monkeypatch):
+    import lab.tasks as tasks
+    monkeypatch.setattr(tasks,'LANE_END',114)
+    for cmd in tasks.arena_commands(480):
+        p=list(map(int,cmd.split()[1:7]))
+        assert math.prod(abs(p[i+3]-p[i])+1 for i in range(3))<=32768
+
+def test_full_replay_buffer_does_not_save_on_every_action(tmp_path,monkeypatch):
+    bank=SkillBank(tmp_path/'data',tmp_path/'weights');entry=bank.get('exploration',Policy())
+    entry['samples'].extend([([0.0]*82,0)]*15000)
+    saved=[];monkeypatch.setattr(bank,'save_replay',lambda skill:saved.append(entry['count']))
+    for _ in range(200):bank.record('exploration',[1.0]*82,1)
+    assert len(entry['samples'])==15000 and saved==[100,200]
+
+def test_larger_harvest_targets_fit_the_available_view_and_keep_drops_together():
+    for stage in [s for s in EXTRA_STAGES if s.get('wood_target',0)>3]:
+        task=task_spec(stage,1,0,False)
+        blocks=[c.split() for c in reset_commands(task,'LabAI0') if c.startswith('setblock')]
+        assert len(blocks)==task['wood_target']
+        assert max(int(c[2]) for c in blocks)==183
+        assert max(int(c[1]) for c in blocks)-min(int(c[1]) for c in blocks)==1

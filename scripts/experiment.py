@@ -15,7 +15,7 @@ if __name__=='__main__':
         deadline=time.time()+240
         while time.time()<deadline:
             s=status();rows=[r for r in s['episodes'] if r['run']==run]
-            if rows and rows[0]['episodes']>=15:break
+            if rows and rows[0]['episodes']>=rows[0].get('expected_episodes',15):break
             time.sleep(5)
         else:raise RuntimeError('Evaluation timed out: '+run)
     call('/control/teacher',{'run':'teacher-'+tag})
@@ -28,7 +28,7 @@ if __name__=='__main__':
     deadline=time.time()+240
     while time.time()<deadline:
         rows=[r for r in status()['episodes'] if r['run']==run]
-        if rows and rows[0]['episodes']>=15:break
+        if rows and rows[0]['episodes']>=rows[0].get('expected_episodes',15):break
         time.sleep(5)
     else:raise RuntimeError('Trained evaluation timed out')
     call('/control/paused');call('/control/checkpoint')

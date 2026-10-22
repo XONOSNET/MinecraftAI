@@ -7,6 +7,7 @@ import json
 import time
 from pathlib import Path
 from .tasks import EXTRA_STAGES
+from .config import AGENT_COUNT
 
 STAGES=[{'name':'Short routes','min_distance':3,'max_distance':7,'yaw':.6},
         {'name':'Longer routes','min_distance':7,'max_distance':14,'yaw':1.5},
@@ -31,7 +32,7 @@ class Curriculum:
     def __init__(self,path,hooks,clock=time.time):
         self.path=Path(path);self.h=hooks;self.clock=clock
         self.state={'enabled':False,'phase':'idle','stage':0,'cycle':0,'streak':0,'history':[],
-                    'message':'Ready for autonomous navigation training.','max_cycles':48,'max_hours':6,
+                    'message':'Ready for autonomous navigation training.','max_cycles':80,'max_hours':6,
                     'examples_per_cycle':1500,'threshold':.9,'restore_pending':False}
         if self.path.exists():
             saved=json.loads(self.path.read_text(encoding='utf-8'));self.state.update(saved)
@@ -41,7 +42,13 @@ class Curriculum:
                     self.state.update(stage=4,phase='paused',streak=0,message='Navigation passed. Broader skills are ready to resume.')
             if self.state['enabled']:
                 self.state.update(phase='recovering',phase_at=self.clock(),message='Recovering the saved curriculum after restart.')
-        self.state['catalog_version']=2
+        if self.state.get('catalog_version',1)<3:
+            if self.state['max_cycles']==48:self.state['max_cycles']=80
+            if self.state['phase']=='completed' and self.state['stage']==15:
+                self.state.update(stage=16,phase='paused',streak=0,message='More simulations are ready. Resume to continue.')
+        if self.state.get('agent_count',5)!=AGENT_COUNT:
+            self.state['streak']=0
+        self.state.update(catalog_version=3,agent_count=AGENT_COUNT)
     def save(self):
         self.path.parent.mkdir(exist_ok=True,parents=True)
         tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps(self.state,indent=2),encoding='utf-8');tmp.replace(self.path)
@@ -52,7 +59,7 @@ class Curriculum:
         if s['enabled']:return self.snapshot()
         if s['phase']=='completed':raise ValueError('All implemented curricula are complete. Review the results before adding further skills.')
         self.h['pause']()
-        s.update(enabled=True,phase='waiting',session_cycles=0,started_at=self.clock(),phase_at=self.clock(),message='Waiting for Minecraft and all five bots.');self.save();return self.snapshot()
+        s.update(enabled=True,phase='waiting',session_cycles=0,started_at=self.clock(),phase_at=self.clock(),message='Waiting for Minecraft and all configured bots.');self.save();return self.snapshot()
     def pause(self,reason='Autonomous training paused by you.'):
         s=self.state;s.update(enabled=False,phase='paused',message=reason)
         self.h['pause']();self.h['cancel']();self.save();return self.snapshot()
@@ -84,7 +91,7 @@ class Curriculum:
         if self.clock()-s['phase_at']>600:return self.pause('This phase exceeded ten minutes. Review bot connections and resume.')
         if s['phase'] in ('baseline','evaluating'):
             rows=self.h['results'](s['run'])
-            if rows['episodes']<15:return
+            if rows['episodes']<self.h.get('expected_episodes',lambda:15)():return
             score=rows['successes']/rows['episodes']
             if s['phase']=='baseline':
                 s['baseline']=score;s['collected_start']=self.h['count']();s['collected']=0
@@ -94,7 +101,7 @@ class Curriculum:
             else:self.h['restore']()
             s['restore_pending']=False
             s['streak']=s['streak']+1 if accepted and score>=STAGES[s['stage']].get('threshold',s['threshold']) else 0
-            s['history'].append({'cycle':s['cycle'],'stage':s['stage'],'skill':STAGES[s['stage']].get('skill','navigation'),'baseline':s['baseline'],'score':score,'accepted':accepted,'time':self.clock()});s['history']=s['history'][-100:]
+            s['history'].append({'cycle':s['cycle'],'stage':s['stage'],'skill':STAGES[s['stage']].get('skill','navigation'),'agent_count':AGENT_COUNT,'episodes':rows['episodes'],'baseline':s['baseline'],'score':score,'accepted':accepted,'time':self.clock()});s['history']=s['history'][-100:]
             self.h['event'](s['history'][-1])
             if s['streak']>=2:
                 if s['stage']==len(STAGES)-1:

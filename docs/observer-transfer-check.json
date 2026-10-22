@@ -1,0 +1,30 @@
+[
+  {
+    "arena_transfer": true,
+    "from": [
+      464.5,
+      181,
+      -0.3129660546855893
+    ],
+    "to": [
+      304.5,
+      181,
+      -0.8629636969600241
+    ],
+    "camera_id": 188,
+    "viewer_position": [
+      464.5,
+      181,
+      -0.3129660546855893
+    ],
+    "camera_position": [
+      304.5,
+      181,
+      -0.8629636969600241
+    ]
+  },
+  {
+    "restored_mode": "spectator",
+    "return_distance": 0
+  }
+]

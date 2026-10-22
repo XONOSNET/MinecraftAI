@@ -1,0 +1,5 @@
+{
+  "unauthenticated": 403,
+  "cross_origin": 403,
+  "invalid_player": 400
+}

@@ -38,6 +38,10 @@ class SkillBank:
         entry={'model':policy,'optimizer':optimizer,'samples':samples,'count':0};self.entries[skill]=entry;return entry
     def payload(self,entry):
         return {'model':entry['model'].state_dict(),'optimizer':entry['optimizer'].state_dict(),'width':entry['model'].net[0].out_features,'inputs':SKILL_INPUTS,'actions':SKILL_ACTIONS}
+    def record(self,skill,observation,action):
+        entry=self.entries[skill];entry['samples'].append((observation,action));entry['count']+=1
+        # Buffer length stops increasing at capacity; save cadence must count new examples.
+        if entry['count']%100==0:self.save_replay(skill)
     def save(self,skill,champion=False):
         path=self.checkpoints/(skill+('-champion' if champion else '')+'.pt');tmp=path.with_suffix('.tmp')
         torch.save(self.payload(self.entries[skill]),tmp);os.replace(tmp,path);self.metadata(skill);return str(path)

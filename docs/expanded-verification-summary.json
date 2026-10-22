@@ -1,0 +1,83 @@
+{
+  "checked_at": 1792639869.1403487,
+  "tests": {
+    "python": 43,
+    "node": 12
+  },
+  "new_stages": 16,
+  "total_stages": 32,
+  "agent_count": 8,
+  "episodes_per_test": 24,
+  "teacher_reference_successes": 383,
+  "teacher_reference_episodes": 384,
+  "all_new_stages_met_reference_threshold": true,
+  "hardware": {
+    "ram_gib": 31.9,
+    "logical_cpus": 24
+  },
+  "server": {
+    "phase": "online",
+    "busy": false,
+    "desired_running": true,
+    "message": "Minecraft is ready. Bots and LAN players can connect.",
+    "action": null,
+    "error": null,
+    "alive": true,
+    "ready": true,
+    "version": "Paper 1.21.4",
+    "java_client": "26.3 (ViaVersion 5.12.1)",
+    "pid": 26368,
+    "uptime_seconds": 268.0688672065735,
+    "bots_online": 8,
+    "ram_mib": 1525.89453125,
+    "tps": 20.0,
+    "mspt": 3.2,
+    "timing_sample_at": 1792639853.6070185,
+    "players_online": 9,
+    "player_limit": 12,
+    "players_updated_at": 1792639867.6263745
+  },
+  "cpu_percent": 4.8,
+  "ram_percent": 46.0,
+  "autonomy": {
+    "enabled": true,
+    "stage": 13,
+    "phase": "collecting"
+  },
+  "camera_transfer": [
+    {
+      "arena_transfer": true,
+      "from": [
+        464.5,
+        181,
+        -0.3129660546855893
+      ],
+      "to": [
+        304.5,
+        181,
+        -0.8629636969600241
+      ],
+      "camera_id": 188,
+      "viewer_position": [
+        464.5,
+        181,
+        -0.3129660546855893
+      ],
+      "camera_position": [
+        304.5,
+        181,
+        -0.8629636969600241
+      ]
+    },
+    {
+      "restored_mode": "spectator",
+      "return_distance": 0
+    }
+  ],
+  "access": {
+    "unauthenticated": 403,
+    "cross_origin": 403,
+    "invalid_player": 400
+  },
+  "limits": "Teacher references establish feasibility; neural mastery still requires ordinary promotion gates. Native render camera entity, rather than the simulated viewer body, is used to verify transfer."
+}
