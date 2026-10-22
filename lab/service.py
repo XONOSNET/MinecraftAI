@@ -635,6 +635,7 @@ def practice_stage(stage_index:int,d:dict={}):
         return {'run':run,'stage':STAGES[stage_index],'message':'Teacher reference started; demonstrations are collected. This measures task feasibility, not learned performance.' if driver=='teacher' else 'Neural policy test started on fresh routes, without teacher control.'}
 
 def observer_worker():
+    next_tick=time.monotonic()
     while not shutting_down:
         try:
             with lock:
@@ -643,7 +644,8 @@ def observer_worker():
             with lock:
                 for session in observers.sessions.values():
                     if session.get('enabled'):session.update(status='error',message='Camera update failed: '+str(error))
-        time.sleep(.05)
+        next_tick=max(next_tick+.05,time.monotonic())
+        time.sleep(max(0,next_tick-time.monotonic()))
 
 @app.post('/observer/{action}',dependencies=[Depends(auth)])
 def observer_action(action:str,d:dict):

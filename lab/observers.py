@@ -20,10 +20,21 @@ def camera_move(target,tag,view,distance,height,elapsed):
     if view=='stationary':return f'execute as @e[tag={tag},limit=1] at @s run tp @s ~ ~ ~ facing entity {target} eyes'
     if view=='overhead':offset=f'~ ~{height+distance:.3f} ~';context=''
     elif view=='orbit':
-        angle=elapsed*.35;offset=f'~{math.cos(angle)*distance:.3f} ~{height:.3f} ~{math.sin(angle)*distance:.3f}';context=''
+        angle=elapsed*.22;offset=f'~{math.cos(angle)*distance:.3f} ~{height:.3f} ~{math.sin(angle)*distance:.3f}';context=''
     else:
         offset=f"^{distance if view=='side' else 0:.3f} ^{height:.3f} ^{-distance if view=='trail' else 0:.3f}";context=f' rotated as {target} rotated ~ 0'
     return f'execute at {target}{context} run tp @e[tag={tag},limit=1] {offset} facing entity {target} eyes'
+
+def viewer_transfer(owner,target,view,distance,height,elapsed):
+    if view=='first_person':return f'tp {owner} {target}'
+    return camera_move(target,'transfer',view,distance,height,elapsed).replace('@e[tag=transfer,limit=1]',owner)
+
+def camera_spawn(owner,target,tag,view,distance,height,elapsed):
+    nbt=f'{{teleport_duration:3,interpolation_duration:3,view_range:2f,Invulnerable:1b,Silent:1b,Tags:["{tag}","lab_observer_camera"]}}'
+    if view=='stationary':return f'execute at {owner} run summon minecraft:item_display ~ ~ ~ {nbt}'
+    prefix,tail=camera_move(target,tag,view,distance,height,elapsed).split(' run tp ',1)
+    coordinates=tail.split(' facing entity ',1)[0].split(' ',1)[1]
+    return f'{prefix} positioned {coordinates} run summon minecraft:item_display ~ ~ ~ {nbt}'
 
 class Observers:
     def __init__(self,path,command,clock=time.time,settle_delay=.8):
@@ -211,7 +222,7 @@ class Observers:
                     self.command(f'execute as {owner} run spectate')
                     self.command(f'gamemode spectator {owner}')
                     self.kill_camera(s)
-                    if mobile:self.command(f'tp {owner} {target}')
+                    if mobile:self.command(viewer_transfer(owner,target,s['view'],s['distance'],s['height'],self.clock()-s['started_at']))
                     s.update(attach_ready_at=self.clock()+(self.settle_delay if mobile else 0),status='transferring',message=f'Moving your viewpoint to {target} and loading the simulation before attaching the camera.')
                     self.save()
                 if self.clock()<s['attach_ready_at']:
@@ -220,8 +231,8 @@ class Observers:
                 else:
                     self.kill_camera(s)
                     anchor=owner if s['view']=='stationary' else target
-                    self.command(f'execute at {anchor} run summon minecraft:armor_stand ~ ~ ~ {{Invisible:1b,Marker:1b,NoGravity:1b,Invulnerable:1b,Silent:1b,Tags:["{camera}","lab_observer_camera"]}}')
-                    self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],0))
+                    self.command(camera_spawn(owner,target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at']))
+                    self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at']))
                     self.command(f"execute at {owner if s['view']=='stationary' else target} run spectate @e[tag={camera},limit=1] {owner}");s['camera_created']=True
                 s.update(attached=True,attach_ready_at=None,attached_at=self.clock());self.save()
             if s['view']!='first_person':self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at']))

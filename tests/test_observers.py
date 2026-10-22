@@ -1,5 +1,5 @@
 import pytest
-from lab.observers import Observers, VIEWS, camera_move
+from lab.observers import Observers, VIEWS, camera_move, viewer_transfer, camera_spawn
 from lab.config import AGENT_COUNT, validate_agents
 from lab.curriculum import Curriculum
 
@@ -19,7 +19,7 @@ def test_spectator_follows_respawn_and_restores_original_mode(tmp_path):
     assert any('spectate @e[tag=lab_camera_xonosnet' in c for c in commands)
     commands.clear();agents[f'LabAI{AGENT_COUNT-1}']['entity_id']=43
     o.tick(['Xonosnet'],{},agents,True)
-    assert any('summon minecraft:armor_stand' in c for c in commands)
+    assert any('summon minecraft:item_display' in c for c in commands)
     o.stop('Xonosnet',['Xonosnet'])
     assert 'execute as Xonosnet run spectate' in commands
     assert 'gamemode creative Xonosnet' in commands
@@ -32,11 +32,11 @@ def test_same_entity_teleport_moves_viewer_then_waits_before_camera_attachment(t
     agents={'LabAI0':{'connected':True,'last_seen':100,'entity_id':42,'dimension':'overworld','run':'one','position':[464,181,0]}}
     tick=lambda:o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':now[0]}},agents,True)
     tick();assert o.sessions['Xonosnet']['status']=='transferring'
-    assert 'tp Xonosnet LabAI0' in commands and not any(c.startswith('spectate ') or 'run spectate @e' in c for c in commands)
+    assert any(('tp Xonosnet LabAI0'==c if view=='first_person' else 'run tp Xonosnet' in c and 'facing entity LabAI0 eyes' in c) for c in commands) and not any(c.startswith('spectate ') or 'run spectate @e' in c for c in commands)
     now[0]+=1;tick();assert o.sessions['Xonosnet']['attached']
     commands.clear();agents['LabAI0']['position']=[304,181,0]
     tick();assert o.sessions['Xonosnet']['status']=='transferring'
-    assert 'tp Xonosnet LabAI0' in commands
+    assert any(('tp Xonosnet LabAI0'==c if view=='first_person' else 'run tp Xonosnet' in c and 'facing entity LabAI0 eyes' in c) for c in commands)
     assert not any(c.startswith('spectate ') or 'run spectate @e' in c for c in commands)
     now[0]+=1;tick();assert o.sessions['Xonosnet']['attached']
     commands.clear();agents['LabAI0']['position'][0]+=.5;tick()
@@ -86,7 +86,7 @@ def test_stationary_view_stays_at_viewer_and_can_switch_targets(tmp_path):
         o.start({'player':'Xonosnet','target':target,'view':'stationary'},['Xonosnet'])
         o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},agents,True)
         assert not any(c==f'tp Xonosnet {target}' for c in commands)
-        assert any('execute at Xonosnet run summon minecraft:armor_stand' in c for c in commands)
+        assert any('execute at Xonosnet run summon minecraft:item_display' in c for c in commands)
         assert any(f'~ ~ ~ facing entity {target} eyes' in c for c in commands)
     commands.clear();o.stop('Xonosnet',[],ready=False)
     assert commands==[] and not o.sessions['Xonosnet']['enabled']
@@ -155,3 +155,20 @@ def test_trial_and_training_pass_counters_and_named_roster(tmp_path):
     tick('paused',{'job':{'status':'running','epoch':42,'epochs':100,'percent':40,'samples':1500,'phase':'learning'}})
     assert any('Training pass 42/100 | 58 left' in c for c in commands)
     assert 'bossbar set lab:observer_xonosnet_state value 40' in commands
+
+
+def test_camera_uses_native_display_interpolation(tmp_path):
+    commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:100,settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0','view':'orbit'},['Xonosnet'])
+    o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':{'connected':True,'last_seen':100,'entity_id':1}},True)
+    assert any('summon minecraft:item_display' in c and 'teleport_duration:3' in c for c in commands)
+    assert not any('armor_stand' in c for c in commands)
+
+
+@pytest.mark.parametrize('view',['trail','side','overhead','orbit'])
+def test_angled_transfer_and_spawn_start_outside_target_head(view):
+    transfer=viewer_transfer('Xonosnet','LabAI0',view,7,4,8)
+    spawn=camera_spawn('Xonosnet','LabAI0','camera',view,7,4,8)
+    assert 'run tp Xonosnet' in transfer and 'facing entity LabAI0 eyes' in transfer
+    assert transfer!='tp Xonosnet LabAI0'
+    assert ' positioned ' in spawn and 'run summon minecraft:item_display' in spawn

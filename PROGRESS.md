@@ -47,3 +47,6 @@ Camera/activity update: camera worker 20 Hz; controller preserves held forward/j
 
 
 Trial HUD correction: replaced invalid spaced scoreboard holders with stable bot names plus display-name components. Native client now confirms all eight scoreboard_score rows. HUD shows current trial/total and remaining trials, demo pass plus bounded examples target, or training epoch/total and remaining epochs. Bossbar values track phase progress instead of static full health; training text is split into two concise lines. Dashboard always renders all configured bot rows. Observer suite 17 passed; native sidebar/HUD lifecycle verified.
+
+
+Orbit smoothing: replaced armor-stand camera anchors with invisible item displays using native teleport_duration=3 interpolation, reduced orbit angular speed from .35 to .22 rad/s, and compensated worker scheduling for command time. Angled camera transfers now place the viewer at the selected offset while chunks load; camera anchors spawn at that offset rather than interpolating outward from the NPC head. First-person remains intentionally at the NPC viewpoint. 63 Python and 13 Node tests passed. No client dependencies.

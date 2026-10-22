@@ -1,6 +1,6 @@
 {
   "bossbars_added": 2,
-  "updates": 1,
+  "updates": 2,
   "removed": 2,
   "bot_rows": [
     "LabAI0",
@@ -17,6 +17,6 @@
     "scoreboard_display_objective",
     "scoreboard_score"
   ],
-  "camera_teleports": 35,
+  "camera_teleports": 70,
   "passed": true
 }
