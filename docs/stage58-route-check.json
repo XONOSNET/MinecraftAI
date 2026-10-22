@@ -1,0 +1,172 @@
+{
+  "observations": [
+    {
+      "stage": 57,
+      "phase": "waiting",
+      "cycle": 280,
+      "streak": 0,
+      "collected": 1530,
+      "message": "Waiting for Minecraft and all configured bots.",
+      "episodes": 0,
+      "successes": 0
+    },
+    {
+      "stage": 57,
+      "phase": "baseline",
+      "cycle": 281,
+      "streak": 0,
+      "collected": 1530,
+      "message": "Testing the saved model before training.",
+      "episodes": 3,
+      "successes": 3
+    },
+    {
+      "stage": 57,
+      "phase": "baseline",
+      "cycle": 281,
+      "streak": 0,
+      "collected": 1530,
+      "message": "Testing the saved model before training.",
+      "episodes": 16,
+      "successes": 16
+    },
+    {
+      "stage": 57,
+      "phase": "baseline",
+      "cycle": 282,
+      "streak": 1,
+      "collected": 1530,
+      "message": "Testing the saved model before training.",
+      "episodes": 0,
+      "successes": 0
+    },
+    {
+      "stage": 57,
+      "phase": "baseline",
+      "cycle": 282,
+      "streak": 1,
+      "collected": 1530,
+      "message": "Testing the saved model before training.",
+      "episodes": 10,
+      "successes": 10
+    },
+    {
+      "stage": 57,
+      "phase": "baseline",
+      "cycle": 282,
+      "streak": 1,
+      "collected": 1530,
+      "message": "Testing the saved model before training.",
+      "episodes": 22,
+      "successes": 22
+    },
+    {
+      "stage": 58,
+      "phase": "baseline",
+      "cycle": 283,
+      "streak": 0,
+      "collected": 1530,
+      "message": "Testing the saved model before training.",
+      "episodes": 3,
+      "successes": 0
+    }
+  ],
+  "history": [
+    {
+      "cycle": 274,
+      "stage": 57,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.0,
+      "score": 0.08333333333333333,
+      "accepted": true,
+      "time": 1792712187.3242435
+    },
+    {
+      "cycle": 275,
+      "stage": 57,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.0,
+      "score": 0.0,
+      "accepted": true,
+      "time": 1792712383.5520282
+    },
+    {
+      "cycle": 276,
+      "stage": 57,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.0,
+      "score": 0.0,
+      "accepted": true,
+      "time": 1792712597.093248
+    },
+    {
+      "cycle": 277,
+      "stage": 57,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.041666666666666664,
+      "score": 0.041666666666666664,
+      "accepted": true,
+      "time": 1792712802.670646
+    },
+    {
+      "cycle": 278,
+      "stage": 56,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 1.0,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 27808753,
+      "time": 1792712843.5575302
+    },
+    {
+      "cycle": 279,
+      "stage": 56,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 1.0,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 27908756,
+      "time": 1792712897.524555
+    },
+    {
+      "cycle": 281,
+      "stage": 57,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 1.0,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 28108762,
+      "time": 1792713134.7130888
+    },
+    {
+      "cycle": 282,
+      "stage": 57,
+      "skill": "advanced",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 1.0,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 28208765,
+      "time": 1792713183.5275095
+    }
+  ]
+}

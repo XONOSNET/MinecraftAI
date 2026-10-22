@@ -39,7 +39,10 @@ def layout(features,c,z):
   else:
    block(lo,180,left+offset,hi,180,right+offset,'oak_planks')
    mid=offset+(left+right+1)/2
-   points=[[c+lo-2,181.1,z+mid],[c+hi+2,181.1,z+mid]]
+   # Door approach/exit checkpoints must finish before steering onto/off the deck.
+   approach=lo+1 if features.get('door_count') and not features.get('late_door') else lo-2
+   exit=hi-1 if features.get('door_count') else hi+2
+   points=[[c+approach,181.1,z+mid],[c+exit,181.1,z+mid]]
  for j in range(features.get('traps',0)):
   x=0+j*8;side=-1 if features.get('alternate') and j%2 else 1
   block(x-1,180,-1,x+1,180,1,'magma_block' if features.get('magma') else 'water')

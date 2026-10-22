@@ -181,3 +181,15 @@ def test_advanced_observation_migration_archives_only_incompatible_replay(tmp_pa
     entry['samples'].append(([0.0]*82,1));bank.save_replay('advanced');bank.save('advanced')
     loaded=SkillBank(root,tmp_path/'weights').get('advanced',Policy())
     assert len(loaded['samples'])==1 and loaded['samples'][0][1]==1
+
+
+def test_bridge_routes_clear_open_door_leaves_before_centering_on_deck():
+    from lab.advanced import ADVANCED_STAGES
+    for stage in ADVANCED_STAGES:
+        task=task_spec(stage,123,0,True)
+        for x,z in task['actual_doors']:
+            crossings=[]
+            for a,b in zip(task['waypoints'],task['waypoints'][1:]):
+                if a[0]<=x<=b[0] and b[0]>a[0]:
+                    crossings.append(a[2]+(b[2]-a[2])*(x-a[0])/(b[0]-a[0]))
+            assert crossings and all(abs(c-(z+.6))<.01 for c in crossings),stage['name']
