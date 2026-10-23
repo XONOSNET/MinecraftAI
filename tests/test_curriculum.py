@@ -117,7 +117,7 @@ def test_old_completed_catalogue_unlocks_twenty_new_stages(tmp_path):
     import json
     path=tmp_path/'state';path.write_text(json.dumps({'catalog_version':4,'phase':'completed','stage':39,'enabled':False}))
     c=Curriculum(path,World().hooks())
-    assert len(STAGES)==60 and c.state['stage']==40 and c.state['phase']=='paused'
+    assert len(STAGES)==70 and c.state['stage']==40 and c.state['phase']=='paused'
 
 
 def test_continuous_plateau_recovers_without_discarding_champion(tmp_path):
@@ -125,3 +125,11 @@ def test_continuous_plateau_recovers_without_discarding_champion(tmp_path):
     for score in (2,7,3):cycle(c,w,10,score)
     assert c.state['enabled'] and c.state['stage']==41 and c.state['learning_rate_scales']['42']==.5
     assert w.model==1 and w.restores==3
+
+
+def test_completed_sixty_stage_catalogue_continues_at_new_challenges(tmp_path):
+    import json
+    path=tmp_path/'state';path.write_text(json.dumps({'catalog_version':5,'phase':'completed','stage':59,'enabled':False,'history':[{'stage':59,'score':1}]}))
+    c=Curriculum(path,{})
+    assert len(STAGES)==70 and c.state['stage']==60 and c.state['phase']=='paused'
+    assert c.state['catalog_version']==6 and c.state['history']==[{'stage':59,'score':1}]

@@ -54,7 +54,9 @@ class Curriculum:
                 self.state.update(stage=32,phase='paused',streak=0,message='Terrain curricula are ready to resume.')
         if self.state.get('catalog_version',1)<5 and self.state['phase']=='completed' and self.state['stage']==39:
             self.state.update(stage=40,phase='paused',streak=0,message='Twenty advanced courses are ready to resume.')
-        self.state.update(catalog_version=5,agent_count=AGENT_COUNT)
+        if self.state.get('catalog_version',1)<6 and self.state['phase']=='completed' and self.state['stage']==59:
+            self.state.update(stage=60,phase='paused',streak=0,message='Ten new challenge stages are ready to resume.')
+        self.state.update(catalog_version=6,agent_count=AGENT_COUNT)
     def save(self):
         self.path.parent.mkdir(exist_ok=True,parents=True)
         tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps(self.state,indent=2),encoding='utf-8');tmp.replace(self.path)

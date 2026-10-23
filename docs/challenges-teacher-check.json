@@ -1,0 +1,62 @@
+[
+  {
+    "stage": 61,
+    "name": "Long precision bridge",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 62,
+    "name": "Cross a slippery ice bridge",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 63,
+    "name": "Cross slowing soul sand",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 64,
+    "name": "Push through cobweb barriers",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 65,
+    "name": "Low-ceiling alternating slalom",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 66,
+    "name": "Three alternating wooden doors",
+    "passed": 23,
+    "total": 24
+  },
+  {
+    "stage": 67,
+    "name": "Three alternating magma detours",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 68,
+    "name": "Two doors and a raised bridge",
+    "passed": 24,
+    "total": 24
+  },
+  {
+    "stage": 69,
+    "name": "Three doors across mixed surfaces",
+    "passed": 23,
+    "total": 24
+  },
+  {
+    "stage": 70,
+    "name": "Raised ice bridge survival gauntlet",
+    "passed": 24,
+    "total": 24
+  }
+]

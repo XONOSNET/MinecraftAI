@@ -141,7 +141,7 @@ def test_completed_32_stage_catalogue_migrates_to_terrain(tmp_path):
 
 def test_advanced_courses_have_real_doors_and_require_observed_openings():
     from lab.advanced import ADVANCED_STAGES
-    assert len(ADVANCED_STAGES)==20
+    assert len(ADVANCED_STAGES)==30
     for i,stage in enumerate(ADVANCED_STAGES):
         task=task_spec(stage,123,0,True);commands=reset_commands(task,'LabAI0')
         assert all(task['bounds'][0]<p[0]<task['bounds'][1] and task['bounds'][2]<p[2]<task['bounds'][3] for p in task['waypoints'])
@@ -152,13 +152,13 @@ def test_advanced_courses_have_real_doors_and_require_observed_openings():
 
 def test_final_bridge_exit_door_aligns_with_bent_deck():
     from lab.advanced import ADVANCED_STAGES
-    task=task_spec(ADVANCED_STAGES[-1],123,0,True)
+    task=task_spec(ADVANCED_STAGES[19],123,0,True)
     assert task['actual_doors'][-1][1]==task['lane_z']+2
 
 
 def test_bent_bridge_waypoints_keep_clear_of_open_door_leaf():
     from lab.advanced import ADVANCED_STAGES
-    task=task_spec(ADVANCED_STAGES[-1],123,0,True);door_x=task['actual_doors'][0][0]
+    task=task_spec(ADVANCED_STAGES[19],123,0,True);door_x=task['actual_doors'][0][0]
     near=[point for point in task['waypoints'] if abs(point[0]-door_x)<=2]
     assert near and all(.3<point[2]-task['lane_z']<.8 for point in near)
 
@@ -206,3 +206,19 @@ def test_terrain_replay_migrates_without_changing_saved_weights(tmp_path):
     assert all(torch.equal(v,loaded['model'].state_dict()[k]) for k,v in before.items())
     loaded['samples'].append(([0.0]*82,0));bank.save_replay('terrain')
     assert len(SkillBank(root,weights).get('terrain',Policy())['samples'])==1
+
+
+def test_ten_new_challenges_include_new_surfaces_and_bounded_geometry():
+    from lab.advanced import ADVANCED_STAGES
+    stages=ADVANCED_STAGES[20:];assert len(stages)==10
+    materials=set()
+    for stage in stages:
+        task=task_spec(stage,123,0,True)
+        assert task_success(task,{'health':20,'inside':True,'y':181,'distance':0,'hazard_contacts':0,'doors_opened':len(task['actual_doors'])})
+        for x1,y1,z1,x2,y2,z2,block in task['terrain_blocks']:
+            assert task['bounds'][0]<=x1<=x2<=task['bounds'][1]
+            assert task['bounds'][2]<=z1<=z2<=task['bounds'][3]
+            assert 180<=y1<=y2<=183
+            materials.add(block)
+    assert {'blue_ice','soul_sand','cobweb','mossy_cobblestone','magma_block'}<=materials
+    assert len(task_spec(stages[5],123,0,True)['actual_doors'])==3

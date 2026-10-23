@@ -18,7 +18,7 @@ from .curriculum import Curriculum, STAGES, sample_route, route_seed
 from .skills import SkillBank, SKILL_INPUTS, SKILL_ACTIONS
 from .tasks import task_spec, arena_commands, reset_commands, task_success, SKILLS, minecraft_yaw
 from .config import AGENT_COUNT, EPISODES_PER_AGENT, EXPECTED_EPISODES, LANE_END, is_agent
-from .observers import Observers
+from .observers import Observers, observer_progress
 from .camera_input import CameraInput
 from .identities import Identities
 from .protection import PracticeProtection
@@ -654,7 +654,7 @@ def observer_worker():
             with lock:
                 if server_ready() and not server_control.snapshot()['busy']:
                     camera_input.tick(observers,[p['name'] for p in online_players()],agents)
-                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,progress_context={'round':curriculum.state.get('round',0),'stage':curriculum.state['stage']+1,'stages':len(STAGES),'stage_name':STAGES[curriculum.state['stage']]['name'],'job':training_jobs.snapshot(),'phase':curriculum.state.get('phase'),'examples':curriculum.state.get('collected',0),'target':STAGES[curriculum.state['stage']].get('examples_per_cycle',curriculum.state['examples_per_cycle']),'episodes':EPISODES_PER_AGENT},pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
+                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,progress_context=observer_progress(curriculum.state,STAGES,mode,practice,training_jobs.snapshot(),EPISODES_PER_AGENT),pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
         except Exception as error:
             with lock:
                 for session in observers.sessions.values():

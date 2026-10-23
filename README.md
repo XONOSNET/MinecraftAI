@@ -70,9 +70,9 @@ Use **Start / resume autonomous training**. The scheduler resumes the saved stag
 | Shelter | Near/far roofs, compact canopy, doorway approach | Reach a goal-marked roof and verify overhead cover |
 | Integration | Hurdles with water or magma | Reach the goal without hazard contact or substantial damage |
 
-There are 60 stages across ten tracks. Stages 41-60 progressively add wide, long, narrow, offset and turning bridges; real closed wooden doors; shallow water pits, magma detours, hurdles, and combined gauntlets. Door interaction is restricted to named task doors inside practice lanes; success requires observing the doors open. Navigation requires two accepted tests at 90% or better; other tracks require two at 80% or better. Each cycle evaluates the protected model on fresh held-out trials. If it passes, those results count toward promotion and the next cycle confirms on a different seed without retraining. If it fails, the streak resets; the lab collects fresh teacher examples, trains, and compares the candidate on the same held-out tasks as its baseline. Equal or higher scores keep the candidate; lower scores restore that track's protected weights and optimizer. Navigation uses its original 70-input/four-action model. Each broader track has an independent 82-input/seven-action model initialized from navigation, independent replay (15,000-example cap), and independent checkpoints. New skills do not overwrite navigation weights.
+There are 70 stages across ten tracks. Stages 41-60 progressively add wide, long, narrow, offset and turning bridges; real closed wooden doors; shallow water pits, magma detours, hurdles, and combined gauntlets. Door interaction is restricted to named task doors inside practice lanes; success requires observing the doors open. Navigation requires two accepted tests at 90% or better; other tracks require two at 80% or better. Each cycle evaluates the protected model on fresh held-out trials. If it passes, those results count toward promotion and the next cycle confirms on a different seed without retraining. If it fails, the streak resets; the lab collects fresh teacher examples, trains, and compares the candidate on the same held-out tasks as its baseline. Equal or higher scores keep the candidate; lower scores restore that track's protected weights and optimizer. Navigation uses its original 70-input/four-action model. Each broader track has an independent 82-input/seven-action model initialized from navigation, independent replay (15,000-example cap), and independent checkpoints. New skills do not overwrite navigation weights.
 
-Collection targets are 1,500 examples per cycle, or 150 for nutrition because eating has long preparation/consumption intervals. Continuous mode renews sessions after 112 cycles or six hours. After all 60 stages pass, it starts a fresh-seed review round from the beginning, retraining skills only when their saved policy fails review. It still stops on a ten-minute phase timeout, three rejected candidates even with variable scores, a plateau, missing bots, unsafe memory/disk headroom, or an explicit manual pause. State persists in `data/curriculum.json`; skill data lives in `data/skills` and `checkpoints/skills`. Interrupted unaccepted candidates are restored before recovery continues. Existing navigation state is migrated without clearing its history or examples.
+Collection targets are 1,500 examples per cycle, or 150 for nutrition because eating has long preparation/consumption intervals. Continuous mode renews sessions after 112 cycles or six hours. After all 70 stages pass, it starts a fresh-seed review round from the beginning, retraining skills only when their saved policy fails review. Plateaus trigger a refresher and reduced training rate in continuous mode. Runtime/resource failures and explicit manual pauses still stop learning. State persists in `data/curriculum.json`; skill data lives in `data/skills` and `checkpoints/skills`. Interrupted unaccepted candidates are restored before recovery continues. Existing navigation state is migrated without clearing its history or examples.
 
 Under **Practice and test a skill**, pause automation, select a stage, and choose a teacher reference or neural policy test. Teacher references collect demonstrations without updating weights. After at least 100 examples, **Train this skill** trains the selected head; **Test this skill** runs it on fresh tasks without teacher control. Teacher results and neural results have different labels. Practice runs do not bypass autonomous promotion gates.
 
@@ -122,3 +122,19 @@ Agent serials A0001-A0008 persist across respawns and restarts. They identify pe
 Advanced and terrain course route checkpoints now provide the same bearing cue to teacher and neural controllers. This is checkpoint-guided traversal, not independent route planning: the policy still selects turns, forward movement, jumping and door interaction. Bridge centerlines and exit goals match deck widths. Incompatible advanced/terrain observation-v1 demonstrations are archived locally before fresh examples are recorded; saved policy weights and other skill replays are retained. Promotion still requires two fresh 24-trial batches above the existing 80% threshold, without water contacts.
 
 In-game activity rows show bot name, action and reset countdown. Serial IDs and death counters remain stored but are omitted from the observer HUD and dashboard labels.
+
+
+Stages 61–70 extend the advanced track with these challenges:
+
+- 61: Long precision bridge.
+- 62: Cross a slippery ice bridge.
+- 63: Cross slowing soul sand.
+- 64: Push through cobweb barriers.
+- 65: Low-ceiling alternating slalom.
+- 66: Three alternating wooden doors.
+- 67: Three alternating magma detours.
+- 68: Two doors and a raised bridge.
+- 69: Three doors across mixed surfaces.
+- 70: Raised ice bridge survival gauntlet.
+
+These courses use existing walking, turning, jumping and bounded door interaction. Ice, soul sand and cobwebs add movement dynamics; no new client dependency or hidden automatic action is introduced. New stages retain the 80% gate and require two passing 24-trial batches before promotion.

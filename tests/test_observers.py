@@ -279,3 +279,14 @@ def test_route_bar_and_trial_batch_bar_use_different_progress(tmp_path):
     assert 'bossbar set lab:observer_xonosnet_state value 50' in commands
     assert any('Route 50%' in c for c in commands)
     assert 'bossbar set lab:observer_xonosnet_state visible true' in commands
+
+
+def test_reference_header_tracks_live_course_instead_of_saved_review_stage():
+    from lab.observers import observer_progress
+    stages=[{'name':f'Course {i+1}'} for i in range(70)]
+    state={'stage':36,'round':1,'enabled':False,'phase':'paused','examples_per_cycle':1500}
+    context=observer_progress(state,stages,'heuristic',{'stage':63},{},3)
+    assert context['stage']==64 and context['stage_name']=='Course 64' and context['label']=='Teacher reference'
+    state['enabled']=True
+    context=observer_progress(state,stages,'evaluate',{'stage':63},{},3)
+    assert context['stage']==37 and context['label']=='Review 1'

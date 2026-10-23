@@ -11,6 +11,16 @@ VIEWS=('first_person','trail','side','overhead','orbit','stationary','cycle')
 DIMENSIONS=('minecraft:overworld','minecraft:the_nether','minecraft:the_end')
 MODES=('survival','creative','adventure','spectator')
 
+def observer_progress(state,stages,mode,practice,job,episodes):
+    stage=state['stage'];label=(f"Review {state.get('round',0)}" if state.get('round') else '')
+    if not state.get('enabled'):
+        label='Paused'
+        if practice and mode in ('heuristic','evaluate'):
+            stage=practice['stage'];label='Teacher reference' if mode=='heuristic' else 'Policy practice'
+    return {'label':label,'round':state.get('round',0),'stage':stage+1,'stages':len(stages),
+            'stage_name':stages[stage]['name'],'job':job,'phase':state.get('phase'),
+            'examples':state.get('collected',0),'target':stages[stage].get('examples_per_cycle',state['examples_per_cycle']),'episodes':episodes}
+
 def player_name(value):
     if not isinstance(value,str) or not re.fullmatch(r'[A-Za-z0-9_]{3,16}',value):raise ValueError('Choose a valid Minecraft player')
     if re.fullmatch(r'LabAI[0-9]+',value,re.IGNORECASE):raise ValueError('The observer must be a human player, not a training bot')
@@ -144,7 +154,7 @@ class Observers:
             lines['state']+=f" | Reset ~{agent['reset_seconds']}s ({agent.get('reset_steps_left',0)} steps left)"
         if not fresh:lines['state']='Waiting for bot telemetry';progress=0
         if context.get('stage'):
-            lines={'stage':(f"Review {context['round']} | " if context.get('round') else '')+f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
+            lines={'stage':((context.get('label')+' | ') if context.get('label') else (f"Review {context['round']} | " if context.get('round') else ''))+f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
         for suffix,value in lines.items():
             key=prefix+'_'+suffix;name=json.dumps({'text':value,'color':'aqua' if suffix=='task' else 'white'})
             if not s.get('hud_ready'):
