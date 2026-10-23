@@ -193,3 +193,16 @@ def test_bridge_routes_clear_open_door_leaves_before_centering_on_deck():
                 if a[0]<=x<=b[0] and b[0]>a[0]:
                     crossings.append(a[2]+(b[2]-a[2])*(x-a[0])/(b[0]-a[0]))
             assert crossings and all(abs(c-(z+.6))<.01 for c in crossings),stage['name']
+
+
+def test_terrain_replay_migrates_without_changing_saved_weights(tmp_path):
+    import numpy as np
+    root=tmp_path/'data';root.mkdir();weights=tmp_path/'weights'
+    bank=SkillBank(root,weights);entry=bank.get('terrain',Policy());bank.save('terrain')
+    before={k:v.clone() for k,v in entry['model'].state_dict().items()}
+    np.savez(root/'terrain.npz',obs=np.zeros((10,82)),actions=np.zeros(10,dtype=int),observation_version=1)
+    bank=SkillBank(root,weights);loaded=bank.get('terrain',Policy())
+    assert not loaded['samples'] and len(list(root.glob('terrain-v1-*.npz')))==1
+    assert all(torch.equal(v,loaded['model'].state_dict()[k]) for k,v in before.items())
+    loaded['samples'].append(([0.0]*82,0));bank.save_replay('terrain')
+    assert len(SkillBank(root,weights).get('terrain',Policy())['samples'])==1

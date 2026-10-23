@@ -1,0 +1,180 @@
+{
+  "observations": [
+    {
+      "stage": 34,
+      "phase": "waiting",
+      "cycle": 357,
+      "streak": 0,
+      "collected": 1503,
+      "message": "Waiting for Minecraft and all configured bots.",
+      "episodes": 0,
+      "successes": 0
+    },
+    {
+      "stage": 34,
+      "phase": "baseline",
+      "cycle": 358,
+      "streak": 0,
+      "collected": 1503,
+      "message": "Testing the saved model before training.",
+      "episodes": 7,
+      "successes": 7
+    },
+    {
+      "stage": 34,
+      "phase": "baseline",
+      "cycle": 358,
+      "streak": 0,
+      "collected": 1503,
+      "message": "Testing the saved model before training.",
+      "episodes": 20,
+      "successes": 16
+    },
+    {
+      "stage": 34,
+      "phase": "collecting",
+      "cycle": 358,
+      "streak": 0,
+      "collected": 0,
+      "message": "Collecting fresh examples for Cross a narrow raised bridge.",
+      "episodes": 0,
+      "successes": 0
+    },
+    {
+      "stage": 34,
+      "phase": "collecting",
+      "cycle": 358,
+      "streak": 0,
+      "collected": 538,
+      "message": "Collecting fresh examples for Cross a narrow raised bridge.",
+      "episodes": 16,
+      "successes": 16
+    },
+    {
+      "stage": 34,
+      "phase": "collecting",
+      "cycle": 358,
+      "streak": 0,
+      "collected": 1114,
+      "message": "Collecting fresh examples for Cross a narrow raised bridge.",
+      "episodes": 32,
+      "successes": 32
+    },
+    {
+      "stage": 34,
+      "phase": "evaluating",
+      "cycle": 358,
+      "streak": 0,
+      "collected": 1506,
+      "message": "Testing the candidate on the same held-out routes.",
+      "episodes": 0,
+      "successes": 0
+    },
+    {
+      "stage": 34,
+      "phase": "evaluating",
+      "cycle": 358,
+      "streak": 0,
+      "collected": 1506,
+      "message": "Testing the candidate on the same held-out routes.",
+      "episodes": 16,
+      "successes": 16
+    },
+    {
+      "stage": 34,
+      "phase": "baseline",
+      "cycle": 359,
+      "streak": 1,
+      "collected": 1506,
+      "message": "Testing the saved model before training.",
+      "episodes": 8,
+      "successes": 8
+    },
+    {
+      "stage": 35,
+      "phase": "baseline",
+      "cycle": 360,
+      "streak": 0,
+      "collected": 1506,
+      "message": "Testing the saved model before training.",
+      "episodes": 0,
+      "successes": 0
+    }
+  ],
+  "history": [
+    {
+      "cycle": 353,
+      "stage": 32,
+      "skill": "terrain",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.9583333333333334,
+      "score": 0.9583333333333334,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 35308978,
+      "time": 1792717219.6476882
+    },
+    {
+      "cycle": 354,
+      "stage": 33,
+      "skill": "terrain",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.9583333333333334,
+      "score": 0.9583333333333334,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 35408981,
+      "time": 1792717323.2071023
+    },
+    {
+      "cycle": 355,
+      "stage": 33,
+      "skill": "terrain",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.9583333333333334,
+      "score": 0.9583333333333334,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 35508984,
+      "time": 1792717428.792889
+    },
+    {
+      "cycle": 356,
+      "stage": 34,
+      "skill": "terrain",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.2916666666666667,
+      "score": 0.7083333333333334,
+      "accepted": true,
+      "time": 1792717923.5340528
+    },
+    {
+      "cycle": 358,
+      "stage": 34,
+      "skill": "terrain",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 0.7083333333333334,
+      "score": 1.0,
+      "accepted": true,
+      "time": 1792718243.089028
+    },
+    {
+      "cycle": 359,
+      "stage": 34,
+      "skill": "terrain",
+      "agent_count": 8,
+      "episodes": 24,
+      "baseline": 1.0,
+      "score": 1.0,
+      "accepted": true,
+      "kind": "saved_model_validation",
+      "seed": 35908996,
+      "time": 1792718274.4687214
+    }
+  ]
+}

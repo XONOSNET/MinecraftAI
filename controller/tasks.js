@@ -39,7 +39,7 @@ function observeTask(bot,task,scan,runtime){
  const metrics={blocked_steps:runtime.blockedSteps,stalled_steps:runtime.stalledSteps,doors_opened:runtime.openedDoors.size,health:bot.health,food:bot.food,wood,eaten:runtime.eaten,hunger_observed:runtime.hungerObserved,coverage:runtime.visited.size,sheltered,distance,y:p.y,hazard_contacts:runtime.hazardContacts,inside};
  return {extra,metrics,resource,door,frontBlocked:lowBlocked,headBlocked,frontHazard,leftUnsafe,rightUnsafe,forward,left};
 }
-function failed(task,m){return task.kind==='advanced'&&(m.hazard_contacts>0||m.blocked_steps>=32||m.stalled_steps>=64);}
+function failed(task,m){return ['advanced','terrain'].includes(task.kind)&&(m.hazard_contacts>0||m.blocked_steps>=32||m.stalled_steps>=64);}
 function reached(task,m){
  if(m.health<=0||!m.inside||Math.abs(m.y-181)>1.5)return false;
  if(task.kind==='gather')return m.wood>=task.wood_target;
@@ -50,6 +50,7 @@ function reached(task,m){
  return m.distance<1.25&&m.health>=18&&m.hazard_contacts===0;
 }
 // Both controllers receive the same route checkpoint; the neural policy still chooses every action.
+function navigationCue(bot,task,runtime){return ['advanced','terrain'].includes(task?.kind)?navigationTarget(bot,task,runtime):task?.goal;}
 function navigationTarget(bot,task,runtime){
  if(!task.waypoints?.length)return task.goal;
  const p=bot.entity.position;let point=task.waypoints[runtime.waypoint];
@@ -99,4 +100,4 @@ async function interact(bot,task,sensed,runtime,action,permissions={}){
  }
  return false;
 }
-module.exports={failed,navigationTarget,createRuntime,observeTask,reached,teacherAction,interact,inPracticeBounds};
+module.exports={navigationCue,failed,navigationTarget,createRuntime,observeTask,reached,teacherAction,interact,inPracticeBounds};

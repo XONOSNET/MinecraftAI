@@ -131,3 +131,15 @@ test('intermittent turns cannot extend a no-progress stall forever',()=>{
  bot.entity.position.x+=.6;sensed=observeTask(bot,task,{hits:[]},runtime);
  assert.equal(sensed.metrics.stalled_steps,0);assert.equal(failed(task,sensed.metrics),false);
 });
+
+
+test('terrain policy receives the same checkpoint cue as the teacher',()=>{
+ const {navigationCue,failed}=require('../controller/tasks');const {task,bot,runtime}=fixture();
+ task.kind='terrain';task.waypoints=[[310,181,3],[325,181,3],task.goal];
+ assert.deepEqual(navigationCue(bot,task,runtime),task.waypoints[0]);
+ bot.entity.position=new Vec3(310,181,3);
+ assert.deepEqual(navigationCue(bot,task,runtime),task.waypoints[1]);
+ assert.equal(failed(task,{hazard_contacts:1}),true);
+ assert.equal(failed(task,{hazard_contacts:0,blocked_steps:0,stalled_steps:64}),true);
+ assert.equal(failed(task,{hazard_contacts:0,blocked_steps:0,stalled_steps:0}),false);
+});

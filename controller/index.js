@@ -36,7 +36,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  }
  const decisionAt=performance.now();if(lastDecisionAt)decisionMs=.8*decisionMs+.2*(decisionAt-lastDecisionAt);lastDecisionAt=decisionAt;
  const p=b.entity.position;const dx=goal[0]-p.x,dz=goal[2]-p.z;const distance=Math.hypot(dx,dz);
- const cue=task?.kind==='advanced'?tasks.navigationTarget(b,task,runtime):goal;
+ const cue=task?tasks.navigationCue(b,task,runtime):goal;
  const desired=Math.atan2(-(cue[0]-p.x),-(cue[2]-p.z));const angle=Math.atan2(Math.sin(desired-b.entity.yaw),Math.cos(desired-b.entity.yaw));
  const t=performance.now(),s=scan(b);let obs=[...s.pooled,Math.sin(angle),Math.cos(angle),Math.min(distance/32,1),b.health/20,b.food/20,b.entity.onGround?1:0];
  let teacher=Math.abs(angle)>.18?(angle>0?1:2):0;let sensed=null;
