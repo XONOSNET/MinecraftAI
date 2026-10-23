@@ -35,10 +35,10 @@ class SkillBank:
         samples=deque(maxlen=15000);replay=self.root/(skill+'.npz')
         if replay.exists():
             with np.load(replay) as data:
-                compatible=skill not in ('advanced','terrain') or int(data.get('observation_version',0))==2
+                compatible=skill not in ('advanced','terrain','expedition') or int(data.get('observation_version',0))==2
                 if compatible:samples.extend(zip(data['obs'].tolist(),data['actions'].tolist()))
             if not compatible:
-                # Preserve old demonstrations, whose hidden teacher waypoint made labels inconsistent.
+                # Preserve earlier observation contracts; checkpoint or breath semantics differ.
                 replay.replace(replay.with_name(f'{skill}-v1-{time.time_ns()}.npz'))
         entry={'model':policy,'optimizer':optimizer,'samples':samples,'count':0};self.entries[skill]=entry;return entry
     def payload(self,entry):
@@ -58,7 +58,7 @@ class SkillBank:
     def save_replay(self,skill):
         samples=self.entries[skill]['samples'];path=self.root/(skill+'.npz');tmp=path.with_suffix('.tmp')
         if not samples:return
-        with tmp.open('wb') as stream:np.savez_compressed(stream,obs=np.asarray([s[0] for s in samples],dtype=np.float32),actions=np.asarray([s[1] for s in samples]),observation_version=2 if skill in ('advanced','terrain') else 1)
+        with tmp.open('wb') as stream:np.savez_compressed(stream,obs=np.asarray([s[0] for s in samples],dtype=np.float32),actions=np.asarray([s[1] for s in samples]),observation_version=2 if skill in ('advanced','terrain','expedition') else 1)
         os.replace(tmp,path);self.metadata(skill)
 
     def metadata(self,skill):

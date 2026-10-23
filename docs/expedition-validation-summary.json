@@ -1,0 +1,11 @@
+{
+  "courses": 50,
+  "passed": 448,
+  "trials": 448,
+  "minimum_trials_per_course": 8,
+  "catalogue_version": 9,
+  "total_stages": 120,
+  "simulation_paused": true,
+  "python_tests": 115,
+  "node_tests": 25
+}

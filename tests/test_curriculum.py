@@ -48,7 +48,7 @@ def test_resource_failure_and_time_budget_pause(tmp_path):
 
 def test_curriculum_completes_and_does_not_repeat_forever(tmp_path):
     w=World();c=Curriculum(tmp_path/'state.json',w.hooks(),lambda:w.time);c.start()
-    c.state['max_cycles']=200;c.state['continuous']=False
+    c.state['max_cycles']=len(STAGES)*2+1;c.state['continuous']=False
     for _ in range(len(STAGES)*2):
         c.tick();w.score=15;c.tick()
     assert c.state['phase']=='completed' and not c.state['enabled'] and c.state['stage']==len(STAGES)-1
@@ -117,7 +117,7 @@ def test_old_completed_catalogue_unlocks_twenty_new_stages(tmp_path):
     import json
     path=tmp_path/'state';path.write_text(json.dumps({'catalog_version':4,'phase':'completed','stage':39,'enabled':False}))
     c=Curriculum(path,World().hooks())
-    assert len(STAGES)==70 and c.state['stage']==0 and c.state['phase']=='paused'
+    assert len(STAGES)==120 and c.state['stage']==0 and c.state['phase']=='paused'
 
 
 def test_continuous_plateau_recovers_without_discarding_champion(tmp_path):
@@ -131,8 +131,8 @@ def test_completed_sixty_stage_catalogue_continues_at_new_challenges(tmp_path):
     import json
     path=tmp_path/'state';path.write_text(json.dumps({'catalog_version':5,'phase':'completed','stage':59,'enabled':False,'history':[{'stage':59,'score':1}]}))
     c=Curriculum(path,{})
-    assert len(STAGES)==70 and c.state['stage']==0 and c.state['phase']=='paused'
-    assert c.state['catalog_version']==7 and c.state['history'][0]['score']==1
+    assert len(STAGES)==120 and c.state['stage']==0 and c.state['phase']=='paused'
+    assert c.state['catalog_version']==9 and c.state['history'][0]['score']==1
     assert STAGES[c.state['history'][0]['stage']]['name']=='Advanced bridge door gauntlet'
 
 
@@ -144,7 +144,7 @@ def test_reorder_preserves_course_identity_history_and_rate_scales(tmp_path):
     row=c.state['history'][0];assert STAGES[row['stage']]['name']=='Navigate a boulder slalom'
     assert row['legacy_stage']==37 and c.state['learning_rate_scales'][str(row['stage'])]==.5
     c.state['stage']=12;c.save();assert Curriculum(path,{}).state['stage']==12
-    assert len({s['id'] for s in STAGES})==70
+    assert len({s['id'] for s in STAGES})==120
     assert [s['tier'] for s in STAGES]==sorted(s['tier'] for s in STAGES)
     names=[s['name'] for s in STAGES]
     assert names.index('Cross slowing soul sand')<names.index('Two doors and a narrow bridge')

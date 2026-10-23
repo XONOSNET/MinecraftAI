@@ -129,6 +129,7 @@ class Observers:
         action=agent.get('action',4)
         fresh=now-agent.get('last_seen',0)<=8 and agent.get('connected',False)
         activity=labels[action] if type(action) is int and 0<=action<len(labels) else 'Waiting'
+        if agent.get('skill')=='expedition':activity=('Moving','Turn left','Turn right','Swim / climb','Waiting','Ascending','Descending')[action] if type(action) is int and 0<=action<7 else 'Waiting'
         if agent.get('skill')=='advanced' and action==5:activity='Opening door'
         controller={'teacher':'Teacher demonstration','heuristic':'Teacher reference','evaluate':'Neural policy','untrained':'Untrained policy','random':'Random actions','paused':'Paused / training'}.get(mode,mode)
         if not fresh:activity='Waiting for bot telemetry'
@@ -212,6 +213,7 @@ class Observers:
             activity='Offline' if not fresh else 'Training' if mode=='paused' and getattr(self,'progress_context',{}).get('job',{}).get('status') in ('running','cancelling') else 'Paused' if mode=='paused' else labels[action] if type(action) is int and 0<=action<len(labels) else 'Wait'
             if fresh and mode!='paused' and a.get('speed',1)<.05 and action in (0,3):activity='Blocked'
             if fresh and mode!='paused' and a.get('reset_seconds') is not None:activity+=f" ~{a['reset_seconds']}s"
+            if a.get('skill')=='expedition' and fresh and mode!='paused' and action in (3,5,6):activity={3:'Swim / climb',5:'Ascend',6:'Descend'}[action]
             if a.get('skill')=='advanced' and action==5:activity='Open door'
             if mode in ('evaluate','untrained','random','heuristic') and a.get('trial_completed',0)>=getattr(self,'progress_context',{}).get('episodes',3):activity='Done; waiting'
             row=f"{name}: {activity}"

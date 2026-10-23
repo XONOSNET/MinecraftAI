@@ -3,6 +3,7 @@ import math
 import random
 from .config import AGENT_COUNT, LANE_END, is_agent
 from .advanced import ADVANCED_STAGES, layout as advanced_layout
+from .expeditions import EXPEDITION_STAGES, spec as expedition_spec
 from .terrain import TERRAIN_STAGES, layout as terrain_layout
 
 EXTRA_STAGES=[
@@ -37,13 +38,15 @@ EXTRA_STAGES=[
 ]
 EXTRA_STAGES.extend(TERRAIN_STAGES)
 EXTRA_STAGES.extend(ADVANCED_STAGES)
+EXTRA_STAGES.extend(EXPEDITION_STAGES)
 for stage in EXTRA_STAGES:
     stage.update(threshold=.8)
     if stage['skill']=='nutrition':stage['examples_per_cycle']=150
-SKILLS=['navigation','traversal','hazards','exploration','gathering','nutrition','shelter','integration','terrain','advanced']
+SKILLS=['navigation','traversal','hazards','exploration','gathering','nutrition','shelter','integration','terrain','advanced','expedition']
 
 def task_spec(stage,seed,index,evaluation):
     if not 0<=index<AGENT_COUNT:raise ValueError('Unknown practice lane')
+    if stage['task']=='expedition':return expedition_spec(stage,seed,index,evaluation)
     rng=random.Random(seed);center=480 if evaluation else 320;z=index*12
     x=center+rng.randint(-3,3);difficulty=stage['difficulty'];kind=stage['task']
     start=[center-16,181.1,z+rng.uniform(-1,1)];goal=[center+16,181.1,z]
@@ -86,10 +89,10 @@ def reset_commands(task,name):
     if not is_agent(name):raise ValueError('Unknown bot')
     c,z,x=task['center'],task['lane_z'],task['feature_x'];kind=task['kind'];level=task['difficulty']
     commands=[f'fill {c-23} 179 {z-5} {c+23} 180 {z+5} minecraft:sea_lantern',
-              f'fill {c-23} 181 {z-5} {c+23} 185 {z+5} minecraft:air',
+              f'fill {c-23} 181 {z-5} {c+23} 211 {z+5} minecraft:air',
               f'kill @e[type=minecraft:item,x={c-23},y=179,z={z-5},dx=46,dy=7,dz=10]',
               f'clear {name}',f'effect clear {name}',f'effect give {name} minecraft:instant_health 1 5 true']
-    if kind in ('terrain','advanced'):
+    if kind in ('terrain','advanced','expedition'):
         for x1,y1,z1,x2,y2,z2,block in task['terrain_blocks']:commands.append(f'fill {x1} {y1} {z1} {x2} {y2} {z2} minecraft:{block}')
     if kind=='jump' and not task.get('causeway'):
         for offset in task['hurdles']:commands.append(f'fill {x+offset} 181 {z-5} {x+offset} 181 {z+5} minecraft:oak_planks')
@@ -120,6 +123,8 @@ def reset_commands(task,name):
     return commands
 
 def task_success(task,metrics):
+    if task['kind']=='expedition':
+        return metrics.get('health',0)>=18 and metrics.get('inside',False) and abs(metrics.get('y',0)-task['goal'][1])<1.5 and metrics.get('distance_3d',999)<1.5 and metrics.get('checkpoints',0)>=len(task['waypoints'])-1 and metrics.get('hazard_contacts',0)==0 and (not task['allow_water'] or metrics.get('water_steps',0)>0)
     if metrics.get('health',0)<=0 or not metrics.get('inside',False) or abs(metrics.get('y',0)-181)>1.5:return False
     kind=task['kind']
     if kind=='gather':return metrics.get('wood',0)>=task['wood_target']

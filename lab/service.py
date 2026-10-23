@@ -14,7 +14,7 @@ from .lan import LanBridge
 from .server_control import ServerControl
 from .minecraft_status import query_status
 from .admin import build_admin_command
-from .curriculum import Curriculum, STAGES, LEGACY_STAGES, sample_route, route_seed
+from .curriculum import Curriculum, STAGES, STAGES_V8, LEGACY_STAGES, sample_route, route_seed
 from .skills import SkillBank, SKILL_INPUTS, SKILL_ACTIONS
 from .tasks import task_spec, arena_commands, reset_commands, task_success, SKILLS, minecraft_yaw
 from .config import AGENT_COUNT, EPISODES_PER_AGENT, EXPECTED_EPISODES, LANE_END, is_agent
@@ -349,7 +349,7 @@ def status():
             SELECT run,count(*),sum(success),avg(steps) FROM ranked WHERE sequence<={EPISODES_PER_AGENT} OR run LIKE '%teacher%' GROUP BY run''').fetchall()
         run_sizes={r[0]:r[1]*r[2] for r in db.execute('SELECT * FROM run_config')}
         activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error') ORDER BY id DESC LIMIT 20")]
-        return {'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':EPISODES_PER_AGENT,'expected_episodes':EXPECTED_EPISODES},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
+        return {'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:
@@ -374,7 +374,7 @@ def assignment(d:dict):
         rng=random.Random(8000+d['index']*1000+d['episode'])
         finished=db.execute('SELECT count(*) FROM episodes WHERE run=? AND agent=?',(run,d['agent'])).fetchone()[0]
         agents[d['agent']].update(trial=max(1,int(d.get('episode',0))),trial_completed=finished)
-        if mode in ('untrained','evaluate','random','heuristic') and finished>=EPISODES_PER_AGENT:return {'mode':'paused','run':run}
+        if mode in ('untrained','evaluate','random','heuristic') and finished>=trial_limit():return {'mode':'paused','run':run}
         center=80 if mode in ('untrained','evaluate','random','heuristic') else 0
         start=[center+rng.uniform(-10,10),181.1,rng.uniform(-10,10)]
         theta=rng.uniform(-math.pi,math.pi);goal=[center+rng.uniform(-10,10),181.1,rng.uniform(-10,10)]
@@ -551,8 +551,10 @@ def skill_status():
                        'parameters':summary['parameters']})
     return result
 
+def trial_limit():return practice.get('episodes_per_agent',EPISODES_PER_AGENT) if practice else EPISODES_PER_AGENT
+
 def record_run():
-    db.execute('INSERT OR IGNORE INTO run_config VALUES(?,?,?)',(run,AGENT_COUNT,EPISODES_PER_AGENT));db.commit()
+    db.execute('INSERT OR IGNORE INTO run_config VALUES(?,?,?)',(run,AGENT_COUNT,trial_limit()));db.commit()
 
 def auto_mode(value,identifier=None):
     global mode,run
@@ -632,6 +634,12 @@ def curriculum_worker():
                 curriculum.pause('Autonomous training stopped: '+str(error));event('curriculum_error',{'error':str(error)})
         time.sleep(1)
 
+@app.post('/curricula/prepare',dependencies=[Depends(auth)])
+def prepare_practice():
+    with lock:
+        if curriculum.state['enabled'] or training_jobs.running or not server_ready():raise HTTPException(409,'Pause training and wait for Minecraft before preparing practice')
+        return {'ready':auto_prepare()}
+
 @app.post('/curricula/practice/{stage_index}',dependencies=[Depends(auth)])
 def practice_stage(stage_index:int,d:dict={}):
     global practice,mode,run
@@ -642,8 +650,10 @@ def practice_stage(stage_index:int,d:dict={}):
         if not server_ready() or auto_arena['phase']!=3:raise HTTPException(409,'Simulation arenas are not ready. Start autonomous training once to prepare them.')
         driver=d.get('driver','teacher')
         if driver not in ('teacher','student'):raise HTTPException(400,'Choose teacher or student')
-        practice={'stage':stage_index,'seed':time.time_ns(),'driver':driver};mode='heuristic' if driver=='teacher' else 'evaluate'
-        run=('practice-' if driver=='teacher' else 'skilltest-')+str(stage_index)+'-'+str(int(time.time()))+'-v7'
+        limit=d.get('episodes_per_agent',EPISODES_PER_AGENT)
+        if type(limit) is not int or not 1<=limit<=3:raise HTTPException(400,'Choose 1-3 trials per bot')
+        practice={'stage':stage_index,'seed':time.time_ns(),'driver':driver,'episodes_per_agent':limit};mode='heuristic' if driver=='teacher' else 'evaluate'
+        run=('practice-' if driver=='teacher' else 'skilltest-')+str(stage_index)+'-'+str(int(time.time()))+'-v9'
         record_run();event('mode',{'mode':mode,'run':run,'stage':STAGES[stage_index]['name'],'reference':driver=='teacher'})
         return {'run':run,'stage':STAGES[stage_index],'message':'Teacher reference started; demonstrations are collected. This measures task feasibility, not learned performance.' if driver=='teacher' else 'Neural policy test started on fresh routes, without teacher control.'}
 
@@ -654,7 +664,7 @@ def observer_worker():
             with lock:
                 if server_ready() and not server_control.snapshot()['busy']:
                     camera_input.tick(observers,[p['name'] for p in online_players()],agents)
-                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,progress_context=observer_progress(curriculum.state,STAGES,mode,practice,training_jobs.snapshot(),EPISODES_PER_AGENT),pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
+                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,progress_context=observer_progress(curriculum.state,STAGES,mode,practice,training_jobs.snapshot(),trial_limit()),pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
         except Exception as error:
             with lock:
                 for session in observers.sessions.values():

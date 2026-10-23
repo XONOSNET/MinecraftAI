@@ -12,13 +12,18 @@ TIERS=(
  ('Final gauntlets',[58,59,60,67,68,69,70]),
 )
 
-def ordered_stages(legacy):
+def ordered_stages(legacy,integrate=True):
     indices=[number-1 for _,numbers in TIERS for number in numbers]
-    if sorted(indices)!=list(range(len(legacy))):raise ValueError('Course order must include every stage exactly once')
+    if sorted(indices)!=list(range(70)):raise ValueError('Course order must include every stage exactly once')
     result=[]
     for tier,(label,numbers) in enumerate(TIERS,1):
         for number in numbers:
             stage=dict(legacy[number-1])
             stage.update(id=re.sub(r'[^a-z0-9]+','-',stage['name'].lower()).strip('-'),tier=tier,tier_name=label,legacy_stage=number)
             result.append(stage)
+    for stage in legacy[70:]:
+        stage=dict(stage);family=stage['expedition'];tier=max({'swim':4,'stairs':4,'ladder':4,'cave':4,'catwalk':5,'waterfall':5,'flooded':6,'cave_steps':6,'bent_catwalk':6,'summit':7}[family],min(8,3+stage['difficulty'])) if integrate else 9+['swim','stairs','ladder','cave','catwalk','waterfall','flooded','cave_steps','bent_catwalk','summit'].index(family)
+        stage.update(id=re.sub(r'[^a-z0-9]+','-',stage['name'].lower()).strip('-'),tier=tier,tier_name=TIERS[tier-1][0] if integrate else family.replace('_',' ').title()+' expeditions',legacy_stage=len(result)+1)
+        result.append(stage)
+    if integrate:result.sort(key=lambda s:s['tier'])
     return result

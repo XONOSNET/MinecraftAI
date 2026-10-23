@@ -143,3 +143,27 @@ test('terrain policy receives the same checkpoint cue as the teacher',()=>{
  assert.equal(failed(task,{hazard_contacts:0,blocked_steps:0,stalled_steps:64}),true);
  assert.equal(failed(task,{hazard_contacts:0,blocked_steps:0,stalled_steps:0}),false);
 });
+
+
+test('vertical checkpoints cannot be skipped by matching only horizontal coordinates',()=>{
+ const {navigationCue}=require('../controller/tasks');const {task,bot,runtime}=fixture();task.kind='expedition';task.waypoints=[[304,188,0],[310,188,0]];
+ assert.deepEqual(navigationCue(bot,task,runtime),task.waypoints[0]);assert.equal(runtime.waypoint,0);
+ bot.entity.position.y=188;assert.deepEqual(navigationCue(bot,task,runtime),task.waypoints[1]);
+});
+
+test('water is allowed only in designated swimming tasks and vertical actions are scoped',()=>{
+ const {failed}=require('../controller/tasks');const {applyMotion}=require('../controller/motion');const {task,bot,runtime}=fixture();task.kind='expedition';task.allow_water=true;task.waypoints=[[304,185,0]];bot.entity.isInWater=true;bot.entity.velocity=new Vec3(0,0,0);
+ const sensed=observeTask(bot,task,{hits:[]},runtime);assert.equal(sensed.metrics.hazard_contacts,0);assert.equal(sensed.extra.length,12);assert.ok(sensed.extra.every(Number.isFinite));assert.equal(teacherAction(bot,task,sensed,runtime,0),5);
+ const state={};bot.getControlState=k=>!!state[k];bot.setControlState=(k,v)=>state[k]=v;
+ applyMotion(bot,5,{move:true,jump:true},task);assert.equal(state.jump,true);assert.equal(!!state.forward,false);
+ applyMotion(bot,5,{move:true,jump:true},{kind:'advanced'});assert.equal(state.jump,false);
+ task.allow_water=false;assert.equal(observeTask(bot,task,{hits:[]},runtime).metrics.hazard_contacts,1);
+});
+
+
+test('expedition turns tread water and low breath prompts a surface action',()=>{
+ const {applyMotion}=require('../controller/motion');const {task,bot,runtime}=fixture();task.kind='expedition';task.allow_water=true;task.waypoints=[[320,182,0]];bot.entity.isInWater=true;bot.oxygenLevel=8;
+ const state={};bot.getControlState=k=>!!state[k];bot.setControlState=(k,v)=>state[k]=v;
+ applyMotion(bot,1,{move:true,jump:true},task);assert.equal(state.jump,true);assert.equal(!!state.forward,false);
+ assert.equal(teacherAction(bot,task,{},runtime,1),5);
+});

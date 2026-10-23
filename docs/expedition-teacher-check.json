@@ -1,0 +1,452 @@
+[
+  {
+    "stage": 36,
+    "name": "Swimming basics 1",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 56.875,
+    "legacy_stage": 71,
+    "id": "swimming-basics-1"
+  },
+  {
+    "stage": 37,
+    "name": "Rock climbing steps 1",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 25.125,
+    "legacy_stage": 76,
+    "id": "rock-climbing-steps-1"
+  },
+  {
+    "stage": 38,
+    "name": "Ladder ascent 1",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 22.375,
+    "legacy_stage": 81,
+    "id": "ladder-ascent-1"
+  },
+  {
+    "stage": 39,
+    "legacy_stage": 86,
+    "id": "cave-navigation-1",
+    "name": "Cave navigation 1",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 60.875
+  },
+  {
+    "stage": 50,
+    "name": "Swimming basics 2",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 60.0,
+    "legacy_stage": 72,
+    "id": "swimming-basics-2"
+  },
+  {
+    "stage": 51,
+    "name": "Rock climbing steps 2",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 35.125,
+    "legacy_stage": 77,
+    "id": "rock-climbing-steps-2"
+  },
+  {
+    "stage": 52,
+    "name": "Ladder ascent 2",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 28.75,
+    "legacy_stage": 82,
+    "id": "ladder-ascent-2"
+  },
+  {
+    "stage": 53,
+    "legacy_stage": 87,
+    "id": "cave-navigation-2",
+    "name": "Cave navigation 2",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 66.125
+  },
+  {
+    "stage": 54,
+    "name": "Elevated catwalk 1",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 45.625,
+    "legacy_stage": 91,
+    "id": "elevated-catwalk-1"
+  },
+  {
+    "stage": 55,
+    "name": "Elevated catwalk 2",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 67.0,
+    "legacy_stage": 92,
+    "id": "elevated-catwalk-2"
+  },
+  {
+    "stage": 56,
+    "legacy_stage": 96,
+    "id": "waterfall-ascent-1",
+    "name": "Waterfall ascent 1",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 23.875
+  },
+  {
+    "stage": 57,
+    "legacy_stage": 97,
+    "id": "waterfall-ascent-2",
+    "name": "Waterfall ascent 2",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 39.375
+  },
+  {
+    "stage": 68,
+    "name": "Swimming basics 3",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 121.0,
+    "legacy_stage": 73,
+    "id": "swimming-basics-3"
+  },
+  {
+    "stage": 69,
+    "name": "Rock climbing steps 3",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 51.375,
+    "legacy_stage": 78,
+    "id": "rock-climbing-steps-3"
+  },
+  {
+    "stage": 70,
+    "name": "Ladder ascent 3",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 35.25,
+    "legacy_stage": 83,
+    "id": "ladder-ascent-3"
+  },
+  {
+    "stage": 71,
+    "legacy_stage": 88,
+    "id": "cave-navigation-3",
+    "name": "Cave navigation 3",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 67.625
+  },
+  {
+    "stage": 72,
+    "name": "Elevated catwalk 3",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 44.5,
+    "legacy_stage": 93,
+    "id": "elevated-catwalk-3"
+  },
+  {
+    "stage": 73,
+    "legacy_stage": 98,
+    "id": "waterfall-ascent-3",
+    "name": "Waterfall ascent 3",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 37.0
+  },
+  {
+    "stage": 74,
+    "legacy_stage": 101,
+    "id": "flooded-cave-1",
+    "name": "Flooded cave 1",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 108.375
+  },
+  {
+    "stage": 75,
+    "legacy_stage": 102,
+    "id": "flooded-cave-2",
+    "name": "Flooded cave 2",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 189.625
+  },
+  {
+    "stage": 76,
+    "legacy_stage": 103,
+    "id": "flooded-cave-3",
+    "name": "Flooded cave 3",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 181.5
+  },
+  {
+    "stage": 77,
+    "name": "Ascending cave 1",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 26.5,
+    "legacy_stage": 106,
+    "id": "ascending-cave-1"
+  },
+  {
+    "stage": 78,
+    "name": "Ascending cave 2",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 32.75,
+    "legacy_stage": 107,
+    "id": "ascending-cave-2"
+  },
+  {
+    "stage": 79,
+    "name": "Ascending cave 3",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 46.75,
+    "legacy_stage": 108,
+    "id": "ascending-cave-3"
+  },
+  {
+    "stage": 80,
+    "name": "Turning catwalk 1",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 87.25,
+    "legacy_stage": 111,
+    "id": "turning-catwalk-1"
+  },
+  {
+    "stage": 81,
+    "name": "Turning catwalk 2",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 93.625,
+    "legacy_stage": 112,
+    "id": "turning-catwalk-2"
+  },
+  {
+    "stage": 82,
+    "name": "Turning catwalk 3",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 169.0,
+    "legacy_stage": 113,
+    "id": "turning-catwalk-3"
+  },
+  {
+    "stage": 91,
+    "name": "Swimming basics 4",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 124.0,
+    "legacy_stage": 74,
+    "id": "swimming-basics-4"
+  },
+  {
+    "stage": 92,
+    "name": "Rock climbing steps 4",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 47.375,
+    "legacy_stage": 79,
+    "id": "rock-climbing-steps-4"
+  },
+  {
+    "stage": 93,
+    "name": "Ladder ascent 4",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 41.75,
+    "legacy_stage": 84,
+    "id": "ladder-ascent-4"
+  },
+  {
+    "stage": 94,
+    "legacy_stage": 89,
+    "id": "cave-navigation-4",
+    "name": "Cave navigation 4",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 84.5
+  },
+  {
+    "stage": 95,
+    "name": "Elevated catwalk 4",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 39.25,
+    "legacy_stage": 94,
+    "id": "elevated-catwalk-4"
+  },
+  {
+    "stage": 96,
+    "legacy_stage": 99,
+    "id": "waterfall-ascent-4",
+    "name": "Waterfall ascent 4",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 39.375
+  },
+  {
+    "stage": 97,
+    "legacy_stage": 104,
+    "id": "flooded-cave-4",
+    "name": "Flooded cave 4",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 244.125
+  },
+  {
+    "stage": 98,
+    "name": "Ascending cave 4",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 77.125,
+    "legacy_stage": 109,
+    "id": "ascending-cave-4"
+  },
+  {
+    "stage": 99,
+    "name": "Turning catwalk 4",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 88.375,
+    "legacy_stage": 114,
+    "id": "turning-catwalk-4"
+  },
+  {
+    "stage": 100,
+    "legacy_stage": 116,
+    "id": "waterfall-summit-expedition-1",
+    "name": "Waterfall summit expedition 1",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 40.625
+  },
+  {
+    "stage": 101,
+    "legacy_stage": 117,
+    "id": "waterfall-summit-expedition-2",
+    "name": "Waterfall summit expedition 2",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 50.125
+  },
+  {
+    "stage": 102,
+    "legacy_stage": 118,
+    "id": "waterfall-summit-expedition-3",
+    "name": "Waterfall summit expedition 3",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 51.25
+  },
+  {
+    "stage": 103,
+    "legacy_stage": 119,
+    "id": "waterfall-summit-expedition-4",
+    "name": "Waterfall summit expedition 4",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 56.5
+  },
+  {
+    "stage": 111,
+    "legacy_stage": 75,
+    "id": "swimming-basics-5",
+    "name": "Swimming basics 5",
+    "passed": 24,
+    "total": 24,
+    "mean_steps": 136.66666666666666
+  },
+  {
+    "stage": 112,
+    "name": "Rock climbing steps 5",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 55.625,
+    "legacy_stage": 80,
+    "id": "rock-climbing-steps-5"
+  },
+  {
+    "stage": 113,
+    "name": "Ladder ascent 5",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 46.125,
+    "legacy_stage": 85,
+    "id": "ladder-ascent-5"
+  },
+  {
+    "stage": 114,
+    "legacy_stage": 90,
+    "id": "cave-navigation-5",
+    "name": "Cave navigation 5",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 88.375
+  },
+  {
+    "stage": 115,
+    "name": "Elevated catwalk 5",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 45.375,
+    "legacy_stage": 95,
+    "id": "elevated-catwalk-5"
+  },
+  {
+    "stage": 116,
+    "legacy_stage": 100,
+    "id": "waterfall-ascent-5",
+    "name": "Waterfall ascent 5",
+    "passed": 24,
+    "total": 24,
+    "mean_steps": 43.458333333333336
+  },
+  {
+    "stage": 117,
+    "legacy_stage": 105,
+    "id": "flooded-cave-5",
+    "name": "Flooded cave 5",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 357.625
+  },
+  {
+    "stage": 118,
+    "name": "Ascending cave 5",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 50.0,
+    "legacy_stage": 110,
+    "id": "ascending-cave-5"
+  },
+  {
+    "stage": 119,
+    "name": "Turning catwalk 5",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 91.5,
+    "legacy_stage": 115,
+    "id": "turning-catwalk-5"
+  },
+  {
+    "stage": 120,
+    "legacy_stage": 120,
+    "id": "waterfall-summit-expedition-5",
+    "name": "Waterfall summit expedition 5",
+    "passed": 24,
+    "total": 24,
+    "mean_steps": 63.125
+  }
+]
