@@ -116,18 +116,22 @@ class Observers:
                 s.update(progress_start=max(distance,1),progress_run=agent.get('run'),progress_goal=copy.deepcopy(goal))
             s['progress_steps']=agent.get('steps',0)
             progress=round(100*max(0,min(1,1-distance/s.get('progress_start',max(distance,1)))))
+        route_progress=progress
+        route_visible=bool(fresh and position and goal and mode!='paused')
         context=getattr(self,'progress_context',{});job=context.get('job',{})
         total=context.get('episodes',3);completed=min(total,agent.get('trial_completed',0))
         trial=min(total,completed+1)
         if mode in ('evaluate','untrained','random','heuristic') and completed>=total:activity='Trials finished; waiting for other bots'
         if context and mode in ('evaluate','untrained','random','heuristic'):
             lines['task']=f"{s['target']} | Trial {trial}/{total} | {total-completed} left"
-            lines['state']=f"{activity} | Trials completed {completed}/{total}"
+            lines['state']=f"Route {route_progress}% | {activity}"
+            if position and goal:lines['state']+=f" | Goal {math.dist(position,goal):.1f} blocks"
+            if completed>=total:route_visible=False
             progress=round(100*completed/total)
         elif mode=='teacher':
             count=context.get('examples',0);target=max(1,context.get('target',1500))
-            lines['task']=f"{s['target']} | Demo pass {agent.get('trial',1)}"
-            lines['state']=f"Examples {count}/{target} | {max(0,target-count)} left"
+            lines['task']=f"{s['target']} | Demo {agent.get('trial',1)} | Examples {count}/{target}"
+            lines['state']=f"Route {route_progress}% | {activity}"
             progress=min(100,round(100*count/target))
         else:lines['task']+=' | Route progress'
         if job.get('status') in ('running','cancelling'):
@@ -149,9 +153,10 @@ class Observers:
                 self.command(f'bossbar set {key} color '+('yellow' if suffix=='stage' else 'blue' if suffix=='task' else 'green'))
                 self.command(f'bossbar set {key} max 100')
             self.command(f'bossbar set {key} name {name}')
-            value=round(100*(context['stage']-1)/context['stages']) if suffix=='stage' else progress
+            value=round(100*(context['stage']-1)/context['stages']) if suffix=='stage' else route_progress if suffix=='state' else progress
             self.command(f'bossbar set {key} value {value}')
             self.command(f'bossbar set {key} players {owner}')
+            if suffix=='state':self.command(f'bossbar set {key} visible '+str(route_visible and job.get('status') not in ('running','cancelling')).lower())
         s['hud_ready']=True
     def update_roster(self,online,agents,mode):
         now=self.clock()

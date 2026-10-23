@@ -154,7 +154,8 @@ def test_trial_and_training_pass_counters_and_named_roster(tmp_path):
     now[0]+=2;commands.clear()
     tick('paused',{'job':{'status':'running','epoch':42,'epochs':100,'percent':40,'samples':1500,'phase':'learning'}})
     assert any('Training pass 42/100 | 58 left' in c for c in commands)
-    assert 'bossbar set lab:observer_xonosnet_state value 40' in commands
+    assert 'bossbar set lab:observer_xonosnet_task value 40' in commands
+    assert 'bossbar set lab:observer_xonosnet_state visible false' in commands
 
 
 def test_camera_uses_native_display_interpolation(tmp_path):
@@ -266,3 +267,15 @@ def test_camera_spawns_with_torso_facing_rotation_before_attachment(tmp_path,vie
     attach=next(i for i,c in enumerate(commands) if 'run spectate @e[tag=lab_camera_' in c)
     smooth=next(i for i,c in enumerate(commands) if 'data merge entity' in c)
     assert smooth<attach
+
+
+def test_route_bar_and_trial_batch_bar_use_different_progress(tmp_path):
+    now=[100.];commands=[];o=Observers(tmp_path/'hud',commands.append,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    a={'connected':True,'last_seen':100,'position':[0,181,0],'goal':[10,181,0],'run':'one','steps':0,'trial_completed':1}
+    def tick():o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':now[0]}},{'LabAI0':a},True,'evaluate',progress_context={'episodes':3})
+    tick();commands.clear();now[0]+=2;a.update(position=[5,181,0],steps=1);tick()
+    assert 'bossbar set lab:observer_xonosnet_task value 33' in commands
+    assert 'bossbar set lab:observer_xonosnet_state value 50' in commands
+    assert any('Route 50%' in c for c in commands)
+    assert 'bossbar set lab:observer_xonosnet_state visible true' in commands
