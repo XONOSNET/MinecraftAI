@@ -1,16 +1,16 @@
 {
   "bossbars_added": 3,
-  "updates": 6,
+  "updates": 5,
   "removed": 3,
   "bot_rows": [
-    "LabAI5",
-    "LabAI7",
-    "LabAI6",
     "LabAI0",
-    "LabAI4",
-    "LabAI3",
     "LabAI1",
-    "LabAI2"
+    "LabAI2",
+    "LabAI3",
+    "LabAI4",
+    "LabAI5",
+    "LabAI6",
+    "LabAI7"
   ],
   "compact_labels": true,
   "roster_packets": [
@@ -18,6 +18,6 @@
     "scoreboard_display_objective",
     "scoreboard_score"
   ],
-  "camera_teleports": 65,
+  "camera_teleports": 85,
   "passed": true
 }
