@@ -124,17 +124,8 @@ Advanced and terrain course route checkpoints now provide the same bearing cue t
 In-game activity rows show bot name, action and reset countdown. Serial IDs and death counters remain stored but are omitted from the observer HUD and dashboard labels.
 
 
-Stages 61–70 extend the advanced track with these challenges:
+The catalogue is ordered by prerequisites and task complexity rather than the date courses were added. See [the complete 70-course order](docs/CURRICULUM_ORDER.md), including original numbers for historical results. Eight tiers progress from navigation foundations through basic survival, doors, water safety, terrain, difficult crossings, combined courses, and final gauntlets. New surfaces such as soul sand and cobwebs are introduced before their combined challenges.
 
-- 61: Long precision bridge.
-- 62: Cross a slippery ice bridge.
-- 63: Cross slowing soul sand.
-- 64: Push through cobweb barriers.
-- 65: Low-ceiling alternating slalom.
-- 66: Three alternating wooden doors.
-- 67: Three alternating magma detours.
-- 68: Two doors and a raised bridge.
-- 69: Three doors across mixed surfaces.
-- 70: Raised ice bridge survival gauntlet.
+Catalogue v7 preserves policy weights and remaps saved result history by course identity. The reordered validation pass begins at stage 1 and is deliberately paused until resumed. Independent skill policies remain separate; difficulty tiers describe the intended progression across tasks, not a single mathematically measured difficulty score.
 
-These courses use existing walking, turning, jumping and bounded door interaction. Ice, soul sand and cobwebs add movement dynamics; no new client dependency or hidden automatic action is introduced. New stages retain the 80% gate and require two passing 24-trial batches before promotion.
+Choose **Action camera (stream director)** in Follow AI for eight smoothly blended shots: chase, right tracking, front reveal, crane sweep, wide orbit, left tracking, low front and high establishing. Framing changes every 12 seconds and loops continuously. Distance/height adjust the framing; Cycle bots independently changes the subject at its chosen interval. The camera continues moving while bots wait, follows torso/travel direction, and retains arena-transfer and respawn handling. No client mod is required.

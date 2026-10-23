@@ -25,7 +25,7 @@ def test_spectator_follows_respawn_and_restores_original_mode(tmp_path):
     assert 'gamemode creative Xonosnet' in commands
     assert any('lab_return_xonosnet' in c and 'run tp Xonosnet' in c for c in commands)
 
-@pytest.mark.parametrize('view',['first_person','trail','side','overhead','orbit'])
+@pytest.mark.parametrize('view',['first_person','trail','side','overhead','orbit','action'])
 def test_same_entity_teleport_moves_viewer_then_waits_before_camera_attachment(tmp_path,view):
     now=[100.0];commands=[];o=Observers(tmp_path/'state',commands.append,lambda:now[0])
     o.start({'player':'Xonosnet','target':'LabAI0','view':view},['Xonosnet'])
@@ -167,7 +167,7 @@ def test_camera_uses_native_display_interpolation(tmp_path):
     assert not any('armor_stand' in c for c in commands)
 
 
-@pytest.mark.parametrize('view',['trail','side','overhead','orbit'])
+@pytest.mark.parametrize('view',['trail','side','overhead','orbit','action'])
 def test_angled_transfer_and_spawn_start_outside_target_head(view):
     transfer=viewer_transfer('Xonosnet','LabAI0',view,7,4,8)
     spawn=camera_spawn('Xonosnet','LabAI0','camera',view,7,4,8)
@@ -206,14 +206,14 @@ def test_camera_cycle_uses_interval_and_skips_offline_bots(tmp_path):
     tick();assert o.sessions['Xonosnet']['target']=='LabAI2' and o.sessions['Xonosnet']['cycle_at']==161
 
 
-@pytest.mark.parametrize('view',['orbit','side','trail','overhead','first_person','stationary'])
+@pytest.mark.parametrize('view',['orbit','side','trail','overhead','first_person','stationary','action'])
 def test_bot_cycling_is_independent_of_view(tmp_path,view):
     o=Observers(tmp_path/'camera',lambda cmd:None,lambda:100)
     session=o.start({'player':'Xonosnet','target':'LabAI0','view':view,'cycle_enabled':True},['Xonosnet'])
     assert session['view']==view and session['cycle_enabled'] and session['cycle_seconds']==30
 
 
-@pytest.mark.parametrize('view',['trail','side','overhead','orbit','stationary'])
+@pytest.mark.parametrize('view',['trail','side','overhead','orbit','stationary','action'])
 def test_angled_cameras_aim_at_fixed_torso_height(view):
     command=camera_move('LabAI0','camera',view,7,4,3)
     assert command.endswith('facing ~ ~0.9 ~') and ' eyes' not in command
@@ -252,13 +252,13 @@ def test_native_roster_keeps_identity_metadata_out_of_labels(tmp_path):
     assert any('LabAI0: Blocked ~15s' in c for c in labels)
 
 
-@pytest.mark.parametrize('view',['trail','side','overhead','orbit'])
+@pytest.mark.parametrize('view',['trail','side','overhead','orbit','action'])
 def test_camera_spawns_with_torso_facing_rotation_before_attachment(tmp_path,view):
     from lab.observers import camera_rotation
     import math
     yaw,pitch=camera_rotation(view,7,4,0)
     assert 0<pitch<=90
-    assert pitch==pytest.approx(90 if view=='overhead' else math.degrees(math.atan2(3.1,7)))
+    assert pitch==pytest.approx(90 if view=='overhead' else math.degrees(math.atan2(2.7 if view=='action' else 3.1,7)))
     spawn=camera_spawn('Xonosnet','LabAI0','camera',view,7,4,0)
     assert f'Rotation:[{yaw:.5f}f,{pitch:.5f}f]' in spawn
     commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:100,settle_delay=0)
@@ -290,3 +290,20 @@ def test_reference_header_tracks_live_course_instead_of_saved_review_stage():
     state['enabled']=True
     context=observer_progress(state,stages,'evaluate',{'stage':63},{},3)
     assert context['stage']==37 and context['label']=='Review 1'
+
+
+def test_action_camera_is_continuous_bounded_and_cycles_all_shots():
+    import math
+    from lab.observers import action_pose,ACTION_SHOTS,camera_rotation
+    seen=set()
+    for step in range(1921):
+        t=step*.05;x,y,z,shot=action_pose(7,4,t);seen.add(shot)
+        assert 3-1e-8<=math.hypot(x,z)<=16 and 2<=y<=12
+        assert camera_rotation('action',7,4,t)[1]>0
+        if step:
+            assert math.dist((x,y,z),previous)<.1
+        previous=(x,y,z)
+    assert seen=={s[0] for s in ACTION_SHOTS}
+    for boundary in range(12,193,12):
+        a=action_pose(7,4,boundary-.001)[:3];b=action_pose(7,4,boundary+.001)[:3]
+        assert math.dist(a,b)<.001

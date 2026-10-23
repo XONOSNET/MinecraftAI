@@ -3,11 +3,15 @@ from pathlib import Path
 base='http://127.0.0.1:8000';token=Path('data/api-token').read_text().strip()
 def get():return json.load(urllib.request.urlopen(base+'/status',timeout=5))
 def post(path,body):return json.load(urllib.request.urlopen(urllib.request.Request(base+path,data=json.dumps(body).encode(),headers={'Content-Type':'application/json','X-Lab-Token':token}),timeout=30))
-parser=argparse.ArgumentParser();parser.add_argument('--start',type=int,default=41);parser.add_argument('--end',type=int,default=60);parser.add_argument('--output',default='docs/advanced-teacher-check.json');args=parser.parse_args()
-assert 41<=args.start<=args.end<=len(get()['curriculum']['stages'])
+parser=argparse.ArgumentParser();parser.add_argument('--start',type=int);parser.add_argument('--end',type=int);parser.add_argument('--output',default='docs/advanced-teacher-check.json');args=parser.parse_args()
+stages=get()['curriculum']['stages']
+if args.start is None and args.end is None:indices=[i for i,s in enumerate(stages) if s.get('skill')=='advanced']
+else:
+ assert args.start is not None and args.end is not None and 5<=args.start<=args.end<=len(stages)
+ indices=list(range(args.start-1,args.end))
 assert not get()['curriculum']['enabled'],'Pause autonomy before reference verification'
 results=[]
-for stage in range(args.start-1,args.end):
+for stage in indices:
  while len(get()['agents'])<8:time.sleep(2)
  r=post('/curricula/practice/'+str(stage),{'driver':'teacher'});deadline=time.time()+180
  print('START',stage+1,r['stage']['name'],flush=True)

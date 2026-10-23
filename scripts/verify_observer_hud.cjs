@@ -7,7 +7,7 @@ const bot=mineflayer.createBot({host:'127.0.0.1',port:25565,username:name,auth:'
 bot._client.on('camera',p=>cameraId=p.cameraId);
 bot._client.on('packet',(p,m)=>{if(m.name==='scoreboard_score'){scores.add(p.itemName);rowLabels.push(JSON.stringify(p));}if(m.name.includes('scoreboard'))rosterPackets.push(m.name);if(cameraId!==undefined&&p?.entityId===cameraId&&/move|position|teleport/.test(m.name))cameraMoves++});
 const visibleBars=new Set();bot._client.on('boss_bar',p=>{packets.push(p);const id=JSON.stringify(p.entityUUID);if(p.action===0)visibleBars.add(id);if(p.action===1)visibleBars.delete(id)});bot.on('error',console.error);
-(async()=>{try{await once(bot,'spawn');await delay(2500);await post('/observer/start',{player:name,target:'LabAI0',view:'orbit'});await delay(6000);const status=await (await fetch('http://127.0.0.1:8000/status')).json();
+(async()=>{try{await once(bot,'spawn');await delay(2500);await post('/observer/start',{player:name,target:'LabAI0',view:process.argv.includes('--action')?'action':'orbit'});await delay(6000);const status=await (await fetch('http://127.0.0.1:8000/status')).json();
 assert.equal([...scores].filter(n=>/^LabAI[0-9]+$/.test(n)).length,8,'all eight bot rows received');
 assert.ok(rowLabels.every(p=>!p.includes('A0001')&&!p.includes(' D0')),'compact rows omit serials and death counters');
 assert.ok(rosterPackets.some(n=>n.includes('objective')),'native right sidebar received');

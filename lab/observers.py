@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from .config import is_agent
 
-VIEWS=('first_person','trail','side','overhead','orbit','stationary','cycle')
+VIEWS=('first_person','trail','side','overhead','orbit','action','stationary','cycle')
 DIMENSIONS=('minecraft:overworld','minecraft:the_nether','minecraft:the_end')
 MODES=('survival','creative','adventure','spectator')
 
@@ -26,9 +26,27 @@ def player_name(value):
     if re.fullmatch(r'LabAI[0-9]+',value,re.IGNORECASE):raise ValueError('The observer must be a human player, not a training bot')
     return value
 
+# Eight framing keyframes blend continuously, including the loop boundary.
+ACTION_SHOTS=(('Chase',-math.pi,1,.9),('Right tracking',-math.pi/2,.85,.7),
+              ('Front reveal',0,1.15,.8),('Crane sweep',math.pi/2,.65,2.1),
+              ('Wide orbit',math.pi,1.4,1.4),('Left tracking',3*math.pi/2,.9,.7),
+              ('Low front',2*math.pi,.75,.6),('High establishing',5*math.pi/2,1.3,1.8))
+
+def action_pose(distance,height,elapsed,heading=0):
+    phase=max(0,elapsed)/12;index=int(phase)%len(ACTION_SHOTS);u=phase%1
+    a=ACTION_SHOTS[index];b=ACTION_SHOTS[(index+1)%len(ACTION_SHOTS)]
+    t=u*u*(3-2*u)
+    delta=(b[1]-a[1]+math.pi)%(2*math.pi)-math.pi
+    angle=heading+a[1]+delta*t
+    radius=max(3,min(16,distance*(a[2]+(b[2]-a[2])*t)))
+    elevation=max(3.2,min(12,height*(a[3]+(b[3]-a[3])*t)))
+    return math.cos(angle)*radius,elevation,math.sin(angle)*radius,a[0]
+
 def camera_move(target,tag,view,distance,height,elapsed,heading=0):
     if view=='stationary':return f'execute at {target} run rotate @e[tag={tag},limit=1] facing ~ ~0.9 ~'
-    if view=='overhead':offset=f'~ ~{height+distance:.3f} ~';context=''
+    if view=='action':
+        x,y,z,_=action_pose(distance,height,elapsed,heading);offset=f'~{x:.3f} ~{y:.3f} ~{z:.3f}';context=''
+    elif view=='overhead':offset=f'~ ~{height+distance:.3f} ~';context=''
     elif view=='orbit':
         angle=elapsed*.22;offset=f'~{math.cos(angle)*distance:.3f} ~{height:.3f} ~{math.sin(angle)*distance:.3f}';context=''
     else:
@@ -41,6 +59,9 @@ def viewer_transfer(owner,target,view,distance,height,elapsed,heading=0):
     return camera_move(target,'transfer',view,distance,height,elapsed,heading).replace('@e[tag=transfer,limit=1]',owner)
 
 def camera_rotation(view,distance,height,elapsed,heading=0):
+    if view=='action':
+        x,y,z,_=action_pose(distance,height,elapsed,heading)
+        return math.degrees(math.atan2(x,-z)),math.degrees(math.atan2(y-.9,math.hypot(x,z)))
     if view=='overhead':return 0,90
     angle=elapsed*.22 if view=='orbit' else heading-(math.pi/2 if view=='side' else math.pi)
     x,z=math.cos(angle)*distance,math.sin(angle)*distance
@@ -306,4 +327,7 @@ class Observers:
             if s['view']!='first_person':self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
             s.update(status='following',message=(f"Watching {target} from a stationary position. Switch bots to look around; use a following view to travel between arenas." if s['view']=='stationary' else f"Following {target}: {s['view'].replace('_',' ')}. Camera follows arena transfers and respawns."),simulation=agent.get('simulation','Waiting'),target_position=agent.get('position'))
 
+            if s['view']=='action':
+                s['camera_shot']=action_pose(s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0))[3]
+                s['message']=f"Action camera: {s['camera_shot']}. Smooth automatic shots follow {target} between simulations."
             self.update_hud(s,agent,mode)

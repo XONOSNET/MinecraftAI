@@ -54,7 +54,7 @@ def test_navigation_completion_migrates_to_new_skills_without_losing_history(tmp
     path=tmp_path/'state.json';history=[{'stage':3,'score':1,'cycle':8,'baseline':1,'accepted':True}]
     path.write_text(json.dumps({'enabled':False,'phase':'completed','stage':3,'streak':2,'history':history,'max_cycles':12}))
     c=Curriculum(path,{})
-    assert c.state['stage']==4 and c.state['history']==history and c.state['max_cycles']==112
+    assert c.state['stage']==0 and c.state['history'][0]['score']==history[0]['score'] and c.state['max_cycles']==112
 
 
 def test_mineflayer_yaw_round_trip_matches_installed_protocol_conversion():
@@ -95,8 +95,8 @@ def test_completed_catalogue_resumes_at_appended_stages_and_count_resets_streak(
     path=tmp_path/'state.json';history=[{'stage':15,'score':1}]
     path.write_text(json.dumps({'catalog_version':2,'enabled':False,'phase':'completed','stage':15,'history':history,'streak':2,'agent_count':5,'max_cycles':48}))
     state=Curriculum(path,{}).state
-    assert state['stage']==16 and state['phase']=='paused' and state['streak']==0
-    assert state['history']==history and state['max_cycles']==112 and state['agent_count']==AGENT_COUNT
+    assert state['stage']==0 and state['phase']=='paused' and state['streak']==0
+    assert state['history'][0]['score']==history[0]['score'] and state['max_cycles']==112 and state['agent_count']==AGENT_COUNT
 
 def test_largest_configured_arena_still_fits_fill_limit(monkeypatch):
     import lab.tasks as tasks
@@ -136,7 +136,7 @@ def test_terrain_layouts_are_seeded_bounded_and_include_real_elevation_changes()
 def test_completed_32_stage_catalogue_migrates_to_terrain(tmp_path):
     path=tmp_path/'state';path.write_text(json.dumps({'catalog_version':3,'enabled':False,'phase':'completed','stage':31,'streak':2,'max_cycles':80}))
     c=Curriculum(path,{})
-    assert c.state['stage']==32 and c.state['phase']=='paused' and c.state['max_cycles']==112
+    assert c.state['stage']==0 and c.state['phase']=='paused' and c.state['max_cycles']==112
 
 
 def test_advanced_courses_have_real_doors_and_require_observed_openings():

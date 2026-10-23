@@ -9,11 +9,13 @@ from pathlib import Path
 from .tasks import EXTRA_STAGES
 from .config import AGENT_COUNT
 
-STAGES=[{'name':'Short routes','min_distance':3,'max_distance':7,'yaw':.6},
+LEGACY_STAGES=[{'name':'Short routes','min_distance':3,'max_distance':7,'yaw':.6},
         {'name':'Longer routes','min_distance':7,'max_distance':14,'yaw':1.5},
         {'name':'Full turns','min_distance':10,'max_distance':22,'yaw':3.141593},
         {'name':'Long routes and full turns','min_distance':20,'max_distance':30,'yaw':3.141593}]
-STAGES.extend(EXTRA_STAGES)
+LEGACY_STAGES.extend(EXTRA_STAGES)
+from .catalogue import ordered_stages
+STAGES=ordered_stages(LEGACY_STAGES)
 
 def route_seed(cycle_seed,agent,episode,evaluation):
     identity=f"{cycle_seed}:{agent}:{episode}:{'test' if evaluation else 'teacher'}"
@@ -56,7 +58,18 @@ class Curriculum:
             self.state.update(stage=40,phase='paused',streak=0,message='Twenty advanced courses are ready to resume.')
         if self.state.get('catalog_version',1)<6 and self.state['phase']=='completed' and self.state['stage']==59:
             self.state.update(stage=60,phase='paused',streak=0,message='Ten new challenge stages are ready to resume.')
-        self.state.update(catalog_version=6,agent_count=AGENT_COUNT)
+        if self.path.exists() and self.state.get('catalog_version',1)<7:
+            lookup={stage['name']:i for i,stage in enumerate(STAGES)}
+            for row in self.state['history']:
+                old=row['stage']
+                if 0<=old<len(LEGACY_STAGES):
+                    row.update(legacy_stage=old+1,stage=lookup[LEGACY_STAGES[old]['name']])
+                    row['stage_id']=STAGES[row['stage']]['id']
+            scales=self.state.get('learning_rate_scales',{})
+            self.state['learning_rate_scales']={str(lookup[LEGACY_STAGES[int(k)]['name']]):v for k,v in scales.items() if 0<=int(k)<len(LEGACY_STAGES)}
+            self.state.pop('recovery_target',None)
+            self.state.update(enabled=False,phase='paused',stage=0,streak=0,message='Courses reordered by prerequisites and difficulty. Models and history preserved. Resume to validate the new order from the beginning.')
+        self.state.update(catalog_version=7,agent_count=AGENT_COUNT)
     def save(self):
         self.path.parent.mkdir(exist_ok=True,parents=True)
         tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps(self.state,indent=2),encoding='utf-8');tmp.replace(self.path)
@@ -90,7 +103,8 @@ class Curriculum:
             if not s.get('continuous',True):return self.pause('No useful model progress for three cycles. Best model kept. Review results before resuming.')
             target=s['stage'];scales=s.setdefault('learning_rate_scales',{});scales[str(target)]=max(.125,scales.get(str(target),1)*.5)
             skill=STAGES[target].get('skill','navigation');first=next(i for i,stage in enumerate(STAGES) if stage.get('skill','navigation')==skill)
-            s.update(recovery_target=s.get('recovery_target',target),stage=max(first,target-1),streak=0)
+            previous=max((i for i in range(target) if STAGES[i].get('skill','navigation')==skill),default=first)
+            s.update(recovery_target=s.get('recovery_target',target),stage=previous,streak=0)
             self.phase('waiting',f'Automatic refresher before stage {target+1}; best model kept and retraining rate reduced.');return
         if s['session_cycles']>=s['max_cycles']:
             if not s.get('continuous',True):return self.pause('Cycle limit reached. Best model and curriculum saved; resume when ready.')
@@ -127,7 +141,7 @@ class Curriculum:
             if s['phase']=='baseline':
                 if score>=STAGES[s['stage']].get('threshold',s['threshold']):
                     self.h['pause']();s['restore_pending']=False;s['streak']+=1
-                    result={'cycle':s['cycle'],'stage':s['stage'],'skill':STAGES[s['stage']].get('skill','navigation'),'agent_count':AGENT_COUNT,'episodes':rows['episodes'],'baseline':score,'score':score,'accepted':True,'kind':'saved_model_validation','seed':s['seed'],'time':self.clock()}
+                    result={'cycle':s['cycle'],'stage':s['stage'],'stage_id':STAGES[s['stage']]['id'],'skill':STAGES[s['stage']].get('skill','navigation'),'agent_count':AGENT_COUNT,'episodes':rows['episodes'],'baseline':score,'score':score,'accepted':True,'kind':'saved_model_validation','seed':s['seed'],'time':self.clock()}
                     s['history'].append(result);s['history']=s['history'][-100:];self.h['event'](result)
                     self.finish_cycle()
                     if s['enabled'] and s['phase']=='waiting':
@@ -142,7 +156,7 @@ class Curriculum:
             else:self.h['restore']()
             s['restore_pending']=False
             s['streak']=s['streak']+1 if accepted and score>=STAGES[s['stage']].get('threshold',s['threshold']) else 0
-            s['history'].append({'cycle':s['cycle'],'stage':s['stage'],'skill':STAGES[s['stage']].get('skill','navigation'),'agent_count':AGENT_COUNT,'episodes':rows['episodes'],'baseline':s['baseline'],'score':score,'accepted':accepted,'time':self.clock()});s['history']=s['history'][-100:]
+            s['history'].append({'cycle':s['cycle'],'stage':s['stage'],'stage_id':STAGES[s['stage']]['id'],'skill':STAGES[s['stage']].get('skill','navigation'),'agent_count':AGENT_COUNT,'episodes':rows['episodes'],'baseline':s['baseline'],'score':score,'accepted':accepted,'time':self.clock()});s['history']=s['history'][-100:]
             self.h['event'](s['history'][-1])
             self.finish_cycle();return
         if s['phase']=='collecting':

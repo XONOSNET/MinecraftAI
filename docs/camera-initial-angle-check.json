@@ -23,5 +23,10 @@
     "view": "side",
     "spawn_pitch": 16,
     "spawn_yaw": 0
+  },
+  {
+    "view": "action",
+    "spawn_pitch": 14,
+    "spawn_yaw": -64
   }
 ]
