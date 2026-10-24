@@ -44,7 +44,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  const p=b.entity.position;const dx=goal[0]-p.x,dz=goal[2]-p.z;const distance=Math.hypot(dx,dz);
  const cue=task?tasks.navigationCue(b,task,runtime):goal;
  const desired=Math.atan2(-(cue[0]-p.x),-(cue[2]-p.z));const angle=Math.atan2(Math.sin(desired-b.entity.yaw),Math.cos(desired-b.entity.yaw));
- const t=performance.now(),s=scan(b);let obs=[...s.pooled,Math.sin(angle),Math.cos(angle),Math.min(distance/32,1),b.health/20,b.food/20,b.entity.onGround?1:0];
+ const t=performance.now(),s=scan(b,{goalYaw:desired});let obs=[...s.pooled,Math.sin(angle),Math.cos(angle),Math.min(distance/32,1),b.health/20,b.food/20,b.entity.onGround?1:0];
  let teacher=Math.abs(angle)>.18?(angle>0?1:2):0;let sensed=null;
  if(task){sensed=tasks.observeTask(b,task,s,runtime);lastMetrics=sensed.metrics;obs.push(...sensed.extra);teacher=tasks.teacherAction(b,task,sensed,runtime,angle);if(task.kind==='explore'||task.kind==='eat'){obs[64]=0;obs[65]=1;obs[66]=0;}}
  const reward=lastDistance===null?0:Math.max(-1,Math.min(1,lastDistance-distance))-.01;

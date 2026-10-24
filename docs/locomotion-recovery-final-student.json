@@ -1,0 +1,38 @@
+[
+  {
+    "course": "navigation",
+    "driver": "student",
+    "seed": 20261024,
+    "run": "evaluate-1792826986",
+    "mean_seconds": 2.4652452750000005,
+    "passed": 24,
+    "total": 24,
+    "seconds": 19.97,
+    "mean_steps": 18.0,
+    "moving_fraction": 0.725
+  },
+  {
+    "course": "Open a wooden door",
+    "driver": "student",
+    "seed": 20261024,
+    "run": "skilltest-17-1792827007-v10",
+    "mean_seconds": 7.5923757499999995,
+    "passed": 8,
+    "total": 8,
+    "seconds": 9.67,
+    "mean_steps": 58.625,
+    "moving_fraction": 0.857
+  },
+  {
+    "course": "Swimming basics 2",
+    "driver": "student",
+    "seed": 20261024,
+    "run": "skilltest-49-1792827017-v10",
+    "mean_seconds": 6.951878925000001,
+    "passed": 8,
+    "total": 8,
+    "seconds": 9.8,
+    "mean_steps": 55.5,
+    "moving_fraction": 0.805
+  }
+]

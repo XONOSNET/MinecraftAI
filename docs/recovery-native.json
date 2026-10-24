@@ -1,0 +1,14 @@
+{
+  "detour_metres": 1.9337395400677906,
+  "reversed_metres": 1.9358836893988212,
+  "crouch_travel_metres": 5.426527003144486,
+  "max_cone_degrees": 149.99999999999997,
+  "activities": [
+    "Wall ahead: checking escape",
+    "Reversing out of blocked position",
+    "Recovering: turning toward clear space",
+    "Recovering: moving around obstacle",
+    "Recovering: detour complete",
+    "Crouching under low clearance"
+  ]
+}

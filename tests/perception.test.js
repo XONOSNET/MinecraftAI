@@ -16,3 +16,13 @@ test('wall and slab-height passage are distinguished; unsafe rear prohibits reve
  const ground=b.blockAt.bind(b);b.blockAt=p=>p.y<1&&p.z>=1?{name:'lava',boundingBox:'empty',shapes:[]}:ground(p);assert.equal(proximity(b).rearSafe,false);
  b=botFor(p=>p.z<0&&p.y===1?solid(p):null);assert.equal(proximity(b).wallAhead,false,'one-block steps remain jumpable');
 });
+
+test('escape candidates need body clearance and full safe ground; water/fire/edges are rejected',()=>{
+ const b=botFor(p=>p.z<0&&p.y>=1&&p.y<=2?solid(p):null);let sensed=proximity(b);
+ assert.ok(sensed.escapeRoutes.some(r=>r.offset>1&&r.clearance>=1.25));
+ const at=b.blockAt.bind(b);b.blockAt=p=>p.x<0&&p.y<1?{position:p,boundingBox:'empty',name:'lava',shapes:[]}:at(p);
+ sensed=proximity(b);assert.ok(sensed.escapeRoutes.filter(r=>r.offset>0&&r.offset<Math.PI).every(r=>r.clearance<1.25));
+ b.blockAt=p=>p.x>=1&&p.y>=1&&p.y<2?{position:p,boundingBox:'empty',name:'fire',shapes:[]}:at(p);
+ sensed=proximity(b);assert.ok(sensed.escapeRoutes.filter(r=>r.offset<0).every(r=>r.clearance<1.25));
+ b.entity.isInWater=true;assert.ok(proximity(b).escapeRoutes.every(r=>r.clearance===0));
+});

@@ -1,11 +1,11 @@
 const {Vec3}=require('vec3');
 const HAZARDS=new Set(['lava','water','magma_block','fire','campfire','sweet_berry_bush']);
-function proximity(bot){
+function proximity(bot,{goalYaw=null}={}){
  const blockAt=bot.blockAt?point=>bot.blockAt(point):bot.world?.getBlock?point=>bot.world.getBlock(point):()=>null;
  const p=bot.entity.position,yaw=bot.entity.yaw,f=new Vec3(-Math.sin(yaw),0,-Math.cos(yaw));
  // Collision boxes distinguish a crouch-sized opening from an ordinary solid wall.
- function blocked(distance,height,bottom=.05){
-  const c=p.plus(f.scaled(distance));
+ function blocked(distance,height,bottom=.05,direction=f){
+  const c=p.plus(direction.scaled(distance));
   for(let x=Math.floor(c.x-.29);x<=Math.floor(c.x+.29);x++)for(let z=Math.floor(c.z-.29);z<=Math.floor(c.z+.29);z++)
    for(let y=Math.floor(p.y+.05);y<=Math.floor(p.y+height);y++){
     const b=blockAt(new Vec3(x,y,z));if(!b)return true;
@@ -16,10 +16,30 @@ function proximity(bot){
  }
  const distances=[.35,.65,.95],standing=distances.some(d=>blocked(d,1.79)),crouched=distances.some(d=>blocked(d,1.49));
  const rearSafe=[0,-.4,-.8].every(d=>{const c=p.plus(f.scaled(d));const ground=blockAt(c.offset(0,-.15,0));return ground&&ground.boundingBox==='block'&&!HAZARDS.has(ground.name)&&!blocked(d,1.79);});
- return {wallAhead:standing&&crouched&&distances.some(d=>blocked(d,1.49,1.05)),crouchClearance:standing&&!crouched,rearSafe:rearSafe&&!bot.entity.isInWater&&!bot.entity.isInLava};
+ const wallAhead=standing&&crouched&&distances.some(d=>blocked(d,1.49,1.05));
+ function clearance(offset){
+  if(bot.entity.isInWater||bot.entity.isInLava||bot.entity.onGround===false)return 0;
+  const direction=new Vec3(-Math.sin(yaw+offset),0,-Math.cos(yaw+offset));let clear=0;
+  for(const d of [.35,.65,.95,1.25,1.6,2]){
+   if(blocked(d,1.79,.05,direction))break;
+   // Check the entire support footprint, not just the centre of a narrow ledge.
+   const c=p.plus(direction.scaled(d));let supported=true;
+   for(const x of [-.25,.25])for(const z of [-.25,.25]){
+    const ground=blockAt(c.offset(x,-.15,z));
+    const feet=blockAt(c.offset(x,.1,z));if(HAZARDS.has(feet?.name))supported=false;
+    if(!ground||ground.boundingBox!=='block'||HAZARDS.has(ground.name)||!ground.shapes?.some(a=>a[4]>=.99))supported=false;
+   }
+   if(!supported)break;clear=d;
+  }
+  return clear;
+ }
+ const forwardClearance=wallAhead||bot.labRecovering||bot.labAvoiding?clearance(0):null;
+ const escapeRoutes=wallAhead||bot.labRecovering||bot.labAvoiding?[Math.PI/3,-Math.PI/3,Math.PI/2,-Math.PI/2,2*Math.PI/3,-2*Math.PI/3,Math.PI].map(offset=>({yaw:yaw+offset,offset,clearance:clearance(offset)})):[];
+ return {wallAhead,crouchClearance:standing&&!crouched,rearSafe:rearSafe&&!bot.entity.isInWater&&!bot.entity.isInLava,
+  escapeRoutes,forwardClearance,goalClearance:Number.isFinite(goalYaw)&&(wallAhead||bot.labRecovering||bot.labAvoiding)?clearance(goalYaw-yaw):null,escapeForwardSafe:forwardClearance!==null&&forwardClearance>=.65};
 }
 function coneWidth(distance){return Math.PI/2+Math.PI/3*Math.max(0,Math.min(1,(5-distance)/4));}
-function scan(bot,{rays=256,range=16,hfov=Math.PI/2,vfov=Math.PI/3}={}) {
+function scan(bot,{rays=256,range=16,hfov=Math.PI/2,vfov=Math.PI/3,goalYaw=null}={}) {
  const cols=Math.ceil(Math.sqrt(rays*1.5)), rows=Math.ceil(rays/cols);
  const eye=bot.entity.position.offset(0,bot.entity.eyeHeight??1.62,0), hits=[], features=[];
  for(let i=0;i<rays;i++){
@@ -43,6 +63,6 @@ function scan(bot,{rays=256,range=16,hfov=Math.PI/2,vfov=Math.PI/3}={}) {
   const hit=bot.world.raycast(eye,dir,range);
   if(hit)hits.push({name:hit.name,id:hit.type,position:hit.position,hit:hit.intersect,distance:eye.distanceTo(hit.intersect),face:hit.face});
  }
- return {proximity:proximity(bot),vision:{yaw:bot.entity.yaw,pitch:0,hfov:cone,vfov,range,near_distance:nearDistance,eye_height:eye.y-bot.entity.position.y},pooled,hits:[...new Map(hits.map(h=>[`${h.position.x},${h.position.y},${h.position.z}`,h])).values()],features};
+ return {proximity:proximity(bot,{goalYaw}),vision:{yaw:bot.entity.yaw,pitch:0,hfov:cone,vfov,range,near_distance:nearDistance,eye_height:eye.y-bot.entity.position.y},pooled,hits:[...new Map(hits.map(h=>[`${h.position.x},${h.position.y},${h.position.z}`,h])).values()],features};
 }
 module.exports={scan,proximity,coneWidth};

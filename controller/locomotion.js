@@ -1,6 +1,7 @@
 // Decode policy intentions into independent held controls and 20 Hz aiming.
 const {applyMotion,pauseMotion}=require('./motion');
 const {Vec3}=require('vec3');
+const {createRecovery}=require('./recovery');
 function applyPose(bot,wantsCrouch){
  if(!bot.physics||!bot.entity?.position||!bot.blockAt)return;
  const p=bot.entity.position;let ceiling=false;
@@ -34,31 +35,23 @@ function motorPlan(action,permissions,task,sensed,angle,traveling=false){
   label:door?'Opening door while walking':walkingTurn?(action===1?'Steering left while walking':'Steering right while walking'):turning?'Turning to align':null};
 }
 function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
- let plan=null,targetYaw=null,expires=0,last=clock(),paused=true,lookLocked=false,stalled=false,anchor=null,blockedSince=null,reverseUntil=0,recoverAfter=0;
- function clear(){anchor=null;blockedSince=null;reverseUntil=0;recoverAfter=0;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
+ const recovery=createRecovery();
+ let plan=null,targetYaw=null,expires=0,last=clock(),paused=true,lookLocked=false,stalled=false;
+ function clear(){recovery.reset();bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
  return {
   command(action,task,sensed,angle){
    if(!Number.isFinite(angle)||!Number.isFinite(bot.entity?.yaw)){clear();return 'Waiting for valid orientation';}
    stalled=false;
    if(legacy){applyMotion(bot,action,permissions,task);return null;}
    plan=motorPlan(action,permissions,task,{...sensed,inWater:!!bot.entity?.isInWater},angle,!!bot.getControlState('forward'));
-   const now=clock(),position=bot.entity.position;
-   const moving=anchor&&position&&position.distanceTo(anchor)>.12;
-   if(!anchor||moving){anchor=position?.clone();blockedSince=null;}
-   // These motor safeguards are shared by teacher and student, with no goal oracle.
+   plan=recovery.update(plan,{...sensed,inWater:!!bot.entity.isInWater,inLava:!!bot.entity.isInLava},bot.entity.position,bot.entity.yaw,clock(),permissions,angle,task?.bounds);
+   bot.labRecovering=recovery.active();bot.labAvoiding=recovery.remembering();
    if(plan.forward&&sensed?.crouchClearance){plan.sneak=true;plan.jump=false;plan.label='Crouching under low clearance';}
-   if(plan.forward&&sensed?.wallAhead&&!sensed?.door){
-    blockedSince??=now;
-    if(now-blockedSince>=900&&now>=recoverAfter&&sensed.rearSafe){reverseUntil=now+400;recoverAfter=now+2000;blockedSince=null;}
-    plan.forward=false;plan.jump=false;plan.label='Wall ahead: checking escape';
-   }else blockedSince=null;
-   if(now<reverseUntil&&sensed?.rearSafe&&permissions.move){plan.forward=false;plan.back=true;plan.jump=false;plan.sneak=false;plan.yaw=0;plan.label='Reversing out of blocked position';}
-   else{plan.back=false;reverseUntil=0;}
-   targetYaw=plan.yaw&&bot.entity?bot.entity.yaw+plan.yaw:null;expires=clock()+1000;paused=false;
+   targetYaw=Number.isFinite(plan.targetYaw)?plan.targetYaw:plan.yaw?bot.entity.yaw+plan.yaw:null;expires=clock()+1000;paused=false;
    return plan.label;
   },
   pause:clear,
-  status(){return stalled?'Waiting for policy response':null;},
+  status(){return stalled?'Waiting for policy response':recovery.active()?recovery.label():null;},
   lockLook(value){lookLocked=value;},
   tick(){
    if(legacy||!bot.entity)return;
