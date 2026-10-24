@@ -1,0 +1,38 @@
+[
+  {
+    "course": "Open a wooden door",
+    "driver": "student",
+    "seed": 20261024,
+    "run": "skilltest-17-1792864988-v10",
+    "mean_seconds": 10.216917650000001,
+    "passed": 8,
+    "total": 8,
+    "seconds": 24.25,
+    "mean_steps": 54.5,
+    "moving_fraction": 0.793
+  },
+  {
+    "course": "Three alternating wooden doors",
+    "driver": "student",
+    "seed": 20261024,
+    "run": "skilltest-48-1792865013-v10",
+    "mean_seconds": 12.0710859625,
+    "passed": 8,
+    "total": 8,
+    "seconds": 16.16,
+    "mean_steps": 63.625,
+    "moving_fraction": 0.712
+  },
+  {
+    "course": "Raised ice bridge survival gauntlet",
+    "driver": "student",
+    "seed": 20261024,
+    "run": "skilltest-124-1792865030-v10",
+    "mean_seconds": 13.359089187499999,
+    "passed": 8,
+    "total": 8,
+    "seconds": 19.38,
+    "mean_steps": 64.5,
+    "moving_fraction": 0.707
+  }
+]

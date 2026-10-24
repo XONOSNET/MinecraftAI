@@ -34,3 +34,9 @@ test('a door-frame snag corrects lateral drift without turning back to the entry
  assert.match(a.label,/centering/);assert.ok(Math.abs(a.targetYaw)<1e-9);assert.equal(a.forward,true);
  a=c.update(base,sensed(),{x:-.3,y:181,z:.61},-Math.PI/2,200,permissions);assert.match(a.label,/crossing/);assert.equal(a.forward,true);assert.ok(Math.abs(a.targetYaw+Math.PI/2)<.1);
 });
+
+test('ordinary doors stay upright; crouching is reserved for real low clearance',()=>{
+ const p={x:-.65,y:181,z:.59375};
+ const normal=createDoorway().update(base,sensed(),p,-Math.PI/2,0,permissions);assert.equal(normal.forward,true);assert.equal(normal.sneak,false);
+ const low=createDoorway().update(base,sensed(door,(_yaw,_distance,height)=>height<1.5),p,-Math.PI/2,0,permissions);assert.equal(low.forward,true);assert.equal(low.sneak,true);assert.match(low.label,/low doorway/);
+});

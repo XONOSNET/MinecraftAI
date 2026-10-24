@@ -56,3 +56,11 @@ Unit regressions use real 1.21.4 soul-sand, stone and slab collision shapes, plu
 Validation for collision-surface support: 64 Node tests passed. Stage 125 policy trials passed 24/24, teacher references passed 23/24, and ordinary-door/stage-123 regressions passed 16/16. Automatic training resumed under the existing review and promotion rules.
 
 After its automatic refresher, the curriculum passed both normal stage-125 review gates and promoted to stage 126 with all eight bots connected. See stage125-promotion.json.
+
+## Upright doorways and local-search diagnostics
+
+Doorway assistance no longer uses sneak as a general speed limiter. It first probes standing clearance, crouches only when the lower body fits and the standing body does not, and brakes near its alignment target at physics-tick frequency. The existing forced-low-ceiling pose and checked step-down behavior remain available.
+
+The old "no safe exit" text came from a bounded motor search, not a learned impossibility prediction. A policy can still need practice to avoid hitting a wall, while the fallback can independently miss a valid route. The earlier report could not be replayed from current telemetry. Recovery now probes thirteen side/rear headings instead of seven, tries a shorter supported reposition when no long straight move fits, and performs bounded rechecks before holding for reset. Arena limits use the checked move span. Labels distinguish no checked local route, time budget, retry budget and movement permissions. This remains local recovery, not full-world path planning or proof that a course is impassable.
+
+Validation: 68 Node tests passed, including a newly appearing route after recheck, an alcove with only a short move, standing-door braking and genuine low-clearance crouching. Policy tests passed 24/24 across a wooden door, three alternating doors and the raised ice bridge gauntlet; see locomotion-upright-student.json. The native collision fixture crossed an ordinary doorway with zero crouched movement samples, completed a wall detour, then crouched through a 1.5-block passage; see upright-recovery-native.json. Existing models and promotion gates were retained.

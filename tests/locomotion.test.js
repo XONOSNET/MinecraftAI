@@ -51,3 +51,11 @@ test('crouching uses a short collision box and the native 1.21.4 pose packet',()
  ceiling=true;applyPose(bot,false);assert.equal(bot.physics.playerHeight,1.5);
  ceiling=false;applyPose(bot,false);assert.equal(bot.physics.playerHeight,1.8);assert.equal(packets.at(-1)[1].actionId,'stop_sneaking');
 });
+
+test('standing doorway movement brakes near its target without forcing sneak',()=>{
+ const {Vec3}=require('vec3');let now=0;const state={};
+ const bot={entity:{position:new Vec3(-.85,181,.59375),yaw:-Math.PI/2,velocity:new Vec3(.2,0,0)},getControlState:k=>state[k],setControlState:(k,v)=>state[k]=v,look(){return Promise.resolve();}};
+ const motor=createMotor(bot,permissions,{clock:()=>now}),doorway={id:'door',axis:'x',plane:.5,center:.59375,open:true,y:181};
+ motor.command(0,null,{...safe,doorway,canWalk:()=>true},0);now=50;motor.tick();assert.equal(!!state.forward,false);assert.equal(!!state.sneak,false);
+ bot.entity.velocity=new Vec3(0,0,0);now=100;motor.tick();assert.equal(state.forward,true);assert.equal(!!state.sneak,false);
+});

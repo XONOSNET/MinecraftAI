@@ -9,7 +9,7 @@ function createDoorway(){
   if(!state){label=null;return null;}
   if(d?.id===state.id){state.open=d.open;if(d.open)state.center=d.center;}
   const cross=state.axis==='x'?'z':'x',offset=p[state.axis]-state.plane;
-  const plan={forward:false,back:false,jump:false,sneak:true,yaw:0};
+  const plan={forward:false,back:false,jump:false,sneak:false,yaw:0};
   if(now-state.started>12000){label='Recovering: doorway blocked; waiting for reset';return {...plan,label};}
   if(state.phase==='cross'&&offset*state.side< -1.05){finished.add(state.id);state=null;label=null;return null;}
   const lateral=Math.abs(p[cross]-state.center);
@@ -33,13 +33,17 @@ function createDoorway(){
   // opposite approach point after crossing the door plane.
   if(error<.12&&Math.hypot(dx,dz)>(state.centering?.03:.06)){
    const probe=state.centering?Math.min(.35,Math.hypot(dx,dz)):.35;
-   if(typeof sensed.canWalk==='function'&&sensed.canWalk(desired,probe,1.49))plan.forward=true;
-   else if(p.y>state.y+.2&&p.y<=state.y+1.05&&typeof sensed.canStepDown==='function'&&sensed.canStepDown(desired,.35)){
+   if(typeof sensed.canWalk==='function'){
+    if(sensed.canWalk(desired,probe,1.79))plan.forward=true;
+    else if(sensed.canWalk(desired,probe,1.49)){plan.forward=true;plan.sneak=true;label='Recovering: crouching under low doorway';}
+   }
+   if(!plan.forward&&p.y>state.y+.2&&p.y<=state.y+1.05&&typeof sensed.canStepDown==='function'&&sensed.canStepDown(desired,.35)){
     // Sneaking deliberately prevents walking off edges. Release it only for
     // a fully probed one-block landing on the way to this lower doorway.
     plan.forward=true;plan.sneak=false;label='Recovering: stepping down to doorway';
    }
   }
+  if(plan.forward)plan.moveTarget={x:p.x+dx,z:p.z+dz};
   return {...plan,label};
  }
  return {update,reset,active:()=>!!state,label:()=>label};

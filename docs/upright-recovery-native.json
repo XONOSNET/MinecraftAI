@@ -1,0 +1,17 @@
+{
+  "upright_doorway_metres": 3.6755680381216393,
+  "standing_door_samples": 9,
+  "crouched_door_samples": 0,
+  "detour_metres": 2.001073991812046,
+  "reversed_metres": 1.7143753282603313,
+  "crouch_travel_metres": 5.491284737857654,
+  "max_cone_degrees": 149.99999999999997,
+  "activities": [
+    "Wall ahead: checking escape",
+    "Reversing out of blocked position",
+    "Recovering: turning toward clear space",
+    "Recovering: moving around obstacle",
+    "Recovering: detour complete",
+    "Crouching under low clearance"
+  ]
+}

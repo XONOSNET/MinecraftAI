@@ -56,7 +56,7 @@ function proximity(bot,{goalYaw=null}={}){
   return clear;
  }
  const forwardClearance=wallAhead||bot.labRecovering||bot.labAvoiding?clearance(0):null;
- const escapeRoutes=wallAhead||bot.labRecovering||bot.labAvoiding?[Math.PI/3,-Math.PI/3,Math.PI/2,-Math.PI/2,2*Math.PI/3,-2*Math.PI/3,Math.PI].map(offset=>({yaw:yaw+offset,offset,clearance:clearance(offset)})):[];
+ const escapeRoutes=wallAhead||bot.labRecovering||bot.labAvoiding?[-7,-6,-5,-4,-3,-2,2,3,4,5,6,7,8].map(i=>i*Math.PI/8).map(offset=>({yaw:yaw+offset,offset,clearance:clearance(offset)})):[];
  return {wallAhead,crouchClearance:standing&&!crouched,rearSafe:rearSafe&&!bot.entity.isInWater&&!bot.entity.isInLava,
   canWalk:(heading,minimum=.35,height=1.79)=>clearance(heading-yaw,.2,minimum,height)>=minimum,canStepDown:(heading,minimum=.35)=>clearance(heading-yaw,1,minimum)>=minimum,escapeRoutes,forwardClearance,goalClearance:Number.isFinite(goalYaw)&&(wallAhead||bot.labRecovering||bot.labAvoiding)?clearance(goalYaw-yaw):null,escapeForwardSafe:forwardClearance!==null&&forwardClearance>=.65};
 }

@@ -62,7 +62,14 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    if(legacy||!bot.entity)return;
    const now=clock(),dt=Math.max(.01,Math.min(.1,(now-last)/1000));last=now;
    if(paused||now>expires){if(!paused){clear();stalled=true;}else pauseMotion(bot,permissions);applyPose(bot,!!bot.getControlState('sneak'));return;}
-   for(const control of ['forward','back','jump','sneak'])if(!!bot.getControlState(control)!==!!plan[control])bot.setControlState(control,!!plan[control]);
+   let forward=!!plan.forward;
+   if(forward&&plan.moveTarget&&bot.entity.position){
+    const dx=plan.moveTarget.x-bot.entity.position.x,dz=plan.moveTarget.z-bot.entity.position.z,d=Math.hypot(dx,dz),v=bot.entity.velocity;
+    const approaching=v?Math.max(0,(v.x*dx+v.z*dz)/Math.max(.001,d)):0;
+    // Brake close to the alignment target without using the crouch pose as a speed limiter.
+    if(d<.035||d<approaching*2.4+.04)forward=false;
+   }
+   for(const control of ['forward','back','jump','sneak'])if(!!bot.getControlState(control)!==(control==='forward'?forward:!!plan[control]))bot.setControlState(control,control==='forward'?forward:!!plan[control]);
    applyPose(bot,!!plan.sneak);
    if(targetYaw!==null&&!lookLocked&&permissions.turn){
     const delta=wrap(targetYaw-bot.entity.yaw),step=Math.sign(delta)*Math.min(Math.abs(delta),Math.PI*dt);
