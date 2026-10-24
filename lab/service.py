@@ -9,6 +9,7 @@ import numpy as np, torch, psutil
 from fastapi import FastAPI,Header,HTTPException,Depends,Request
 from fastapi.responses import HTMLResponse
 from .model import Policy
+from .evolution import ModelEvolution
 from .jobs import TrainingJobs, TrainingCancelled
 from .lan import LanBridge
 from .server_control import ServerControl
@@ -70,6 +71,12 @@ player_status={'players':{},'sampled_at':None}
 player_states={}
 training_jobs=TrainingJobs()
 skill_bank=SkillBank()
+evolution=ModelEvolution(db)
+evolution.record('navigation',model.state_dict(),'checkpoints/latest.pt')
+for existing_skill in SKILLS:
+    existing_path=Path('checkpoints/skills')/(existing_skill+'.pt')
+    if existing_skill!='navigation' and existing_path.exists():
+        evolution.record(existing_skill,torch.load(existing_path,weights_only=True)['model'],existing_path)
 assigned_tasks={}
 pending_tasks={}
 practice=None
@@ -92,7 +99,10 @@ def active_skill():
 def learning_context(skill=None):
     skill=skill or active_skill()
     if skill=='navigation':return model,opt,samples
-    entry=skill_bank.get(skill,model);return entry['model'],entry['optimizer'],entry['samples']
+    fresh=skill not in skill_bank.entries
+    entry=skill_bank.get(skill,model)
+    if fresh:evolution.record(skill,entry['model'].state_dict(),skill_bank.checkpoints/(skill+'.pt'))
+    return entry['model'],entry['optimizer'],entry['samples']
 
 def start_training(background=False):
     global mode,training
@@ -144,6 +154,9 @@ def start_training(background=False):
                         except Exception:entry.update(model=previous_model,optimizer=previous_optimizer);raise
                     result={'skill':skill,'version':version,'samples':len(y),'seconds':time.time()-t,'loss_start':losses[0],
                             'loss_end':losses[-1],'parameters':candidate.parameters_count,'finished_at':time.time()}
+                    result['model_id']=evolution.record(skill,candidate.state_dict(),
+                        'checkpoints/latest.pt' if skill=='navigation' else version,
+                        source='candidate' if curriculum.state['enabled'] else 'trained',training=dict(result))
                     Path('data/training-result.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
                     last_training_result=result;training_results[skill]=result;event('training',result)
                 return result
@@ -361,7 +374,7 @@ def status():
         metrics=episode_metrics()
         run_sizes={r[0]:r[1]*r[2] for r in db.execute('SELECT * FROM run_config')}
         activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error') ORDER BY id DESC LIMIT 20")]
-        return {'vision':dict(vision_lines.settings),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
+        return {'model_evolution':evolution.snapshot(active_skill()),'vision':dict(vision_lines.settings),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:
@@ -531,6 +544,7 @@ def control(command:str,d:dict={}):
             model=Policy();opt=torch.optim.Adam(model.parameters(),lr=.003)
             if Path('data/demonstrations.npz').exists():
                 os.replace('data/demonstrations.npz',f'data/demonstrations-{time.time_ns()}.npz')
+            evolution.record('navigation',model.state_dict(),source='reset')
             samples.clear();event('new_policy',{'seed':42});return {'parameters':model.parameters_count}
         if command=='timing':
             console('tps');console('mspt');return {'log':'logs/minecraft-console.log'}
@@ -540,6 +554,7 @@ def control(command:str,d:dict={}):
             saved=torch.load(f'checkpoints/{size}.pt',weights_only=True)
             model=Policy(saved['width']);model.load_state_dict(saved['model'])
             opt=torch.optim.Adam(model.parameters(),lr=.003);opt.load_state_dict(saved['optimizer'])
+            evolution.record('navigation',model.state_dict(),f'checkpoints/{size}.pt',source='loaded')
             mode='paused';return {'parameters':model.parameters_count,'size':size}
         if command=='arena':
             for cx in (0,80):
@@ -589,10 +604,12 @@ def auto_restore():
     global model,opt
     skill=curriculum.state.get('champion_skill','navigation')
     if skill!='navigation':
-        skill_bank.get(skill,model);skill_bank.restore(skill);return
+        skill_bank.get(skill,model);skill_bank.restore(skill)
+        evolution.record(skill,skill_bank.entries[skill]['model'].state_dict(),skill_bank.checkpoints/(skill+'.pt'),source='restored');return
     if not Path('checkpoints/champion.pt').exists():return
     saved=torch.load('checkpoints/champion.pt',weights_only=True);model=Policy(saved['width']);model.load_state_dict(saved['model'])
     opt=torch.optim.Adam(model.parameters(),lr=.003);opt.load_state_dict(saved['optimizer']);checkpoint()
+    evolution.record('navigation',model.state_dict(),'checkpoints/latest.pt',source='restored')
 
 def auto_results(identifier):
     rows=db.execute('SELECT agent,success FROM episodes WHERE run=? ORDER BY id',(identifier,)).fetchall()
@@ -637,10 +654,14 @@ def auto_prepare():
         auto_arena['phase']=3
     return True
 
+def record_curriculum_result(result):
+    evolution.review(result)
+    event('curriculum_cycle',result)
+
 curriculum=Curriculum('data/curriculum.json',{'pause':lambda:auto_mode('paused'),'cancel':training_jobs.cancel,
     'job':training_jobs.snapshot,'mode':auto_mode,'protect':auto_protect,'restore':auto_restore,
     'results':auto_results,'count':lambda:example_counter,'train':lambda:start_training(background=True),
-    'expected_episodes':lambda:EXPECTED_EPISODES,'health':auto_health,'recovery_health':lambda:auto_health(recovering=True),'prepare':auto_prepare,'event':lambda result:event('curriculum_cycle',result)})
+    'expected_episodes':lambda:EXPECTED_EPISODES,'health':auto_health,'recovery_health':lambda:auto_health(recovering=True),'prepare':auto_prepare,'event':record_curriculum_result})
 
 def curriculum_worker():
     while not shutting_down:
