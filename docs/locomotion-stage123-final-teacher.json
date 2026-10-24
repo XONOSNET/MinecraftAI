@@ -1,0 +1,14 @@
+[
+  {
+    "course": "Two doors and a raised bridge",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-122-1792859864-v10",
+    "mean_seconds": 17.492529049999998,
+    "passed": 23,
+    "total": 24,
+    "seconds": 93.19,
+    "mean_steps": 84.95833333333333,
+    "moving_fraction": 0.733
+  }
+]

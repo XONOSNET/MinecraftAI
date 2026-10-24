@@ -38,3 +38,11 @@ Final regression: 40/40 teacher-free trials passed (24 navigation, 8 wooden-door
 Door frames now use a separate local motor alignment step instead of broad wall detours. The bot picks an entry side once, aligns with the usable opening (including the rotated open-door panel), waits for the policy's existing door-open action, then creeps through until its body clears the far side. Policy turn choices cannot flip the approach side in the middle of crossing. Collision and supported-ground checks still gate every movement; a blocked crossing times out visibly and waits for the normal trial reset. Finished doors cannot retrigger during the same trial. This is shared motor assistance, not a claim that the policy learned a new action.
 
 The native single-door, two-door and three-alternating-door policy checks passed 24/24; see locomotion-doorway-student.json. Unit checks also cover reverse-side entry, north/south orientation, closed doors, unsafe paths, timeout/reset and open-panel clearance.
+
+## Stage 123: raised bridge exit
+
+The bridge ends one block above the second doorway's landing. The doorway motor's same-height ground requirement and held sneak prevented that legal descent. It now permits a fully probed descent of at most one block when approaching a lower doorway, releasing sneak for the step. Full footprint support, body clearance and landing/fall hazard checks remain required. Deep drops and hazardous/unloaded landings are rejected, and ordinary wall recovery retains its same-height restrictions.
+
+Door-frame snags can now be corrected sideways while retaining the original crossing side. Short centering movements probe only their actual target distance so the opposite jamb does not incorrectly block a small correction. No stage geometry, success criteria, promotion threshold or model dimensions were changed. Native three-trial-per-bot teacher and policy results are in locomotion-stage123-final-teacher.json and locomotion-stage123-final-student.json.
+
+Validation: 62 Node tests passed. The final native policy test passed 24/24 stage-123 trials; the teacher reference passed 23/24. After resuming, the curriculum passed its normal two review gates and automatically promoted to stage 124 (Three doors across mixed surfaces) with all eight bots connected. See stage123-promotion.json.

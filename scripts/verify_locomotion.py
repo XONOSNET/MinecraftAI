@@ -1,7 +1,7 @@
 """Paired-seed native trial comparison; never trains or edits policy weights."""
 import argparse,json,time,urllib.request
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--profile',required=True);p.add_argument('--driver',default='teacher');p.add_argument('--courses',nargs='+',default=['Open a wooden door','Cross a narrow raised bridge','Steep scree staircase','Jump a lava fissure']);args=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--profile',required=True);p.add_argument('--driver',default='teacher');p.add_argument('--trials',type=int,choices=(1,2,3),default=1);p.add_argument('--courses',nargs='+',default=['Open a wooden door','Cross a narrow raised bridge','Steep scree staircase','Jump a lava fissure']);args=p.parse_args()
 base='http://127.0.0.1:8000';token=Path('data/api-token').read_text().strip()
 def get():return json.load(urllib.request.urlopen(base+'/status',timeout=15))
 def post(path,data=None):
@@ -19,12 +19,12 @@ for course in args.courses:
   assignment=post('/control/evaluate');run=get()['run'];expected=24
  else:
   index=next(i for i,s in enumerate(state['curriculum']['stages']) if s['name']==course)
-  assignment=post('/curricula/practice/'+str(index),{'driver':args.driver,'episodes_per_agent':1,'seed':20261024});run=assignment['run'];expected=8
+  assignment=post('/curricula/practice/'+str(index),{'driver':args.driver,'episodes_per_agent':args.trials,'seed':20261024});run=assignment['run'];expected=8*args.trials
  print('START',args.profile,args.driver,course,flush=True);started=time.monotonic();deadline=started+240;moving=active=0
  while time.monotonic()<deadline:
   state=get();row=next((r for r in state['episodes'] if r['run']==run),None)
   for a in state['agents'].values():
-   if a.get('run')==run and a.get('trial_completed',0)<(3 if course=='navigation' else 1):
+   if a.get('run')==run and a.get('trial_completed',0)<(3 if course=='navigation' else args.trials):
     active+=1;moving+=a.get('speed',0)>.25
   if row and row['episodes']>=expected:break
   time.sleep(.5)

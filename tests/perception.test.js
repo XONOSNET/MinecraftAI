@@ -26,3 +26,11 @@ test('escape candidates need body clearance and full safe ground; water/fire/edg
  sensed=proximity(b);assert.ok(sensed.escapeRoutes.filter(r=>r.offset<0).every(r=>r.clearance<1.25));
  b.entity.isInWater=true;assert.ok(proximity(b).escapeRoutes.every(r=>r.clearance===0));
 });
+
+test('doorway descent accepts one-block supported landings and rejects deep or hazardous drops',()=>{
+ const b={entity:{position:new Vec3(.5,2,.5),yaw:0,pitch:0,onGround:true},blockAt(p){const q=p.floored();return q.y<=0?solid(q):{position:q,name:'air',boundingBox:'empty',shapes:[]};}};
+ assert.equal(proximity(b).canWalk(0),false);assert.equal(proximity(b).canStepDown(0),true);
+ const at=b.blockAt;b.blockAt=p=>{const q=p.floored();return q.y===1?{position:q,name:'fire',boundingBox:'empty',shapes:[]}:at(p);};assert.equal(proximity(b).canStepDown(0),false);
+ b.blockAt=p=>{const q=p.floored();return q.y<=-1?solid(q):{position:q,name:'air',boundingBox:'empty',shapes:[]};};assert.equal(proximity(b).canStepDown(0),false);
+ b.blockAt=p=>{const q=p.floored();return q.y===0?{position:q,name:'lava',boundingBox:'empty',shapes:[]}:at(p);};assert.equal(proximity(b).canStepDown(0),false);
+});

@@ -17,12 +17,29 @@ function createDoorway(){
   if(state.phase==='align'&&lateral<.075&&Math.abs(p[state.axis]-approach)<.18)state.phase='cross';
   let targetNormal=state.phase==='cross'?state.plane-state.side*1.3:approach;
   let dx=(state.axis==='x'?targetNormal:state.center)-p.x,dz=(state.axis==='z'?targetNormal:state.center)-p.z;
-  const desired=Math.atan2(-dx,-dz),error=Math.abs(wrap(desired-yaw));plan.targetYaw=desired;
+  let desired=Math.atan2(-dx,-dz);
+  if(state.phase==='cross'&&state.open){
+   if(lateral<.045)state.centering=false;
+   else if(lateral>.075&&typeof sensed.canWalk==='function'&&!sensed.canWalk(desired,.35))state.centering=true;
+   if(state.centering){
+    dx=state.axis==='x'?0:state.center-p.x;dz=state.axis==='z'?0:state.center-p.z;
+    desired=Math.atan2(-dx,-dz);
+   }
+  }
+  const error=Math.abs(wrap(desired-yaw));plan.targetYaw=desired;
   if(state.phase==='cross'&&!state.open){label='Recovering: waiting for door to open';return {...plan,label};}
-  label=state.phase==='cross'?'Recovering: crossing doorway':'Recovering: lining up doorway';
+  label=state.centering?'Recovering: centering in doorway':state.phase==='cross'?'Recovering: crossing doorway':'Recovering: lining up doorway';
   // Stop to aim, then creep along one committed approach. Never chase the
   // opposite approach point after crossing the door plane.
-  if(error<.12&&Math.hypot(dx,dz)>.06&&typeof sensed.canWalk==='function'&&sensed.canWalk(desired,.35))plan.forward=true;
+  if(error<.12&&Math.hypot(dx,dz)>(state.centering?.03:.06)){
+   const probe=state.centering?Math.min(.35,Math.hypot(dx,dz)):.35;
+   if(typeof sensed.canWalk==='function'&&sensed.canWalk(desired,probe))plan.forward=true;
+   else if(p.y>state.y+.2&&p.y<=state.y+1.05&&typeof sensed.canStepDown==='function'&&sensed.canStepDown(desired,.35)){
+    // Sneaking deliberately prevents walking off edges. Release it only for
+    // a fully probed one-block landing on the way to this lower doorway.
+    plan.forward=true;plan.sneak=false;label='Recovering: stepping down to doorway';
+   }
+  }
   return {...plan,label};
  }
  return {update,reset,active:()=>!!state,label:()=>label};

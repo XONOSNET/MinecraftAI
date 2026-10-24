@@ -20,3 +20,17 @@ test('north/south doors use the same stable cross-axis alignment',()=>{
  const c=createDoorway(),d={...door,axis:'z'};
  const a=c.update(base,sensed(d),{x:.59375,z:-.65},Math.PI,0,permissions);assert.equal(a.forward,true);assert.ok(Math.abs(Math.abs(a.targetYaw)-Math.PI)<1e-9);
 });
+
+test('a checked one-block descent to a lower doorway releases edge crouching',()=>{
+ const c=createDoorway(),p={x:-2,y:182,z:.59375},s={...sensed(door,()=>false),canStepDown:()=>true};
+ const a=c.update(base,s,p,-Math.PI/2,0,permissions);assert.equal(a.forward,true);assert.equal(a.sneak,false);assert.match(a.label,/stepping down/);
+ const b=createDoorway().update(base,{...s,canStepDown:()=>false},p,-Math.PI/2,0,permissions);assert.equal(b.forward,false);
+ const high=createDoorway().update(base,s,{...p,y:184},-Math.PI/2,0,permissions);assert.equal(high.forward,false);
+});
+
+test('a door-frame snag corrects lateral drift without turning back to the entry point',()=>{
+ const c=createDoorway();c.update(base,sensed(),{x:-.65,y:181,z:.59375},-Math.PI/2,0,permissions);
+ const p={x:-.3,y:181,z:.75};let a=c.update(base,sensed(door,(heading,minimum)=>Math.abs(heading)<.1&&minimum<.2),p,0,100,permissions);
+ assert.match(a.label,/centering/);assert.ok(Math.abs(a.targetYaw)<1e-9);assert.equal(a.forward,true);
+ a=c.update(base,sensed(),{x:-.3,y:181,z:.61},-Math.PI/2,200,permissions);assert.match(a.label,/crossing/);assert.equal(a.forward,true);assert.ok(Math.abs(a.targetYaw+Math.PI/2)<.1);
+});
