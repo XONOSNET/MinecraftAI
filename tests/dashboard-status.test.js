@@ -14,3 +14,8 @@ test('teacher collection and reference do not claim neural learning',()=>{const 
 test('paused, failed, server and restore conditions explain waiting',()=>{assert.equal(describe(status({mode:'paused'})).title,'Lab paused');assert.equal(describe(status({mode:'paused',training_job:{status:'failed',error:'Failure'}})).tone,'error');assert.equal(describe(status({server:{ready:false}})).title,'Waiting for the Minecraft server');const s=status();s.curriculum.restore_pending=true;assert.equal(describe(s).title,'Restoring the protected model')});
 test('manual practice uses selected course, not saved autonomous stage',()=>{const s=status({practice:{stage:1}});Object.assign(s.curriculum,{enabled:false,stages:[{name:'Saved'},{name:'Selected'}]});const v=describe(s);assert.match(v.context,/Stage 2 \/ 2.*Selected/);assert.equal(v.title,'Testing learned behavior')});
 test('connection loss clears progress and stale course',()=>{const v=describe(null);assert.equal(v.tone,'error');assert.equal(v.progress,undefined);assert.equal(v.context,undefined);assert.match(v.copy,/unavailable/)});
+
+test('automatic recovery is distinguished from a manual pause',()=>{
+ const s=status({mode:'paused'});s.curriculum.phase='health_wait';s.curriculum.message='Memory recovering';
+ const v=describe(s);assert.equal(v.title,'Waiting for automatic recovery');assert.match(v.copy,/30 seconds/);
+});

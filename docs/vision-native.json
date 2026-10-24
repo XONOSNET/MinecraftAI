@@ -1,0 +1,11 @@
+{
+  "reversed_metres": 0.23023153716249567,
+  "crouch_travel_metres": 5.491284737857654,
+  "max_cone_degrees": 149.99999999999997,
+  "activities": [
+    "Wall ahead: checking escape",
+    "Reversing out of blocked position",
+    null,
+    "Crouching under low clearance"
+  ]
+}

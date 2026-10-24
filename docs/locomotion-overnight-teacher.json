@@ -1,0 +1,47 @@
+[
+  {
+    "course": "Harvest five logs",
+    "driver": "teacher",
+    "passed": 8,
+    "total": 8,
+    "seconds": 41.0,
+    "mean_steps": 85.875,
+    "moving_fraction": 0.501
+  },
+  {
+    "course": "Explore the perimeter",
+    "driver": "teacher",
+    "passed": 8,
+    "total": 8,
+    "seconds": 18.64,
+    "mean_steps": 108.25,
+    "moving_fraction": 0.901
+  },
+  {
+    "course": "Swimming basics 1",
+    "driver": "teacher",
+    "passed": 8,
+    "total": 8,
+    "seconds": 9.56,
+    "mean_steps": 42.875,
+    "moving_fraction": 0.779
+  },
+  {
+    "course": "Waterfall ascent 1",
+    "driver": "teacher",
+    "passed": 8,
+    "total": 8,
+    "seconds": 5.25,
+    "mean_steps": 18.75,
+    "moving_fraction": 0.528
+  },
+  {
+    "course": "Pass through a meadow cottage",
+    "driver": "teacher",
+    "passed": 8,
+    "total": 8,
+    "seconds": 11.73,
+    "mean_steps": 52.75,
+    "moving_fraction": 0.912
+  }
+]

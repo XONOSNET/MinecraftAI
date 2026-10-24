@@ -150,3 +150,36 @@ def test_reorder_preserves_course_identity_history_and_rate_scales(tmp_path):
     assert names.index('Cross slowing soul sand')<names.index('Two doors and a narrow bridge')
     assert names.index('Open a wooden door')<names.index('Three alternating wooden doors')
     assert names.index('Wide bridge over water')<names.index('Cross a slippery ice bridge')
+
+def test_temporary_health_pressure_recovers_automatically_without_overriding_manual_pause(tmp_path):
+    w=World();c=Curriculum(tmp_path/'state',w.hooks(),lambda:w.time);c.start();c.tick()
+    w.problem='System memory is above 88%.';c.tick()
+    assert c.state['enabled'] and c.state['phase']=='health_wait'
+    w.time=300;c.tick();assert c.state['enabled']
+    w.problem=None;c.tick();w.time+=29;c.tick();assert c.state['phase']=='health_wait'
+    w.time+=1;c.tick();assert c.state['phase']=='recovering'
+    c.tick();assert c.state['phase']=='baseline'
+    w.problem='Waiting for all 8 bots to connect.';c.tick();assert c.state['phase']=='health_wait'
+    c.pause();w.problem=None;w.time+=100;c.tick();assert not c.state['enabled']
+
+
+def test_recovery_waits_for_cancelled_training_to_restore_the_champion(tmp_path):
+    w=World();c=Curriculum(tmp_path/'state',w.hooks(),lambda:w.time);c.start();cycle_start=c.state['stage']
+    c.state.update(phase='training',restore_pending=True);w.job={'status':'running'};w.model=2
+    c.hold('System memory is above 88%.');c.tick();assert w.restores==0
+    w.job={'status':'cancelled'};c.tick();assert w.restores==1 and w.model==w.champion
+    assert c.state['stage']==cycle_start and c.state['enabled']
+
+
+def test_critical_disk_failure_still_requires_attention(tmp_path):
+    w=World();c=Curriculum(tmp_path/'state',w.hooks(),lambda:w.time);c.start();c.tick()
+    w.problem='Less than 2 GiB of disk space remains.';c.tick();assert not c.state['enabled']
+
+def test_overnight_reviews_and_session_renewals_keep_running(tmp_path):
+    w=World();c=Curriculum(tmp_path/'state',w.hooks(),lambda:w.time);c.start()
+    for _ in range(300):
+        c.tick();assert c.state['phase']=='baseline'
+        c.tick();w.time+=240
+    assert w.time==20*3600 and c.state['enabled'] and c.state['round']==1
+    assert c.state['cycle']==300 and len(c.state['history'])<=100
+    assert w.time-c.state['started_at']<6*3600

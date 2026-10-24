@@ -107,12 +107,17 @@ class Curriculum:
     def pause(self,reason='Autonomous training paused by you.'):
         s=self.state;s.update(enabled=False,phase='paused',message=reason)
         self.h['pause']();self.h['cancel']();self.save();return self.snapshot()
+    def hold(self,reason):
+        self.h['pause']();self.h['cancel']()
+        self.state.update(health_clear_since=None,hold_reason=reason)
+        self.phase('health_wait',reason+' Waiting safely; automatic training will resume after recovery.')
+        return self.snapshot()
     def phase(self,name,message):
         self.state.update(phase=name,phase_at=self.clock(),message=message);self.save()
     def evaluate(self,phase):
         s=self.state;s['run']=f"auto-{s['cycle']}-{phase}-{time.time_ns()}";self.h['mode']('evaluate',s['run']);self.phase(phase,'Testing '+('the saved model before training.' if phase=='baseline' else 'the candidate on the same held-out routes.'))
     def finish_cycle(self):
-        s=self.state
+        s=self.state;s['runtime_retries']=0
         if s['streak']>=2:
             if s['stage']==len(STAGES)-1 and s.get('continuous',True):
                 s.update(stage=0,streak=0,round=s.get('round',0)+1,session_cycles=0,started_at=self.clock())
@@ -135,13 +140,27 @@ class Curriculum:
         self.phase('waiting','Cycle complete. Preparing the next routes.');return
     def tick(self):
         s=self.state;job=self.h['job']()
-        if s['restore_pending'] and (not s['enabled'] or s['phase']=='recovering') and job['status'] not in ('running','cancelling'):
+        if s['restore_pending'] and (not s['enabled'] or s['phase'] in ('recovering','health_wait')) and job['status'] not in ('running','cancelling'):
             self.h['restore']();s['restore_pending']=False;self.save()
         if not s['enabled']:return
         if self.clock()-s['started_at']>s['max_hours']*3600:
             if not s.get('continuous',True):return self.pause('Session time limit reached. Progress saved; resume when ready.')
             s.update(session_cycles=0,started_at=self.clock());self.save()
+        if s['phase']=='health_wait':
+            problem=self.h.get('recovery_health',self.h['health'])()
+            if problem:
+                if 'disk space' in problem:return self.pause(problem+' Free disk space before resuming.')
+                if s.get('health_clear_since') is not None:s['health_clear_since']=None;self.save()
+                s['message']=problem+' Waiting safely; automatic recovery remains enabled.'
+                return
+            if s.get('health_clear_since') is None:s['health_clear_since']=self.clock();self.save()
+            elapsed=self.clock()-s['health_clear_since']
+            s['message']=f'Resources and connections recovered. Resuming in {max(0,30-int(elapsed))} seconds.'
+            if elapsed<30 or job['status'] in ('running','cancelling'):return
+            self.phase('recovering','Recovered automatically. Preparing a fresh test from the saved model.');return
         problem=self.h['health']()
+        if problem and (problem.startswith('System memory') or problem.startswith('Waiting for')):
+            return self.hold(problem)
         if problem:
             self.h['pause']();s['message']=problem
             if s['phase'] not in ('waiting','recovering'):return self.pause(problem+' Autonomous training paused safely.')
@@ -156,7 +175,10 @@ class Curriculum:
             self.h['protect']();s['restore_pending']=True;self.save()
             # Recovery restores an interrupted candidate before creating this new baseline.
             s['restore_pending']=False;self.evaluate('baseline');return
-        if self.clock()-s['phase_at']>600:return self.pause('This phase exceeded ten minutes. Review bot connections and resume.')
+        if self.clock()-s['phase_at']>600:
+            retries=s.get('runtime_retries',0)+1;s['runtime_retries']=retries
+            if retries>3:return self.pause('Repeated phase timeouts. Saved model retained; inspect the activity log before resuming.')
+            return self.hold(f'Phase timeout; automatic recovery attempt {retries}/3.')
         if s['phase'] in ('baseline','evaluating'):
             rows=self.h['results'](s['run'])
             if rows['episodes']<self.h.get('expected_episodes',lambda:15)():return

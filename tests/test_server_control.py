@@ -41,3 +41,11 @@ def test_failed_start_is_visible_and_a_later_start_can_recover():
     state['fail']=False
     controller.request('start');result=controller.wait(3)
     assert result['phase']=='online' and result['ready'] and not result['error']
+
+def test_automatic_recovery_origin_is_visible_without_changing_manual_operations():
+    state={'alive':True};seen=[]
+    def prepare():seen.append(control.snapshot().get('automatic'))
+    control=ServerControl(lambda:state.update(alive=True),lambda:state.update(alive=False),prepare,lambda:state['alive'],lambda:state['alive'])
+    control.request('restart',automatic=True);assert control.wait(3)['ready']
+    control.request('stop');assert not control.wait(3)['alive']
+    assert seen==[True,False]

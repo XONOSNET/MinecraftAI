@@ -1,0 +1,34 @@
+[
+  {
+    "seconds": 0.1,
+    "enabled": true,
+    "phase": "health_wait",
+    "bots": 7,
+    "mode": "paused",
+    "message": "Waiting for all 8 bots to connect. Waiting safely; automatic recovery remains enabled."
+  },
+  {
+    "seconds": 2.2,
+    "enabled": true,
+    "phase": "health_wait",
+    "bots": 8,
+    "mode": "paused",
+    "message": "Resources and connections recovered. Resuming in 29 seconds."
+  },
+  {
+    "seconds": 31.7,
+    "enabled": true,
+    "phase": "recovering",
+    "bots": 8,
+    "mode": "paused",
+    "message": "Recovered automatically. Preparing a fresh test from the saved model."
+  },
+  {
+    "seconds": 33.8,
+    "enabled": true,
+    "phase": "baseline",
+    "bots": 8,
+    "mode": "evaluate",
+    "message": "Testing the saved model before training."
+  }
+]

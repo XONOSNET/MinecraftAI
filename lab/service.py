@@ -38,8 +38,17 @@ CREATE TABLE IF NOT EXISTS memory(agent TEXT,x INT,y INT,z INT,block TEXT,seen R
 CREATE TABLE IF NOT EXISTS episodes(id INTEGER PRIMARY KEY,run TEXT,agent TEXT,success INT,steps INT,distance REAL,time REAL);
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY,time REAL,event TEXT,payload TEXT);
 CREATE TABLE IF NOT EXISTS models(version TEXT PRIMARY KEY,metadata TEXT);
+CREATE TABLE IF NOT EXISTS episode_timing(episode INTEGER PRIMARY KEY,seconds REAL NOT NULL CHECK(seconds>=0));
 CREATE TABLE IF NOT EXISTS run_config(run TEXT PRIMARY KEY,agent_count INT,episodes_per_agent INT);
 ''')
+episode_generation=0
+episode_cache={'generation':-1,'at':0,'rows':None,'raw':db.execute('SELECT count(*) FROM episodes').fetchone()[0]}
+def episode_metrics():
+    if episode_cache['rows'] is None or (episode_cache['generation']!=episode_generation and time.monotonic()-episode_cache['at']>=1):
+        episode_cache.update(rows=db.execute(f'''WITH ranked AS (SELECT *,row_number() OVER(PARTITION BY run,agent ORDER BY id) AS sequence FROM episodes)
+            SELECT run,count(*),sum(success),avg(steps),avg(episode_timing.seconds) FROM ranked LEFT JOIN episode_timing ON ranked.id=episode_timing.episode WHERE sequence<={EPISODES_PER_AGENT} OR run LIKE '%teacher%' GROUP BY run''').fetchall(),generation=episode_generation,at=time.monotonic())
+    return episode_cache['rows']
+
 identities=Identities(db,AGENT_COUNT)
 model=Policy();opt=torch.optim.Adam(model.parameters(),lr=.003)
 if Path('checkpoints/latest.pt').exists():
@@ -155,6 +164,8 @@ def start_training(background=False):
 def console(command):
     if not server or server.poll() is not None:raise RuntimeError('Minecraft server is not running')
     server.stdin.write(command+'\n');server.stdin.flush()
+from .vision import VisionLines
+vision_lines=VisionLines('data/vision.json',console)
 observers=Observers('data/observers.json',console)
 camera_input=CameraInput('logs/minecraft-console.log',console)
 practice_protection=PracticeProtection(console)
@@ -201,7 +212,9 @@ def server_ready():
 def prepare_server_operation():
     global mode,run
     with lock:
-        if curriculum and curriculum.state['enabled']:curriculum.pause('Paused for a server operation. Resume autonomous training when ready.')
+        if curriculum and curriculum.state['enabled']:
+            if server_control.snapshot().get('automatic'):curriculum.hold('Waiting for Minecraft to recover.')
+            else:curriculum.pause('Paused for a server operation. Resume autonomous training when ready.')
     with lock:
         mode='paused';run='paused-'+str(int(time.time()))
         event('mode',{'mode':'paused','run':run,'reason':'server_operation'})
@@ -299,13 +312,13 @@ def watchdog():
                 with lock:player_status={'players':response.get('players',{}),'sampled_at':time.time()}
             except (OSError,ValueError):pass
         with lock:
-            if psutil.virtual_memory().percent>90:
+            if psutil.virtual_memory().percent>90 and not curriculum.state['enabled']:
                 globals()['mode']='paused';event('memory_pause',{})
             lifecycle=server_control.snapshot()
             if lifecycle['ready'] and not lifecycle['busy']:practice_protection.tick(server.pid,time.time())
             if server and server.poll() is not None and lifecycle['desired_running'] and not lifecycle['busy'] and retries<3:
                 mode='paused';retries+=1
-                try:server_control.request('restart');event('server_recovery',{'attempt':retries})
+                try:server_control.request('restart',automatic=True);event('server_recovery',{'attempt':retries})
                 except Exception as e:event('server_recovery_failed',str(e))
             if lifecycle['ready'] and not lifecycle['busy'] and (last_timing_request is None or time.time()-last_timing_request>30):
                 console('tps');console('mspt');last_timing_request=time.time()
@@ -345,11 +358,10 @@ def access():return {'ok':True}
 @app.get('/status')
 def status():
     with lock:
-        metrics=db.execute(f'''WITH ranked AS (SELECT *,row_number() OVER(PARTITION BY run,agent ORDER BY id) AS sequence FROM episodes)
-            SELECT run,count(*),sum(success),avg(steps) FROM ranked WHERE sequence<={EPISODES_PER_AGENT} OR run LIKE '%teacher%' GROUP BY run''').fetchall()
+        metrics=episode_metrics()
         run_sizes={r[0]:r[1]*r[2] for r in db.execute('SELECT * FROM run_config')}
         activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error') ORDER BY id DESC LIMIT 20")]
-        return {'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':db.execute('SELECT count(*) FROM episodes').fetchone()[0],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
+        return {'vision':dict(vision_lines.settings),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:
@@ -368,7 +380,7 @@ def assignment(d:dict):
             state=agents.setdefault(d['agent'],{'goal':None,'steps':0,'reward':0,'action':4,'inference_ms':0,'perception_ms':0,'rays':[]})
             state.update(position=d['position'],health=d['health'],food=d['food'],last_seen=time.time(),run=run)
             state.update(identities.get(d['agent']))
-            state.update(activity=str(d.get('activity','Waiting'))[:160],speed=d.get('speed',0),reset_seconds=d.get('reset_seconds'),reset_steps_left=d.get('reset_steps_left'))
+            state.update(trial_seconds=d.get('trial_seconds'),activity=str(d.get('activity','Waiting'))[:160],speed=d.get('speed',0),reset_seconds=d.get('reset_seconds'),reset_steps_left=d.get('reset_steps_left'))
             state.update(connected=True,entity_id=d.get('entity_id'),dimension=d.get('dimension'),simulation=STAGES[practice['stage'] if practice else curriculum.state['stage']]['name'] if practice or curriculum.state['enabled'] else 'Manual navigation')
         # Repeated calls during a lifetime return the same assignment; next episode changes it.
         rng=random.Random(8000+d['index']*1000+d['episode'])
@@ -421,8 +433,9 @@ def step(d:dict):
         elif mode=='paused':action=4
         previous=agents.get(d['agent'],{})
         agents[d['agent']]={k:d[k] for k in ('position','health','food','goal','steps','reward','perception_ms')}
-        agents[d['agent']].update({k:previous.get(k) for k in ('entity_id','dimension','simulation','activity','speed','trial','trial_completed','reset_seconds','reset_steps_left','display_name','serial','tracked_since','deaths','spawns','trials','successful_trials')})
+        agents[d['agent']].update({k:previous.get(k) for k in ('entity_id','dimension','simulation','activity','speed','trial','trial_completed','reset_seconds','reset_steps_left','trial_seconds','display_name','serial','tracked_since','deaths','spawns','trials','successful_trials')})
         agents[d['agent']].update(connected=True,action=action,inference_ms=latency,last_seen=time.time(),run=run)
+        agents[d['agent']]['vision']=d.get('vision')
         agents[d['agent']]['rays']=d['obs'][:64]
         agents[d['agent']]['skill']=skill;agents[d['agent']]['metrics']=d.get('metrics')
         db.execute('INSERT OR IGNORE INTO agents VALUES(?,?,?)',(d['agent'],json.dumps({'personality':json.loads(Path('config/personality.json').read_text()),'generation':0}), '{}'))
@@ -440,13 +453,17 @@ def step(d:dict):
         return {'action':action,'inference_ms':latency,'skill':skill}
 @app.post('/episode',dependencies=[Depends(auth)])
 def episode(d:dict):
+    global episode_generation
     with lock:
         if d.get('task'):
             assigned=assigned_tasks.get(d['agent'])
             if not assigned or assigned['run']!=d['run']:return {'ok':True,'ignored':'stale task'}
             metrics=d.get('metrics',{});d['success']=not d.get('reason') and bool(task_success(assigned['task'],metrics))
             event('skill_episode',{'run':d['run'],'agent':d['agent'],'task':assigned['task']['kind'],'success':d['success'],'metrics':metrics})
-        db.execute('INSERT INTO episodes(run,agent,success,steps,distance,time) VALUES(?,?,?,?,?,?)',(d['run'],d['agent'],d['success'],d['steps'],d['distance'],time.time()));db.commit()
+        cursor=db.execute('INSERT INTO episodes(run,agent,success,steps,distance,time) VALUES(?,?,?,?,?,?)',(d['run'],d['agent'],d['success'],d['steps'],d['distance'],time.time()))
+        seconds=d.get('elapsed_seconds')
+        if type(seconds) in (int,float) and math.isfinite(seconds) and 0<=seconds<=86400:db.execute('INSERT INTO episode_timing VALUES(?,?)',(cursor.lastrowid,seconds))
+        db.commit();episode_generation+=1;episode_cache['raw']+=1
         return {'ok':True}
 @app.post('/agent-life',dependencies=[Depends(auth)])
 def agent_life(d:dict):
@@ -485,7 +502,7 @@ def control(command:str,d:dict={}):
         if command=='shutdown':
             shutting_down=True
             if server_control.snapshot()['busy']:server_control.wait()
-        try:state=server_control.request('stop' if command=='shutdown' else command.removesuffix('-server'))
+        try:state=server_control.request('stop' if command=='shutdown' else command.removesuffix('-server'),automatic=d.get('automatic') is True)
         except RuntimeError as error:raise HTTPException(409,str(error))
         if d.get('background',False):return {'accepted':True,'server':state}
         finished=server_control.wait()
@@ -585,8 +602,8 @@ def auto_results(identifier):
         if counts[name]<=EPISODES_PER_AGENT:successes+=success
     return {'episodes':sum(min(v,EPISODES_PER_AGENT) for v in counts.values()),'successes':successes}
 
-def auto_health():
-    if psutil.virtual_memory().percent>88:return 'System memory is above 88%.'
+def auto_health(recovering=False):
+    if psutil.virtual_memory().percent>(84 if recovering else 88):return 'System memory is above '+('84%' if recovering else '88%')+'.'
     if psutil.disk_usage(str(ROOT)).free<2*1024**3:return 'Less than 2 GiB of disk space remains.'
     if not server_ready() or server_control.snapshot()['busy']:return 'Waiting for Minecraft to be ready.'
     if sum(time.time()-a.get('last_seen',0)<8 and a.get('connected',True) for name,a in agents.items() if is_agent(name))<AGENT_COUNT:return f'Waiting for all {AGENT_COUNT} bots to connect.'
@@ -623,7 +640,7 @@ def auto_prepare():
 curriculum=Curriculum('data/curriculum.json',{'pause':lambda:auto_mode('paused'),'cancel':training_jobs.cancel,
     'job':training_jobs.snapshot,'mode':auto_mode,'protect':auto_protect,'restore':auto_restore,
     'results':auto_results,'count':lambda:example_counter,'train':lambda:start_training(background=True),
-    'expected_episodes':lambda:EXPECTED_EPISODES,'health':auto_health,'prepare':auto_prepare,'event':lambda result:event('curriculum_cycle',result)})
+    'expected_episodes':lambda:EXPECTED_EPISODES,'health':auto_health,'recovery_health':lambda:auto_health(recovering=True),'prepare':auto_prepare,'event':lambda result:event('curriculum_cycle',result)})
 
 def curriculum_worker():
     while not shutting_down:
@@ -652,7 +669,9 @@ def practice_stage(stage_index:int,d:dict={}):
         if driver not in ('teacher','student'):raise HTTPException(400,'Choose teacher or student')
         limit=d.get('episodes_per_agent',EPISODES_PER_AGENT)
         if type(limit) is not int or not 1<=limit<=3:raise HTTPException(400,'Choose 1-3 trials per bot')
-        practice={'stage':stage_index,'seed':time.time_ns(),'driver':driver,'episodes_per_agent':limit};mode='heuristic' if driver=='teacher' else 'evaluate'
+        seed=d.get('seed',time.time_ns())
+        if type(seed) is not int or not 0<=seed<2**63:raise HTTPException(400,'Choose a nonnegative 63-bit simulation seed')
+        practice={'stage':stage_index,'seed':seed,'driver':driver,'episodes_per_agent':limit};mode='heuristic' if driver=='teacher' else 'evaluate'
         run=('practice-' if driver=='teacher' else 'skilltest-')+str(stage_index)+'-'+str(int(time.time()))+'-v10'
         record_run();event('mode',{'mode':mode,'run':run,'stage':STAGES[stage_index]['name'],'reference':driver=='teacher'})
         return {'run':run,'stage':STAGES[stage_index],'message':'Teacher reference started; demonstrations are collected. This measures task feasibility, not learned performance.' if driver=='teacher' else 'Neural policy test started on fresh routes, without teacher control.'}
@@ -663,6 +682,7 @@ def observer_worker():
         try:
             with lock:
                 if server_ready() and not server_control.snapshot()['busy']:
+                    vision_lines.tick(agents,observers.sessions,True)
                     camera_input.tick(observers,[p['name'] for p in online_players()],agents)
                 observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,progress_context=observer_progress(curriculum.state,STAGES,mode,practice,training_jobs.snapshot(),trial_limit(),run),pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
         except Exception as error:
@@ -671,6 +691,12 @@ def observer_worker():
                     if session.get('enabled'):session.update(status='error',message='Camera update failed: '+str(error))
         next_tick=max(next_tick+.05,time.monotonic())
         time.sleep(max(0,next_tick-time.monotonic()))
+
+@app.post('/vision',dependencies=[Depends(auth)])
+def configure_vision(d:dict):
+    with lock:
+        try:return vision_lines.configure(d)
+        except ValueError as error:raise HTTPException(400,str(error))
 
 @app.post('/observer/{action}',dependencies=[Depends(auth)])
 def observer_action(action:str,d:dict):

@@ -1,0 +1,38 @@
+[
+  {
+    "course": "Open a wooden door",
+    "driver": "teacher",
+    "passed": 8,
+    "total": 8,
+    "seconds": 13.56,
+    "mean_steps": 32.5,
+    "moving_fraction": 0.707
+  },
+  {
+    "course": "Cross a narrow raised bridge",
+    "driver": "teacher",
+    "passed": 8,
+    "total": 8,
+    "seconds": 10.98,
+    "mean_steps": 29.0,
+    "moving_fraction": 0.752
+  },
+  {
+    "course": "Steep scree staircase",
+    "driver": "teacher",
+    "passed": 8,
+    "total": 8,
+    "seconds": 48.45,
+    "mean_steps": 129.875,
+    "moving_fraction": 0.409
+  },
+  {
+    "course": "Jump a lava fissure",
+    "driver": "teacher",
+    "passed": 8,
+    "total": 8,
+    "seconds": 46.91,
+    "mean_steps": 122.625,
+    "moving_fraction": 0.352
+  }
+]

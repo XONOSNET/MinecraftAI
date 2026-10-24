@@ -1,0 +1,38 @@
+[
+  {
+    "course": "Open a wooden door",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-17-1792824981-v10",
+    "mean_seconds": 8.647734524999999,
+    "passed": 8,
+    "total": 8,
+    "seconds": 16.36,
+    "mean_steps": 56.625,
+    "moving_fraction": 0.811
+  },
+  {
+    "course": "Steep scree staircase",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-113-1792824997-v10",
+    "mean_seconds": 9.967579124999999,
+    "passed": 8,
+    "total": 8,
+    "seconds": 13.98,
+    "mean_steps": 61.5,
+    "moving_fraction": 0.756
+  },
+  {
+    "course": "Jump a lava fissure",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-117-1792825011-v10",
+    "mean_seconds": 11.039079675000002,
+    "passed": 8,
+    "total": 8,
+    "seconds": 18.03,
+    "mean_steps": 56.75,
+    "moving_fraction": 0.681
+  }
+]

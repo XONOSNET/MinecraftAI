@@ -35,11 +35,11 @@ class ServerControl:
             state['elapsed_seconds']=(state.get('finished_at') or time.time())-state['started_at']
         return state
 
-    def request(self, action):
+    def request(self, action, automatic=False):
         if action not in ('start','stop','restart'):raise ValueError('Unknown server action')
         with self._lock:
             if self._state['busy']:raise RuntimeError('A server operation is already in progress')
-            self._state.update(action=action,phase='saving',busy=True,error=None,
+            self._state.update(action=action,automatic=automatic,phase='saving',busy=True,error=None,
                                desired_running=action!='stop',started_at=time.time(),finished_at=None,
                                message='Pausing learning and saving examples and the model checkpoint.')
             self._done.clear()

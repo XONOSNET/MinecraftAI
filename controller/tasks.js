@@ -46,7 +46,7 @@ function observeTask(bot,task,scan,runtime){
  const metrics={jumps:runtime.jumps||0,distance_3d:Math.hypot(task.goal[0]-p.x,task.goal[1]-p.y,task.goal[2]-p.z),checkpoints:runtime.waypoint,water_steps:runtime.waterSteps||0,oxygen:air(bot),blocked_steps:runtime.blockedSteps,stalled_steps:runtime.stalledSteps,doors_opened:runtime.openedDoors.size,health:bot.health,food:bot.food,wood,eaten:runtime.eaten,hunger_observed:runtime.hungerObserved,coverage:runtime.visited.size,sheltered,distance,y:p.y,hazard_contacts:runtime.hazardContacts,inside};
  return {climbing,extra,metrics,resource,door,frontBlocked:lowBlocked,headBlocked,frontHazard,leftUnsafe,rightUnsafe,forward,left};
 }
-function failed(task,m){if(task.kind==='expedition')return m.y<task.min_safe_y||m.health<18||m.hazard_contacts>0||m.stalled_steps>=100;return ['advanced','terrain'].includes(task.kind)&&(m.hazard_contacts>0||m.blocked_steps>=32||m.stalled_steps>=64);}
+function failed(task,m){if(task.kind==='expedition')return m.y<task.min_safe_y||m.health<18||m.hazard_contacts>0||m.stalled_steps>=100;return ['advanced','terrain'].includes(task.kind)&&(m.hazard_contacts>0||m.blocked_steps>=32*(task.stall_scale||1)||m.stalled_steps>=64*(task.stall_scale||1));}
 function reached(task,m){
  if(task.kind==='expedition')return (m.jumps||0)>=(task.required_jumps||0)&&m.health>=18&&m.inside&&m.distance_3d<1.5&&m.checkpoints>=task.waypoints.length-1&&m.hazard_contacts===0&&(!task.allow_water||m.water_steps>0);
  if(m.health<=0||!m.inside||Math.abs(m.y-181)>1.5)return false;

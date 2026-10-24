@@ -1,0 +1,20 @@
+[
+  {
+    "course": "navigation",
+    "driver": "student",
+    "passed": 24,
+    "total": 24,
+    "seconds": 18.83,
+    "mean_steps": 13.916666666666666,
+    "moving_fraction": 0.458
+  },
+  {
+    "course": "Open a wooden door",
+    "driver": "student",
+    "passed": 8,
+    "total": 8,
+    "seconds": 18.14,
+    "mean_steps": 38.375,
+    "moving_fraction": 0.642
+  }
+]
