@@ -32,3 +32,9 @@ A bounded 12-second memory records the blocked heading and position after a comp
 Native recovery fixture: see recovery-native.json for a completed physical detour followed by a crouch passage. The activity display shows turning toward clear space, detouring, checking another exit, or waiting for reset when no safe exit exists. Final teacher-free navigation, door and swimming checks are recorded in locomotion-recovery-final-student.json.
 
 Final regression: 40/40 teacher-free trials passed (24 navigation, 8 wooden-door, 8 Swimming basics 2). Unit verification covered 55 Node tests and 56 observer/vision Python tests. Both HTTP localhost and HTTPS LAN dashboard routes returned 200, and autonomous review resumed with all eight bots.
+
+## Doorway alignment
+
+Door frames now use a separate local motor alignment step instead of broad wall detours. The bot picks an entry side once, aligns with the usable opening (including the rotated open-door panel), waits for the policy's existing door-open action, then creeps through until its body clears the far side. Policy turn choices cannot flip the approach side in the middle of crossing. Collision and supported-ground checks still gate every movement; a blocked crossing times out visibly and waits for the normal trial reset. Finished doors cannot retrigger during the same trial. This is shared motor assistance, not a claim that the policy learned a new action.
+
+The native single-door, two-door and three-alternating-door policy checks passed 24/24; see locomotion-doorway-student.json. Unit checks also cover reverse-side entry, north/south orientation, closed doors, unsafe paths, timeout/reset and open-panel clearance.

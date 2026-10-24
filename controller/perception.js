@@ -36,7 +36,7 @@ function proximity(bot,{goalYaw=null}={}){
  const forwardClearance=wallAhead||bot.labRecovering||bot.labAvoiding?clearance(0):null;
  const escapeRoutes=wallAhead||bot.labRecovering||bot.labAvoiding?[Math.PI/3,-Math.PI/3,Math.PI/2,-Math.PI/2,2*Math.PI/3,-2*Math.PI/3,Math.PI].map(offset=>({yaw:yaw+offset,offset,clearance:clearance(offset)})):[];
  return {wallAhead,crouchClearance:standing&&!crouched,rearSafe:rearSafe&&!bot.entity.isInWater&&!bot.entity.isInLava,
-  escapeRoutes,forwardClearance,goalClearance:Number.isFinite(goalYaw)&&(wallAhead||bot.labRecovering||bot.labAvoiding)?clearance(goalYaw-yaw):null,escapeForwardSafe:forwardClearance!==null&&forwardClearance>=.65};
+  canWalk:(heading,minimum=.35)=>clearance(heading-yaw)>=minimum,escapeRoutes,forwardClearance,goalClearance:Number.isFinite(goalYaw)&&(wallAhead||bot.labRecovering||bot.labAvoiding)?clearance(goalYaw-yaw):null,escapeForwardSafe:forwardClearance!==null&&forwardClearance>=.65};
 }
 function coneWidth(distance){return Math.PI/2+Math.PI/3*Math.max(0,Math.min(1,(5-distance)/4));}
 function scan(bot,{rays=256,range=16,hfov=Math.PI/2,vfov=Math.PI/3,goalYaw=null}={}) {

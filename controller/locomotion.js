@@ -2,6 +2,7 @@
 const {applyMotion,pauseMotion}=require('./motion');
 const {Vec3}=require('vec3');
 const {createRecovery}=require('./recovery');
+const {createDoorway}=require('./doorway');
 function applyPose(bot,wantsCrouch){
  if(!bot.physics||!bot.entity?.position||!bot.blockAt)return;
  const p=bot.entity.position;let ceiling=false;
@@ -35,23 +36,27 @@ function motorPlan(action,permissions,task,sensed,angle,traveling=false){
   label:door?'Opening door while walking':walkingTurn?(action===1?'Steering left while walking':'Steering right while walking'):turning?'Turning to align':null};
 }
 function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
- const recovery=createRecovery();
+ const recovery=createRecovery(),doorway=createDoorway();
  let plan=null,targetYaw=null,expires=0,last=clock(),paused=true,lookLocked=false,stalled=false;
- function clear(){recovery.reset();bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
+ function clear(){recovery.reset();doorway.reset();bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
  return {
   command(action,task,sensed,angle){
    if(!Number.isFinite(angle)||!Number.isFinite(bot.entity?.yaw)){clear();return 'Waiting for valid orientation';}
    stalled=false;
    if(legacy){applyMotion(bot,action,permissions,task);return null;}
    plan=motorPlan(action,permissions,task,{...sensed,inWater:!!bot.entity?.isInWater},angle,!!bot.getControlState('forward'));
+   const passage=doorway.update(plan,sensed||{},bot.entity.position,bot.entity.yaw,clock(),permissions);
+   if(passage){recovery.reset();plan=passage;}
+   else{
    plan=recovery.update(plan,{...sensed,inWater:!!bot.entity.isInWater,inLava:!!bot.entity.isInLava},bot.entity.position,bot.entity.yaw,clock(),permissions,angle,task?.bounds);
+   }
    bot.labRecovering=recovery.active();bot.labAvoiding=recovery.remembering();
    if(plan.forward&&sensed?.crouchClearance){plan.sneak=true;plan.jump=false;plan.label='Crouching under low clearance';}
    targetYaw=Number.isFinite(plan.targetYaw)?plan.targetYaw:plan.yaw?bot.entity.yaw+plan.yaw:null;expires=clock()+1000;paused=false;
    return plan.label;
   },
   pause:clear,
-  status(){return stalled?'Waiting for policy response':recovery.active()?recovery.label():null;},
+  status(){return stalled?'Waiting for policy response':doorway.active()?doorway.label():recovery.active()?recovery.label():null;},
   lockLook(value){lookLocked=value;},
   tick(){
    if(legacy||!bot.entity)return;

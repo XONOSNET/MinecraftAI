@@ -195,3 +195,10 @@ test('jump metrics observe upward travel when a ground transition falls between 
  assert.equal(observeTask(bot,task,{hits:[]},runtime).metrics.jumps,1);
  bot.entity.position.y+=.3;assert.equal(observeTask(bot,task,{hits:[]},runtime).metrics.jumps,1);
 });
+
+test('doorway sensing uses the open panel clearance and only selects doors ahead of the checkpoint',()=>{
+ const {task,bot,runtime}=fixture();task.kind='advanced';task.actual_doors=[[306,0]];task.goal=[310,181,0];bot.entity.position=new Vec3(305,181,.6);
+ const at=bot.blockAt;bot.blockAt=p=>Math.floor(p.x)===306&&Math.floor(p.z)===0&&Math.floor(p.y)===181?{name:'oak_door',position:new Vec3(306,181,0),boundingBox:'block',shapes:[[0,0,0,1,1,.1875]],getProperties:()=>({open:true,facing:'east'})}:at(p);
+ let s=observeTask(bot,task,{hits:[]},runtime);assert.equal(s.doorway.center,.59375);assert.equal(s.doorway.axis,'x');assert.equal(s.door,null);
+ task.goal=[304,181,0];s=observeTask(bot,task,{hits:[]},runtime);assert.equal(s.doorway,null);
+});

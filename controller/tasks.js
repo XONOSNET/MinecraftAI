@@ -24,7 +24,15 @@ function observeTask(bot,task,scan,runtime){
  const climbing=['ladder','vine','scaffolding'].includes(bot.blockAt(p)?.name);
  let sheltered=false;for(let h=2;h<=6;h++){const block=bot.blockAt(p.offset(0,h,0));if(solid(block)){sheltered=true;break;}}
  const resource=scan.hits.filter(h=>h.name==='oak_log'&&h.distance<=3.6).map(h=>bot.blockAt(new Vec3(h.position.x,h.position.y,h.position.z))).filter(b=>b&&bot.canSeeBlock(b)).sort((a,b)=>a.position.distanceTo(p)-b.position.distanceTo(p))[0]||null;
- let door=null;for(const [x,z] of task.actual_doors||[]){const b=bot.blockAt(new Vec3(x,181,z));if(b?.name==='oak_door'){
+ let door=null,doorway=null;const cue=navigationCue(bot,task,runtime);for(const [x,z] of task.actual_doors||[]){const b=bot.blockAt(new Vec3(x,181,z));if(b?.name==='oak_door'){
+  const properties=b.getProperties(),axis=['north','south'].includes(properties.facing)?'z':'x',cross=axis==='x'?'z':'x';
+  const plane=b.position[axis]+.5,offset=p[axis]-plane,remaining=cue[axis==='x'?0:2]-plane;
+  if(Math.abs(offset)<3.5&&Math.abs(p[cross]-(b.position[cross]+.5))<2.5&&offset*remaining<0){
+   const panel=(b.shapes||[])[0];let center=b.position[cross]+.5;
+   if(properties.open&&panel){const low=panel[cross==='x'?0:2],high=panel[cross==='x'?3:5];if(high-low<.3)center=b.position[cross]+(low<.5?(high+1)/2:low/2);}
+   const candidate={id:`${x},${z}`,axis,plane,center,open:!!properties.open,y:b.position.y};
+   if(!doorway||Math.abs(offset)<Math.abs(p[doorway.axis]-doorway.plane))doorway=candidate;
+  }
   if(b.getProperties().open)runtime.openedDoors.add(`${x},${z}`);
   else for(const part of [b,bot.blockAt(new Vec3(x,182,z))]){
    // At close range the upper half can occlude the lower half from the player's eyes.
@@ -44,7 +52,7 @@ function observeTask(bot,task,scan,runtime){
  const distance=Math.hypot(task.goal[0]-p.x,task.goal[2]-p.z);
  const inside=p.x>task.bounds[0]&&p.x<task.bounds[1]&&p.z>task.bounds[2]&&p.z<task.bounds[3];
  const metrics={jumps:runtime.jumps||0,distance_3d:Math.hypot(task.goal[0]-p.x,task.goal[1]-p.y,task.goal[2]-p.z),checkpoints:runtime.waypoint,water_steps:runtime.waterSteps||0,oxygen:air(bot),blocked_steps:runtime.blockedSteps,stalled_steps:runtime.stalledSteps,doors_opened:runtime.openedDoors.size,health:bot.health,food:bot.food,wood,eaten:runtime.eaten,hunger_observed:runtime.hungerObserved,coverage:runtime.visited.size,sheltered,distance,y:p.y,hazard_contacts:runtime.hazardContacts,inside};
- return {climbing,extra,metrics,resource,door,frontBlocked:lowBlocked,headBlocked,frontHazard,leftUnsafe,rightUnsafe,forward,left};
+ return {climbing,extra,metrics,resource,door,doorway,frontBlocked:lowBlocked,headBlocked,frontHazard,leftUnsafe,rightUnsafe,forward,left};
 }
 function failed(task,m){if(task.kind==='expedition')return m.y<task.min_safe_y||m.health<18||m.hazard_contacts>0||m.stalled_steps>=100;return ['advanced','terrain'].includes(task.kind)&&(m.hazard_contacts>0||m.blocked_steps>=32*(task.stall_scale||1)||m.stalled_steps>=64*(task.stall_scale||1));}
 function reached(task,m){
