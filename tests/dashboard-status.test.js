@@ -2,7 +2,7 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const html=fs.readFileSync('lab/dashboard.html','utf8');
+const html=new TextDecoder('utf-8',{fatal:true}).decode(fs.readFileSync('lab/dashboard.html'));
 for(const script of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Function(script[1]);
 const source=html.slice(html.indexOf('function describeLabActivity('),html.indexOf('function renderLabStatus('));
 const describe=vm.runInNewContext(source+';describeLabActivity');
