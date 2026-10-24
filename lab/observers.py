@@ -154,7 +154,7 @@ class Observers:
         if agent.get('skill')=='combat':activity=('Approaching monster','Aim left','Aim right','Back for spacing','Guard / cooldown','Equip gear','Attack monster')[action] if type(action) is int and 0<=action<7 else 'Waiting'
         if agent.get('skill')=='advanced' and action==5:activity='Opening door'
         controller={'teacher':'Teacher demonstration','heuristic':'Teacher reference','evaluate':'Neural policy','untrained':'Untrained policy','random':'Random actions','paused':'Paused / training'}.get(mode,mode)
-        if agent.get('activity','').startswith(('Steering ','Turning to align','Opening door while','Waiting for policy','Waiting for valid','Wall ahead:','Reversing ','Crouching ','Recovering:')):activity=agent['activity']
+        if agent.get('activity','').startswith(('Sprinting ','Steering ','Turning to align','Opening door while','Waiting for policy','Waiting for valid','Wall ahead:','Reversing ','Crouching ','Recovering:')):activity=agent['activity']
         if not fresh:activity='Waiting for bot telemetry'
         elif mode=='paused':activity=getattr(self,'pause_reason','Movement paused')
         elif s.get('status')!='following':activity=s.get('status','waiting').replace('_',' ')
@@ -253,7 +253,7 @@ class Observers:
             if a.get('skill')=='expedition' and fresh and mode!='paused' and action in (3,5,6):activity={3:'Swim / climb',5:'Ascend',6:'Descend'}[action]
             if a.get('skill')=='combat' and fresh and mode!='paused':activity=('Approach','Aim left','Aim right','Back away','Guard / cooldown','Equip gear','Attack')[action] if type(action) is int and 0<=action<7 else 'Wait'
             if a.get('skill')=='advanced' and action==5:activity='Open door'
-            if fresh and mode!='paused':activity={'Steering left while walking':'Walk + left','Steering right while walking':'Walk + right','Opening door while walking':'Walk + door','Wall ahead: checking escape':'Wall ahead','Reversing out of blocked position':'Reversing','Crouching under low clearance':'Crouching','Recovering: turning toward clear space':'Turn to escape','Recovering: moving around obstacle':'Detouring','Recovering: checking another exit':'Check exit','Recovering: no safe exit; waiting for reset':'No safe exit','Recovering: detour complete':'Detour done'}.get(a.get('activity'),activity)
+            if fresh and mode!='paused':activity={'Sprinting on clear ground':'Sprinting','Steering left while walking':'Walk + left','Steering right while walking':'Walk + right','Opening door while walking':'Walk + door','Wall ahead: checking escape':'Wall ahead','Reversing out of blocked position':'Reversing','Crouching under low clearance':'Crouching','Recovering: turning toward clear space':'Turn to escape','Recovering: moving around obstacle':'Detouring','Recovering: checking another exit':'Check exit','Recovering: no safe exit; waiting for reset':'No safe exit','Recovering: detour complete':'Detour done'}.get(a.get('activity'),activity)
             if mode=='paused' and getattr(self,'progress_context',{}).get('phase')=='health_wait':activity='Recovering'
             if (mode in ('evaluate','untrained','random','heuristic') or getattr(self,'progress_context',{}).get('phase')=='queued_teacher') and a.get('trial_completed',0)>=getattr(self,'progress_context',{}).get('episodes',3):activity='Done; waiting'
             row=f"{a.get('display_name') or name}: {activity}"

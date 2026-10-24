@@ -1,0 +1,11 @@
+# Guarded native sprinting
+
+Sprinting was previously absent from the motor. It is now a permission-gated interpretation of a learned/teacher forward intent on clear flat ground, not a new neural action or a claim that the policy learned sprint selection. Existing model dimensions, action indices and weights are unchanged.
+
+config/permissions.json enables sprint. The smooth motor starts only with enough food (8+), on solid ground, aligned within 0.12 radians, with a target at least six blocks away. It can continue until 4.5 blocks remain. A collision/support probe checks three blocks ahead and all footprint corners must have flat, supported landing surfaces. Unknown blocks, edges, water, lava, harmful blocks, slippery or slowing surfaces, low ceilings, doors, crouching, jumping, braking, turning and recovery disable sprint. Precision terrain, bridge, trap, jump and expedition tasks remain walking-only. Combat approaches can sprint only while equipped and over six blocks from an actual opponent.
+
+Sprint control is cleared on pause, responses more than 250 ms old, hunger, interaction look-lock and newly unsafe decisions. The existing controller still chooses forward/turn/wait; sprint is shared motor assistance. Native sprint flags and physics are used, not teleportation or speed effects. Activity labels report Sprinting on clear ground in dashboard and spectator HUD/sidebar.
+
+Tests cover eligibility, food, permissions, hazards, missing support, precision exclusions, combat spacing, pause and stale-response shutdown. scripts/verify_sprint_native.cjs uses a temporary spectator/operator and an isolated flat test strip, then cleans its blocks, chunk lease and operator status. It measures a walk and sprint interval and verifies sprint disengagement before a wall. The native result was 6.65 versus 8.36 blocks (1.258x), with sprint disengagement 2.11 blocks before the wall. See sprint-native.json. This is a short motor measurement, not a policy learning benchmark.
+
+Deployment checks: 79 Node tests and 55 observer tests passed; the sprint-specific stale-response test was rerun after setting a 250 ms sprint freshness limit. Teacher-free navigation and door checks passed 32/32 after deployment; see locomotion-sprint-student.json.

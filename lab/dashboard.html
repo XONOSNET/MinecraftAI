@@ -180,7 +180,7 @@ function botActivity(s,a){
  if((['evaluate','heuristic','untrained','random'].includes(s.mode)||s.curriculum?.phase==='queued_teacher')&&a.trial_completed>=(s.evaluation?.episodes_per_agent||3))return 'Trials finished — waiting for other bots';
  if(activeJob(s))return `Training pass ${s.training_job?.epoch||0} / ${s.training_job?.epochs||100} — movement paused`;
  if(s.mode==='paused')return s.curriculum?.message||'Paused — resume learning to move';
- if(a.activity&&/Steering|Turning to align|Opening door while|Waiting for policy|Waiting for valid|Wall ahead:|Reversing |Crouching |Recovering:/.test(a.activity))return a.activity;
+ if(a.activity&&/Sprinting|Steering|Turning to align|Opening door while|Waiting for policy|Waiting for valid|Wall ahead:|Reversing |Crouching |Recovering:/.test(a.activity))return a.activity;
  if(a.skill==='combat')return ['Approaching monster','Aiming left','Aiming right','Backing away for spacing','Guarding / waiting for cooldown','Equipping combat gear','Attacking monster'][a.action]||a.activity||'Preparing combat';
  if(a.skill==='expedition'&&[3,5,6].includes(a.action))return {3:'Swimming / climbing forward',5:'Ascending',6:'Descending'}[a.action];
  if(a.skill==='advanced'&&a.action===5)return 'Opening a practice door';

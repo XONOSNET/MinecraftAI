@@ -1,0 +1,26 @@
+[
+  {
+    "course": "navigation",
+    "driver": "student",
+    "seed": 20261024,
+    "run": "evaluate-1792882765",
+    "mean_seconds": 2.682933633333333,
+    "passed": 24,
+    "total": 24,
+    "seconds": 13.92,
+    "mean_steps": 10.541666666666666,
+    "moving_fraction": 0.639
+  },
+  {
+    "course": "Open a wooden door",
+    "driver": "student",
+    "seed": 20261024,
+    "run": "skilltest-17-1792882780-v10",
+    "mean_seconds": 9.5485845625,
+    "passed": 8,
+    "total": 8,
+    "seconds": 16.11,
+    "mean_steps": 45.75,
+    "moving_fraction": 0.754
+  }
+]

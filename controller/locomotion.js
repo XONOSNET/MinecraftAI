@@ -1,6 +1,7 @@
 // Decode policy intentions into independent held controls and 20 Hz aiming.
 const {applyMotion,pauseMotion}=require('./motion');
 const {Vec3}=require('vec3');
+const {sprintIntent,basicSprintSafe}=require('./sprint');
 const {createRecovery}=require('./recovery');
 const {createDoorway}=require('./doorway');
 function applyPose(bot,wantsCrouch){
@@ -58,11 +59,13 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    }
    bot.labRecovering=recovery.active();bot.labAvoiding=recovery.remembering();
    if(plan.forward&&sensed?.crouchClearance){plan.sneak=true;plan.jump=false;plan.label='Crouching under low clearance';}
+   plan.sprint=sprintIntent(bot,permissions,task,plan,sensed,angle,!!bot.getControlState('sprint'));
+   if(plan.sprint)plan.label='Sprinting on clear ground';
    targetYaw=Number.isFinite(plan.targetYaw)?plan.targetYaw:plan.yaw?bot.entity.yaw+plan.yaw:null;expires=clock()+1000;paused=false;
    return plan.label;
   },
   pause:clear,
-  status(){return stalled?'Waiting for policy response':doorway.active()?doorway.label():recovery.active()?recovery.label():null;},
+  status(){return stalled?'Waiting for policy response':doorway.active()?doorway.label():recovery.active()?recovery.label():plan?.sprint&&bot.getControlState('sprint')?'Sprinting on clear ground':null;},
   lockLook(value){lookLocked=value;},
   tick(){
    if(legacy||!bot.entity)return;
@@ -76,6 +79,8 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     if(d<.035||d<approaching*2.4+.04)forward=false;
    }
    for(const control of ['forward','back','jump','sneak'])if(!!bot.getControlState(control)!==(control==='forward'?forward:!!plan[control]))bot.setControlState(control,control==='forward'?forward:!!plan[control]);
+   const sprint=!!plan.sprint&&forward&&!lookLocked&&now<=expires-750&&basicSprintSafe(bot);
+   if(!!bot.getControlState('sprint')!==sprint)bot.setControlState('sprint',sprint);
    applyPose(bot,!!plan.sneak);
    if(targetYaw!==null&&!lookLocked&&permissions.turn){
     const delta=wrap(targetYaw-bot.entity.yaw),step=Math.sign(delta)*Math.min(Math.abs(delta),Math.PI*dt);
