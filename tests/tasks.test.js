@@ -167,3 +167,31 @@ test('expedition turns tread water and low breath prompts a surface action',()=>
  applyMotion(bot,1,{move:true,jump:true},task);assert.equal(state.jump,true);assert.equal(!!state.forward,false);
  assert.equal(teacherAction(bot,task,{},runtime,1),5);
 });
+
+test('realistic gap jumping is scoped to its teacher and success requires a jump',()=>{
+ const {task,bot,runtime}=fixture();Object.assign(task,{kind:'expedition',jump_gaps:true,required_jumps:1,waypoints:[[310,181,0]],allow_water:false});
+ const sense={frontHazard:true,frontBlocked:false,headBlocked:false};
+ assert.equal(teacherAction(bot,task,sense,runtime,0),3);
+ task.jump_gaps=false;assert.equal(teacherAction(bot,task,sense,runtime,0),0);
+ const m={health:20,inside:true,distance_3d:.5,checkpoints:0,hazard_contacts:0,jumps:0};
+ assert.equal(reached(task,m),false);m.jumps=1;assert.equal(reached(task,m),true);
+});
+
+test('lava contact counts as a failed hazard even before damage arrives',()=>{
+ const {task,bot,runtime}=fixture();task.kind='expedition';task.waypoints=[task.goal];bot.entity.isInLava=true;
+ assert.ok(observeTask(bot,task,{hits:[]},runtime).metrics.hazard_contacts>0);
+});
+
+test('gap teacher takes off near the lip instead of the distant hazard probe',()=>{
+ const {task,bot,runtime}=fixture();Object.assign(task,{kind:'expedition',jump_gaps:true,gap_edges:[306],waypoints:[[310,181,0]],allow_water:false});
+ const sensed={frontHazard:true,frontBlocked:false,headBlocked:false};
+ assert.equal(teacherAction(bot,task,sensed,runtime,0),0);
+ bot.entity.position.x=305;assert.equal(teacherAction(bot,task,sensed,runtime,0),3);
+});
+
+test('jump metrics observe upward travel when a ground transition falls between samples',()=>{
+ const {task,bot,runtime}=fixture();task.kind='expedition';task.waypoints=[task.goal];
+ observeTask(bot,task,{hits:[]},runtime);bot.entity.onGround=false;bot.entity.position.y+=.35;
+ assert.equal(observeTask(bot,task,{hits:[]},runtime).metrics.jumps,1);
+ bot.entity.position.y+=.3;assert.equal(observeTask(bot,task,{hits:[]},runtime).metrics.jumps,1);
+});

@@ -148,8 +148,8 @@ def test_trial_and_training_pass_counters_and_named_roster(tmp_path):
     tick=lambda mode,ctx:o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':a},True,mode,progress_context=ctx)
     tick('evaluate',{'episodes':3})
     assert any('Trial 2/3 | 2 left' in c for c in commands)
-    assert any('scoreboard players display name LabAI0 lab_bots' in c for c in commands)
-    assert sum(c.startswith('scoreboard players set LabAI') for c in commands)==AGENT_COUNT
+    assert any('scoreboard players display name lab_row_0 lab_bots' in c for c in commands)
+    assert sum(c.startswith('scoreboard players set lab_row_') for c in commands)==AGENT_COUNT
     assert not any('scoreboard players set "' in c for c in commands)
     now[0]+=2;commands.clear()
     tick('paused',{'job':{'status':'running','epoch':42,'epochs':100,'percent':40,'samples':1500,'phase':'learning'}})
@@ -192,7 +192,7 @@ def test_trial_reset_estimate_in_personal_hud_and_roster(tmp_path):
     a={'connected':True,'last_seen':100,'entity_id':1,'reset_seconds':18,'reset_steps_left':60}
     o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':a},True,'evaluate')
     assert any('Reset ~18s (60 steps left)' in c for c in commands)
-    assert any('~18s' in c and 'scoreboard players display name' in c for c in commands)
+    assert not any('~18s' in c and 'scoreboard players display name' in c for c in commands)
 
 
 def test_camera_cycle_uses_interval_and_skips_offline_bots(tmp_path):
@@ -249,7 +249,8 @@ def test_native_roster_keeps_identity_metadata_out_of_labels(tmp_path):
     o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':a},True,'evaluate')
     labels=[c for c in commands if 'display name' in c or 'bossbar' in c]
     assert not any('A0001' in c or ' D0' in c or 'deaths' in c for c in labels)
-    assert any('LabAI0: Blocked ~15s' in c for c in labels)
+    assert any('LabAI0: Blocked' in c for c in labels)
+    assert not any('~15s' in c for c in labels if 'display name' in c)
 
 
 @pytest.mark.parametrize('view',['trail','side','overhead','orbit','action'])

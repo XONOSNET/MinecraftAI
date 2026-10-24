@@ -15,8 +15,11 @@ function observeTask(bot,task,scan,runtime){
  const leftUnsafe=unsafe(left),rightUnsafe=unsafe(left.scaled(-1));
  const key=cell(p);runtime.visited.set(key,(runtime.visited.get(key)||0)+1);
  if(bot.food<18)runtime.hungerObserved=true;
+ const risingJump=!bot.entity.isInWater&&((bot.entity.velocity?.y||0)>.15||(runtime.jumpY!==undefined&&p.y-runtime.jumpY>.15));
+ if(risingJump&&!runtime.jumpRising)runtime.jumps=(runtime.jumps||0)+1;
+ runtime.jumpRising=risingJump;runtime.jumpY=p.y;
  const standing=bot.blockAt(p.offset(0,-.1,0));
- if((bot.entity.isInWater&&!task.allow_water)||(bot.entity.onGround&&standing?.name==='magma_block'))runtime.hazardContacts++;
+ if(bot.entity.isInLava||standing?.name==='lava'||(bot.entity.isInWater&&!task.allow_water)||(bot.entity.onGround&&standing?.name==='magma_block'))runtime.hazardContacts++;
  if(bot.entity.isInWater)runtime.waterSteps=(runtime.waterSteps||0)+1;
  const climbing=['ladder','vine','scaffolding'].includes(bot.blockAt(p)?.name);
  let sheltered=false;for(let h=2;h<=6;h++){const block=bot.blockAt(p.offset(0,h,0));if(solid(block)){sheltered=true;break;}}
@@ -40,12 +43,12 @@ function observeTask(bot,task,scan,runtime){
  if(task.kind==='expedition'){const cue=navigationTarget(bot,task,runtime);extra=[Number(lowBlocked),Number(headBlocked),Number(!!bot.entity.isInWater),Number(climbing),Math.max(-1,Math.min(1,(cue[1]-p.y)/12)),Math.min(1,Math.hypot(cue[0]-p.x,cue[2]-p.z)/16),air(bot)/20,Number(bot.entity.onGround),Number(!frontHazard),Number(bot.entity.velocity?.y<-.1),runtime.waypoint/Math.max(1,task.waypoints.length-1),Math.min(1,Math.hypot(bot.entity.velocity?.x||0,bot.entity.velocity?.z||0)*5)];}
  const distance=Math.hypot(task.goal[0]-p.x,task.goal[2]-p.z);
  const inside=p.x>task.bounds[0]&&p.x<task.bounds[1]&&p.z>task.bounds[2]&&p.z<task.bounds[3];
- const metrics={distance_3d:Math.hypot(task.goal[0]-p.x,task.goal[1]-p.y,task.goal[2]-p.z),checkpoints:runtime.waypoint,water_steps:runtime.waterSteps||0,oxygen:air(bot),blocked_steps:runtime.blockedSteps,stalled_steps:runtime.stalledSteps,doors_opened:runtime.openedDoors.size,health:bot.health,food:bot.food,wood,eaten:runtime.eaten,hunger_observed:runtime.hungerObserved,coverage:runtime.visited.size,sheltered,distance,y:p.y,hazard_contacts:runtime.hazardContacts,inside};
+ const metrics={jumps:runtime.jumps||0,distance_3d:Math.hypot(task.goal[0]-p.x,task.goal[1]-p.y,task.goal[2]-p.z),checkpoints:runtime.waypoint,water_steps:runtime.waterSteps||0,oxygen:air(bot),blocked_steps:runtime.blockedSteps,stalled_steps:runtime.stalledSteps,doors_opened:runtime.openedDoors.size,health:bot.health,food:bot.food,wood,eaten:runtime.eaten,hunger_observed:runtime.hungerObserved,coverage:runtime.visited.size,sheltered,distance,y:p.y,hazard_contacts:runtime.hazardContacts,inside};
  return {climbing,extra,metrics,resource,door,frontBlocked:lowBlocked,headBlocked,frontHazard,leftUnsafe,rightUnsafe,forward,left};
 }
 function failed(task,m){if(task.kind==='expedition')return m.y<task.min_safe_y||m.health<18||m.hazard_contacts>0||m.stalled_steps>=100;return ['advanced','terrain'].includes(task.kind)&&(m.hazard_contacts>0||m.blocked_steps>=32||m.stalled_steps>=64);}
 function reached(task,m){
- if(task.kind==='expedition')return m.health>=18&&m.inside&&m.distance_3d<1.5&&m.checkpoints>=task.waypoints.length-1&&m.hazard_contacts===0&&(!task.allow_water||m.water_steps>0);
+ if(task.kind==='expedition')return (m.jumps||0)>=(task.required_jumps||0)&&m.health>=18&&m.inside&&m.distance_3d<1.5&&m.checkpoints>=task.waypoints.length-1&&m.hazard_contacts===0&&(!task.allow_water||m.water_steps>0);
  if(m.health<=0||!m.inside||Math.abs(m.y-181)>1.5)return false;
  if(task.kind==='gather')return m.wood>=task.wood_target;
  if(['eat','eat_route'].includes(task.kind))return m.food>=(task.food_target||18)&&m.eaten>=1&&m.hunger_observed&&(task.kind==='eat'||m.distance<1.25);
@@ -71,6 +74,8 @@ function teacherAction(bot,task,sensed,runtime,angle){
   if(bot.entity.isInWater&&dy<-1.15)return 6;
   const target=Math.atan2(-(cue[0]-p.x),-(cue[2]-p.z));angle=Math.atan2(Math.sin(target-bot.entity.yaw),Math.cos(target-bot.entity.yaw));
   if(Math.abs(angle)>.05)return angle>0?1:2;
+  const gapTakeoff=task.gap_edges?.some(edge=>edge-p.x>=-.4&&edge-p.x<=1.1)??sensed.frontHazard;
+  if(task.jump_gaps&&gapTakeoff&&d>1)return 3;
   return bot.entity.isInWater||sensed.climbing||sensed.frontBlocked&&!sensed.headBlocked?3:0;
  }
  if(['eat','eat_route'].includes(task.kind)&&bot.food<(task.food_target||18)&&sensed.extra[6]>0)return 6;

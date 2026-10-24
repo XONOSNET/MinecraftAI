@@ -15,7 +15,8 @@ LEGACY_STAGES=[{'name':'Short routes','min_distance':3,'max_distance':7,'yaw':.6
         {'name':'Long routes and full turns','min_distance':20,'max_distance':30,'yaw':3.141593}]
 LEGACY_STAGES.extend(EXTRA_STAGES)
 from .catalogue import ordered_stages
-STAGES_V8=ordered_stages(LEGACY_STAGES,integrate=False)
+STAGES_V8=ordered_stages(LEGACY_STAGES[:120],integrate=False)
+STAGES_V9=ordered_stages(LEGACY_STAGES[:120])
 STAGES=ordered_stages(LEGACY_STAGES)
 
 def route_seed(cycle_seed,agent,episode,evaluation):
@@ -82,7 +83,16 @@ class Curriculum:
             self.state['learning_rate_scales']={str(lookup[STAGES_V8[int(k)]['name']]):v for k,v in self.state.get('learning_rate_scales',{}).items() if 0<=int(k)<len(STAGES_V8)}
             self.state.pop('recovery_target',None)
             self.state.update(stage=lookup[STAGES_V8[old_stage]['name']] if 0<=old_stage<len(STAGES_V8) else 0,enabled=False,phase='paused',streak=0,message='Swimming, climbing, caves and catwalks integrated into the difficulty order. Models retained; resume when ready.')
-        self.state.update(catalog_version=9,agent_count=AGENT_COUNT)
+        if self.path.exists() and self.state.get('catalog_version')==9:
+            lookup={stage['name']:i for i,stage in enumerate(STAGES)}
+            def remap(index):return lookup[STAGES_V9[index]['name']] if 0<=index<len(STAGES_V9) else 0
+            self.state['stage']=remap(self.state['stage'])
+            for row in self.state['history']:
+                row['stage']=remap(row['stage']);row['stage_id']=STAGES[row['stage']]['id']
+            self.state['learning_rate_scales']={str(remap(int(k))):v for k,v in self.state.get('learning_rate_scales',{}).items()}
+            if 'recovery_target' in self.state:self.state['recovery_target']=remap(self.state['recovery_target'])
+            self.state['streak']=0
+        self.state.update(catalog_version=10,agent_count=AGENT_COUNT)
     def save(self):
         self.path.parent.mkdir(exist_ok=True,parents=True)
         tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps(self.state,indent=2),encoding='utf-8');tmp.replace(self.path)

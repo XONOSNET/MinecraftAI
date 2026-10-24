@@ -22,7 +22,10 @@ def ordered_stages(legacy,integrate=True):
             stage.update(id=re.sub(r'[^a-z0-9]+','-',stage['name'].lower()).strip('-'),tier=tier,tier_name=label,legacy_stage=number)
             result.append(stage)
     for stage in legacy[70:]:
-        stage=dict(stage);family=stage['expedition'];tier=max({'swim':4,'stairs':4,'ladder':4,'cave':4,'catwalk':5,'waterfall':5,'flooded':6,'cave_steps':6,'bent_catwalk':6,'summit':7}[family],min(8,3+stage['difficulty'])) if integrate else 9+['swim','stairs','ladder','cave','catwalk','waterfall','flooded','cave_steps','bent_catwalk','summit'].index(family)
+        stage=dict(stage)
+        if stage.get('expedition')=='realistic':
+            stage.update(id=re.sub(r'[^a-z0-9]+','-',stage['name'].lower()).strip('-'),tier_name=TIERS[stage['tier']-1][0],legacy_stage=len(result)+1);result.append(stage);continue
+        family=stage['expedition'];tier=max({'swim':4,'stairs':4,'ladder':4,'cave':4,'catwalk':5,'waterfall':5,'flooded':6,'cave_steps':6,'bent_catwalk':6,'summit':7}[family],min(8,3+stage['difficulty'])) if integrate else 9+['swim','stairs','ladder','cave','catwalk','waterfall','flooded','cave_steps','bent_catwalk','summit'].index(family)
         stage.update(id=re.sub(r'[^a-z0-9]+','-',stage['name'].lower()).strip('-'),tier=tier,tier_name=TIERS[tier-1][0] if integrate else family.replace('_',' ').title()+' expeditions',legacy_stage=len(result)+1)
         result.append(stage)
     if integrate:result.sort(key=lambda s:s['tier'])

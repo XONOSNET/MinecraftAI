@@ -1,0 +1,8 @@
+{
+  "courses": 20,
+  "teacher_trials": 160,
+  "teacher_successes": 160,
+  "minimum_success_rate": 1.0,
+  "catalogue_stages": 140,
+  "neural_mastery_measured": false
+}

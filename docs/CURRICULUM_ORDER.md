@@ -1,126 +1,144 @@
-# Curriculum order — 120 stages
+# Curriculum difficulty order
 
-Catalogue v9 integrates swimming, climbing, caves and catwalk introductions before their combined challenges. Stable IDs preserve historical course identity.
-
-| Stage | Course | Tier | Pre-expansion stage |
-|---:|---|---|---:|
-| 1 | Short routes | Navigation foundations | 1 |
-| 2 | Longer routes | Navigation foundations | 2 |
-| 3 | Full turns | Navigation foundations | 3 |
-| 4 | Long routes and full turns | Navigation foundations | 4 |
-| 5 | Eat when hungry | Basic survival and movement | 13 |
-| 6 | Harvest and collect a log | Basic survival and movement | 11 |
-| 7 | Find overhead shelter | Basic survival and movement | 15 |
-| 8 | Explore new ground | Basic survival and movement | 9 |
-| 9 | Single-block hurdles | Basic survival and movement | 5 |
-| 10 | Cross slowing soul sand | Basic survival and movement | 63 |
-| 11 | Push through cobweb barriers | Basic survival and movement | 64 |
-| 12 | Recover from severe hunger | Everyday skills and doors | 14 |
-| 13 | Eat until full | Everyday skills and doors | 27 |
-| 14 | Harvest and collect three logs | Everyday skills and doors | 12 |
-| 15 | Seek shelter from farther away | Everyday skills and doors | 16 |
-| 16 | Explore a larger area | Everyday skills and doors | 10 |
-| 17 | Offset doorway | Everyday skills and doors | 17 |
-| 18 | Open a wooden door | Everyday skills and doors | 46 |
-| 19 | Repeated hurdles | Everyday skills and doors | 6 |
-| 20 | Alternating doorways | Everyday skills and doors | 18 |
-| 21 | Open two wooden doors | Everyday skills and doors | 47 |
-| 22 | Offset closed doorway | Everyday skills and doors | 48 |
-| 23 | Harvest four logs | Precision and water safety | 25 |
-| 24 | Harvest five logs | Precision and water safety | 26 |
-| 25 | Find a compact canopy | Precision and water safety | 29 |
-| 26 | Reach shelter through a doorway | Precision and water safety | 30 |
-| 27 | Eat then reach safety | Precision and water safety | 28 |
-| 28 | Explore around pillars | Precision and water safety | 23 |
-| 29 | Explore the perimeter | Precision and water safety | 24 |
-| 30 | Four hurdles | Precision and water safety | 19 |
-| 31 | Raised causeway | Precision and water safety | 20 |
-| 32 | Avoid water hazards | Precision and water safety | 7 |
-| 33 | Long water trench | Precision and water safety | 21 |
-| 34 | Wide bridge over water | Precision and water safety | 41 |
-| 35 | Avoid a shallow water pit | Precision and water safety | 50 |
-| 36 | Swimming basics 1 | Precision and water safety | 71 |
-| 37 | Rock climbing steps 1 | Precision and water safety | 76 |
-| 38 | Ladder ascent 1 | Precision and water safety | 81 |
-| 39 | Cave navigation 1 | Precision and water safety | 86 |
-| 40 | Climb and descend a stepped ridge | Terrain and route changes | 33 |
-| 41 | Cross rolling hills | Terrain and route changes | 34 |
-| 42 | Navigate a boulder slalom | Terrain and route changes | 37 |
-| 43 | Navigate a low-ceiling passage | Terrain and route changes | 38 |
-| 44 | Low-ceiling alternating slalom | Terrain and route changes | 65 |
-| 45 | Long bridge over water | Terrain and route changes | 42 |
-| 46 | Offset bridge approach | Terrain and route changes | 44 |
-| 47 | Avoid two shallow pits | Terrain and route changes | 51 |
-| 48 | Alternating closed doorways | Terrain and route changes | 49 |
-| 49 | Three alternating wooden doors | Terrain and route changes | 66 |
-| 50 | Swimming basics 2 | Terrain and route changes | 72 |
-| 51 | Rock climbing steps 2 | Terrain and route changes | 77 |
-| 52 | Ladder ascent 2 | Terrain and route changes | 82 |
-| 53 | Cave navigation 2 | Terrain and route changes | 87 |
-| 54 | Elevated catwalk 1 | Terrain and route changes | 91 |
-| 55 | Elevated catwalk 2 | Terrain and route changes | 92 |
-| 56 | Waterfall ascent 1 | Terrain and route changes | 96 |
-| 57 | Waterfall ascent 2 | Terrain and route changes | 97 |
-| 58 | Avoid magma hazards | Hazards and difficult crossings | 8 |
-| 59 | Twin magma islands | Hazards and difficult crossings | 22 |
-| 60 | Magma trap detour | Hazards and difficult crossings | 52 |
-| 61 | Alternating trap detours | Hazards and difficult crossings | 53 |
-| 62 | Narrow bridge crossing | Hazards and difficult crossings | 43 |
-| 63 | Cross a narrow raised bridge | Hazards and difficult crossings | 35 |
-| 64 | Find an offset raised crossing | Hazards and difficult crossings | 36 |
-| 65 | Long precision bridge | Hazards and difficult crossings | 61 |
-| 66 | Bridge with a turn | Hazards and difficult crossings | 45 |
-| 67 | Cross a slippery ice bridge | Hazards and difficult crossings | 62 |
-| 68 | Swimming basics 3 | Hazards and difficult crossings | 73 |
-| 69 | Rock climbing steps 3 | Hazards and difficult crossings | 78 |
-| 70 | Ladder ascent 3 | Hazards and difficult crossings | 83 |
-| 71 | Cave navigation 3 | Hazards and difficult crossings | 88 |
-| 72 | Elevated catwalk 3 | Hazards and difficult crossings | 93 |
-| 73 | Waterfall ascent 3 | Hazards and difficult crossings | 98 |
-| 74 | Flooded cave 1 | Hazards and difficult crossings | 101 |
-| 75 | Flooded cave 2 | Hazards and difficult crossings | 102 |
-| 76 | Flooded cave 3 | Hazards and difficult crossings | 103 |
-| 77 | Ascending cave 1 | Hazards and difficult crossings | 106 |
-| 78 | Ascending cave 2 | Hazards and difficult crossings | 107 |
-| 79 | Ascending cave 3 | Hazards and difficult crossings | 108 |
-| 80 | Turning catwalk 1 | Hazards and difficult crossings | 111 |
-| 81 | Turning catwalk 2 | Hazards and difficult crossings | 112 |
-| 82 | Turning catwalk 3 | Hazards and difficult crossings | 113 |
-| 83 | Hurdle and water course | Combined skill courses | 31 |
-| 84 | Hurdles and magma course | Combined skill courses | 32 |
-| 85 | Cross ridges and avoid magma | Combined skill courses | 39 |
-| 86 | Navigate varied held-out terrain | Combined skill courses | 40 |
-| 87 | Hurdle before a trap | Combined skill courses | 54 |
-| 88 | Door before a bridge | Combined skill courses | 55 |
-| 89 | Bridge then closed door | Combined skill courses | 56 |
-| 90 | Door and trap sequence | Combined skill courses | 57 |
-| 91 | Swimming basics 4 | Combined skill courses | 74 |
-| 92 | Rock climbing steps 4 | Combined skill courses | 79 |
-| 93 | Ladder ascent 4 | Combined skill courses | 84 |
-| 94 | Cave navigation 4 | Combined skill courses | 89 |
-| 95 | Elevated catwalk 4 | Combined skill courses | 94 |
-| 96 | Waterfall ascent 4 | Combined skill courses | 99 |
-| 97 | Flooded cave 4 | Combined skill courses | 104 |
-| 98 | Ascending cave 4 | Combined skill courses | 109 |
-| 99 | Turning catwalk 4 | Combined skill courses | 114 |
-| 100 | Waterfall summit expedition 1 | Combined skill courses | 116 |
-| 101 | Waterfall summit expedition 2 | Combined skill courses | 117 |
-| 102 | Waterfall summit expedition 3 | Combined skill courses | 118 |
-| 103 | Waterfall summit expedition 4 | Combined skill courses | 119 |
-| 104 | Two doors and a narrow bridge | Final gauntlets | 58 |
-| 105 | Door hurdle and magma trap | Final gauntlets | 59 |
-| 106 | Advanced bridge door gauntlet | Final gauntlets | 60 |
-| 107 | Three alternating magma detours | Final gauntlets | 67 |
-| 108 | Two doors and a raised bridge | Final gauntlets | 68 |
-| 109 | Three doors across mixed surfaces | Final gauntlets | 69 |
-| 110 | Raised ice bridge survival gauntlet | Final gauntlets | 70 |
-| 111 | Swimming basics 5 | Final gauntlets | 75 |
-| 112 | Rock climbing steps 5 | Final gauntlets | 80 |
-| 113 | Ladder ascent 5 | Final gauntlets | 85 |
-| 114 | Cave navigation 5 | Final gauntlets | 90 |
-| 115 | Elevated catwalk 5 | Final gauntlets | 95 |
-| 116 | Waterfall ascent 5 | Final gauntlets | 100 |
-| 117 | Flooded cave 5 | Final gauntlets | 105 |
-| 118 | Ascending cave 5 | Final gauntlets | 110 |
-| 119 | Turning catwalk 5 | Final gauntlets | 115 |
-| 120 | Waterfall summit expedition 5 | Final gauntlets | 120 |
+| Stage | Tier | Course | Skill |
+|---|---|---|---|
+| 1 | 1: Navigation foundations | Short routes | navigation |
+| 2 | 1: Navigation foundations | Longer routes | navigation |
+| 3 | 1: Navigation foundations | Full turns | navigation |
+| 4 | 1: Navigation foundations | Long routes and full turns | navigation |
+| 5 | 2: Basic survival and movement | Eat when hungry | nutrition |
+| 6 | 2: Basic survival and movement | Harvest and collect a log | gathering |
+| 7 | 2: Basic survival and movement | Find overhead shelter | shelter |
+| 8 | 2: Basic survival and movement | Explore new ground | exploration |
+| 9 | 2: Basic survival and movement | Single-block hurdles | traversal |
+| 10 | 2: Basic survival and movement | Cross slowing soul sand | advanced |
+| 11 | 2: Basic survival and movement | Push through cobweb barriers | advanced |
+| 12 | 3: Everyday skills and doors | Recover from severe hunger | nutrition |
+| 13 | 3: Everyday skills and doors | Eat until full | nutrition |
+| 14 | 3: Everyday skills and doors | Harvest and collect three logs | gathering |
+| 15 | 3: Everyday skills and doors | Seek shelter from farther away | shelter |
+| 16 | 3: Everyday skills and doors | Explore a larger area | exploration |
+| 17 | 3: Everyday skills and doors | Offset doorway | traversal |
+| 18 | 3: Everyday skills and doors | Open a wooden door | advanced |
+| 19 | 3: Everyday skills and doors | Repeated hurdles | traversal |
+| 20 | 3: Everyday skills and doors | Alternating doorways | traversal |
+| 21 | 3: Everyday skills and doors | Open two wooden doors | advanced |
+| 22 | 3: Everyday skills and doors | Offset closed doorway | advanced |
+| 23 | 4: Precision and water safety | Harvest four logs | gathering |
+| 24 | 4: Precision and water safety | Harvest five logs | gathering |
+| 25 | 4: Precision and water safety | Find a compact canopy | shelter |
+| 26 | 4: Precision and water safety | Reach shelter through a doorway | shelter |
+| 27 | 4: Precision and water safety | Eat then reach safety | nutrition |
+| 28 | 4: Precision and water safety | Explore around pillars | exploration |
+| 29 | 4: Precision and water safety | Explore the perimeter | exploration |
+| 30 | 4: Precision and water safety | Four hurdles | traversal |
+| 31 | 4: Precision and water safety | Raised causeway | traversal |
+| 32 | 4: Precision and water safety | Avoid water hazards | hazards |
+| 33 | 4: Precision and water safety | Long water trench | hazards |
+| 34 | 4: Precision and water safety | Wide bridge over water | advanced |
+| 35 | 4: Precision and water safety | Avoid a shallow water pit | advanced |
+| 36 | 4: Precision and water safety | Swimming basics 1 | expedition |
+| 37 | 4: Precision and water safety | Rock climbing steps 1 | expedition |
+| 38 | 4: Precision and water safety | Ladder ascent 1 | expedition |
+| 39 | 4: Precision and water safety | Cave navigation 1 | expedition |
+| 40 | 5: Terrain and route changes | Climb and descend a stepped ridge | terrain |
+| 41 | 5: Terrain and route changes | Cross rolling hills | terrain |
+| 42 | 5: Terrain and route changes | Navigate a boulder slalom | terrain |
+| 43 | 5: Terrain and route changes | Navigate a low-ceiling passage | terrain |
+| 44 | 5: Terrain and route changes | Low-ceiling alternating slalom | advanced |
+| 45 | 5: Terrain and route changes | Long bridge over water | advanced |
+| 46 | 5: Terrain and route changes | Offset bridge approach | advanced |
+| 47 | 5: Terrain and route changes | Avoid two shallow pits | advanced |
+| 48 | 5: Terrain and route changes | Alternating closed doorways | advanced |
+| 49 | 5: Terrain and route changes | Three alternating wooden doors | advanced |
+| 50 | 5: Terrain and route changes | Swimming basics 2 | expedition |
+| 51 | 5: Terrain and route changes | Rock climbing steps 2 | expedition |
+| 52 | 5: Terrain and route changes | Ladder ascent 2 | expedition |
+| 53 | 5: Terrain and route changes | Cave navigation 2 | expedition |
+| 54 | 5: Terrain and route changes | Elevated catwalk 1 | expedition |
+| 55 | 5: Terrain and route changes | Elevated catwalk 2 | expedition |
+| 56 | 5: Terrain and route changes | Waterfall ascent 1 | expedition |
+| 57 | 5: Terrain and route changes | Waterfall ascent 2 | expedition |
+| 58 | 5: Terrain and route changes | Meadow foothill trail | expedition |
+| 59 | 5: Terrain and route changes | Woodland roots and fallen logs | expedition |
+| 60 | 5: Terrain and route changes | Eroded hillside switchback | expedition |
+| 61 | 5: Terrain and route changes | Pass through a meadow cottage | expedition |
+| 62 | 6: Hazards and difficult crossings | Avoid magma hazards | hazards |
+| 63 | 6: Hazards and difficult crossings | Twin magma islands | hazards |
+| 64 | 6: Hazards and difficult crossings | Magma trap detour | advanced |
+| 65 | 6: Hazards and difficult crossings | Alternating trap detours | advanced |
+| 66 | 6: Hazards and difficult crossings | Narrow bridge crossing | advanced |
+| 67 | 6: Hazards and difficult crossings | Cross a narrow raised bridge | terrain |
+| 68 | 6: Hazards and difficult crossings | Find an offset raised crossing | terrain |
+| 69 | 6: Hazards and difficult crossings | Long precision bridge | advanced |
+| 70 | 6: Hazards and difficult crossings | Bridge with a turn | advanced |
+| 71 | 6: Hazards and difficult crossings | Cross a slippery ice bridge | advanced |
+| 72 | 6: Hazards and difficult crossings | Swimming basics 3 | expedition |
+| 73 | 6: Hazards and difficult crossings | Rock climbing steps 3 | expedition |
+| 74 | 6: Hazards and difficult crossings | Ladder ascent 3 | expedition |
+| 75 | 6: Hazards and difficult crossings | Cave navigation 3 | expedition |
+| 76 | 6: Hazards and difficult crossings | Elevated catwalk 3 | expedition |
+| 77 | 6: Hazards and difficult crossings | Waterfall ascent 3 | expedition |
+| 78 | 6: Hazards and difficult crossings | Flooded cave 1 | expedition |
+| 79 | 6: Hazards and difficult crossings | Flooded cave 2 | expedition |
+| 80 | 6: Hazards and difficult crossings | Flooded cave 3 | expedition |
+| 81 | 6: Hazards and difficult crossings | Ascending cave 1 | expedition |
+| 82 | 6: Hazards and difficult crossings | Ascending cave 2 | expedition |
+| 83 | 6: Hazards and difficult crossings | Ascending cave 3 | expedition |
+| 84 | 6: Hazards and difficult crossings | Turning catwalk 1 | expedition |
+| 85 | 6: Hazards and difficult crossings | Turning catwalk 2 | expedition |
+| 86 | 6: Hazards and difficult crossings | Turning catwalk 3 | expedition |
+| 87 | 6: Hazards and difficult crossings | Rocky gully climb | expedition |
+| 88 | 6: Hazards and difficult crossings | Creek bank stone crossing | expedition |
+| 89 | 6: Hazards and difficult crossings | Cross a two-house hamlet | expedition |
+| 90 | 6: Hazards and difficult crossings | Climb to a hillside stone house | expedition |
+| 91 | 6: Hazards and difficult crossings | Skirt a contained lava spring | expedition |
+| 92 | 6: Hazards and difficult crossings | Jump a rocky ravine | expedition |
+| 93 | 7: Combined skill courses | Hurdle and water course | integration |
+| 94 | 7: Combined skill courses | Hurdles and magma course | integration |
+| 95 | 7: Combined skill courses | Cross ridges and avoid magma | terrain |
+| 96 | 7: Combined skill courses | Navigate varied held-out terrain | terrain |
+| 97 | 7: Combined skill courses | Hurdle before a trap | advanced |
+| 98 | 7: Combined skill courses | Door before a bridge | advanced |
+| 99 | 7: Combined skill courses | Bridge then closed door | advanced |
+| 100 | 7: Combined skill courses | Door and trap sequence | advanced |
+| 101 | 7: Combined skill courses | Swimming basics 4 | expedition |
+| 102 | 7: Combined skill courses | Rock climbing steps 4 | expedition |
+| 103 | 7: Combined skill courses | Ladder ascent 4 | expedition |
+| 104 | 7: Combined skill courses | Cave navigation 4 | expedition |
+| 105 | 7: Combined skill courses | Elevated catwalk 4 | expedition |
+| 106 | 7: Combined skill courses | Waterfall ascent 4 | expedition |
+| 107 | 7: Combined skill courses | Flooded cave 4 | expedition |
+| 108 | 7: Combined skill courses | Ascending cave 4 | expedition |
+| 109 | 7: Combined skill courses | Turning catwalk 4 | expedition |
+| 110 | 7: Combined skill courses | Waterfall summit expedition 1 | expedition |
+| 111 | 7: Combined skill courses | Waterfall summit expedition 2 | expedition |
+| 112 | 7: Combined skill courses | Waterfall summit expedition 3 | expedition |
+| 113 | 7: Combined skill courses | Waterfall summit expedition 4 | expedition |
+| 114 | 7: Combined skill courses | Steep scree staircase | expedition |
+| 115 | 7: Combined skill courses | High woodland ridge traverse | expedition |
+| 116 | 7: Combined skill courses | Enter a ruined hilltop house | expedition |
+| 117 | 7: Combined skill courses | Basalt causeway over lava | expedition |
+| 118 | 7: Combined skill courses | Jump a lava fissure | expedition |
+| 119 | 8: Final gauntlets | Two doors and a narrow bridge | advanced |
+| 120 | 8: Final gauntlets | Door hurdle and magma trap | advanced |
+| 121 | 8: Final gauntlets | Advanced bridge door gauntlet | advanced |
+| 122 | 8: Final gauntlets | Three alternating magma detours | advanced |
+| 123 | 8: Final gauntlets | Two doors and a raised bridge | advanced |
+| 124 | 8: Final gauntlets | Three doors across mixed surfaces | advanced |
+| 125 | 8: Final gauntlets | Raised ice bridge survival gauntlet | advanced |
+| 126 | 8: Final gauntlets | Swimming basics 5 | expedition |
+| 127 | 8: Final gauntlets | Rock climbing steps 5 | expedition |
+| 128 | 8: Final gauntlets | Ladder ascent 5 | expedition |
+| 129 | 8: Final gauntlets | Cave navigation 5 | expedition |
+| 130 | 8: Final gauntlets | Elevated catwalk 5 | expedition |
+| 131 | 8: Final gauntlets | Waterfall ascent 5 | expedition |
+| 132 | 8: Final gauntlets | Flooded cave 5 | expedition |
+| 133 | 8: Final gauntlets | Ascending cave 5 | expedition |
+| 134 | 8: Final gauntlets | Turning catwalk 5 | expedition |
+| 135 | 8: Final gauntlets | Waterfall summit expedition 5 | expedition |
+| 136 | 8: Final gauntlets | Two lava fissures and rubble | expedition |
+| 137 | 8: Final gauntlets | Alpine ledge and abandoned cabin | expedition |
+| 138 | 8: Final gauntlets | Volcanic hillside ascent | expedition |
+| 139 | 8: Final gauntlets | Lava village escape route | expedition |
+| 140 | 8: Final gauntlets | Mountain village summit expedition | expedition |

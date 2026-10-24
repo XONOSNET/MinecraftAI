@@ -1,0 +1,182 @@
+[
+  {
+    "stage": 58,
+    "legacy_stage": 121,
+    "id": "meadow-foothill-trail",
+    "name": "Meadow foothill trail",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 80.125
+  },
+  {
+    "stage": 59,
+    "legacy_stage": 122,
+    "id": "woodland-roots-and-fallen-logs",
+    "name": "Woodland roots and fallen logs",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 73.5
+  },
+  {
+    "stage": 60,
+    "legacy_stage": 123,
+    "id": "eroded-hillside-switchback",
+    "name": "Eroded hillside switchback",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 136.5
+  },
+  {
+    "stage": 61,
+    "legacy_stage": 124,
+    "id": "pass-through-a-meadow-cottage",
+    "name": "Pass through a meadow cottage",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 72.875
+  },
+  {
+    "stage": 87,
+    "legacy_stage": 125,
+    "id": "rocky-gully-climb",
+    "name": "Rocky gully climb",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 96.0
+  },
+  {
+    "stage": 88,
+    "legacy_stage": 126,
+    "id": "creek-bank-stone-crossing",
+    "name": "Creek bank stone crossing",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 104.875
+  },
+  {
+    "stage": 89,
+    "legacy_stage": 127,
+    "id": "cross-a-two-house-hamlet",
+    "name": "Cross a two-house hamlet",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 136.75
+  },
+  {
+    "stage": 90,
+    "legacy_stage": 128,
+    "id": "climb-to-a-hillside-stone-house",
+    "name": "Climb to a hillside stone house",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 81.5
+  },
+  {
+    "stage": 91,
+    "legacy_stage": 129,
+    "id": "skirt-a-contained-lava-spring",
+    "name": "Skirt a contained lava spring",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 89.375
+  },
+  {
+    "stage": 92,
+    "legacy_stage": 130,
+    "id": "jump-a-rocky-ravine",
+    "name": "Jump a rocky ravine",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 89.125
+  },
+  {
+    "stage": 114,
+    "legacy_stage": 131,
+    "id": "steep-scree-staircase",
+    "name": "Steep scree staircase",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 90.125
+  },
+  {
+    "stage": 115,
+    "legacy_stage": 132,
+    "id": "high-woodland-ridge-traverse",
+    "name": "High woodland ridge traverse",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 108.875
+  },
+  {
+    "stage": 116,
+    "legacy_stage": 133,
+    "id": "enter-a-ruined-hilltop-house",
+    "name": "Enter a ruined hilltop house",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 73.875
+  },
+  {
+    "stage": 117,
+    "legacy_stage": 134,
+    "id": "basalt-causeway-over-lava",
+    "name": "Basalt causeway over lava",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 91.625
+  },
+  {
+    "stage": 118,
+    "legacy_stage": 135,
+    "id": "jump-a-lava-fissure",
+    "name": "Jump a lava fissure",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 83.5
+  },
+  {
+    "stage": 136,
+    "legacy_stage": 136,
+    "id": "two-lava-fissures-and-rubble",
+    "name": "Two lava fissures and rubble",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 63.0
+  },
+  {
+    "stage": 137,
+    "legacy_stage": 137,
+    "id": "alpine-ledge-and-abandoned-cabin",
+    "name": "Alpine ledge and abandoned cabin",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 97.125
+  },
+  {
+    "stage": 138,
+    "legacy_stage": 138,
+    "id": "volcanic-hillside-ascent",
+    "name": "Volcanic hillside ascent",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 78.25
+  },
+  {
+    "stage": 139,
+    "legacy_stage": 139,
+    "id": "lava-village-escape-route",
+    "name": "Lava village escape route",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 113.125
+  },
+  {
+    "stage": 140,
+    "legacy_stage": 140,
+    "id": "mountain-village-summit-expedition",
+    "name": "Mountain village summit expedition",
+    "passed": 8,
+    "total": 8,
+    "mean_steps": 96.125
+  }
+]

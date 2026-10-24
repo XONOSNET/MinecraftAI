@@ -3,6 +3,7 @@ import math
 import random
 from .config import AGENT_COUNT, LANE_END, is_agent
 from .advanced import ADVANCED_STAGES, layout as advanced_layout
+from .realistic import REALISTIC_STAGES, spec as realistic_spec
 from .expeditions import EXPEDITION_STAGES, spec as expedition_spec
 from .terrain import TERRAIN_STAGES, layout as terrain_layout
 
@@ -39,6 +40,7 @@ EXTRA_STAGES=[
 EXTRA_STAGES.extend(TERRAIN_STAGES)
 EXTRA_STAGES.extend(ADVANCED_STAGES)
 EXTRA_STAGES.extend(EXPEDITION_STAGES)
+EXTRA_STAGES.extend(REALISTIC_STAGES)
 for stage in EXTRA_STAGES:
     stage.update(threshold=.8)
     if stage['skill']=='nutrition':stage['examples_per_cycle']=150
@@ -46,6 +48,7 @@ SKILLS=['navigation','traversal','hazards','exploration','gathering','nutrition'
 
 def task_spec(stage,seed,index,evaluation):
     if not 0<=index<AGENT_COUNT:raise ValueError('Unknown practice lane')
+    if stage.get('expedition')=='realistic':return realistic_spec(stage,seed,index,evaluation)
     if stage['task']=='expedition':return expedition_spec(stage,seed,index,evaluation)
     rng=random.Random(seed);center=480 if evaluation else 320;z=index*12
     x=center+rng.randint(-3,3);difficulty=stage['difficulty'];kind=stage['task']
@@ -124,7 +127,7 @@ def reset_commands(task,name):
 
 def task_success(task,metrics):
     if task['kind']=='expedition':
-        return metrics.get('health',0)>=18 and metrics.get('inside',False) and abs(metrics.get('y',0)-task['goal'][1])<1.5 and metrics.get('distance_3d',999)<1.5 and metrics.get('checkpoints',0)>=len(task['waypoints'])-1 and metrics.get('hazard_contacts',0)==0 and (not task['allow_water'] or metrics.get('water_steps',0)>0)
+        return metrics.get('jumps',0)>=task.get('required_jumps',0) and metrics.get('health',0)>=18 and metrics.get('inside',False) and abs(metrics.get('y',0)-task['goal'][1])<1.5 and metrics.get('distance_3d',999)<1.5 and metrics.get('checkpoints',0)>=len(task['waypoints'])-1 and metrics.get('hazard_contacts',0)==0 and (not task['allow_water'] or metrics.get('water_steps',0)>0)
     if metrics.get('health',0)<=0 or not metrics.get('inside',False) or abs(metrics.get('y',0)-181)>1.5:return False
     kind=task['kind']
     if kind=='gather':return metrics.get('wood',0)>=task['wood_target']
