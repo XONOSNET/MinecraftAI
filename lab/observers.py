@@ -251,7 +251,7 @@ class Observers:
             if previous==row:continue
             holder=f'lab_row_{index}'
             self.command(f'scoreboard players set {holder} lab_bots {100-index}')
-            self.command(f'scoreboard players display name {holder} lab_bots '+json.dumps({'text':row}))
+            self.command(f'scoreboard players display name {holder} lab_bots '+json.dumps({'text':a.get('display_name') or name,'color':'aqua','extra':[{'text':': '+activity,'color':'white'}]}))
             self.roster_rows[name]=row
     def release(self,s,online,mode_restore=True):
         self.clear_hud(s)

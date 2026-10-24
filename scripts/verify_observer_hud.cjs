@@ -11,6 +11,7 @@ const visibleBars=new Set();bot._client.on('boss_bar',p=>{packets.push(p);const 
 assert.equal([...scores].filter(n=>/^lab_row_[0-9]+$/.test(n)).length,8,'all eight bot rows received');
 assert.ok(rowLabels.every(p=>!p.includes('A0001')&&!p.includes(' D0')&&!/~[0-9]+s/.test(p)),'compact rows omit serials, death counters and reset timers');
 assert.ok(rowLabels.some(p=>Object.values(status.agents).some(a=>a.display_name&&p.includes(a.display_name))),'generated names appear in native row labels');
+assert.ok(rowLabels.some(p=>p.includes('aqua')&&p.includes('white')),'native rows color the single name blue and action white');
 assert.ok(rosterPackets.some(n=>n.includes('objective')),'native right sidebar received');
 assert.ok(cameraMoves>=20,'camera moves at higher cadence: '+cameraMoves);
 assert.ok(packets.filter(p=>p.action===0).length>=3,'stage, trial and phase bars received');assert.ok(packets.some(p=>JSON.stringify(p).includes('Stage ')&&JSON.stringify(p).includes(' of '+status.curriculum.stages.length)),'curriculum stage header received');assert.ok(visibleBars.size>=2,'stage and task bars remain visible');if(status.practice&&!status.curriculum.enabled&&status.mode==='heuristic'){assert.ok(packets.some(p=>JSON.stringify(p).includes('Teacher reference | Stage '+(status.practice.stage+1)+' of ')),'header follows live reference course');}

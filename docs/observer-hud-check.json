@@ -1,7 +1,7 @@
 {
-  "bossbars_added": 3,
-  "updates": 5,
-  "removed": 3,
+  "bossbars_added": 4,
+  "updates": 1,
+  "removed": 4,
   "bot_rows": [
     "lab_row_0",
     "lab_row_2",
@@ -18,6 +18,6 @@
     "scoreboard_display_objective",
     "scoreboard_score"
   ],
-  "camera_teleports": 60,
+  "camera_teleports": 78,
   "passed": true
 }
