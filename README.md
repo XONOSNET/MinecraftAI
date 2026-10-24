@@ -144,3 +144,9 @@ Run `./scripts/Enable-LabAutostart.ps1` once. A per-user Windows Startup shortcu
 `Stop-Lab.ps1` marks a deliberate shutdown so recovery leaves it stopped. `Start-Lab.ps1` clears that marker. A dashboard Stop server operation is also respected. Training safety pauses remain separate: service recovery does not automatically resume learning. `Disable-LabAutostart.ps1` removes both startup entries and stops only the supervisor, leaving running services alone. Supervisor diagnostics are in `logs/watchdog.log`.
 
 Startup requires Windows sign-in, and recovery requires the PC to remain awake. A live but unresponsive service is preserved to avoid interrupting saves. If the dashboard dies while Minecraft survives, the supervisor requests an in-game `/stop` in its log rather than force-killing the world; it starts the lab after that safe shutdown.
+
+## Bot names and active camera cycling
+
+Bots receive unique generated display names stored in `agent_identity` in the lab database. Names survive death, respawn, new trials, curriculum rounds and restarts. Internal LabAI account identifiers remain stable for training history and commands; vanilla name tags show the generated name as a team prefix. Dashboard lists, camera selectors, bot cards, in-game activity rows and personal camera bars use generated names.
+
+In Follow AI, **Follow active bots only** is checked by default and applies when **Cycle bots** is enabled. Finished bots leave the cycle pool after their full trial batch, rather than after each individual trial. The camera switches immediately if its bot finishes and another eligible bot is available. When none remain it holds its current target, including when Next AI / Space is pressed. Bots become eligible again on new trials; teacher collection remains eligible. Uncheck the option and click Follow / change view to cycle all online bots.

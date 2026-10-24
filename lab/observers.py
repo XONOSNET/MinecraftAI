@@ -5,19 +5,19 @@ import math
 import re
 import time
 from pathlib import Path
-from .config import is_agent
+from .config import is_agent, EPISODES_PER_AGENT
 
 VIEWS=('first_person','trail','side','overhead','orbit','action','stationary','cycle')
 DIMENSIONS=('minecraft:overworld','minecraft:the_nether','minecraft:the_end')
 MODES=('survival','creative','adventure','spectator')
 
-def observer_progress(state,stages,mode,practice,job,episodes):
+def observer_progress(state,stages,mode,practice,job,episodes,run=None):
     stage=state['stage'];label=(f"Review {state.get('round',0)}" if state.get('round') else '')
     if not state.get('enabled'):
         label='Paused'
         if practice and mode in ('heuristic','evaluate'):
             stage=practice['stage'];label='Teacher reference' if mode=='heuristic' else 'Policy practice'
-    return {'label':label,'round':state.get('round',0),'stage':stage+1,'stages':len(stages),
+    return {'run':run,'mode':mode,'label':label,'round':state.get('round',0),'stage':stage+1,'stages':len(stages),
             'stage_name':stages[stage]['name'],'job':job,'phase':state.get('phase'),
             'examples':state.get('collected',0),'target':stages[stage].get('examples_per_cycle',state['examples_per_cycle']),'episodes':episodes}
 
@@ -77,9 +77,9 @@ def camera_spawn(owner,target,tag,view,distance,height,elapsed,heading=0):
 
 class Observers:
     def __init__(self,path,command,clock=time.time,settle_delay=.8):
-        self.path=Path(path);self.command=command;self.clock=clock;self.settle_delay=settle_delay;self.sessions={}
+        self.path=Path(path);self.command=command;self.clock=clock;self.settle_delay=settle_delay;self.sessions={};self.progress_context={};self.camera_mode='paused'
         if self.path.exists():self.sessions=json.loads(self.path.read_text(encoding='utf-8'))
-        for s in self.sessions.values():s.update(hud_ready=False,hud_at=None,attached=False,attach_ready_at=None,camera_created=False,status='waiting',message='Waiting for Minecraft and your player to reconnect.')
+        for s in self.sessions.values():s.setdefault('active_only',True);s.update(hud_ready=False,hud_at=None,attached=False,attach_ready_at=None,camera_created=False,status='waiting',message='Waiting for Minecraft and your player to reconnect.')
     def save(self):
         self.path.parent.mkdir(parents=True,exist_ok=True);tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps(self.sessions,indent=2),encoding='utf-8');tmp.replace(self.path)
     def snapshot(self):return {'views':list(VIEWS),'sessions':copy.deepcopy(list(self.sessions.values()))}
@@ -94,22 +94,41 @@ class Observers:
         if not math.isfinite(distance) or not 3<=distance<=16 or not math.isfinite(height) or not 2<=height<=12:raise ValueError('Camera distance must be 3â€“16 blocks and height 2â€“12')
         cycle_enabled=request.get('cycle_enabled',view=='cycle')
         if type(cycle_enabled) is not bool:raise ValueError('Cycle bots must be enabled or disabled')
+        active_only=request.get('active_only',True)
+        if type(active_only) is not bool:raise ValueError('Follow active bots only must be enabled or disabled')
         try:cycle_seconds=float(request.get('cycle_seconds',30))
         except (TypeError,ValueError):raise ValueError('Cycle interval must be 5-3600 seconds')
         if not math.isfinite(cycle_seconds) or not 5<=cycle_seconds<=3600:raise ValueError('Cycle interval must be 5-3600 seconds')
         s=self.sessions.get(owner,{'player':owner,'saved_mode':None,'return_created':False})
-        s.update(cycle_enabled=cycle_enabled,cycle_seconds=cycle_seconds,cycle_at=self.clock()+cycle_seconds,enabled=True,target=target,view='trail' if view=='cycle' else view,distance=distance,height=height,attached=False,attach_ready_at=None,
+        s.update(active_only=active_only,cycle_waiting=False,cycle_enabled=cycle_enabled,cycle_seconds=cycle_seconds,cycle_at=self.clock()+cycle_seconds,enabled=True,target=target,view='trail' if view=='cycle' else view,distance=distance,height=height,attached=False,attach_ready_at=None,
                  camera_created=False,status='waiting',message='Waiting for your player and the selected bot. Follow will start automatically when both are online.',started_at=self.clock())
         self.sessions[owner]=s;self.save();return copy.deepcopy(s)
     def next_bot(self,owner,agents):
         owner=player_name(owner)
         s=next((v for k,v in self.sessions.items() if k.casefold()==owner.casefold()),None)
         if not s or not s.get('enabled') or not s.get('cycle_enabled'):raise ValueError('Enable Cycle bots before using Next AI')
-        available=sorted(n for n,a in agents.items() if is_agent(n) and a.get('connected') and self.clock()-a.get('last_seen',0)<8 and a.get('health',20)>0)
-        if not available:raise ValueError('No AI bots are online')
-        index=available.index(s['target']) if s['target'] in available else -1
-        s.update(target=available[(index+1)%len(available)],attached=False,attach_ready_at=None,cycle_at=self.clock()+s.get('cycle_seconds',30))
+        self.cycle_target(s,agents)
         self.save();return copy.deepcopy(s)
+    def cycle_candidates(self,s,agents):
+        context=self.progress_context
+        available=[]
+        for name,agent in sorted(agents.items()):
+            if not is_agent(name) or not agent.get('connected') or self.clock()-agent.get('last_seen',0)>=8 or agent.get('health',20)<=0:continue
+            if s.get('active_only',True) and self.camera_mode!='teacher':
+                # Counts belong to a run, never permanently to a bot or stage.
+                if context.get('run') and agent.get('run')!=context['run']:continue
+                if agent.get('trial_completed',0)>=context.get('episodes',EPISODES_PER_AGENT):continue
+            available.append(name)
+        return available
+    def cycle_target(self,s,agents):
+        available=self.cycle_candidates(s,agents)
+        s.update(cycle_waiting=not bool(available),cycle_at=self.clock()+s.get('cycle_seconds',30))
+        if not available:
+            s['message']='No active bots remain; holding the current camera until trials resume.'
+            return
+        index=available.index(s['target']) if s['target'] in available else -1
+        target=available[(index+1)%len(available)]
+        if target!=s['target']:s.update(target=target,attached=False,attach_ready_at=None)
     def tags(self,s):
         suffix=s['player'].lower();return 'lab_camera_'+suffix,'lab_return_'+suffix
     def kill_camera(self,s):
@@ -124,6 +143,7 @@ class Observers:
         now=self.clock()
         if s.get('hud_at') is not None and now-s['hud_at']<1:return
         s['hud_at']=now
+        display_name=agent.get('display_name') or s['target']
         owner=s['player'];prefix=f'lab:observer_{owner.lower()}'
         labels=('Moving forward','Turning left','Turning right','Jumping forward','Waiting','Gathering wood','Eating')
         action=agent.get('action',4)
@@ -136,7 +156,7 @@ class Observers:
         elif mode=='paused':activity=getattr(self,'pause_reason','Movement paused')
         elif s.get('status')!='following':activity=s.get('status','waiting').replace('_',' ')
         health=max(0,min(20,round(agent.get('health',0))))
-        lines={'task':f"{s['target']} | {agent.get('simulation','Waiting')} | {controller}",
+        lines={'task':f"{display_name} | {agent.get('simulation','Waiting')} | {controller}",
                'state':f"{activity} | HP {health}/20 | Food {agent.get('food',0):.0f}/20"}
         position=agent.get('position');goal=agent.get('goal')
         if fresh and position and goal:
@@ -155,14 +175,14 @@ class Observers:
         trial=min(total,completed+1)
         if mode in ('evaluate','untrained','random','heuristic') and completed>=total:activity='Trials finished; waiting for other bots'
         if context and mode in ('evaluate','untrained','random','heuristic'):
-            lines['task']=f"{s['target']} | Trial {trial}/{total} | {total-completed} left"
+            lines['task']=f"{display_name} | Trial {trial}/{total} | {total-completed} left"
             lines['state']=f"Route {route_progress}% | {activity}"
             if position and goal:lines['state']+=f" | Goal {math.dist(position,goal):.1f} blocks"
             if completed>=total:route_visible=False
             progress=round(100*completed/total)
         elif mode=='teacher':
             count=context.get('examples',0);target=max(1,context.get('target',1500))
-            lines['task']=f"{s['target']} | Demo {agent.get('trial',1)} | Examples {count}/{target}"
+            lines['task']=f"{display_name} | Demo {agent.get('trial',1)} | Examples {count}/{target}"
             lines['state']=f"Route {route_progress}% | {activity}"
             progress=min(100,round(100*count/target))
         else:lines['task']+=' | Route progress'
@@ -171,7 +191,7 @@ class Observers:
             lines['task']=f"Training pass {epoch}/{epochs} | {max(0,epochs-epoch)} left"
             lines['state']=f"{job.get('phase','Preparing').title()} | {job.get('samples',0):,} examples | {job.get('percent',0):.0f}%"
             progress=round(job.get('percent',0))
-        if mode=='paused' and job.get('status') not in ('running','cancelling'):lines['task']=f"{s['target']} | Paused";lines['state']=activity[:95]
+        if mode=='paused' and job.get('status') not in ('running','cancelling'):lines['task']=f"{display_name} | Paused";lines['state']=activity[:95]
         if fresh and mode!='paused' and agent.get('reset_seconds') is not None:
             lines['state']+=f" | Reset ~{agent['reset_seconds']}s ({agent.get('reset_steps_left',0)} steps left)"
         if not fresh:lines['state']='Waiting for bot telemetry';progress=0
@@ -190,6 +210,17 @@ class Observers:
             self.command(f'bossbar set {key} players {owner}')
             if suffix=='state':self.command(f'bossbar set {key} visible '+str(route_visible and job.get('status') not in ('running','cancelling')).lower())
         s['hud_ready']=True
+    def update_names(self,agents):
+        if not hasattr(self,'name_tags'):self.name_tags={}
+        for name,agent in agents.items():
+            display=agent.get('display_name')
+            if not is_agent(name) or not isinstance(display,str) or not re.fullmatch('[A-Za-z]{3,16}',display):continue
+            if not agent.get('connected') or self.name_tags.get(name)==(display,agent.get('entity_id')):continue
+            team='lab_name_'+name[5:]
+            self.command(f'team add {team}')
+            self.command(f'team modify {team} prefix '+json.dumps({'text':display+' · ','color':'aqua'}))
+            self.command(f'team join {team} {name}')
+            self.name_tags[name]=(display,agent.get('entity_id'))
     def update_roster(self,online,agents,mode):
         now=self.clock()
         if now-getattr(self,'roster_at',-100)<1:return
@@ -216,7 +247,7 @@ class Observers:
             if a.get('skill')=='expedition' and fresh and mode!='paused' and action in (3,5,6):activity={3:'Swim / climb',5:'Ascend',6:'Descend'}[action]
             if a.get('skill')=='advanced' and action==5:activity='Open door'
             if mode in ('evaluate','untrained','random','heuristic') and a.get('trial_completed',0)>=getattr(self,'progress_context',{}).get('episodes',3):activity='Done; waiting'
-            row=f"{name}: {activity}"
+            row=f"{a.get('display_name') or name}: {activity}"
             previous=self.roster_rows.get(name)
             if previous==row:continue
             self.command(f'scoreboard players set {name} lab_bots {100-index}')
@@ -255,7 +286,9 @@ class Observers:
     def tick(self,online,states,agents,ready,mode='paused',pause_reason='Movement paused',progress_context=None):
         if not ready:return
         self.progress_context=progress_context or {}
+        self.camera_mode=mode
         self.pause_reason=pause_reason
+        self.update_names(agents)
         self.update_roster(online,agents,mode)
         for s in self.sessions.values():
             owner=s['player']
@@ -265,11 +298,10 @@ class Observers:
             if owner not in online:
                 if s.get('hud_ready'):self.clear_hud(s)
                 s.update(attached=False,attach_ready_at=None,status='waiting_player',message='Join Minecraft to start or resume following.');continue
-            if s.get('cycle_enabled') and self.clock()>=s.get('cycle_at',0):
-                available=sorted(n for n,a in agents.items() if is_agent(n) and a.get('connected') and self.clock()-a.get('last_seen',0)<8 and a.get('health',20)>0)
-                if available:
-                    current=available.index(s['target']) if s['target'] in available else -1
-                    s.update(target=available[(current+1)%len(available)],attached=False,attach_ready_at=None,cycle_at=self.clock()+s.get('cycle_seconds',30))
+            if s.get('cycle_enabled'):
+                available=self.cycle_candidates(s,agents)
+                if s.get('cycle_waiting') or self.clock()>=s.get('cycle_at',0) or (s.get('active_only',True) and s['target'] not in available):
+                    self.cycle_target(s,agents)
             target=s['target'];agent=agents.get(target,{})
             if not agent.get('connected',False) or self.clock()-agent.get('last_seen',0)>8 or agent.get('health',20)<=0:
                 s.update(attached=False,attach_ready_at=None,status='waiting_target',message=f'Waiting for {target} to connect or respawn.')
@@ -332,4 +364,5 @@ class Observers:
             if s['view']=='action':
                 s['camera_shot']=action_pose(s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0))[3]
                 s['message']=f"Action camera: {s['camera_shot']}. Smooth automatic shots follow {target} between simulations."
+            if s.get('cycle_enabled') and s.get('cycle_waiting'):s['message']+=' No active bots remain; holding this bot until trials resume.'
             self.update_hud(s,agent,mode)

@@ -307,3 +307,58 @@ def test_action_camera_is_continuous_bounded_and_cycles_all_shots():
     for boundary in range(12,193,12):
         a=action_pose(7,4,boundary-.001)[:3];b=action_pose(7,4,boundary+.001)[:3]
         assert math.dist(a,b)<.001
+
+def test_active_cycle_skips_finished_and_holds_last_bot(tmp_path):
+    now=[100.];o=Observers(tmp_path/'camera',lambda c:None,lambda:now[0],settle_delay=0)
+    s=o.start({'player':'Xonosnet','target':'LabAI0','cycle_enabled':True},['Xonosnet'])
+    assert s['active_only'] is True
+    agents={f'LabAI{i}':dict(connected=True,last_seen=100,entity_id=i+1,trial_completed=0,run='one') for i in range(3)}
+    def tick():
+        for a in agents.values():a['last_seen']=now[0]
+        o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':now[0]}},agents,True,'evaluate',progress_context={'run':'one','episodes':3})
+    tick();agents['LabAI0']['trial_completed']=3
+    now[0]+=1;tick()
+    assert o.sessions['Xonosnet']['target']=='LabAI1'  # no 30-second wait after finishing
+    agents['LabAI1']['trial_completed']=3;now[0]+=1;tick()
+    s=o.sessions['Xonosnet'];assert s['target']=='LabAI2'
+    s['attached']=True
+    agents['LabAI2']['trial_completed']=3;now[0]+=31;tick()
+    assert s['target']=='LabAI2' and s['cycle_waiting'] and s['attached']
+    assert o.next_bot('Xonosnet',agents)['target']=='LabAI2'  # Space also holds
+    agents['LabAI0']['trial_completed']=0;now[0]+=1;tick()
+    assert s['target']=='LabAI0' and not s['cycle_waiting']
+
+
+def test_cycle_single_candidate_keeps_camera_attachment(tmp_path):
+    o=Observers(tmp_path/'camera',lambda c:None,lambda:100)
+    o.start({'player':'Xonosnet','target':'LabAI0','cycle_enabled':True},['Xonosnet'])
+    s=o.sessions['Xonosnet'];s['attached']=True
+    o.progress_context={'episodes':1,'run':'test'};o.camera_mode='evaluate'
+    agents={'LabAI0':dict(connected=True,last_seen=100,run='test',trial_completed=0)}
+    o.next_bot('Xonosnet',agents)
+    assert s['attached'] and s['target']=='LabAI0'
+    agents['LabAI0']['trial_completed']=1
+    assert not o.cycle_candidates(s,agents)
+
+
+def test_active_filter_opt_out_and_teacher_collection(tmp_path):
+    o=Observers(tmp_path/'camera',lambda c:None,lambda:100)
+    o.start({'player':'Xonosnet','target':'LabAI0','cycle_enabled':True,'active_only':False},['Xonosnet'])
+    s=o.sessions['Xonosnet'];o.progress_context={'episodes':1}
+    agents={'LabAI0':dict(connected=True,last_seen=100,trial_completed=1)}
+    assert o.cycle_candidates(s,agents)==['LabAI0']
+    s['active_only']=True
+    assert not o.cycle_candidates(s,agents)
+    o.camera_mode='teacher'
+    assert o.cycle_candidates(s,agents)==['LabAI0']
+    with pytest.raises(ValueError):o.start({'player':'Xonosnet','target':'LabAI0','active_only':'yes'},['Xonosnet'])
+
+
+def test_active_filter_ignores_old_run_and_rejoins_new_run(tmp_path):
+    o=Observers(tmp_path/'camera',lambda c:None,lambda:100)
+    o.start({'player':'Xonosnet','target':'LabAI0','cycle_enabled':True},['Xonosnet'])
+    o.progress_context={'run':'new','episodes':3};o.camera_mode='evaluate'
+    agents={'LabAI0':dict(connected=True,last_seen=100,run='old',trial_completed=0)}
+    assert not o.cycle_candidates(o.sessions['Xonosnet'],agents)
+    agents['LabAI0']['run']='new'
+    assert o.cycle_candidates(o.sessions['Xonosnet'],agents)==['LabAI0']
