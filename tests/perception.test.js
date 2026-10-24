@@ -34,3 +34,19 @@ test('doorway descent accepts one-block supported landings and rejects deep or h
  b.blockAt=p=>{const q=p.floored();return q.y<=-1?solid(q):{position:q,name:'air',boundingBox:'empty',shapes:[]};};assert.equal(proximity(b).canStepDown(0),false);
  b.blockAt=p=>{const q=p.floored();return q.y===0?{position:q,name:'lava',boundingBox:'empty',shapes:[]}:at(p);};assert.equal(proximity(b).canStepDown(0),false);
 });
+
+test('walking support follows soul sand, slabs and small upward transitions',()=>{
+ const {w,data}=scene();for(let x=-2;x<=2;x++)for(let z=-4;z<=2;z++)w.setBlockStateId(new Vec3(x,63,z),data.blocksByName.soul_sand.defaultState);
+ const b={entity:{position:new Vec3(.5,63.875,.5),yaw:0,pitch:0,onGround:true},world:w,blockAt:p=>w.getBlock(p)};
+ assert.equal(proximity(b).canWalk(0),true,'soul sand supports crouched walking');
+ for(let x=-2;x<=2;x++)for(let z=-4;z<0;z++)w.setBlockStateId(new Vec3(x,63,z),data.blocksByName.stone.defaultState);
+ assert.equal(proximity(b).canWalk(0,.65),true,'the 1/8-block step from soul sand to stone is walkable');
+ const slab=data.blocksByName.stone_slab.defaultState;for(let x=-2;x<=2;x++)for(let z=-4;z<=2;z++)w.setBlockStateId(new Vec3(x,63,z),slab);
+ const top=w.getBlock(new Vec3(0,63,0)).shapes[0][4];b.entity.position=new Vec3(.5,63+top,.5);
+ assert.equal(proximity(b).canWalk(0),true,'slab collision surface supports walking');
+});
+
+test('crouched clearance uses the actual short body below a low ceiling',()=>{
+ const b=botFor(p=>p.y===2?solid(p,[[0,.5,0,1,1,1]]):null);
+ assert.equal(proximity(b).canWalk(0,.35),false);assert.equal(proximity(b).canWalk(0,.35,1.49),true);
+});

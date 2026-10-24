@@ -46,3 +46,13 @@ The bridge ends one block above the second doorway's landing. The doorway motor'
 Door-frame snags can now be corrected sideways while retaining the original crossing side. Short centering movements probe only their actual target distance so the opposite jamb does not incorrectly block a small correction. No stage geometry, success criteria, promotion threshold or model dimensions were changed. Native three-trial-per-bot teacher and policy results are in locomotion-stage123-final-teacher.json and locomotion-stage123-final-student.json.
 
 Validation: 62 Node tests passed. The final native policy test passed 24/24 stage-123 trials; the teacher reference passed 23/24. After resuming, the curriculum passed its normal two review gates and automatically promoted to stage 124 (Three doors across mixed surfaces) with all eight bots connected. See stage123-promotion.json.
+
+## Stage 125: collision-surface support
+
+The soul-sand approach places the bots' feet at Y=180.875. The previous support check required a block shape ending at height 1, so it incorrectly held every bot crouched before the first door. Support queries now resolve the actual collision surface at all four footprint corners. They allow normal small steps up to the simulator's 0.6-block step height and conservative small descents; the existing lower-door exception still permits a checked one-block landing. Body clearance is evaluated at the resulting support height. Doorway queries use the crouched body height; ordinary recovery continues to require standing clearance. Hazard checks span the landing and body corridor, and missing support/chunks reject movement.
+
+Unit regressions use real 1.21.4 soul-sand, stone and slab collision shapes, plus low-ceiling, deep-drop, fire and lava checks. Models, observation dimensions, stage layout, success criteria and promotion thresholds were preserved. Native teacher/policy results are in locomotion-stage125-teacher.json and locomotion-stage125-student.json; ordinary-door and stage-123 regressions are in locomotion-collision-surfaces-student.json.
+
+Validation for collision-surface support: 64 Node tests passed. Stage 125 policy trials passed 24/24, teacher references passed 23/24, and ordinary-door/stage-123 regressions passed 16/16. Automatic training resumed under the existing review and promotion rules.
+
+After its automatic refresher, the curriculum passed both normal stage-125 review gates and promoted to stage 126 with all eight bots connected. See stage125-promotion.json.

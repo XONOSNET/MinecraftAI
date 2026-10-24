@@ -1,0 +1,14 @@
+[
+  {
+    "course": "Raised ice bridge survival gauntlet",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-124-1792860940-v10",
+    "mean_seconds": 15.606674166666666,
+    "passed": 23,
+    "total": 24,
+    "seconds": 72.86,
+    "mean_steps": 87.83333333333333,
+    "moving_fraction": 0.776
+  }
+]

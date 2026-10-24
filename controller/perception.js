@@ -4,46 +4,52 @@ function proximity(bot,{goalYaw=null}={}){
  const blockAt=bot.blockAt?point=>bot.blockAt(point):bot.world?.getBlock?point=>bot.world.getBlock(point):()=>null;
  const p=bot.entity.position,yaw=bot.entity.yaw,f=new Vec3(-Math.sin(yaw),0,-Math.cos(yaw));
  // Collision boxes distinguish a crouch-sized opening from an ordinary solid wall.
- function blocked(distance,height,bottom=.05,direction=f){
+ function blocked(distance,height,bottom=.05,direction=f,baseY=p.y){
   const c=p.plus(direction.scaled(distance));
   for(let x=Math.floor(c.x-.29);x<=Math.floor(c.x+.29);x++)for(let z=Math.floor(c.z-.29);z<=Math.floor(c.z+.29);z++)
-   for(let y=Math.floor(p.y+.05);y<=Math.floor(p.y+height);y++){
+   for(let y=Math.floor(baseY+.05);y<=Math.floor(baseY+height);y++){
     const b=blockAt(new Vec3(x,y,z));if(!b)return true;
     const shapes=b.shapes||(b.boundingBox==='block'?[[0,0,0,1,1,1]]:[]);
-    if(shapes.some(a=>x+a[0]<c.x+.29&&x+a[3]>c.x-.29&&z+a[2]<c.z+.29&&z+a[5]>c.z-.29&&y+a[1]<p.y+height&&y+a[4]>p.y+bottom))return true;
+    if(shapes.some(a=>x+a[0]<c.x+.29&&x+a[3]>c.x-.29&&z+a[2]<c.z+.29&&z+a[5]>c.z-.29&&y+a[1]<baseY+height&&y+a[4]>baseY+bottom))return true;
    }
   return false;
  }
  const distances=[.35,.65,.95],standing=distances.some(d=>blocked(d,1.79)),crouched=distances.some(d=>blocked(d,1.49));
  const rearSafe=[0,-.4,-.8].every(d=>{const c=p.plus(f.scaled(d));const ground=blockAt(c.offset(0,-.15,0));return ground&&ground.boundingBox==='block'&&!HAZARDS.has(ground.name)&&!blocked(d,1.79);});
  const wallAhead=standing&&crouched&&distances.some(d=>blocked(d,1.49,1.05));
- function clearance(offset,maxDrop=0,limit=2){
+ // Resolve real collision surfaces (soul sand, slabs, stairs), rather than
+ // assuming that support must end at an integer Y coordinate.
+ function supportAt(x,z,maxDrop){
+  const minY=p.y-maxDrop-.05,maxY=p.y+.6+.001;let best=null;
+  for(let y=Math.floor(maxY);y>=Math.floor(minY)-1;y--){
+   const block=blockAt(new Vec3(Math.floor(x),y,Math.floor(z)));
+   if(!block)return null;
+   if(HAZARDS.has(block.name))return null;
+   const at=block.position||new Vec3(Math.floor(x),y,Math.floor(z));
+   for(const a of block.shapes||(block.boundingBox==='block'?[[0,0,0,1,1,1]]:[])){
+    const top=at.y+a[4],lx=x-at.x,lz=z-at.z;
+    if(top>=minY&&top<=maxY&&lx>=a[0]&&lx<=a[3]&&lz>=a[2]&&lz<=a[5]&&(best===null||top>best))best=top;
+   }
+   if(best!==null)break;
+  }
+  return best;
+ }
+ function clearance(offset,maxDrop=.2,limit=2,height=1.79){
   if(bot.entity.isInWater||bot.entity.isInLava||bot.entity.onGround===false)return 0;
   const direction=new Vec3(-Math.sin(yaw+offset),0,-Math.cos(yaw+offset));let clear=0;
   for(const d of [...[.35,.65,.95,1.25,1.6,2].filter(d=>d<limit),limit]){
-   if(blocked(d,1.79,.05,direction))break;
-   // Check the entire support footprint, not just the centre of a narrow ledge.
-   const c=p.plus(direction.scaled(d));let supported=true;
+   const c=p.plus(direction.scaled(d)),supports=[];let supported=true;
    for(const x of [-.25,.25])for(const z of [-.25,.25]){
-    const ground=blockAt(c.offset(x,-.15,z));
-    const feet=blockAt(c.offset(x,.1,z));if(HAZARDS.has(feet?.name))supported=false;
-    const levelSupport=ground&&ground.boundingBox==='block'&&!HAZARDS.has(ground.name)&&ground.shapes?.some(a=>a[4]>=.99);
-    if(!levelSupport){
-     if(!maxDrop){supported=false;continue;}
-     let landing=false;
-     for(const depth of [.15,.65,1.15]){
-      const point=c.offset(x,-depth,z),block=blockAt(point);
-      if(!block||HAZARDS.has(block.name)){supported=false;break;}
-      const at=block.position||point.floored();
-      if(block.boundingBox==='block'&&block.shapes?.some(a=>{
-       const top=at.y+a[4],localX=point.x-at.x,localZ=point.z-at.z;
-       return top>=p.y-maxDrop-.05&&top<=p.y+.05&&localX>=a[0]&&localX<=a[3]&&localZ>=a[2]&&localZ<=a[5];
-      })){landing=true;break;}
-     }
-     if(!landing)supported=false;
-    }
-    // The fall corridor must also be free of contact hazards at landing height.
-    if(maxDrop&&HAZARDS.has(blockAt(c.offset(x,-.9,z))?.name))supported=false;
+    const top=supportAt(c.x+x,c.z+z,maxDrop);
+    if(top===null){supported=false;break;}supports.push(top);
+   }
+   if(!supported||supports.length!==4)break;
+   const floor=Math.max(...supports);
+   if(blocked(d,height,.05,direction,floor))break;
+   // Check the whole landing/fall corridor for contact hazards.
+   for(const x of [-.25,.25])for(const z of [-.25,.25])for(let y=Math.floor(Math.min(floor,p.y));y<=Math.floor(Math.max(floor,p.y)+height);y++){
+    const block=blockAt(new Vec3(Math.floor(c.x+x),y,Math.floor(c.z+z)));
+    if(!block||HAZARDS.has(block.name))supported=false;
    }
    if(!supported)break;clear=d;
   }
@@ -52,7 +58,7 @@ function proximity(bot,{goalYaw=null}={}){
  const forwardClearance=wallAhead||bot.labRecovering||bot.labAvoiding?clearance(0):null;
  const escapeRoutes=wallAhead||bot.labRecovering||bot.labAvoiding?[Math.PI/3,-Math.PI/3,Math.PI/2,-Math.PI/2,2*Math.PI/3,-2*Math.PI/3,Math.PI].map(offset=>({yaw:yaw+offset,offset,clearance:clearance(offset)})):[];
  return {wallAhead,crouchClearance:standing&&!crouched,rearSafe:rearSafe&&!bot.entity.isInWater&&!bot.entity.isInLava,
-  canWalk:(heading,minimum=.35)=>clearance(heading-yaw,0,minimum)>=minimum,canStepDown:(heading,minimum=.35)=>clearance(heading-yaw,1,minimum)>=minimum,escapeRoutes,forwardClearance,goalClearance:Number.isFinite(goalYaw)&&(wallAhead||bot.labRecovering||bot.labAvoiding)?clearance(goalYaw-yaw):null,escapeForwardSafe:forwardClearance!==null&&forwardClearance>=.65};
+  canWalk:(heading,minimum=.35,height=1.79)=>clearance(heading-yaw,.2,minimum,height)>=minimum,canStepDown:(heading,minimum=.35)=>clearance(heading-yaw,1,minimum)>=minimum,escapeRoutes,forwardClearance,goalClearance:Number.isFinite(goalYaw)&&(wallAhead||bot.labRecovering||bot.labAvoiding)?clearance(goalYaw-yaw):null,escapeForwardSafe:forwardClearance!==null&&forwardClearance>=.65};
 }
 function coneWidth(distance){return Math.PI/2+Math.PI/3*Math.max(0,Math.min(1,(5-distance)/4));}
 function scan(bot,{rays=256,range=16,hfov=Math.PI/2,vfov=Math.PI/3,goalYaw=null}={}) {

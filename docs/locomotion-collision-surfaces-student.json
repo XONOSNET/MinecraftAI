@@ -1,0 +1,26 @@
+[
+  {
+    "course": "Open a wooden door",
+    "driver": "student",
+    "seed": 20261024,
+    "run": "skilltest-17-1792861127-v10",
+    "mean_seconds": 10.016743474999998,
+    "passed": 8,
+    "total": 8,
+    "seconds": 12.31,
+    "mean_steps": 63.5,
+    "moving_fraction": 0.865
+  },
+  {
+    "course": "Two doors and a raised bridge",
+    "driver": "student",
+    "seed": 20261024,
+    "run": "skilltest-122-1792861139-v10",
+    "mean_seconds": 13.9937914375,
+    "passed": 8,
+    "total": 8,
+    "seconds": 21.27,
+    "mean_steps": 88.0,
+    "moving_fraction": 0.805
+  }
+]

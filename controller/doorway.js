@@ -20,7 +20,7 @@ function createDoorway(){
   let desired=Math.atan2(-dx,-dz);
   if(state.phase==='cross'&&state.open){
    if(lateral<.045)state.centering=false;
-   else if(lateral>.075&&typeof sensed.canWalk==='function'&&!sensed.canWalk(desired,.35))state.centering=true;
+   else if(lateral>.075&&typeof sensed.canWalk==='function'&&!sensed.canWalk(desired,.35,1.49))state.centering=true;
    if(state.centering){
     dx=state.axis==='x'?0:state.center-p.x;dz=state.axis==='z'?0:state.center-p.z;
     desired=Math.atan2(-dx,-dz);
@@ -33,7 +33,7 @@ function createDoorway(){
   // opposite approach point after crossing the door plane.
   if(error<.12&&Math.hypot(dx,dz)>(state.centering?.03:.06)){
    const probe=state.centering?Math.min(.35,Math.hypot(dx,dz)):.35;
-   if(typeof sensed.canWalk==='function'&&sensed.canWalk(desired,probe))plan.forward=true;
+   if(typeof sensed.canWalk==='function'&&sensed.canWalk(desired,probe,1.49))plan.forward=true;
    else if(p.y>state.y+.2&&p.y<=state.y+1.05&&typeof sensed.canStepDown==='function'&&sensed.canStepDown(desired,.35)){
     // Sneaking deliberately prevents walking off edges. Release it only for
     // a fully probed one-block landing on the way to this lower doorway.
