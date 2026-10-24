@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from .tasks import EXTRA_STAGES
 from .config import AGENT_COUNT
+from .trial_queue import TrialQueue
 
 LEGACY_STAGES=[{'name':'Short routes','min_distance':3,'max_distance':7,'yaw':.6},
         {'name':'Longer routes','min_distance':7,'max_distance':14,'yaw':1.5},
@@ -95,15 +96,16 @@ class Curriculum:
         if self.state.get('catalog_version',1)==10 and self.state['phase']=='completed':
             self.state.update(stage=140,phase='paused',streak=0,message='Ten combat stages are ready. Resume to learn equipment and monster fighting.')
         self.state.update(catalog_version=11,agent_count=AGENT_COUNT)
+        self.trials=TrialQueue(self,STAGES)
     def save(self):
         self.path.parent.mkdir(exist_ok=True,parents=True)
         tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps(self.state,indent=2),encoding='utf-8');tmp.replace(self.path)
     def snapshot(self):
-        s=copy.deepcopy(self.state);s['stages']=STAGES;s['stage_name']=STAGES[s['stage']]['name'];s['skill']=STAGES[s['stage']].get('skill','navigation');s['active_examples']=STAGES[s['stage']].get('examples_per_cycle',s['examples_per_cycle']);s['active_threshold']=STAGES[s['stage']].get('threshold',s['threshold']);return s
+        s=copy.deepcopy(self.state);s['stages']=STAGES;s['stage_name']=STAGES[s['stage']]['name'];s['skill']=STAGES[s['stage']].get('skill','navigation');s['active_examples']=STAGES[s['stage']].get('examples_per_cycle',s['examples_per_cycle']);s['active_threshold']=STAGES[s['stage']].get('threshold',s['threshold']);s['trials']=self.trials.snapshot();return s
     def start(self):
         s=self.state
         if s['enabled']:return self.snapshot()
-        if s['phase']=='completed':raise ValueError('All implemented curricula are complete. Review the results before adding further skills.')
+        if s['phase']=='completed' and not s['trial_queue']:raise ValueError('All implemented curricula are complete. Review the results before adding further skills.')
         self.h['pause']()
         s.update(enabled=True,phase='waiting',session_cycles=0,started_at=self.clock(),phase_at=self.clock(),message='Waiting for Minecraft and all configured bots.');self.save();return self.snapshot()
     def pause(self,reason='Autonomous training paused by you.'):
@@ -168,6 +170,7 @@ class Curriculum:
             if s['phase'] not in ('waiting','recovering'):return self.pause(problem+' Autonomous training paused safely.')
             if self.clock()-s['phase_at']>180:return self.pause(problem+' Startup timed out; resume when ready.')
             return
+        if self.trials.tick():return
         if s['phase'] in ('waiting','recovering'):
             if job['status'] in ('running','cancelling'):return
             if s.get('restore_pending'):return

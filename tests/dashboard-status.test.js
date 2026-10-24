@@ -29,3 +29,15 @@ test('combat activity respects missing telemetry, pauses, completion and action 
  assert.equal(describeBot({mode:'teacher'},a),'Attacking monster');
  a.trial_completed=3;assert.match(describeBot({mode:'evaluate'},a),/Trials finished/);
 });
+
+test('queued teacher and policy batches describe measurement rather than automatic training',()=>{
+ const s=status();s.curriculum.phase='queued_teacher';s.mode='teacher';
+ assert.equal(describe(s).title,'Running a queued teacher demonstration');assert.match(describe(s).copy,/does not update weights/);
+ s.curriculum.phase='queued_test';s.mode='evaluate';assert.equal(describe(s).title,'Running a queued neural test');
+});
+const trialFilterSource=html.slice(html.indexOf('function trialMatches('),html.indexOf('function showTrial('));
+const matchTrial=vm.runInNewContext(trialFilterSource+';trialMatches');
+test('catalogue search matches numbers and concrete mechanics while respecting skill filter',()=>{
+ const trial={number:49,name:'Three alternating wooden doors',skill:'advanced',tier_name:'Terrain',description:'Door course',details:['Door count: 3']};
+ assert.equal(matchTrial(trial,'49','advanced'),true);assert.equal(matchTrial(trial,'DOOR COUNT','advanced'),true);assert.equal(matchTrial(trial,'doors','combat'),false);
+});

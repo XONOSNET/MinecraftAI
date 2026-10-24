@@ -15,6 +15,7 @@ from .lan import LanBridge
 from .server_control import ServerControl
 from .minecraft_status import query_status
 from .admin import build_admin_command
+from .trial_catalogue import catalogue as describe_trials
 from .curriculum import Curriculum, STAGES, STAGES_V8, STAGES_V9, LEGACY_STAGES, sample_route, route_seed
 from .skills import SkillBank, SKILL_INPUTS, SKILL_ACTIONS
 from .tasks import task_spec, arena_commands, reset_commands, task_success, SKILLS, minecraft_yaw
@@ -403,7 +404,7 @@ def assignment(d:dict):
         rng=random.Random(8000+d['index']*1000+d['episode'])
         finished=db.execute('SELECT count(*) FROM episodes WHERE run=? AND agent=?',(run,d['agent'])).fetchone()[0]
         agents[d['agent']].update(trial=max(1,int(d.get('episode',0))),trial_completed=finished)
-        if mode in ('untrained','evaluate','random','heuristic') and finished>=trial_limit():return {'mode':'paused','run':run}
+        if (mode in ('untrained','evaluate','random','heuristic') or mode=='teacher' and curriculum.state.get('queued_active')) and finished>=trial_limit():return {'mode':'paused','run':run}
         center=80 if mode in ('untrained','evaluate','random','heuristic') else 0
         start=[center+rng.uniform(-10,10),181.1,rng.uniform(-10,10)]
         theta=rng.uniform(-math.pi,math.pi);goal=[center+rng.uniform(-10,10),181.1,rng.uniform(-10,10)]
@@ -668,7 +669,7 @@ def record_curriculum_result(result):
 curriculum=Curriculum('data/curriculum.json',{'pause':lambda:auto_mode('paused'),'cancel':training_jobs.cancel,
     'job':training_jobs.snapshot,'mode':auto_mode,'protect':auto_protect,'restore':auto_restore,
     'results':auto_results,'count':lambda:example_counter,'train':lambda:start_training(background=True),
-    'expected_episodes':lambda:EXPECTED_EPISODES,'health':auto_health,'recovery_health':lambda:auto_health(recovering=True),'prepare':auto_prepare,'event':record_curriculum_result})
+    'expected_episodes':lambda:EXPECTED_EPISODES,'health':auto_health,'recovery_health':lambda:auto_health(recovering=True),'prepare':auto_prepare,'event':record_curriculum_result,'queue_event':lambda row:event('queued_trial',row)})
 
 def curriculum_worker():
     while not shutting_down:
@@ -678,6 +679,30 @@ def curriculum_worker():
             with lock:
                 curriculum.pause('Autonomous training stopped: '+str(error));event('curriculum_error',{'error':str(error)})
         time.sleep(1)
+
+TRIAL_CATALOGUE=describe_trials(STAGES)
+
+@app.get('/trials')
+def trial_catalogue():
+    with lock:return {'catalogue':TRIAL_CATALOGUE,'trials':curriculum.trials.snapshot()}
+
+@app.post('/trials/queue',dependencies=[Depends(auth)])
+def queue_trial(d:dict):
+    with lock:
+        try:item=curriculum.trials.enqueue(d.get('stage_id'),d.get('driver','student'))
+        except ValueError as error:raise HTTPException(400,str(error))
+        return {'item':item,'trials':curriculum.trials.snapshot()}
+
+@app.post('/trials/queue/{action}',dependencies=[Depends(auth)])
+def change_trial_queue(action:str,d:dict):
+    with lock:
+        try:
+            if action=='remove':curriculum.trials.remove(d.get('id'))
+            elif action=='reorder':curriculum.trials.reorder(d.get('ids'))
+            elif action=='clear':curriculum.trials.clear()
+            else:raise ValueError('Unknown queue action')
+        except ValueError as error:raise HTTPException(400,str(error))
+        return {'trials':curriculum.trials.snapshot()}
 
 @app.post('/curricula/prepare',dependencies=[Depends(auth)])
 def prepare_practice():

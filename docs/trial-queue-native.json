@@ -1,0 +1,33 @@
+{
+  "catalogue_count": 150,
+  "returned_stage": 140,
+  "preserved_streak": 1,
+  "results": [
+    {
+      "id": "f1dc365a9db945df9f54efd25f0acd31",
+      "stage_id": "short-routes",
+      "stage": 0,
+      "name": "Short routes",
+      "driver": "student",
+      "queued_at": 1792881650.5717993,
+      "status": "completed",
+      "finished_at": 1792881666.5096066,
+      "run": "queued-f1dc365a9db945df9f54efd25f0acd31-1792881659098567600",
+      "episodes": 24,
+      "successes": 24
+    },
+    {
+      "id": "dbad3f08748a4819b83657087524583a",
+      "stage_id": "equip-a-wooden-sword",
+      "stage": 140,
+      "name": "Equip a wooden sword",
+      "driver": "teacher",
+      "queued_at": 1792881650.6503756,
+      "status": "completed",
+      "finished_at": 1792881673.4894576,
+      "run": "queued-dbad3f08748a4819b83657087524583a-1792881667568825900",
+      "episodes": 24,
+      "successes": 24
+    }
+  ]
+}

@@ -13,6 +13,7 @@ MODES=('survival','creative','adventure','spectator')
 
 def observer_progress(state,stages,mode,practice,job,episodes,run=None):
     stage=state['stage'];label=(f"Review {state.get('round',0)}" if state.get('round') else '')
+    if state.get('queued_active'):label='Queued teacher' if state['queued_active']['driver']=='teacher' else 'Queued test'
     if not state.get('enabled'):
         label='Paused'
         if practice and mode in ('heuristic','evaluate'):
@@ -177,8 +178,8 @@ class Observers:
         context=getattr(self,'progress_context',{});job=context.get('job',{})
         total=context.get('episodes',3);completed=min(total,agent.get('trial_completed',0))
         trial=min(total,completed+1)
-        if mode in ('evaluate','untrained','random','heuristic') and completed>=total:activity='Trials finished; waiting for other bots'
-        if context and mode in ('evaluate','untrained','random','heuristic'):
+        if (mode in ('evaluate','untrained','random','heuristic') or context.get('phase')=='queued_teacher') and completed>=total:activity='Trials finished; waiting for other bots'
+        if context and (mode in ('evaluate','untrained','random','heuristic') or context.get('phase')=='queued_teacher'):
             lines['task']=f"{display_name} | Trial {trial}/{total} | {total-completed} left"
             lines['state']=f"Route {route_progress}% | {activity}"
             if position and goal:lines['state']+=f" | Goal {math.dist(position,goal):.1f} blocks"
@@ -254,7 +255,7 @@ class Observers:
             if a.get('skill')=='advanced' and action==5:activity='Open door'
             if fresh and mode!='paused':activity={'Steering left while walking':'Walk + left','Steering right while walking':'Walk + right','Opening door while walking':'Walk + door','Wall ahead: checking escape':'Wall ahead','Reversing out of blocked position':'Reversing','Crouching under low clearance':'Crouching','Recovering: turning toward clear space':'Turn to escape','Recovering: moving around obstacle':'Detouring','Recovering: checking another exit':'Check exit','Recovering: no safe exit; waiting for reset':'No safe exit','Recovering: detour complete':'Detour done'}.get(a.get('activity'),activity)
             if mode=='paused' and getattr(self,'progress_context',{}).get('phase')=='health_wait':activity='Recovering'
-            if mode in ('evaluate','untrained','random','heuristic') and a.get('trial_completed',0)>=getattr(self,'progress_context',{}).get('episodes',3):activity='Done; waiting'
+            if (mode in ('evaluate','untrained','random','heuristic') or getattr(self,'progress_context',{}).get('phase')=='queued_teacher') and a.get('trial_completed',0)>=getattr(self,'progress_context',{}).get('episodes',3):activity='Done; waiting'
             row=f"{a.get('display_name') or name}: {activity}"
             previous=self.roster_rows.get(name)
             if previous==row:continue
