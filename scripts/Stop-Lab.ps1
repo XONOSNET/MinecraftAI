@@ -1,5 +1,7 @@
 $ErrorActionPreference='Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
+# Preserve an intentional shutdown while the supervisor keeps watching.
+'Stopped intentionally' | Set-Content data/lab-stopped
 $h=@{'X-Lab-Token'=(Get-Content data/api-token -Raw).Trim()}
 try{Invoke-RestMethod http://127.0.0.1:8000/control/shutdown -Method Post -Headers $h -ContentType application/json -Body '{}' -TimeoutSec 70|Out-Null}catch{Write-Warning $_}
 foreach($file in @('data/dashboard-lan.pid','data/bots.pid','data/service.pid')){

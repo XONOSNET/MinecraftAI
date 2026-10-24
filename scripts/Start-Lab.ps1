@@ -1,7 +1,8 @@
 param([switch]$NoBots)
 $ErrorActionPreference='Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
-if(Test-Path data/service.pid){$old=Get-Process -Id (Get-Content data/service.pid) -ErrorAction SilentlyContinue;if($old){throw 'Lab already running; inspect data/service.pid'}}
+Remove-Item -LiteralPath data/lab-stopped -ErrorAction SilentlyContinue
+if(Test-Path data/service.pid){$old=Get-CimInstance Win32_Process -Filter "ProcessId=$([int](Get-Content data/service.pid))" -ErrorAction SilentlyContinue;if($old -and $old.CommandLine -match 'uvicorn lab.service:app'){throw 'Lab already running; inspect data/service.pid'}}
 foreach($log in @('logs/service.log','logs/service-error.log','logs/bots.log','logs/bots-error.log','logs/minecraft-console.log')){if((Test-Path $log) -and (Get-Item $log).Length -gt 10000000){Move-Item -LiteralPath $log -Destination ($log+'.previous') -Force}}
 $p=Start-Process -FilePath "$PWD/.venv/Scripts/python.exe" -ArgumentList '-m','uvicorn','lab.service:app','--host','127.0.0.1','--port','8000','--no-access-log' -PassThru -WindowStyle Hidden -RedirectStandardOutput "$PWD/logs/service.log" -RedirectStandardError "$PWD/logs/service-error.log"
 $p.Id|Set-Content data/service.pid
