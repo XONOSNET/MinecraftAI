@@ -1,5 +1,6 @@
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
+(Get-Command node -ErrorAction Stop).Source | Set-Content "$root/data/node-path"
 $engine=(Get-Process -Id $PID).Path
 $arguments="-NoProfile -WindowStyle Hidden -File `"$PSScriptRoot/Watch-Lab.ps1`""
 $startup=[Environment]::GetFolderPath('Startup')
