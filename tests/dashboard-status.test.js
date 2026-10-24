@@ -19,3 +19,13 @@ test('automatic recovery is distinguished from a manual pause',()=>{
  const s=status({mode:'paused'});s.curriculum.phase='health_wait';s.curriculum.message='Memory recovering';
  const v=describe(s);assert.equal(v.title,'Waiting for automatic recovery');assert.match(v.copy,/30 seconds/);
 });
+
+const botActivitySource=html.slice(html.indexOf('function botActivity('),html.indexOf('let observerInitializedFor='));
+const describeBot=vm.runInNewContext(botActivitySource+';botActivity',{Date,activeJob:()=>false});
+test('combat activity respects missing telemetry, pauses, completion and action meanings',()=>{
+ assert.match(describeBot({mode:'paused'},undefined),/Offline/);
+ const a={skill:'combat',connected:true,last_seen:Date.now()/1000,action:6,trial_completed:0};
+ assert.match(describeBot({mode:'paused',curriculum:{}},a),/Paused/);
+ assert.equal(describeBot({mode:'teacher'},a),'Attacking monster');
+ a.trial_completed=3;assert.match(describeBot({mode:'evaluate'},a),/Trials finished/);
+});

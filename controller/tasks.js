@@ -1,4 +1,5 @@
 const {Vec3}=require('vec3');
+const combat=require('./combat');
 const HAZARDS=new Set(['water','lava','magma_block','fire','campfire']);
 const count=(bot,name)=>bot.inventory.items().filter(i=>i.name===name).reduce((n,i)=>n+i.count,0);
 function solid(block){return !!block&&block.boundingBox==='block';}
@@ -52,10 +53,12 @@ function observeTask(bot,task,scan,runtime){
  const distance=Math.hypot(task.goal[0]-p.x,task.goal[2]-p.z);
  const inside=p.x>task.bounds[0]&&p.x<task.bounds[1]&&p.z>task.bounds[2]&&p.z<task.bounds[3];
  const metrics={jumps:runtime.jumps||0,distance_3d:Math.hypot(task.goal[0]-p.x,task.goal[1]-p.y,task.goal[2]-p.z),checkpoints:runtime.waypoint,water_steps:runtime.waterSteps||0,oxygen:air(bot),blocked_steps:runtime.blockedSteps,stalled_steps:runtime.stalledSteps,doors_opened:runtime.openedDoors.size,health:bot.health,food:bot.food,wood,eaten:runtime.eaten,hunger_observed:runtime.hungerObserved,coverage:runtime.visited.size,sheltered,distance,y:p.y,hazard_contacts:runtime.hazardContacts,inside};
+ if(task.kind==='combat'){const fighting=combat.observe(bot,task,runtime);return {...fighting,extra:fighting.extra,metrics:{...metrics,...fighting.metrics},frontBlocked:lowBlocked,headBlocked,frontHazard,leftUnsafe,rightUnsafe};}
  return {climbing,extra,metrics,resource,door,doorway,frontBlocked:lowBlocked,headBlocked,frontHazard,leftUnsafe,rightUnsafe,forward,left};
 }
-function failed(task,m){if(task.kind==='expedition')return m.y<task.min_safe_y||m.health<18||m.hazard_contacts>0||m.stalled_steps>=100;return ['advanced','terrain'].includes(task.kind)&&(m.hazard_contacts>0||m.blocked_steps>=32*(task.stall_scale||1)||m.stalled_steps>=64*(task.stall_scale||1));}
+function failed(task,m){if(task.kind==='combat')return m.health<task.min_health||m.stalled_steps>=500;if(task.kind==='expedition')return m.y<task.min_safe_y||m.health<18||m.hazard_contacts>0||m.stalled_steps>=100;return ['advanced','terrain'].includes(task.kind)&&(m.hazard_contacts>0||m.blocked_steps>=32*(task.stall_scale||1)||m.stalled_steps>=64*(task.stall_scale||1));}
 function reached(task,m){
+ if(task.kind==='combat')return combat.reached(task,m);
  if(task.kind==='expedition')return (m.jumps||0)>=(task.required_jumps||0)&&m.health>=18&&m.inside&&m.distance_3d<1.5&&m.checkpoints>=task.waypoints.length-1&&m.hazard_contacts===0&&(!task.allow_water||m.water_steps>0);
  if(m.health<=0||!m.inside||Math.abs(m.y-181)>1.5)return false;
  if(task.kind==='gather')return m.wood>=task.wood_target;
@@ -66,7 +69,7 @@ function reached(task,m){
  return m.distance<1.25&&m.health>=18&&m.hazard_contacts===0;
 }
 // Both controllers receive the same route checkpoint; the neural policy still chooses every action.
-function navigationCue(bot,task,runtime){return ['advanced','terrain','expedition'].includes(task?.kind)?navigationTarget(bot,task,runtime):task?.goal;}
+function navigationCue(bot,task,runtime){if(task?.kind==='combat'){const enemy=combat.target(bot,task);return enemy?[enemy.position.x,enemy.position.y,enemy.position.z]:task.goal;}return ['advanced','terrain','expedition'].includes(task?.kind)?navigationTarget(bot,task,runtime):task?.goal;}
 function navigationTarget(bot,task,runtime){
  if(!task.waypoints?.length)return task.goal;
  const p=bot.entity.position;let point=task.waypoints[runtime.waypoint];
@@ -75,6 +78,7 @@ function navigationTarget(bot,task,runtime){
 }
 function turnAction(angle){return Math.abs(angle)>.18?(angle>0?1:2):0;}
 function teacherAction(bot,task,sensed,runtime,angle){
+ if(task.kind==='combat')return combat.teacher(sensed,task);
  if(task.kind==='expedition'){
   const cue=navigationTarget(bot,task,runtime),p=bot.entity.position,dy=cue[1]-p.y,d=Math.hypot(cue[0]-p.x,cue[2]-p.z);
   if(bot.entity.isInWater&&air(bot)<12)return 5;
@@ -109,6 +113,7 @@ function teacherAction(bot,task,sensed,runtime,angle){
 function inPracticeBounds(bot,task){const p=bot.entity.position;return p.x>task.bounds[0]&&p.x<task.bounds[1]&&p.z>task.bounds[2]&&p.z<task.bounds[3]&&p.y>=179&&p.y<=186;}
 async function interact(bot,task,sensed,runtime,action,permissions={}){
  if(!task||!inPracticeBounds(bot,task))return false;
+ if(task.kind==='combat')return combat.interact(bot,task,sensed,runtime,action,permissions);
  if(action===5&&task.kind==='advanced'&&permissions.open_practice_doors&&sensed.door){const b=sensed.door;if(b.name!=='oak_door'||![181,182].includes(b.position.y)||!task.actual_doors.some(([x,z])=>b.position.x===x&&b.position.z===z)||!bot.canSeeBlock(b)||b.getProperties().open)return false;await bot.activateBlock(b);await bot.look(bot.entity.yaw,0,true);return true;}
  if(action===5&&permissions.harvest_oak_logs&&task.kind==='gather'){
   if(!sensed.resource){

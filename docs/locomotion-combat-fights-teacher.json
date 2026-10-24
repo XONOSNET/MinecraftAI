@@ -1,0 +1,86 @@
+[
+  {
+    "course": "Defeat a moving zombie",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-143-1792879105-v10",
+    "mean_seconds": 5.722110312500001,
+    "passed": 8,
+    "total": 8,
+    "seconds": 8.25,
+    "mean_steps": 35.875,
+    "moving_fraction": 0.625
+  },
+  {
+    "course": "Recover spacing against a husk",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-144-1792879113-v10",
+    "mean_seconds": 3.158840925000002,
+    "passed": 8,
+    "total": 8,
+    "seconds": 5.95,
+    "mean_steps": 19.25,
+    "moving_fraction": 0.377
+  },
+  {
+    "course": "Defeat two separated zombies",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-145-1792879120-v10",
+    "mean_seconds": 9.940535737499998,
+    "passed": 8,
+    "total": 8,
+    "seconds": 14.73,
+    "mean_steps": 56.375,
+    "moving_fraction": 0.625
+  },
+  {
+    "course": "Pursue a zombie around cover",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-146-1792879135-v10",
+    "mean_seconds": 11.407518837499998,
+    "passed": 7,
+    "total": 8,
+    "seconds": 36.83,
+    "mean_steps": 71.0,
+    "moving_fraction": 0.534
+  },
+  {
+    "course": "Equip shield and fight a husk",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-147-1792879172-v10",
+    "mean_seconds": 4.936890837500003,
+    "passed": 8,
+    "total": 8,
+    "seconds": 7.95,
+    "mean_steps": 31.5,
+    "moving_fraction": 0.561
+  },
+  {
+    "course": "Close on a skeleton with a shield",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-148-1792879181-v10",
+    "mean_seconds": 4.872158437499999,
+    "passed": 8,
+    "total": 8,
+    "seconds": 8.22,
+    "mean_steps": 29.75,
+    "moving_fraction": 0.487
+  },
+  {
+    "course": "Clear a mixed monster room",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-149-1792879189-v10",
+    "mean_seconds": 12.950951400000005,
+    "passed": 8,
+    "total": 8,
+    "seconds": 16.22,
+    "mean_steps": 77.25,
+    "moving_fraction": 0.527
+  }
+]

@@ -1,0 +1,26 @@
+[
+  {
+    "course": "Equip a wooden sword",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-140-1792879304-v10",
+    "mean_seconds": 0.127599049999998,
+    "passed": 8,
+    "total": 8,
+    "seconds": 1.94,
+    "mean_steps": 1.0,
+    "moving_fraction": 0.0
+  },
+  {
+    "course": "Clear a mixed monster room",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-149-1792879306-v10",
+    "mean_seconds": 12.547845924999999,
+    "passed": 8,
+    "total": 8,
+    "seconds": 18.45,
+    "mean_steps": 77.75,
+    "moving_fraction": 0.533
+  }
+]

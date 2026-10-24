@@ -111,6 +111,7 @@ def start_training(background=False):
         if training_jobs.running:raise HTTPException(409,'Training is already running. Watch the progress panel.')
         skill=active_skill();policy,optimizer,replay=learning_context(skill)
         if len(replay)<100:raise HTTPException(400,'Collect at least 100 examples before training.')
+        cleanup_combat()
         mode='paused';training=True;observations=list(replay)
         initial_model=copy.deepcopy(policy.state_dict());initial_optimizer=copy.deepcopy(optimizer.state_dict())
         width=policy.net[0].out_features;inputs=policy.net[0].in_features;actions=policy.net[2].out_features
@@ -173,6 +174,9 @@ def start_training(background=False):
     finished=training_jobs.wait()
     if finished['status']=='completed':return finished['result']
     raise HTTPException(409 if finished['status']=='cancelled' else 500,finished.get('error',finished['message']))
+
+def cleanup_combat():
+    if server_alive():console('kill @e[tag=lab_combat]')
 
 def console(command):
     if not server or server.poll() is not None:raise RuntimeError('Minecraft server is not running')
@@ -472,6 +476,7 @@ def episode(d:dict):
             assigned=assigned_tasks.get(d['agent'])
             if not assigned or assigned['run']!=d['run']:return {'ok':True,'ignored':'stale task'}
             metrics=d.get('metrics',{});d['success']=not d.get('reason') and bool(task_success(assigned['task'],metrics))
+            if assigned['task']['kind']=='combat':console(f"kill @e[tag=lab_combat_{d['agent']}]")
             event('skill_episode',{'run':d['run'],'agent':d['agent'],'task':assigned['task']['kind'],'success':d['success'],'metrics':metrics})
         cursor=db.execute('INSERT INTO episodes(run,agent,success,steps,distance,time) VALUES(?,?,?,?,?,?)',(d['run'],d['agent'],d['success'],d['steps'],d['distance'],time.time()))
         seconds=d.get('elapsed_seconds')
@@ -537,6 +542,7 @@ def control(command:str,d:dict={}):
                 practice['driver']='student';practice['seed']=time.time_ns();mode='evaluate';run='skilltest-'+str(practice['stage'])+'-'+str(int(time.time()))
             else:
                 practice=None;mode=command;run=d.get('run',command+'-'+str(int(time.time())))
+            cleanup_combat()
             record_run();event('mode',{'mode':mode,'run':run});return {'run':run}
         if command=='checkpoint':return {'version':checkpoint()}
         if command=='new-policy':
@@ -590,6 +596,7 @@ def record_run():
 
 def auto_mode(value,identifier=None):
     global mode,run
+    if value=='paused':cleanup_combat()
     mode=value
     if identifier:run=identifier;record_run()
 
@@ -686,6 +693,7 @@ def practice_stage(stage_index:int,d:dict={}):
         if curriculum.state['enabled'] or curriculum.state.get('restore_pending') or training_jobs.running or server_control.snapshot()['busy']:
             raise HTTPException(409,'Pause autonomous training and wait for saving before starting a teacher demonstration.')
         if not server_ready() or auto_arena['phase']!=3:raise HTTPException(409,'Simulation arenas are not ready. Start autonomous training once to prepare them.')
+        cleanup_combat()
         driver=d.get('driver','teacher')
         if driver not in ('teacher','student'):raise HTTPException(400,'Choose teacher or student')
         limit=d.get('episodes_per_agent',EPISODES_PER_AGENT)

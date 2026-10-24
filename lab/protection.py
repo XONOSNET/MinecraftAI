@@ -10,7 +10,7 @@ def roof_commands():
 
 def sweep_commands(phantoms_only=False):
     types=('phantom',) if phantoms_only else HOSTILES
-    return [f'kill @e[type=minecraft:{mob},x={c-28},y=175,z=-28,dx=56,dy=85,dz={LANE_END+40}]' for c in CENTERS for mob in types]
+    return [f'kill @e[type=minecraft:{mob},tag=!lab_combat,x={c-28},y=175,z=-28,dx=56,dy=85,dz={LANE_END+40}]' for c in CENTERS for mob in types]
 
 class PracticeProtection:
     def __init__(self,command):

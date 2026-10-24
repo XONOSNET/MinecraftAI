@@ -1,5 +1,5 @@
 const mineflayer=require('mineflayer');const {scan}=require('./perception');
-const tasks=require('./tasks');const {ownOxygen}=require('./air');
+const combat=require('./combat');const tasks=require('./tasks');const {ownOxygen}=require('./air');
 const fs=require('fs');const token=fs.readFileSync('data/api-token','utf8').trim();
 const permissions=JSON.parse(fs.readFileSync('config/permissions.json','utf8'));
 const curriculumPermissions=JSON.parse(fs.readFileSync('config/curriculum-permissions.json','utf8'));
@@ -18,13 +18,14 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  const write=b._client.write.bind(b._client);b._client.write=(packet,data)=>{if(['position','position_look','look'].includes(packet)&&Object.values(data).some(v=>typeof v==='number'&&!Number.isFinite(v)))console.error('INVALID_PACKET',name,packet,JSON.stringify(data),JSON.stringify({yaw:b.entity?.yaw,pitch:b.entity?.pitch,velocity:b.entity?.velocity}));return write(packet,data);};
  b.on('error',e=>console.error(name,e.message));b.on('kicked',r=>console.error(name,JSON.stringify(r),JSON.stringify({position:b.entity?.position,yaw:b.entity?.yaw,pitch:b.entity?.pitch,velocity:b.entity?.velocity})));
  function interrupted(reason){motor.pause();if(goal&&!quitting){api('/episode',{agent:name,run:phase,success:false,steps,elapsed_seconds:trialStarted===null?null:(performance.now()-trialStarted)/1000,distance:lastDistance,reason,task:task?.kind,metrics:lastMetrics||{health:0}}).catch(e=>console.error(name,e.message));goal=null;}}
+ b.on('entityDead',entity=>combat.death(entity,task,runtime));
  b.on('death',()=>{api('/agent-life',{agent:name,event:'death',id:randomUUID()}).catch(e=>console.error(name,e.message));interrupted('death');});
  b.on('end',()=>{interrupted('disconnect');api('/agent-disconnected',{agent:name}).catch(()=>{});console.log(name,'disconnected');if(!quitting)setTimeout(()=>spawn(i),5000);});
  b.on('physicsTick',async()=>{if(++tick%(motorConfig.smooth_movement?(motorConfig.decision_ticks||2):task?.kind==='expedition'?2:5)||busy||!b.entity)return;busy=true;try{
  const heartbeat=()=>({agent:name,index:i,episode,trial_seconds:trialStarted===null?null:(performance.now()-trialStarted)/1000,position:[b.entity.position.x,b.entity.position.y,b.entity.position.z],health:b.health,food:b.food,entity_id:b.entity.id,dimension:b.game.dimension,activity:motor.status()||activity,reset_seconds:goal?Math.ceil(Math.max(0,(task?.max_steps||(motorConfig.smooth_movement?300:120))-steps)*decisionMs/1000):null,reset_steps_left:goal?Math.max(0,(task?.max_steps||(motorConfig.smooth_movement?300:120))-steps):null,speed:Math.hypot(b.entity.velocity.x,b.entity.velocity.z)*20,players:Object.values(b.players).map(p=>({name:p.username,mode:p.gamemode}))});
  let state=await api('/assignment',heartbeat());
  if(phase!==state.run){episode=0;state=await api('/assignment',heartbeat());}
- if(state.mode==='paused'){trialStarted=null;activity='Waiting for next learning phase';motor.pause();goal=null;return;}
+ if(state.mode==='paused'){b.deactivateItem();trialStarted=null;activity='Waiting for next learning phase';motor.pause();goal=null;return;}
  if(Date.now()<readyAt){activity='Loading arena / settling after teleport';motor.pause();b.clearControlStates();return;}
  const finishedTask=task&&lastMetrics&&tasks.reached(task,lastMetrics);
  const failedTask=task&&lastMetrics&&tasks.failed(task,lastMetrics);
@@ -33,7 +34,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
   if(goal&&phase===state.run){
    await api('/episode',{agent:name,run:phase,success:lastDistance!==null&&lastDistance<1.25&&b.health>0&&Math.abs(b.entity.position.y-goal[1])<1.5,steps,elapsed_seconds:trialStarted===null?null:(performance.now()-trialStarted)/1000,distance:lastDistance,task:task?.kind,metrics:lastMetrics||{health:0}});
    state=await api('/assignment',heartbeat());
-   if(state.mode==='paused'){trialStarted=null;activity='Waiting for next learning phase';motor.pause();goal=null;return;}
+   if(state.mode==='paused'){b.deactivateItem();trialStarted=null;activity='Waiting for next learning phase';motor.pause();goal=null;return;}
   }
   phase=state.run;episode++;steps=0;trialStarted=null;lastDecisionAt=0;decisionMs=250;goal=state.goal;lastDistance=null;task=state.task?{...state.task,stall_scale:motorConfig.smooth_movement&&state.task.kind!=='expedition'?2.5:1,max_steps:state.task.max_steps*(motorConfig.smooth_movement&&state.task.kind!=='expedition'?2.5:1)}:null;runtime=tasks.createRuntime();lastMetrics=null;
   activity='Resetting task / teleporting';motor.pause();b.clearControlStates();
@@ -50,11 +51,11 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  const reward=lastDistance===null?0:Math.max(-1,Math.min(1,lastDistance-distance))-.01;
  const res=await api('/step',{agent:name,run:phase,obs,teacher,reward,position:[p.x,p.y,p.z],health:b.health,food:b.food,hits:s.hits,vision:{...s.vision,...s.proximity},perception_ms:performance.now()-t,steps,goal,task:task?.kind,metrics:lastMetrics});
  runtime.lastAction=res.action;
- const motorLabel=motor.command(res.action,task,{...sensed,...s.proximity},angle);activity=['Moving forward','Turning left to align','Turning right to align','Jumping forward','Policy chose to wait','Gathering wood','Eating'][res.action]||'Waiting';if(task?.kind==='expedition')activity=['Moving','Aligning left','Aligning right','Swimming / climbing forward','Waiting','Ascending','Descending'][res.action];if(task?.kind==='advanced'&&res.action===5)activity='Opening door';
+ const motorLabel=motor.command(res.action,task,{...sensed,...s.proximity},angle);activity=['Moving forward','Turning left to align','Turning right to align','Jumping forward','Policy chose to wait','Gathering wood','Eating'][res.action]||'Waiting';if(task?.kind==='expedition')activity=['Moving','Aligning left','Aligning right','Swimming / climbing forward','Waiting','Ascending','Descending'][res.action];if(task?.kind==='combat')activity=combat.LABELS[res.action];if(task?.kind==='advanced'&&res.action===5)activity='Opening door';
  if(motorLabel)activity=motorLabel;
  if(!motorConfig.smooth_movement&&(res.action===1||res.action===2)&&permissions.turn)await b.look(b.entity.yaw+(res.action===1?1:-1)*(task?.kind==='expedition'?.08:task?.kind==='advanced'?.12:.22),0,true);
 
- if(task&&task.kind!=='expedition'&&[5,6].includes(res.action)&&!interaction&&Date.now()-interactionAt>350){
+ if(task&&task.kind!=='expedition'&&(task.kind==='combat'?[4,5,6]:[5,6]).includes(res.action)&&!interaction&&Date.now()-interactionAt>(task.kind==='combat'?80:350)){
   interactionAt=Date.now();motor.lockLook(true);
   interaction=tasks.interact(b,task,sensed,runtime,res.action,curriculumPermissions).catch(e=>{console.error(name,'Interaction:',e.message);}).finally(()=>{interaction=null;motor.lockLook(false);});
   if(!motorConfig.smooth_movement||task.kind!=='advanced'||res.action!==5)await interaction;

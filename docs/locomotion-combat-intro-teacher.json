@@ -1,0 +1,38 @@
+[
+  {
+    "course": "Equip a wooden sword",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-140-1792879064-v10",
+    "mean_seconds": 0.1980630624999999,
+    "passed": 8,
+    "total": 8,
+    "seconds": 2.25,
+    "mean_steps": 1.0,
+    "moving_fraction": 0.0
+  },
+  {
+    "course": "Equip sword and leather armor",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-141-1792879067-v10",
+    "mean_seconds": 0.27556207499999935,
+    "passed": 8,
+    "total": 8,
+    "seconds": 2.22,
+    "mean_steps": 2.0,
+    "moving_fraction": 0.0
+  },
+  {
+    "course": "Practice timed strikes on a stationary zombie",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-142-1792879069-v10",
+    "mean_seconds": 6.296063162500001,
+    "passed": 8,
+    "total": 8,
+    "seconds": 9.05,
+    "mean_steps": 38.375,
+    "moving_fraction": 0.354
+  }
+]

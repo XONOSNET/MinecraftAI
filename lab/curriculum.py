@@ -92,7 +92,9 @@ class Curriculum:
             self.state['learning_rate_scales']={str(remap(int(k))):v for k,v in self.state.get('learning_rate_scales',{}).items()}
             if 'recovery_target' in self.state:self.state['recovery_target']=remap(self.state['recovery_target'])
             self.state['streak']=0
-        self.state.update(catalog_version=10,agent_count=AGENT_COUNT)
+        if self.state.get('catalog_version',1)==10 and self.state['phase']=='completed':
+            self.state.update(stage=140,phase='paused',streak=0,message='Ten combat stages are ready. Resume to learn equipment and monster fighting.')
+        self.state.update(catalog_version=11,agent_count=AGENT_COUNT)
     def save(self):
         self.path.parent.mkdir(exist_ok=True,parents=True)
         tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps(self.state,indent=2),encoding='utf-8');tmp.replace(self.path)

@@ -150,6 +150,7 @@ class Observers:
         fresh=now-agent.get('last_seen',0)<=8 and agent.get('connected',False)
         activity=labels[action] if type(action) is int and 0<=action<len(labels) else 'Waiting'
         if agent.get('skill')=='expedition':activity=('Moving','Turn left','Turn right','Swim / climb','Waiting','Ascending','Descending')[action] if type(action) is int and 0<=action<7 else 'Waiting'
+        if agent.get('skill')=='combat':activity=('Approaching monster','Aim left','Aim right','Back for spacing','Guard / cooldown','Equip gear','Attack monster')[action] if type(action) is int and 0<=action<7 else 'Waiting'
         if agent.get('skill')=='advanced' and action==5:activity='Opening door'
         controller={'teacher':'Teacher demonstration','heuristic':'Teacher reference','evaluate':'Neural policy','untrained':'Untrained policy','random':'Random actions','paused':'Paused / training'}.get(mode,mode)
         if agent.get('activity','').startswith(('Steering ','Turning to align','Opening door while','Waiting for policy','Waiting for valid','Wall ahead:','Reversing ','Crouching ','Recovering:')):activity=agent['activity']
@@ -169,6 +170,8 @@ class Observers:
                 s.update(progress_start=max(distance,1),progress_run=agent.get('run'),progress_goal=copy.deepcopy(goal))
             s['progress_steps']=agent.get('steps',0)
             progress=round(100*max(0,min(1,1-distance/s.get('progress_start',max(distance,1)))))
+        if agent.get('skill')=='combat':
+            m=agent.get('metrics') or {};progress=round(100*m.get('kills',0)/max(1,m.get('kill_target',0))) if m.get('kill_target') else (100 if m.get('weapon_equipped') and m.get('armor_equipped') else 0)
         route_progress=progress
         route_visible=bool(fresh and position and goal and mode!='paused')
         context=getattr(self,'progress_context',{});job=context.get('job',{})
@@ -192,6 +195,8 @@ class Observers:
             lines['task']=f"Training pass {epoch}/{epochs} | {max(0,epochs-epoch)} left"
             lines['state']=f"{job.get('phase','Preparing').title()} | {job.get('samples',0):,} examples | {job.get('percent',0):.0f}%"
             progress=round(job.get('percent',0))
+        if fresh and agent.get('skill')=='combat' and mode!='paused' and job.get('status') not in ('running','cancelling'):
+            m=agent.get('metrics') or {};lines['state']=f"{activity} | Kills {m.get('kills',0)}/{m.get('kill_target',0)} | HP {health}/20"
         if mode=='paused' and job.get('status') not in ('running','cancelling'):lines['task']=f"{display_name} | Paused";lines['state']=activity[:95]
         if fresh and mode!='paused' and agent.get('reset_seconds') is not None:
             lines['state']+=f" | Reset ~{agent['reset_seconds']}s ({agent.get('reset_steps_left',0)} steps left)"
@@ -245,6 +250,7 @@ class Observers:
             activity='Offline' if not fresh else 'Training' if mode=='paused' and getattr(self,'progress_context',{}).get('job',{}).get('status') in ('running','cancelling') else 'Paused' if mode=='paused' else labels[action] if type(action) is int and 0<=action<len(labels) else 'Wait'
             if fresh and mode!='paused' and a.get('speed',1)<.05 and action in (0,3):activity='Blocked'
             if a.get('skill')=='expedition' and fresh and mode!='paused' and action in (3,5,6):activity={3:'Swim / climb',5:'Ascend',6:'Descend'}[action]
+            if a.get('skill')=='combat' and fresh and mode!='paused':activity=('Approach','Aim left','Aim right','Back away','Guard / cooldown','Equip gear','Attack')[action] if type(action) is int and 0<=action<7 else 'Wait'
             if a.get('skill')=='advanced' and action==5:activity='Open door'
             if fresh and mode!='paused':activity={'Steering left while walking':'Walk + left','Steering right while walking':'Walk + right','Opening door while walking':'Walk + door','Wall ahead: checking escape':'Wall ahead','Reversing out of blocked position':'Reversing','Crouching under low clearance':'Crouching','Recovering: turning toward clear space':'Turn to escape','Recovering: moving around obstacle':'Detouring','Recovering: checking another exit':'Check exit','Recovering: no safe exit; waiting for reset':'No safe exit','Recovering: detour complete':'Detour done'}.get(a.get('activity'),activity)
             if mode=='paused' and getattr(self,'progress_context',{}).get('phase')=='health_wait':activity='Recovering'

@@ -24,6 +24,12 @@ function applyPose(bot,wantsCrouch){
 }
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
 function motorPlan(action,permissions,task,sensed,angle,traveling=false){
+ if(task?.kind==='combat'){
+  const turn=action===1||action===2;
+  return {forward:!!permissions.move&&(action===0||turn&&Math.abs(angle)<.65&&sensed?.distance>2.7&&!sensed?.frontBlocked),
+   back:!!permissions.move&&action===3&&!!sensed?.rearSafe,jump:false,sneak:false,
+   yaw:turn&&permissions.turn?(action===1?1:-1)*Math.min(.8,Math.abs(angle)):0,label:null};
+ }
  const turning=action===1||action===2;
  const steering=turning&&permissions.turn;
  const safe=!!sensed&&!sensed.frontHazard&&!sensed.headBlocked&&!sensed.frontBlocked;
