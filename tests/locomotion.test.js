@@ -1,6 +1,23 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
 const {motorPlan,createMotor}=require('../controller/locomotion');
 const permissions={move:true,turn:true,jump:true},safe={frontBlocked:false,headBlocked:false,frontHazard:false};
+
+test('locked world heading turns quickly without backing toward the old facing wall',()=>{
+ const {Vec3}=require('vec3');let now=0;const state={},bot={entity:{yaw:0,position:new Vec3(0,70,0)},getControlState:k=>state[k],setControlState:(k,v)=>state[k]=v,look(yaw){this.entity.yaw=yaw;return Promise.resolve();}};
+ const motor=createMotor(bot,permissions,{clock:()=>now});
+ motor.command(1,{kind:'expedition',quick_look:true,navigation_lock:true},{...safe,wallAhead:true,rearSafe:true,focusPoint:[0,70,5]},Math.PI);
+ for(let i=0;i<7;i++){now+=50;motor.tick();assert.equal(!!state.back,false);assert.equal(!!state.forward,false);}
+ assert.ok(Math.abs(Math.atan2(Math.sin(bot.entity.yaw-Math.PI),Math.cos(bot.entity.yaw-Math.PI)))<.01);
+ motor.command(0,{kind:'expedition',quick_look:true,navigation_lock:true},{...safe,focusPoint:[0,70,5]},0);now+=50;motor.tick();assert.equal(state.forward,true);
+ bot.entity.position.z=4.9;now+=50;motor.tick();assert.equal(state.forward,false);
+});
+
+test('policy quick look preserves the chosen turn direction and mining look lock',()=>{
+ let now=0;const state={},bot={entity:{yaw:0},getControlState:k=>state[k],setControlState:(k,v)=>state[k]=v,look(yaw){this.entity.yaw=yaw;return Promise.resolve();}};
+ const motor=createMotor(bot,permissions,{clock:()=>now});
+ motor.command(2,{kind:'expedition',quick_look:true},safe,1.5);now=50;motor.tick();assert.ok(bot.entity.yaw<-.4);
+ const yaw=bot.entity.yaw;motor.lockLook(true);now=100;motor.tick();assert.equal(bot.entity.yaw,yaw);
+});
 test('walking and small steering corrections overlap, sharp turns and hazards stop travel',()=>{
  assert.equal(motorPlan(1,permissions,null,safe,.3).forward,true);
  assert.equal(motorPlan(2,permissions,null,safe,-2,true).forward,false);

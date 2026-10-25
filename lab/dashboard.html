@@ -240,7 +240,7 @@ $('vision-enabled').addEventListener('change',saveVision);$('vision-scope').addE
 function worldTimingText(r){
  if(!r)return 'Waiting for trial';
  const t=r.timings||{},p=t.phase_seconds||{},a=t.activity_seconds||{},seconds=v=>Number.isFinite(v)?Math.round(v)+' s':'—';
- return `${r.completion_rank?"Finish rank #"+r.completion_rank+" · ":""}Total ${seconds(r.seconds)} · Gathering ${seconds(p.gather)} · Aligning ${seconds(a.aligning)} · First log ${seconds(t.first_log_seconds)} · Turn reversals ${t.turn_reversals??'—'} · Target switches ${t.target_switches??'—'}`;
+ return `${r.completion_rank?"Finish rank #"+r.completion_rank+" · ":""}Total ${seconds(r.seconds)} · Gathering ${seconds(p.gather)} · Aligning ${seconds(a.aligning)} · First log ${seconds(t.first_log_seconds)} · Turn reversals ${t.turn_reversals??'—'} · Target switches ${t.target_switches??'—'} · Scans ${t.acquisition_scans??'—'} · Tree lock ${t.locked_tree?'held':'searching'}`;
 }
 function renderWorld(s){
  const world=s.world_training;if(!world)return;

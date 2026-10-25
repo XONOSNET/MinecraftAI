@@ -7,6 +7,7 @@ const {harvest}=require('./harvest');
 const {route,standable}=require('./field_navigation');
 const {WorldTiming,treeFocus}=require('./world_timing');
 const settlement=require('./settlement');
+const {scanTrees}=require('./target_scan');
 const LOG=/^(oak|birch|spruce|jungle|acacia|dark_oak|mangrove|cherry)_log$/;
 const planks=name=>name.endsWith('_planks');
 const count=(bot,match)=>bot.inventory.items().filter(i=>match(i.name)).reduce((n,i)=>n+i.count,0);
@@ -55,7 +56,7 @@ class HutTeacher{
  constructor(){this.run=null;}
  async tick(bot,motor,state,api,scan,tasks){
   const now=Date.now(),p=bot.entity.position,w=state.world;
-  if(this.run!==state.run){this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
+  if(this.run!==state.run){this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;this.scanCount=0;this.observedTrees=0;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
   this.timing.mark(this.phase,'waiting',now);
   const moved=Math.hypot(p.x-this.last.x,p.z-this.last.z);if(moved<4&&this.phase!=='survey')this.travelled+=moved;this.last=p.clone();
   if(Math.hypot(p.x-this.anchor.x,p.z-this.anchor.z)>1){this.anchor=p.clone();this.lastProgress=now;}
@@ -80,6 +81,10 @@ class HutTeacher{
      if(!this.resourceAt||now-this.resourceAt>1500){this.resources=this.grove?this.grove.flatMap(([x,y,z])=>[0,1,2,3].map(dy=>new Vec3(x,y+dy,z))):bot.findBlocks({matching:b=>LOG.test(b.name),useExtraInfo:b=>Math.abs(b.position.y-p.y)<5,maxDistance:64,count:256}).filter(v=>this.inside(v,w.bounds)&&safeResource(bot,v));this.resourceAt=now;}
      if(this.grove&&!this.resources.some(v=>LOG.test(bot.blockAt(v)?.name||''))){this.grove=null;this.resourceAt=0;}
      let targets=this.resources.filter(v=>!this.ignoredTrees.has(v.x+','+v.z)&&LOG.test(bot.blockAt(v)?.name||'')).sort((a,b)=>a.distanceTo(p)-b.distanceTo(p));
+     if(!this.tree||!targets.some(v=>v.x+','+v.z===this.tree)){
+      const observed=scanTrees(bot),visible=new Set(observed.map(v=>v.x+','+v.z));this.scanCount++;this.observedTrees=visible.size;
+      const visibleTargets=targets.filter(v=>visible.has(v.x+','+v.z));if(visibleTargets.length)targets=[...visibleTargets,...targets.filter(v=>!visible.has(v.x+','+v.z))];
+     }
      const focused=treeFocus(targets,this.tree);
      if(focused.key!==this.tree){if(this.tree)this.timing.targets++;this.tree=focused.key;this.treeApproach=null;this.path=[];}
      targets=focused.targets;
@@ -178,7 +183,7 @@ class HutTeacher{
    if(!['survey','gather','craft','door_craft','supply_craft','chest','tools','stock_chest','shelter','complete','stopped'].includes(this.phase)&&now-this.lastProgress>60000)throw Error('No construction or movement progress for 60 seconds.');
   }catch(error){motor.pause();this.error=this.phase+': '+error.message;this.phase='stopped';}
   if(now-this.lastReport>1000||['complete','stopped'].includes(this.phase)){
-   await api('/world/report',{agent:bot.username,run:state.run,state:this.phase==='complete'?'complete':this.phase==='stopped'?'stopped':'working',phase:this.phase,message:this.error||this.message||this.phase,logs:count(bot,n=>LOG.test(n)),blocks:this.built||0,target_blocks:55,travelled:this.travelled,health:bot.health,plot:this.plot,milestones:this.milestones,lesson:Math.min(w.mission==='settlement'?6:1,this.milestones.length+1),lesson_total:w.mission==='settlement'?6:1,seconds:(Date.now()-this.started)/1000,timings:this.timing.snapshot(count(bot,n=>LOG.test(n)))});this.lastReport=now;
+   await api('/world/report',{agent:bot.username,run:state.run,state:this.phase==='complete'?'complete':this.phase==='stopped'?'stopped':'working',phase:this.phase,message:this.error||this.message||this.phase,logs:count(bot,n=>LOG.test(n)),blocks:this.built||0,target_blocks:55,travelled:this.travelled,health:bot.health,plot:this.plot,milestones:this.milestones,lesson:Math.min(w.mission==='settlement'?6:1,this.milestones.length+1),lesson_total:w.mission==='settlement'?6:1,seconds:(Date.now()-this.started)/1000,timings:{...this.timing.snapshot(count(bot,n=>LOG.test(n))),acquisition_scans:this.scanCount,observed_trees:this.observedTrees,locked_tree:this.tree}});this.lastReport=now;
   }
   return this.error||this.message||this.phase;
  }
@@ -219,14 +224,14 @@ class HutTeacher{
   const dest=goal.join(',');if(!this.path.length||this.destination!==dest||now-this.lastPlan>2500){const planned=route(bot,goal);this.timing.replans++;this.path=planned.path;this.destination=dest;this.lastPlan=now;if(!this.path.length){motor.pause();this.message=planned.message;return false;}}
   const cue=this.path[0];if(!this.inside(new Vec3(...cue),state.world.bounds)){motor.pause();throw Error('Planned route reached the trial boundary.');}
   const skill=this.phase==='enter'?'shelter':'expedition';
-  const task={kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],bounds:state.world.bounds,actual_doors:[],allow_water:false,coverage_target:100};
+  const task={kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],bounds:state.world.bounds,actual_doors:[],allow_water:false,coverage_target:100,quick_look:true,navigation_lock:state.world.driver==='teacher'};
   const desired=Math.atan2(-(cue[0]-p.x),-(cue[2]-p.z)),angle=Math.atan2(Math.sin(desired-bot.entity.yaw),Math.cos(desired-bot.entity.yaw));
   const sensedScan=scan(bot,{goalYaw:desired}),sensed=tasks.observeTask(bot,task,sensedScan,this.runtime);
   const obs=[...sensedScan.pooled,Math.sin(angle),Math.cos(angle),Math.min(p.distanceTo(new Vec3(...goal))/32,1),bot.health/20,bot.food/20,bot.entity.onGround?1:0,...sensed.extra];
   const teacher=tasks.teacherAction(bot,task,sensed,this.runtime,angle);
   const result=await api('/step',{agent:bot.username,run:state.run,world_skill:skill,obs,teacher,reward:0,position:[p.x,p.y,p.z],health:bot.health,food:bot.food,hits:sensedScan.hits,perception_ms:0,steps:0,goal,task:'expedition',metrics:sensed.metrics});
   this.timing.action(result.action);this.timing.mark(this.phase,this.collecting?'collecting':result.action===1||result.action===2?'aligning':'navigating');
-  motor.command(result.action,task,{...sensed,...sensedScan.proximity,cueDistance:Math.hypot(cue[0]-p.x,cue[2]-p.z)},angle);
+  const motorLabel=motor.command(result.action,task,{...sensed,...sensedScan.proximity,focusPoint:cue,cueDistance:Math.hypot(cue[0]-p.x,cue[2]-p.z)},angle);if(motorLabel)this.message=motorLabel;
  }
 }
 module.exports={HutTeacher,blueprint,intact,findPlot,findSpawn,surface,reference};

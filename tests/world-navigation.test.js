@@ -10,6 +10,13 @@ test('tree focus survives nearest-distance crossover but releases depleted trees
  assert.equal(treeFocus([b],selected.key).key,'3,0');assert.equal(treeFocus([],selected.key).key,null);
 });
 
+test('peripheral acquisition scans behind the bot and accepts only actual log hits',()=>{
+ const {scanTrees}=require('../controller/target_scan');let rays=0;
+ const log=new Vec3(0,70,8),bot={entity:{position:new Vec3(0,70,0),yaw:0},world:{raycast(eye,dir){rays++;return dir.z>.99?{name:'oak_log',position:log}:dir.z<-.99?{name:'stone',position:new Vec3(0,70,-4)}:null;}}};
+ assert.deepEqual(scanTrees(bot),[log]);assert.equal(rays,72);
+ bot.world.raycast=()=>({name:'stone',position:new Vec3(0,70,4)});assert.deepEqual(scanTrees(bot),[]);
+});
+
 test('settlement chest fits inside the hut and teaching milestones are idempotent',()=>{
  const {chestPosition,TOOLS}=require('../controller/settlement'),{HutTeacher}=require('../controller/hut_teacher');
  const plot={x:20,y:70,z:30},chest=chestPosition(plot);

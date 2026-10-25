@@ -52,12 +52,20 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    stalled=false;
    if(legacy){applyMotion(bot,action,permissions,task);return null;}
    plan=motorPlan(action,permissions,task,{...sensed,inWater:!!bot.entity?.isInWater},angle,!!bot.getControlState('forward'));
+   const focus=task?.navigation_lock&&sensed?.focusPoint&&[0,1,2,3].includes(action)?sensed.focusPoint:null;
+   // Face the planned corridor before trying to move. A wall in the old
+   // viewing direction is not evidence that the new corridor requires backing.
+   if(focus&&Math.abs(angle)>.35){plan.forward=false;plan.jump=false;}
    const passage=doorway.update(plan,sensed||{},bot.entity.position,bot.entity.yaw,clock(),permissions);
    if(passage){recovery.reset();plan=passage;}
    else{
    plan=recovery.update(plan,{...sensed,inWater:!!bot.entity.isInWater,inLava:!!bot.entity.isInLava},bot.entity.position,bot.entity.yaw,clock(),permissions,angle,task?.bounds);
    }
    bot.labRecovering=recovery.active();bot.labAvoiding=recovery.remembering();
+   if(focus&&!passage&&!recovery.active()){
+    plan.focusPoint=focus;plan.label=Math.abs(angle)>.35?'Acquiring locked route heading':'Following locked route';
+   }
+   plan.yawRate=task?.quick_look?Math.PI*3:Math.PI;
    if(plan.forward&&sensed?.crouchClearance){plan.sneak=true;plan.jump=false;plan.label='Crouching under low clearance';}
    plan.sprint=sprintIntent(bot,permissions,task,plan,sensed,angle,!!bot.getControlState('sprint'));
    if(plan.sprint)plan.label='Sprinting on clear ground';
@@ -72,6 +80,11 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    const now=clock(),dt=Math.max(.01,Math.min(.1,(now-last)/1000));last=now;
    if(paused||now>expires){if(!paused){clear();stalled=true;}else pauseMotion(bot,permissions);applyPose(bot,!!bot.getControlState('sneak'));return;}
    let forward=!!plan.forward;
+   if(plan.focusPoint){
+    const dx=plan.focusPoint[0]-bot.entity.position.x,dz=plan.focusPoint[2]-bot.entity.position.z,d=Math.hypot(dx,dz);
+    targetYaw=d>.18?Math.atan2(-dx,-dz):null;
+    if(d<=.22||targetYaw!==null&&Math.abs(wrap(targetYaw-bot.entity.yaw))>.35)forward=false;
+   }
    if(forward&&plan.moveTarget&&bot.entity.position){
     const dx=plan.moveTarget.x-bot.entity.position.x,dz=plan.moveTarget.z-bot.entity.position.z,d=Math.hypot(dx,dz),v=bot.entity.velocity;
     const approaching=v?Math.max(0,(v.x*dx+v.z*dz)/Math.max(.001,d)):0;
@@ -83,7 +96,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    if(!!bot.getControlState('sprint')!==sprint)bot.setControlState('sprint',sprint);
    applyPose(bot,!!plan.sneak);
    if(targetYaw!==null&&!lookLocked&&permissions.turn){
-    const delta=wrap(targetYaw-bot.entity.yaw),step=Math.sign(delta)*Math.min(Math.abs(delta),Math.PI*dt);
+    const delta=wrap(targetYaw-bot.entity.yaw),step=Math.sign(delta)*Math.min(Math.abs(delta),(plan.yawRate||Math.PI)*dt);
     if(Math.abs(delta)>.002)Promise.resolve(bot.look(bot.entity.yaw+step,0,true)).catch(()=>clear());
     else targetYaw=null;
    }
