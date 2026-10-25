@@ -189,7 +189,7 @@ def console(command):
 from .vision import VisionLines
 vision_lines=VisionLines('data/vision.json',console)
 observers=Observers('data/observers.json',console)
-camera_input=CameraInput('logs/minecraft-console.log',console)
+camera_input=CameraInput('logs/minecraft-console.log',console,'server/world/datapacks/lab_camera_controls')
 practice_protection=PracticeProtection(console)
 world_training=WorldTraining('data/world-training.json',console,'logs/minecraft-console.log')
 bot_lights=BotLights(console)
@@ -865,6 +865,7 @@ def observer_action(action:str,d:dict):
             online=[p['name'] for p in online_players()]
             if action=='stop':return observers.stop(d.get('player','Xonosnet'),online,server_ready() and not server_control.snapshot()['busy'])
             if action=='next':return observers.next_bot(d.get('player','Xonosnet'),agents)
+            if action=='adjust':return observers.adjust(d.get('player','Xonosnet'),d.get('key'))
             if action!='start':raise ValueError('Choose start, stop or next')
             cached=json.loads(Path('server/usercache.json').read_text(encoding='utf-8'))
             result=observers.start(d,online+[p['name'] for p in cached]);event('observer_started',result);return result

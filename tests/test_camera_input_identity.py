@@ -22,6 +22,22 @@ def test_game_jump_detection_is_scoped_and_consumes_each_edge_once(tmp_path):
     reader.tick(observers,['Xonosnet'],{});reader.tick(observers,['Xonosnet'],{})
     assert observers.advances==1
 
+
+def test_native_camera_pack_and_feedback_are_private_and_do_not_repeat(tmp_path):
+    path=tmp_path/'console';path.write_text('');commands=[];pack=tmp_path/'pack';reader=CameraInput(path,commands.append,pack)
+    class Observers:
+        sessions={'Xonosnet':{'player':'Xonosnet','enabled':True,'cycle_enabled':False}}
+        changes=[]
+        def adjust(self,owner,key):self.changes.append((owner,key))
+    o=Observers();reader.tick(o,['Xonosnet'],{})
+    assert 'input:{sprint:true}' in (pack/'data/lab_camera/function/input.mcfunction').read_text()
+    assert 'lab_camera:tick' in (pack/'data/minecraft/tags/function/tick.json').read_text()
+    path.write_bytes(b'> console\r\x1b[2K[12:00:00 INFO]: Xonosnet has 4 tags: lab_camera_controls, lab_cam_event, lab_cam_far, lab_cam_view\n[12:00:00 INFO]: <Stranger> Xonosnet has the following 1 entity tags: lab_cam_near\n[12:00:00 INFO]: [Stranger: Triggered [lab_camera] (set value to 5)]\n')
+    reader.tick(o,['Xonosnet'],{});reader.tick(o,['Xonosnet'],{})
+    assert o.changes==[('Xonosnet','Enter'),('Xonosnet','ArrowUp')]
+    with path.open('a') as f:f.write('[12:00:01 INFO]: \x1b[3m\x1b[37m[Xonosnet: Triggered [lab_camera] (set value to 4)]\x1b[0m\n')
+    reader.tick(o,['Xonosnet'],{});assert o.changes[-1]==('Xonosnet','ArrowLeft')
+
 def test_generated_names_migrate_persist_and_remain_unique():
     db=sqlite3.connect(':memory:');db.execute('CREATE TABLE episodes(agent TEXT,success INTEGER)')
     db.execute('CREATE TABLE agent_identity(agent TEXT PRIMARY KEY,serial TEXT UNIQUE,tracked_since REAL)')

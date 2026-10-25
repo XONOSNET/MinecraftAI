@@ -93,7 +93,7 @@ class WorldTraining:
     def _read(self,offset):
         if not self.logpath.exists():return '',offset
         with self.logpath.open('rb') as stream:
-            stream.seek(min(offset,self.logpath.stat().st_size));data=stream.read(262144);return data.decode('utf-8',errors='replace'),stream.tell()
+            stream.seek(min(offset,self.logpath.stat().st_size));data=stream.read(262144);return re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]','',data.decode('utf-8',errors='replace')).replace('\r','\n'),stream.tell()
 
     def tick(self):
         s=self.session
@@ -240,6 +240,10 @@ class WorldTraining:
         parts=[{'text':'AI Laboratory\n','color':'gold','bold':True}]
         for label,choice in [('Basics training',1),('Real world: repeat teacher settlement lessons',2),('Real world: repeat policy navigation + settlement teacher',3),('Stop current mode',4),('Train gathering from examples',5),('Train navigation from examples',6)]:
             parts.extend([{'text':'['+label+']\n','color':'aqua','clickEvent':{'action':'run_command','value':f'/trigger lab_world set {choice}'}}])
+        parts.append({'text':'Camera while following: Ctrl = view; W/S = distance; A/D = height.\n','color':'gray'})
+        for label,value in [('Next view',1),('Farther',2),('Closer',3),('Lower',4),('Higher',5)]:
+            parts.append({'text':'['+label+'] ','color':'green','clickEvent':{'action':'run_command','value':f'/trigger lab_camera set {value}'}})
+        parts.append({'text':'\n'})
         parts.append({'text':'World trials use a reserved natural area, restored between trials. Hut construction is teacher assisted. Dashboard: 127.0.0.1:8000','color':'gray'})
         self.command(f'tellraw {player} '+json.dumps(parts))
 

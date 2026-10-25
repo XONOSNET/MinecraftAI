@@ -342,6 +342,23 @@ def test_cycle_single_candidate_keeps_camera_attachment(tmp_path):
     assert not o.cycle_candidates(s,agents)
 
 
+def test_private_camera_adjustments_keep_subject_and_cycle_schedule_and_allow_one_block(tmp_path):
+    import math
+    from lab.observers import action_pose
+    o=Observers(tmp_path/'camera',lambda c:None,lambda:100)
+    o.start({'player':'Xonosnet','target':'LabAI3','view':'trail','distance':1,'cycle_enabled':True},['Xonosnet'])
+    s=o.sessions['Xonosnet'];s['attached']=True;due=s['cycle_at']
+    o.adjust('xonosnet','ArrowDown');assert s['distance']==1 and s['attached']
+    o.adjust('Xonosnet','ArrowUp');assert s['distance']==2 and s['target']=='LabAI3'
+    o.adjust('Xonosnet','ArrowLeft');assert s['height']==3
+    o.adjust('Xonosnet','ArrowRight');assert s['height']==4
+    o.adjust('Xonosnet','Enter');assert s['view']=='side' and not s['attached']
+    assert s['cycle_at']==due and s['cycle_enabled']
+    with pytest.raises(ValueError):o.adjust('Stranger','Enter')
+    with pytest.raises(ValueError):o.adjust('Xonosnet','unsupported')
+    assert math.hypot(*action_pose(1,4,0)[::2])>=1
+
+
 def test_world_teacher_cycle_skips_removed_bots_immediately_and_holds_when_all_done(tmp_path):
     now=[100.];o=Observers(tmp_path/'camera',lambda c:None,lambda:now[0],settle_delay=0)
     s=o.start({'player':'Xonosnet','target':'LabAI0','cycle_enabled':True},['Xonosnet'])

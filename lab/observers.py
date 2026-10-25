@@ -41,7 +41,7 @@ def action_pose(distance,height,elapsed,heading=0):
     t=u*u*(3-2*u)
     delta=(b[1]-a[1]+math.pi)%(2*math.pi)-math.pi
     angle=heading+a[1]+delta*t
-    radius=max(3,min(16,distance*(a[2]+(b[2]-a[2])*t)))
+    radius=max(1,min(16,distance*(a[2]+(b[2]-a[2])*t)))
     elevation=max(3.2,min(12,height*(a[3]+(b[3]-a[3])*t)))
     return math.cos(angle)*radius,elevation,math.sin(angle)*radius,a[0]
 
@@ -94,7 +94,7 @@ class Observers:
         if view not in VIEWS:raise ValueError('Choose a supported camera view')
         try:distance=float(request.get('distance',7));height=float(request.get('height',4))
         except (ValueError,TypeError):raise ValueError('Enter numeric camera distance and height')
-        if not math.isfinite(distance) or not 3<=distance<=16 or not math.isfinite(height) or not 2<=height<=12:raise ValueError('Camera distance must be 3â€“16 blocks and height 2â€“12')
+        if not math.isfinite(distance) or not 1<=distance<=16 or not math.isfinite(height) or not 2<=height<=12:raise ValueError('Camera distance must be 1–16 blocks and height 2–12')
         cycle_enabled=request.get('cycle_enabled',view=='cycle')
         if type(cycle_enabled) is not bool:raise ValueError('Cycle bots must be enabled or disabled')
         active_only=request.get('active_only',True)
@@ -111,6 +111,25 @@ class Observers:
         s=next((v for k,v in self.sessions.items() if k.casefold()==owner.casefold()),None)
         if not s or not s.get('enabled') or not s.get('cycle_enabled'):raise ValueError('Enable Cycle bots before using Next AI')
         self.cycle_target(s,agents)
+        self.save();return copy.deepcopy(s)
+
+    def adjust(self,owner,key):
+        owner=player_name(owner)
+        s=next((v for k,v in self.sessions.items() if k.casefold()==owner.casefold()),None)
+        if not s or not s.get('enabled'):raise ValueError('Start following a bot first')
+        views=('trail','side','overhead','orbit','action','first_person','stationary')
+        if key=='Enter':
+            index=views.index(s['view']) if s['view'] in views else -1
+            s.update(view=views[(index+1)%len(views)],attached=False,attach_ready_at=None)
+        elif key in ('ArrowUp','ArrowDown','ArrowLeft','ArrowRight'):
+            if s['view'] in ('first_person','stationary'):
+                return {**copy.deepcopy(s),'message':'Choose a moving external view to adjust distance or height.'}
+            field='distance' if key in ('ArrowUp','ArrowDown') else 'height'
+            step=1 if key in ('ArrowUp','ArrowRight') else -1
+            lower,upper=(1,16) if field=='distance' else (2,12)
+            s[field]=max(lower,min(upper,s[field]+step))
+        else:raise ValueError('Unsupported camera control')
+        s['message']=f"Camera {s['view'].replace('_',' ')} | distance {s['distance']:g} | height {s['height']:g}"
         self.save();return copy.deepcopy(s)
     def cycle_candidates(self,s,agents):
         context=self.progress_context

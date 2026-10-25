@@ -1,0 +1,488 @@
+{
+  "initial": {
+    "player": "LabCamKeys",
+    "saved_mode": 3,
+    "return_created": true,
+    "active_only": true,
+    "cycle_waiting": false,
+    "cycle_enabled": false,
+    "cycle_seconds": 30,
+    "cycle_at": 1792943997.8565135,
+    "enabled": true,
+    "target": "LabAI0",
+    "view": "orbit",
+    "distance": 2,
+    "height": 4,
+    "attached": true,
+    "attach_ready_at": null,
+    "camera_created": true,
+    "status": "following",
+    "message": "Following LabAI0: orbit. Camera follows arena transfers and respawns.",
+    "started_at": 1792943967.8565135,
+    "target_token": [
+      482,
+      "overworld"
+    ],
+    "motion_key": [
+      "LabAI0",
+      482,
+      "overworld",
+      "idle"
+    ],
+    "motion_anchor": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "camera_heading": 0,
+    "travel_heading": 0,
+    "last_target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "follow_run": "idle",
+    "attached_at": 1792943968.865972,
+    "simulation": "Manual navigation",
+    "target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "hud_ready": true,
+    "hud_at": 1792943968.937141
+  },
+  "sprint": {
+    "player": "LabCamKeys",
+    "saved_mode": 3,
+    "return_created": true,
+    "active_only": true,
+    "cycle_waiting": false,
+    "cycle_enabled": false,
+    "cycle_seconds": 30,
+    "cycle_at": 1792943997.8565135,
+    "enabled": true,
+    "target": "LabAI0",
+    "view": "action",
+    "distance": 2,
+    "height": 4,
+    "attached": true,
+    "attach_ready_at": null,
+    "camera_created": true,
+    "status": "following",
+    "message": "Action camera: Chase. Smooth automatic shots follow LabAI0 between simulations.",
+    "started_at": 1792943967.8565135,
+    "target_token": [
+      482,
+      "overworld"
+    ],
+    "motion_key": [
+      "LabAI0",
+      482,
+      "overworld",
+      "idle"
+    ],
+    "motion_anchor": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "camera_heading": 0,
+    "travel_heading": 0,
+    "last_target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "follow_run": "idle",
+    "attached_at": 1792943970.5547063,
+    "simulation": "Manual navigation",
+    "target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "hud_ready": true,
+    "hud_at": 1792943970.9663832,
+    "camera_shot": "Chase"
+  },
+  "forward": {
+    "player": "LabCamKeys",
+    "saved_mode": 3,
+    "return_created": true,
+    "active_only": true,
+    "cycle_waiting": false,
+    "cycle_enabled": false,
+    "cycle_seconds": 30,
+    "cycle_at": 1792943997.8565135,
+    "enabled": true,
+    "target": "LabAI0",
+    "view": "action",
+    "distance": 3,
+    "height": 4,
+    "attached": true,
+    "attach_ready_at": null,
+    "camera_created": true,
+    "status": "following",
+    "message": "Action camera: Chase. Smooth automatic shots follow LabAI0 between simulations.",
+    "started_at": 1792943967.8565135,
+    "target_token": [
+      482,
+      "overworld"
+    ],
+    "motion_key": [
+      "LabAI0",
+      482,
+      "overworld",
+      "idle"
+    ],
+    "motion_anchor": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "camera_heading": 0,
+    "travel_heading": 0,
+    "last_target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "follow_run": "idle",
+    "attached_at": 1792943970.5547063,
+    "simulation": "Manual navigation",
+    "target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "hud_ready": true,
+    "hud_at": 1792943971.9676971,
+    "camera_shot": "Chase"
+  },
+  "backward": {
+    "player": "LabCamKeys",
+    "saved_mode": 3,
+    "return_created": true,
+    "active_only": true,
+    "cycle_waiting": false,
+    "cycle_enabled": false,
+    "cycle_seconds": 30,
+    "cycle_at": 1792943997.8565135,
+    "enabled": true,
+    "target": "LabAI0",
+    "view": "action",
+    "distance": 2,
+    "height": 4,
+    "attached": true,
+    "attach_ready_at": null,
+    "camera_created": true,
+    "status": "following",
+    "message": "Action camera: Chase. Smooth automatic shots follow LabAI0 between simulations.",
+    "started_at": 1792943967.8565135,
+    "target_token": [
+      482,
+      "overworld"
+    ],
+    "motion_key": [
+      "LabAI0",
+      482,
+      "overworld",
+      "idle"
+    ],
+    "motion_anchor": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "camera_heading": 0,
+    "travel_heading": 0,
+    "last_target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "follow_run": "idle",
+    "attached_at": 1792943970.5547063,
+    "simulation": "Manual navigation",
+    "target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "hud_ready": true,
+    "hud_at": 1792943974.1227748,
+    "camera_shot": "Chase"
+  },
+  "minimum": {
+    "player": "LabCamKeys",
+    "saved_mode": 3,
+    "return_created": true,
+    "active_only": true,
+    "cycle_waiting": false,
+    "cycle_enabled": false,
+    "cycle_seconds": 30,
+    "cycle_at": 1792943997.8565135,
+    "enabled": true,
+    "target": "LabAI0",
+    "view": "action",
+    "distance": 1,
+    "height": 4,
+    "attached": true,
+    "attach_ready_at": null,
+    "camera_created": true,
+    "status": "following",
+    "message": "Action camera: Chase. Smooth automatic shots follow LabAI0 between simulations.",
+    "started_at": 1792943967.8565135,
+    "target_token": [
+      482,
+      "overworld"
+    ],
+    "motion_key": [
+      "LabAI0",
+      482,
+      "overworld",
+      "idle"
+    ],
+    "motion_anchor": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "camera_heading": 0,
+    "travel_heading": 0,
+    "last_target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "follow_run": "idle",
+    "attached_at": 1792943970.5547063,
+    "simulation": "Manual navigation",
+    "target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "hud_ready": true,
+    "hud_at": 1792943975.1335642,
+    "camera_shot": "Chase"
+  },
+  "clamped": {
+    "player": "LabCamKeys",
+    "saved_mode": 3,
+    "return_created": true,
+    "active_only": true,
+    "cycle_waiting": false,
+    "cycle_enabled": false,
+    "cycle_seconds": 30,
+    "cycle_at": 1792943997.8565135,
+    "enabled": true,
+    "target": "LabAI0",
+    "view": "action",
+    "distance": 1,
+    "height": 4,
+    "attached": true,
+    "attach_ready_at": null,
+    "camera_created": true,
+    "status": "following",
+    "message": "Action camera: Chase. Smooth automatic shots follow LabAI0 between simulations.",
+    "started_at": 1792943967.8565135,
+    "target_token": [
+      482,
+      "overworld"
+    ],
+    "motion_key": [
+      "LabAI0",
+      482,
+      "overworld",
+      "idle"
+    ],
+    "motion_anchor": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "camera_heading": 0,
+    "travel_heading": 0,
+    "last_target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "follow_run": "idle",
+    "attached_at": 1792943970.5547063,
+    "simulation": "Manual navigation",
+    "target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "hud_ready": true,
+    "hud_at": 1792943977.3688235,
+    "camera_shot": "Chase"
+  },
+  "left": {
+    "player": "LabCamKeys",
+    "saved_mode": 3,
+    "return_created": true,
+    "active_only": true,
+    "cycle_waiting": false,
+    "cycle_enabled": false,
+    "cycle_seconds": 30,
+    "cycle_at": 1792943997.8565135,
+    "enabled": true,
+    "target": "LabAI0",
+    "view": "action",
+    "distance": 1,
+    "height": 3,
+    "attached": true,
+    "attach_ready_at": null,
+    "camera_created": true,
+    "status": "following",
+    "message": "Action camera: Chase. Smooth automatic shots follow LabAI0 between simulations.",
+    "started_at": 1792943967.8565135,
+    "target_token": [
+      482,
+      "overworld"
+    ],
+    "motion_key": [
+      "LabAI0",
+      482,
+      "overworld",
+      "idle"
+    ],
+    "motion_anchor": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "camera_heading": 0,
+    "travel_heading": 0,
+    "last_target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "follow_run": "idle",
+    "attached_at": 1792943970.5547063,
+    "simulation": "Manual navigation",
+    "target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "hud_ready": true,
+    "hud_at": 1792943978.3890476,
+    "camera_shot": "Chase"
+  },
+  "right": {
+    "player": "LabCamKeys",
+    "saved_mode": 3,
+    "return_created": true,
+    "active_only": true,
+    "cycle_waiting": false,
+    "cycle_enabled": false,
+    "cycle_seconds": 30,
+    "cycle_at": 1792943997.8565135,
+    "enabled": true,
+    "target": "LabAI0",
+    "view": "action",
+    "distance": 1,
+    "height": 4,
+    "attached": true,
+    "attach_ready_at": null,
+    "camera_created": true,
+    "status": "following",
+    "message": "Action camera: Right tracking. Smooth automatic shots follow LabAI0 between simulations.",
+    "started_at": 1792943967.8565135,
+    "target_token": [
+      482,
+      "overworld"
+    ],
+    "motion_key": [
+      "LabAI0",
+      482,
+      "overworld",
+      "idle"
+    ],
+    "motion_anchor": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "camera_heading": 0,
+    "travel_heading": 0,
+    "last_target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "follow_run": "idle",
+    "attached_at": 1792943970.5547063,
+    "simulation": "Manual navigation",
+    "target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "hud_ready": true,
+    "hud_at": 1792943980.5703564,
+    "camera_shot": "Right tracking"
+  },
+  "chat": {
+    "player": "LabCamKeys",
+    "saved_mode": 3,
+    "return_created": true,
+    "active_only": true,
+    "cycle_waiting": false,
+    "cycle_enabled": false,
+    "cycle_seconds": 30,
+    "cycle_at": 1792943997.8565135,
+    "enabled": true,
+    "target": "LabAI0",
+    "view": "first_person",
+    "distance": 1,
+    "height": 4,
+    "attached": true,
+    "attach_ready_at": null,
+    "camera_created": false,
+    "status": "following",
+    "message": "Following LabAI0: first person. Camera follows arena transfers and respawns.",
+    "started_at": 1792943967.8565135,
+    "target_token": [
+      482,
+      "overworld"
+    ],
+    "motion_key": [
+      "LabAI0",
+      482,
+      "overworld",
+      "idle"
+    ],
+    "motion_anchor": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "camera_heading": 0,
+    "travel_heading": 0,
+    "last_target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "follow_run": "idle",
+    "attached_at": 1792943981.5705047,
+    "simulation": "Manual navigation",
+    "target_position": [
+      0.5654673519351695,
+      181,
+      0.5133227112985076
+    ],
+    "hud_ready": true,
+    "hud_at": 1792943981.5720172,
+    "camera_shot": "Right tracking"
+  },
+  "success": true
+}
