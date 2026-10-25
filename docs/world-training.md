@@ -27,3 +27,9 @@ Repeat trials is checked by default. Completed batches save their results, wait 
 ## Bot lighting
 
 All lab bots carry server-managed level-14 light in the overworld. Invisible marker entities own temporary light blocks at head height; the manager updates positions four times per second and sweeps reloaded chunks every two seconds. Only air is replaced: water, plants, existing lights and structures are preserved. Sources can therefore be unavailable when the bot is submerged or its head space is occupied. Old sources are removed after movement/disconnection and during orderly shutdown; unloaded sources are cleaned when their chunks reload. No client mod is needed. A native Mineflayer observer confirmed minecraft:light with level=14 at the bot source position. Three focused automated tests cover ownership, movement, stale/disconnected bots, invalid positions and cleanup.
+
+## Faster prepared-camp resets
+
+After a camp location is known, prepared trials restore all camp chunks plus a full one-chunk ring around them, clipped to the reserved boundary. The copied vertical band starts eight blocks below the camp (clamped to the template range) and spans 64 blocks. Depending on camp alignment, a local reset covers 80–96 blocks along each horizontal axis. A 96 × 96 × 64 region copies 589,824 blocks in eighteen acknowledged batches, versus 4,194,304 blocks in sixty-four batches before. Prepared camps retain the same anchor between resets. Existing history supplies the anchor when upgrading older templates. First snapshots, unknown camp locations and raw-terrain trials still use a full-area copy. Terrain outside the local reset volume retains changes.
+
+Live validation: world batch 78 restored the anchored camp plus surrounding chunks at X=16400..16479, Z=16400..16479, Y=62..125 (409,600 blocks) in 18.6 seconds. All eight bots then entered gathering, with the repeating loop enabled.

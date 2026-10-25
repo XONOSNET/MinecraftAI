@@ -45,16 +45,29 @@ class WorldTraining:
         if type(loop) is not bool:raise ValueError('Repeat trials must be enabled or disabled.')
         x=16384+scenario*4096+(2048 if size==256 else 0);z=16384
         key=f'{scenario}-{size}';restore=key in self.saved['templates']
+        anchor=self.saved['templates'].get(key,{}).get('camp_anchor')
+        if not anchor:
+            previous=next((r for r in reversed(self.saved['history']) if r.get('template')==key and r.get('prepared') and r.get('camp')),None)
+            if previous:anchor=[math.floor(v) for v in previous['camp']['spawn']]
+        fast=bool(restore and prepared and anchor)
+        # Include every camp chunk plus a complete one-chunk ring around it.
+        area=[x,x+size,z,z+size];ys=[-64,192]
+        if fast:
+            cx,cy,cz=anchor
+            area=[max(x,(cx-18)//16*16-16),min(x+size,(cx+18)//16*16+32),max(z,(cz-18)//16*16-16),min(z+size,(cz+18)//16*16+32)]
+            low=max(-64,min(128,cy-8));ys=[low,low+64]
         self.session=dict(active=True,phase='restoring' if restore else 'snapshotting',run='world-'+str(time.time_ns()),
             scenario=scenario,name=SCENARIOS[scenario]['name'],size=size,bounds=[x,x+size,z,z+size],driver=driver,
             bots=list(names),prepared=prepared,loop=loop,results={},started_at=self.clock(),round=self.saved.get('round',max((r.get('round',0) for r in self.saved['history']),default=0))+1,
             progress=0,message='Restoring the saved natural terrain.' if restore else 'Saving pristine natural terrain before the first trial.',template=key)
+        self.session.update(reset_area=area,copy_y=ys,fast_reset=fast,camp_anchor=anchor if prepared else None)
+        if fast:self.session['message']='Restoring the camp and surrounding chunks; deep underground terrain is preserved.'
         self.jobs=[];self.job=None
         # Incremental two-chunk work avoids permanent force loads and the global limit.
-        for xx in range(x,x+size,16):
-            for zz in range(z,z+size,16):
+        for xx in range(area[0],area[1],32 if fast else 16):
+            for zz in range(area[2],area[3],16):
                 source=xx+1024 if restore else xx;dest=xx if restore else xx+1024
-                self.jobs.append((source,dest,zz))
+                self.jobs.append((source,dest,zz,min(32 if fast else 16,area[1]-xx)))
         self.total=len(self.jobs);return self.snapshot()
 
     def next_batch(self,connected):
@@ -87,8 +100,9 @@ class WorldTraining:
         if s['phase'] in ('snapshotting','restoring'):
             if not self.job:
                 if not self.jobs:
-                    self.saved['templates'][s['template']]=dict(bounds=s['bounds'],saved_at=self.clock());self.save()
-                    s.update(phase='running',message='Hut trial running. Gathering, crafting and building use a scripted teacher; navigation can use the learned policy.',progress=100,trial_at=self.clock())
+                    template=self.saved['templates'].setdefault(s['template'],{})
+                    template.update(bounds=s['bounds'],saved_at=self.clock());self.save()
+                    s.update(phase='running',message='Hut trial running. Gathering, crafting and building use a scripted teacher; navigation can use the learned policy.',progress=100,trial_at=self.clock(),reset_seconds=round(self.clock()-s['started_at'],1))
                     x0,x1,z0,z1=s['bounds']
                     self.command(f'kill @e[type=minecraft:item,x={x0},y=-64,z={z0},dx={x1-x0},dy=256,dz={z1-z0}]')
                     for name in s['bots']:
@@ -102,27 +116,28 @@ class WorldTraining:
                         self.command(f'effect give {name} minecraft:saturation 1 5 true')
                         self.command(f'tp {name} {(x0+x1)/2} 196 {(z0+z1)/2}')
                     return
-                source,dest,z=self.jobs.pop(0);self.job=dict(source=source,dest=dest,z=z,phase='loading',at=self.clock())
-                for xx in (source,dest):self.command(f'forceload add {xx} {z} {xx+15} {z+15}')
+                source,dest,z,width=self.jobs.pop(0);self.job=dict(source=source,dest=dest,z=z,width=width,phase='loading',at=self.clock())
+                for xx in (source,dest):self.command(f'forceload add {xx} {z} {xx+width-1} {z+15}')
                 return
             j=self.job
             if j['phase']=='loading' and self.clock()-j['at']>=.8:
                 self.offset=self.logpath.stat().st_size if self.logpath.exists() else 0
-                for y in range(-64,192,64):self.command(f"clone {j['source']} {y} {j['z']} {j['source']+15} {y+63} {j['z']+15} {j['dest']} {y} {j['z']} replace force")
+                for y in range(*s['copy_y'],64):self.command(f"clone {j['source']} {y} {j['z']} {j['source']+j['width']-1} {y+63} {j['z']+15} {j['dest']} {y} {j['z']} replace force")
                 self.serial+=1;self.command(f'scoreboard players set #world_ack lab_world {self.serial}')
                 j.update(phase='waiting',at=self.clock(),serial=self.serial,log='');return
             if j['phase']=='waiting':
                 text,self.offset=self._read(self.offset);j['log']+=text
                 if f'to {j["serial"]}' in j['log'] and '#world_ack' in j['log']:
                     # Acknowledge clone success before considering terrain safe to use.
-                    if j['log'].count('Successfully cloned')<4:
+                    if j['log'].count('Successfully cloned')<(s['copy_y'][1]-s['copy_y'][0])//64:
                         self.stop('Terrain copy failed; trial stopped before deploying bots. Inspect the Minecraft console.');return
                     x0,x1,z0,z1=s['bounds'];xx=j['dest'] if s['phase']=='restoring' else j['source'];zz=j['z']
+                    end=xx+j['width']-1
                     if xx==x0:self.command(f'fill {xx} -64 {zz} {xx} 191 {zz+15} minecraft:glass')
-                    if xx+16==x1:self.command(f'fill {xx+15} -64 {zz} {xx+15} 191 {zz+15} minecraft:glass')
-                    if zz==z0:self.command(f'fill {xx} -64 {zz} {xx+15} 191 {zz} minecraft:glass')
-                    if zz+16==z1:self.command(f'fill {xx} -64 {zz+15} {xx+15} 191 {zz+15} minecraft:glass')
-                    for xx in (j['source'],j['dest']):self.command(f"forceload remove {xx} {j['z']} {xx+15} {j['z']+15}")
+                    if end+1==x1:self.command(f'fill {end} -64 {zz} {end} 191 {zz+15} minecraft:glass')
+                    if zz==z0:self.command(f'fill {xx} -64 {zz} {end} 191 {zz} minecraft:glass')
+                    if zz+16==z1:self.command(f'fill {xx} -64 {zz+15} {end} 191 {zz+15} minecraft:glass')
+                    for xx in (j['source'],j['dest']):self.command(f"forceload remove {xx} {j['z']} {xx+j['width']-1} {j['z']+15}")
                     self.job=None;s['progress']=round(100*(self.total-len(self.jobs))/self.total,1)
                 elif self.clock()-j['at']>20:self.stop('Terrain copy acknowledgement timed out.');return
         elif s['phase']=='running':
@@ -135,7 +150,7 @@ class WorldTraining:
         s=self.session
         if not s or not s['active'] or s['phase']!='running' or name not in s['bots']:return None
         if s['results'].get(name,{}).get('state') in ('complete','stopped'):return None
-        return dict(mode='teacher' if s['driver']=='teacher' else 'evaluate',run=s['run'],world=dict(bounds=s['bounds'],index=s['bots'].index(name),count=len(s['bots']),spread=SCENARIOS[s['scenario']]['spread'],driver=s['driver'],prepared=s['prepared']))
+        return dict(mode='teacher' if s['driver']=='teacher' else 'evaluate',run=s['run'],world=dict(bounds=s['bounds'],index=s['bots'].index(name),count=len(s['bots']),spread=SCENARIOS[s['scenario']]['spread'],driver=s['driver'],prepared=s['prepared'],camp_anchor=s.get('camp_anchor')))
 
     def camp(self,name,position):
         s=self.session
@@ -143,6 +158,7 @@ class WorldTraining:
         if s.get('camp'):return copy.deepcopy(s['camp'])
         if not isinstance(position,list) or len(position)!=3 or any(type(v) not in (int,float) or not math.isfinite(v) for v in position):raise ValueError('Invalid camp position.')
         x,y,z=[math.floor(v) for v in position];x0,x1,z0,z1=s['bounds']
+        if s.get('camp_anchor'):[x,y,z]=s['camp_anchor']
         if not x0+19<x<x1-19 or not z0+19<z<z1-19 or not 0<y<180:raise ValueError('Camp must fit safely inside the reserved terrain.')
         self.command(f'fill {x-18} {y-1} {z-18} {x+18} {y-1} {z+18} minecraft:grass_block')
         self.command(f'fill {x-18} {y} {z-18} {x+18} {y+9} {z+18} minecraft:air')
@@ -157,6 +173,7 @@ class WorldTraining:
                     self.command(f'fill {tx-1} {y+4} {tz-1} {tx+1} {y+5} {tz+1} minecraft:oak_leaves[persistent=true]')
             groves.append(trees)
         s['camp']=dict(spawn=[x+.5,y+.1,z+.5],plots=plots,groves=groves)
+        self.saved['templates'].setdefault(s['template'],{})['camp_anchor']=[x,y,z];self.save()
         return copy.deepcopy(s['camp'])
 
     def spawn(self,name,position):
@@ -183,7 +200,7 @@ class WorldTraining:
         if self.job:
             j=self.job
             for xx in (j['source'],j['dest']):
-                try:self.command(f"forceload remove {xx} {j['z']} {xx+15} {j['z']+15}")
+                try:self.command(f"forceload remove {xx} {j['z']} {xx+j['width']-1} {j['z']+15}")
                 except RuntimeError:pass
         self.jobs=[];self.job=None
         if self.session:

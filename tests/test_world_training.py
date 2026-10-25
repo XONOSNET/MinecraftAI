@@ -83,3 +83,31 @@ def test_prepared_camp_generates_harvestable_resources_once_without_inventory_gr
     assert sum('minecraft:oak_log' in c for c in commands)==32
     assert not any(c.startswith('give ') for c in commands)
     before=len(commands);assert world.camp('LabAI1',[16448.5,71.1,16448.5])==camp;assert len(commands)==before
+
+
+def test_prepared_reset_covers_camp_and_surrounding_chunks_with_bounded_clones(tmp_path):
+    world,commands,clock,log=fixture(tmp_path)
+    world.saved['templates']['0-128']={'camp_anchor':[16448,70,16448]}
+    world.start({},['LabAI0']);s=world.session
+    assert s['fast_reset'] and s['reset_area']==[16400,16496,16400,16496]
+    assert s['copy_y']==[62,126] and len(world.jobs)==18
+    assert sum(w*16*64 for _,_,_,w in world.jobs)==589824
+    world.tick();clock[0]=1;world.tick()
+    clones=[c for c in commands if c.startswith('clone ')]
+    assert len(clones)==1
+    xyz=list(map(int,clones[0].split()[1:10]));assert (xyz[3]-xyz[0]+1)*(xyz[4]-xyz[1]+1)*(xyz[5]-xyz[2]+1)==32768
+    log.write_text('Successfully cloned 32768 blocks\nSet [lab_world] for #world_ack to 1\n')
+    world.tick();assert world.session['active'] and world.job is None
+    world.jobs=[];world.tick()
+    assert world.saved['templates']['0-128']['camp_anchor']==[16448,70,16448]
+    assert world.assignment('LabAI0')['world']['camp_anchor']==[16448,70,16448]
+
+
+def test_existing_history_migrates_camp_anchor_but_raw_and_unknown_camps_restore_all(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.saved['templates']['0-128']={}
+    world.start({},['LabAI0']);assert not world.session['fast_reset'] and len(world.jobs)==64
+    world.stop()
+    world.saved['history']=[dict(template='0-128',prepared=True,camp={'spawn':[16448.5,70.1,16448.5]})]
+    world.start({},['LabAI0']);assert world.session['fast_reset']
+    world.stop();world.start({'prepared':False},['LabAI0'])
+    assert not world.session['fast_reset'] and len(world.jobs)==64 and world.session['copy_y']==[-64,192]
