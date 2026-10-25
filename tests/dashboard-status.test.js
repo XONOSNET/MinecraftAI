@@ -55,3 +55,14 @@ test('model collection explains all twelve specialists and counts real layer sha
  assert.match(html,/Bots share these weights/);
  assert.match(html,/individual spatial memory stores/);
 });
+
+test('specialist cards show all roles and individual counts immediately below combined totals',()=>{
+ class Node{constructor(){this.children=[];this.style={};this.textContent='';}replaceChildren(){this.children=[];}append(...nodes){this.children.push(...nodes);}}
+ const nodes=new Map(),get=id=>{if(!nodes.has(id))nodes.set(id,new Node());return nodes.get(id);};
+ const code=html.slice(html.indexOf('function modelBytes('),html.indexOf('function renderAgents('));
+ const render=vm.runInNewContext(code+';renderModels',{document:{createElement:()=>new Node()},$:get,text:(id,value)=>{get(id).textContent=value;},fmt:n=>Number(n).toLocaleString('en-US'),duration:()=>''});
+ const skills=['navigation','traversal','hazards','exploration','gathering','nutrition','shelter','integration','terrain','advanced','expedition','combat'].map((skill,i)=>({skill,name:'Test',revision:1,id:i,parameters:i?11527:9604,architecture:i?[82,128,7]:[70,128,4],weight_bytes:4*(i?11527:9604)}));
+ render({model_evolution:{current:skills[0],skills,total_parameters:136401,total_weight_bytes:545604,version_count:12,history:[]}});
+ assert.equal(get('model-specialist-cards').children.length,12);assert.equal(get('model-collection-metrics').children[0].children[0].textContent,'136,401');
+ const nav=get('model-specialist-cards').children.find(card=>card.children[0].textContent==='Navigation');assert.equal(nav.children[1].textContent,'9,604');assert.match(nav.children[3].textContent,/obstacle avoidance/);
+});

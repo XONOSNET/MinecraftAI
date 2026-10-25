@@ -1,4 +1,6 @@
 const mineflayer=require('mineflayer');const {scan}=require('./perception');
+const {HutTeacher}=require('./hut_teacher');
+const inventorySync=require('./inventory_sync');
 const combat=require('./combat');const tasks=require('./tasks');const {ownOxygen}=require('./air');
 const fs=require('fs');const token=fs.readFileSync('data/api-token','utf8').trim();
 const permissions=JSON.parse(fs.readFileSync('config/permissions.json','utf8'));
@@ -11,6 +13,8 @@ const {randomUUID}=require('crypto');
 const bots=[];let quitting=false;
 async function api(path,data){const r=await fetch('http://127.0.0.1:8000'+path,{method:'POST',headers:{'Content-Type':'application/json','X-Lab-Token':token},body:JSON.stringify(data)});if(!r.ok)throw Error(await r.text());return r.json();}
 async function spawn(i){if(quitting)return;try{const status=await(await fetch('http://127.0.0.1:8000/status',{signal:AbortSignal.timeout(2000)})).json();if(status.server&&!status.server.ready){setTimeout(()=>spawn(i),2000);return;}}catch{setTimeout(()=>spawn(i),2000);return;}if(quitting)return;const name='LabAI'+i;const b=mineflayer.createBot({host:'127.0.0.1',port:25565,username:name,auth:'offline',version:'1.21.4',respawn:true});bots[i]=b;let tick=0,busy=false,goal=null,lastDistance=null,steps=0,phase='',episode=0,task=null,runtime=tasks.createRuntime(),readyAt=0,lastMetrics=null,activity='Connecting',decisionMs=250,lastDecisionAt=0,trialStarted=null;
+ inventorySync.attach(b);
+ const hutTeacher=new HutTeacher();
  const motor=createMotor(b,permissions,{legacy:!motorConfig.smooth_movement});let interaction=null,interactionAt=0;
  b.on('physicsTick',()=>motor.tick());
  b.labOxygen=20;b._client.on('entity_metadata',packet=>{b.labOxygen=ownOxygen(packet,b.entity?.id,b.labOxygen);});
@@ -25,6 +29,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  const heartbeat=()=>({agent:name,index:i,episode,trial_seconds:trialStarted===null?null:(performance.now()-trialStarted)/1000,position:[b.entity.position.x,b.entity.position.y,b.entity.position.z],health:b.health,food:b.food,entity_id:b.entity.id,dimension:b.game.dimension,activity:motor.status()||activity,reset_seconds:goal?Math.ceil(Math.max(0,(task?.max_steps||(motorConfig.smooth_movement?300:120))-steps)*decisionMs/1000):null,reset_steps_left:goal?Math.max(0,(task?.max_steps||(motorConfig.smooth_movement?300:120))-steps):null,speed:Math.hypot(b.entity.velocity.x,b.entity.velocity.z)*20,players:Object.values(b.players).map(p=>({name:p.username,mode:p.gamemode}))});
  let state=await api('/assignment',heartbeat());
  if(phase!==state.run){episode=0;state=await api('/assignment',heartbeat());}
+ if(state.world){if(phase!==state.run){motor.pause();phase=state.run;}goal=null;task=null;trialStarted=null;activity=await hutTeacher.tick(b,motor,state,api,scan,tasks);return;}
  if(state.mode==='paused'){b.deactivateItem();trialStarted=null;activity='Waiting for next learning phase';motor.pause();goal=null;return;}
  if(Date.now()<readyAt){activity='Loading arena / settling after teleport';motor.pause();b.clearControlStates();return;}
  const finishedTask=task&&lastMetrics&&tasks.reached(task,lastMetrics);

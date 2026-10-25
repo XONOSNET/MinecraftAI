@@ -22,6 +22,7 @@ from .tasks import task_spec, arena_commands, reset_commands, task_success, SKIL
 from .config import AGENT_COUNT, EPISODES_PER_AGENT, EXPECTED_EPISODES, LANE_END, is_agent
 from .observers import Observers, observer_progress
 from .camera_input import CameraInput
+from .world_training import WorldTraining
 from .identities import Identities
 from .protection import PracticeProtection
 import copy
@@ -94,6 +95,7 @@ def event(name,payload):
     db.execute('INSERT INTO events(time,event,payload) VALUES(?,?,?)',(time.time(),name,json.dumps(payload)));db.commit()
 
 def active_skill():
+    if world_training.session:return world_training.session.get('training_skill','expedition')
     if practice:return STAGES[practice['stage']]['skill']
     return STAGES[curriculum.state['stage']].get('skill','navigation') if curriculum and curriculum.state['enabled'] else 'navigation'
 
@@ -187,6 +189,7 @@ vision_lines=VisionLines('data/vision.json',console)
 observers=Observers('data/observers.json',console)
 camera_input=CameraInput('logs/minecraft-console.log',console)
 practice_protection=PracticeProtection(console)
+world_training=WorldTraining('data/world-training.json',console,'logs/minecraft-console.log')
 
 def checkpoint():
     stamp=str(time.time_ns());p=Path('checkpoints')/(stamp+'.pt')
@@ -234,6 +237,7 @@ def prepare_server_operation():
             if server_control.snapshot().get('automatic'):curriculum.hold('Waiting for Minecraft to recover.')
             else:curriculum.pause('Paused for a server operation. Resume autonomous training when ready.')
     with lock:
+        world_training.stop('Paused for a server operation.')
         mode='paused';run='paused-'+str(int(time.time()))
         event('mode',{'mode':'paused','run':run,'reason':'server_operation'})
     if training_jobs.running:
@@ -379,7 +383,7 @@ def status():
         metrics=episode_metrics()
         run_sizes={r[0]:r[1]*r[2] for r in db.execute('SELECT * FROM run_config')}
         activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error') ORDER BY id DESC LIMIT 20")]
-        return {'model_evolution':evolution.snapshot(active_skill()),'vision':dict(vision_lines.settings),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
+        return {'world_training':world_training.snapshot(),'model_evolution':evolution.snapshot(active_skill()),'vision':dict(vision_lines.settings),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:
@@ -400,6 +404,13 @@ def assignment(d:dict):
             state.update(identities.get(d['agent']))
             state.update(trial_seconds=d.get('trial_seconds'),activity=str(d.get('activity','Waiting'))[:160],speed=d.get('speed',0),reset_seconds=d.get('reset_seconds'),reset_steps_left=d.get('reset_steps_left'))
             state.update(connected=True,entity_id=d.get('entity_id'),dimension=d.get('dimension'),simulation=STAGES[practice['stage'] if practice else curriculum.state['stage']]['name'] if practice or curriculum.state['enabled'] else 'Manual navigation')
+        if world_training.session:
+            assignment=world_training.assignment(d['agent'])
+            result=world_training.session['results'].get(d['agent'],{})
+            agents[d['agent']].update(trial_completed=1 if result.get('state') in ('complete','stopped') else 0,trial=1,reset_seconds=None,reset_steps_left=None)
+            agents[d['agent']]['simulation']='Real world: '+world_training.session['name']
+            if assignment:return assignment
+            return {'mode':'paused','run':run}
         # Repeated calls during a lifetime return the same assignment; next episode changes it.
         rng=random.Random(8000+d['index']*1000+d['episode'])
         finished=db.execute('SELECT count(*) FROM episodes WHERE run=? AND agent=?',(run,d['agent'])).fetchone()[0]
@@ -436,7 +447,9 @@ def step(d:dict):
     with lock:
         torch.set_num_threads(1)
         if d.get('run')!=run or mode=='paused':return {'action':4,'inference_ms':0}
-        skill=active_skill();policy,optimizer,replay=learning_context(skill)
+        skill=active_skill()
+        if world_training.session and world_training.session['active'] and d.get('world_skill') in ('expedition','gathering','shelter'):skill=d['world_skill']
+        policy,optimizer,replay=learning_context(skill)
         if len(d['obs'])!=policy.net[0].in_features or not np.isfinite(d['obs']).all():raise HTTPException(400,'Invalid observation')
         t=time.perf_counter()
         with torch.no_grad():action=int(policy(torch.tensor(d['obs'],dtype=torch.float32)).argmax())
@@ -539,6 +552,8 @@ def control(command:str,d:dict={}):
         if training_jobs.running and command not in ('shutdown',):
             raise HTTPException(409,'Training is in progress. Wait for it to finish or cancel training first.')
         if command in ('teacher','evaluate','untrained','random','heuristic','paused'):
+            if command=='paused':world_training.stop()
+            else:world_training.stop();world_training.session=None
             if command=='evaluate' and practice:
                 practice['driver']='student';practice['seed']=time.time_ns();mode='evaluate';run='skilltest-'+str(practice['stage'])+'-'+str(int(time.time()))
             else:
@@ -725,6 +740,7 @@ def practice_stage(stage_index:int,d:dict={}):
         if type(limit) is not int or not 1<=limit<=3:raise HTTPException(400,'Choose 1-3 trials per bot')
         seed=d.get('seed',time.time_ns())
         if type(seed) is not int or not 0<=seed<2**63:raise HTTPException(400,'Choose a nonnegative 63-bit simulation seed')
+        world_training.stop();world_training.session=None
         practice={'stage':stage_index,'seed':seed,'driver':driver,'episodes_per_agent':limit};mode='heuristic' if driver=='teacher' else 'evaluate'
         run=('practice-' if driver=='teacher' else 'skilltest-')+str(stage_index)+'-'+str(int(time.time()))+'-v10'
         record_run();event('mode',{'mode':mode,'run':run,'stage':STAGES[stage_index]['name'],'reference':driver=='teacher'})
@@ -738,13 +754,84 @@ def observer_worker():
                 vision_lines.tick(agents,observers.sessions,server_ready() and not server_control.snapshot()['busy'])
                 if server_ready() and not server_control.snapshot()['busy']:
                     camera_input.tick(observers,[p['name'] for p in online_players()],agents)
-                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,progress_context=observer_progress(curriculum.state,STAGES,mode,practice,training_jobs.snapshot(),trial_limit(),run),pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
+                    world_training.tick()
+                    online=[p['name'] for p in online_players() if not p['is_bot']]
+                    for player,choice in world_training.ui(online,[p['name'] for p in operators() if p.get('level',0)>=4]):
+                        try:
+                            if choice==1:autonomy('start')
+                            elif choice in (2,3):start_world({'scenario':0,'size':128,'driver':'teacher' if choice==2 else 'student'})
+                            elif choice==4:stop_world();curriculum.pause()
+                            elif choice in (5,6,7):train_world({'skill':{5:'gathering',6:'expedition',7:'shelter'}[choice]})
+                            else:world_training.menu(player)
+                        except (ValueError,HTTPException) as error:console('tellraw '+player+' '+json.dumps({'text':str(getattr(error,'detail',error)),'color':'red'}))
+                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,progress_context=observer_progress(curriculum.state,STAGES,mode,practice,training_jobs.snapshot(),trial_limit(),run,world_training.session),pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
         except Exception as error:
             with lock:
                 for session in observers.sessions.values():
                     if session.get('enabled'):session.update(status='error',message='Camera update failed: '+str(error))
         next_tick=max(next_tick+.05,time.monotonic())
         time.sleep(max(0,next_tick-time.monotonic()))
+
+@app.post('/world/start',dependencies=[Depends(auth)])
+def start_world(d:dict={}):
+    global mode,run,practice
+    with lock:
+        if training_jobs.running or server_control.snapshot()['busy'] or not server_ready():raise HTTPException(409,'Wait for training and server operations to finish.')
+        if curriculum.state.get('restore_pending'):raise HTTPException(409,'Wait for champion model restoration.')
+        names=[n for n,a in agents.items() if is_agent(n) and a.get('connected') and time.time()-a.get('last_seen',0)<8]
+        if not names:raise HTTPException(409,'No connected bots.')
+        try:result=world_training.start(d,sorted(names)[:8])
+        except ValueError as error:raise HTTPException(400,str(error))
+        curriculum.pause('Basics saved while real-world hut training is selected.');practice=None
+        mode='teacher' if d.get('driver','teacher')=='teacher' else 'evaluate';run=world_training.session['run']
+        record_run();console('scoreboard objectives add lab_world trigger')
+        for name in names:console(f'tp {name} 0 181 0')
+        event('world_started',{'run':run,**d});return result
+
+@app.post('/world/stop',dependencies=[Depends(auth)])
+def stop_world():
+    global mode
+    with lock:
+        world_training.stop();mode='paused';return world_training.snapshot()
+
+@app.post('/world/camp',dependencies=[Depends(auth)])
+def prepare_world_camp(d:dict):
+    with lock:
+        try:return world_training.camp(d.get('agent'),d.get('position'))
+        except ValueError as error:raise HTTPException(400,str(error))
+
+@app.post('/world/spawn',dependencies=[Depends(auth)])
+def world_spawn(d:dict):
+    with lock:
+        try:world_training.spawn(d.get('agent'),d.get('position'));return {'ok':True}
+        except ValueError as error:raise HTTPException(400,str(error))
+
+@app.post('/world/report',dependencies=[Depends(auth)])
+def world_report(d:dict):
+    with lock:
+        world_training.report(d.get('agent'),d);return {'ok':True}
+
+@app.post('/world/train',dependencies=[Depends(auth)])
+def train_world(d:dict={}):
+    with lock:
+        skill=d.get('skill','expedition')
+        if skill not in ('expedition','gathering','shelter'):raise HTTPException(400,'Choose navigation, gathering or shelter.')
+        if world_training.session and world_training.session['active']:raise HTTPException(409,'Finish or stop the world trial before training.')
+        if training_jobs.running or curriculum.state.get('restore_pending'):raise HTTPException(409,'Wait for the current model operation to finish.')
+        if not world_training.session:
+            if not world_training.saved['history']:raise HTTPException(409,'Run a teacher world trial first.')
+            world_training.session=copy.deepcopy(world_training.saved['history'][-1]);world_training.session['active']=False
+        curriculum.pause('Basics saved while training the selected world specialist.')
+        world_training.session['training_skill']=skill
+        return start_training(background=True)
+
+@app.post('/world/menu',dependencies=[Depends(auth)])
+def world_menu(d:dict={}):
+    with lock:
+        player=d.get('player','Xonosnet')
+        allowed=[p['name'] for p in online_players() if not p['is_bot']]
+        if player not in allowed:raise HTTPException(400,'Choose an online human player.')
+        console('scoreboard objectives add lab_world trigger');console(f'scoreboard players enable {player} lab_world');world_training.menu(player);return {'ok':True}
 
 @app.post('/vision',dependencies=[Depends(auth)])
 def configure_vision(d:dict):
@@ -772,6 +859,7 @@ def autonomy(action:str):
         if action!='start':raise HTTPException(400,'Unknown autonomous training action')
         if training_jobs.running or server_control.snapshot()['busy']:raise HTTPException(409,'Wait for the current training or server operation to finish.')
         if curriculum.state.get('restore_pending'):raise HTTPException(409,'Restoring the previous model. Try again shortly.')
+        world_training.stop();world_training.session=None
         practice=None
         try:return curriculum.start()
         except ValueError as error:raise HTTPException(409,str(error))

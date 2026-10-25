@@ -11,7 +11,9 @@ VIEWS=('first_person','trail','side','overhead','orbit','action','stationary','c
 DIMENSIONS=('minecraft:overworld','minecraft:the_nether','minecraft:the_end')
 MODES=('survival','creative','adventure','spectator')
 
-def observer_progress(state,stages,mode,practice,job,episodes,run=None):
+def observer_progress(state,stages,mode,practice,job,episodes,run=None,world=None):
+    if world:
+        return dict(run=run,mode=mode,label=f"World trial {world['round']}",round=0,stage=1,stages=1,stage_name=world['name'],job=job,phase=world['phase'],examples=0,target=1,episodes=1,world=world)
     stage=state['stage'];label=(f"Review {state.get('round',0)}" if state.get('round') else '')
     if state.get('queued_active'):label='Queued teacher' if state['queued_active']['driver']=='teacher' else 'Queued test'
     if not state.get('enabled'):
@@ -202,8 +204,17 @@ class Observers:
         if fresh and mode!='paused' and agent.get('reset_seconds') is not None:
             lines['state']+=f" | Reset ~{agent['reset_seconds']}s ({agent.get('reset_steps_left',0)} steps left)"
         if not fresh:lines['state']='Waiting for bot telemetry';progress=0
+        world=context.get('world')
+        if world and job.get('status') not in ('running','cancelling'):
+            result=world['results'].get(s['target'],{});progress=round(100*result.get('blocks',0)/55)
+            lines['task']=f"{display_name} | {result.get('phase',world['phase']).title()} | Hut {result.get('blocks',0)}/55"
+            lines['state']=str(result.get('message',world['message']))[:110]
+            route_visible=False
         if context.get('stage'):
             lines={'stage':((context.get('label')+' | ') if context.get('label') else (f"Review {context['round']} | " if context.get('round') else ''))+f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
+        if world:
+            complete=sum(r.get('state')=='complete' for r in world['results'].values())
+            lines['stage']=f"World trial {world['round']} | {world['name']} | Huts {complete}/{len(world['bots'])}"
         for suffix,value in lines.items():
             key=prefix+'_'+suffix;name=json.dumps({'text':value,'color':'aqua' if suffix=='task' else 'white'})
             if not s.get('hud_ready'):
@@ -213,6 +224,7 @@ class Observers:
                 self.command(f'bossbar set {key} max 100')
             self.command(f'bossbar set {key} name {name}')
             value=round(100*(context['stage']-1)/context['stages']) if suffix=='stage' else route_progress if suffix=='state' else progress
+            if suffix=='stage' and world:value=round(world['progress']) if world['phase'] in ('snapshotting','restoring') else round(100*complete/max(1,len(world['bots'])))
             self.command(f'bossbar set {key} value {value}')
             self.command(f'bossbar set {key} players {owner}')
             if suffix=='state':self.command(f'bossbar set {key} visible '+str(route_visible and job.get('status') not in ('running','cancelling')).lower())
@@ -256,6 +268,8 @@ class Observers:
             if fresh and mode!='paused':activity={'Opening shelter door':'Open shelter','Closing shelter door':'Close shelter','Sheltered: holding safely inside':'Sheltered','Sprinting on clear ground':'Sprinting','Steering left while walking':'Walk + left','Steering right while walking':'Walk + right','Opening door while walking':'Walk + door','Wall ahead: checking escape':'Wall ahead','Reversing out of blocked position':'Reversing','Crouching under low clearance':'Crouching','Recovering: turning toward clear space':'Turn to escape','Recovering: moving around obstacle':'Detouring','Recovering: checking another exit':'Check exit','Recovering: no safe exit; waiting for reset':'No safe exit','Recovering: detour complete':'Detour done'}.get(a.get('activity'),activity)
             if mode=='paused' and getattr(self,'progress_context',{}).get('phase')=='health_wait':activity='Recovering'
             if (mode in ('evaluate','untrained','random','heuristic') or getattr(self,'progress_context',{}).get('phase')=='queued_teacher') and a.get('trial_completed',0)>=getattr(self,'progress_context',{}).get('episodes',3):activity='Done; waiting'
+            world=getattr(self,'progress_context',{}).get('world')
+            if world and getattr(self,'progress_context',{}).get('job',{}).get('status') not in ('running','cancelling'):activity=world['results'].get(name,{}).get('phase',world['phase']).title()
             row=f"{a.get('display_name') or name}: {activity}"
             previous=self.roster_rows.get(name)
             if previous==row:continue

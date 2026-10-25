@@ -1,0 +1,406 @@
+{
+  "active": false,
+  "phase": "finished",
+  "run": "world-1792909153362289600",
+  "scenario": 0,
+  "name": "Natural settlement",
+  "size": 128,
+  "bounds": [
+    16384,
+    16512,
+    16384,
+    16512
+  ],
+  "driver": "teacher",
+  "bots": [
+    "LabAI0",
+    "LabAI1",
+    "LabAI2",
+    "LabAI3",
+    "LabAI4",
+    "LabAI5",
+    "LabAI6",
+    "LabAI7"
+  ],
+  "prepared": true,
+  "results": {
+    "LabAI0": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "build: Server refused to place oak_planks at (16428, 72, 16421): the block is still air",
+      "logs": 0,
+      "blocks": 18,
+      "target_blocks": 55,
+      "travelled": 59.534544544540545,
+      "health": 20,
+      "plot": {
+        "x": 16430,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      "seconds": 153.772
+    },
+    "LabAI3": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "build: Server refused to place oak_planks at (16452, 72, 16421): the block is still air",
+      "logs": 0,
+      "blocks": 18,
+      "target_blocks": 55,
+      "travelled": 85.81650917787537,
+      "health": 20,
+      "plot": {
+        "x": 16454,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      "seconds": 175.892
+    },
+    "LabAI2": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "build: Server refused to place oak_planks at (16444, 72, 16421): the block is still air",
+      "logs": 0,
+      "blocks": 18,
+      "target_blocks": 55,
+      "travelled": 88.63411133259443,
+      "health": 20,
+      "plot": {
+        "x": 16446,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      "seconds": 184.052
+    },
+    "LabAI7": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "build: Server refused to place oak_planks at (16452, 72, 16429): the block is still air",
+      "logs": 0,
+      "blocks": 7,
+      "target_blocks": 55,
+      "travelled": 48.02737393601011,
+      "health": 20,
+      "plot": {
+        "x": 16454,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      "seconds": 142.399
+    },
+    "LabAI5": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "build: Server refused to place oak_planks at (16438, 71, 16430): the block is still air",
+      "logs": 0,
+      "blocks": 4,
+      "target_blocks": 55,
+      "travelled": 74.58462051135537,
+      "health": 20,
+      "plot": {
+        "x": 16438,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      "seconds": 153.707
+    },
+    "LabAI6": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "build: Server refused to place oak_planks at (16444, 72, 16429): the block is still air",
+      "logs": 0,
+      "blocks": 4,
+      "target_blocks": 55,
+      "travelled": 63.376424790624824,
+      "health": 20,
+      "plot": {
+        "x": 16446,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      "seconds": 214.696
+    },
+    "LabAI4": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Built an intact enclosed hut, closed the door and sheltered for 3 seconds.",
+      "logs": 0,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 15.258119307839353,
+      "health": 20,
+      "plot": {
+        "x": 16430,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      "seconds": 42.58
+    },
+    "LabAI1": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "build: Server refused to place oak_planks at (16436, 72, 16421): the block is still air",
+      "logs": 0,
+      "blocks": 9,
+      "target_blocks": 55,
+      "travelled": 78.43500316085498,
+      "health": 20,
+      "plot": {
+        "x": 16438,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      "seconds": 162.886
+    }
+  },
+  "started_at": 1792909153.3622897,
+  "round": 8,
+  "progress": 100,
+  "message": "Trial finished. Review each bot\u2019s result; reset starts from the saved natural terrain.",
+  "template": "0-128",
+  "trial_at": 1792909233.5933495,
+  "sweep_at": 1792909546.0711164,
+  "camp": {
+    "spawn": [
+      16442.5,
+      71.1,
+      16424.5
+    ],
+    "plots": [
+      {
+        "x": 16430,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      {
+        "x": 16438,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      {
+        "x": 16446,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      {
+        "x": 16454,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      {
+        "x": 16430,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      {
+        "x": 16438,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      {
+        "x": 16446,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      {
+        "x": 16454,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      }
+    ],
+    "groves": [
+      [
+        [
+          16428,
+          71,
+          16415
+        ],
+        [
+          16428,
+          71,
+          16411
+        ],
+        [
+          16432,
+          71,
+          16415
+        ],
+        [
+          16432,
+          71,
+          16411
+        ]
+      ],
+      [
+        [
+          16436,
+          71,
+          16415
+        ],
+        [
+          16436,
+          71,
+          16411
+        ],
+        [
+          16440,
+          71,
+          16415
+        ],
+        [
+          16440,
+          71,
+          16411
+        ]
+      ],
+      [
+        [
+          16444,
+          71,
+          16415
+        ],
+        [
+          16444,
+          71,
+          16411
+        ],
+        [
+          16448,
+          71,
+          16415
+        ],
+        [
+          16448,
+          71,
+          16411
+        ]
+      ],
+      [
+        [
+          16452,
+          71,
+          16415
+        ],
+        [
+          16452,
+          71,
+          16411
+        ],
+        [
+          16456,
+          71,
+          16415
+        ],
+        [
+          16456,
+          71,
+          16411
+        ]
+      ],
+      [
+        [
+          16428,
+          71,
+          16433
+        ],
+        [
+          16428,
+          71,
+          16437
+        ],
+        [
+          16432,
+          71,
+          16433
+        ],
+        [
+          16432,
+          71,
+          16437
+        ]
+      ],
+      [
+        [
+          16436,
+          71,
+          16433
+        ],
+        [
+          16436,
+          71,
+          16437
+        ],
+        [
+          16440,
+          71,
+          16433
+        ],
+        [
+          16440,
+          71,
+          16437
+        ]
+      ],
+      [
+        [
+          16444,
+          71,
+          16433
+        ],
+        [
+          16444,
+          71,
+          16437
+        ],
+        [
+          16448,
+          71,
+          16433
+        ],
+        [
+          16448,
+          71,
+          16437
+        ]
+      ],
+      [
+        [
+          16452,
+          71,
+          16433
+        ],
+        [
+          16452,
+          71,
+          16437
+        ],
+        [
+          16456,
+          71,
+          16433
+        ],
+        [
+          16456,
+          71,
+          16437
+        ]
+      ]
+    ]
+  }
+}

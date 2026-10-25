@@ -1,0 +1,406 @@
+{
+  "active": false,
+  "phase": "finished",
+  "run": "world-1792910472281038700",
+  "scenario": 0,
+  "name": "Natural settlement",
+  "size": 128,
+  "bounds": [
+    16384,
+    16512,
+    16384,
+    16512
+  ],
+  "driver": "teacher",
+  "bots": [
+    "LabAI0",
+    "LabAI1",
+    "LabAI2",
+    "LabAI3",
+    "LabAI4",
+    "LabAI5",
+    "LabAI6",
+    "LabAI7"
+  ],
+  "prepared": true,
+  "results": {
+    "LabAI0": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Built an intact enclosed hut, closed the door and sheltered for 3 seconds.",
+      "logs": 0,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 50.70971716760157,
+      "health": 20,
+      "plot": {
+        "x": 16421,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      "seconds": 170.453
+    },
+    "LabAI1": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Built an intact enclosed hut, closed the door and sheltered for 3 seconds.",
+      "logs": 0,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 49.586325308820875,
+      "health": 20,
+      "plot": {
+        "x": 16429,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      "seconds": 168.36
+    },
+    "LabAI6": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Built an intact enclosed hut, closed the door and sheltered for 3 seconds.",
+      "logs": 1,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 69.79186380232612,
+      "health": 20,
+      "plot": {
+        "x": 16437,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      "seconds": 171.414
+    },
+    "LabAI3": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Built an intact enclosed hut, closed the door and sheltered for 3 seconds.",
+      "logs": 0,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 54.77485661689532,
+      "health": 20,
+      "plot": {
+        "x": 16445,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      "seconds": 176.595
+    },
+    "LabAI2": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Built an intact enclosed hut, closed the door and sheltered for 3 seconds.",
+      "logs": 0,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 62.478271869469836,
+      "health": 20,
+      "plot": {
+        "x": 16437,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      "seconds": 173.241
+    },
+    "LabAI4": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Built an intact enclosed hut, closed the door and sheltered for 3 seconds.",
+      "logs": 0,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 64.74501581112013,
+      "health": 20,
+      "plot": {
+        "x": 16421,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      "seconds": 183.853
+    },
+    "LabAI7": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "table: No construction or movement progress for 60 seconds.",
+      "logs": 0,
+      "blocks": 0,
+      "target_blocks": 55,
+      "travelled": 123.74926318756614,
+      "health": 20,
+      "plot": {
+        "x": 16445,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      "seconds": 262.242
+    },
+    "LabAI5": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Built an intact enclosed hut, closed the door and sheltered for 3 seconds.",
+      "logs": 0,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 52.701217140389325,
+      "health": 20,
+      "plot": {
+        "x": 16429,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      "seconds": 163.43
+    }
+  },
+  "started_at": 1792910472.2810385,
+  "round": 10,
+  "progress": 100,
+  "message": "Trial finished. Review each bot\u2019s result; reset starts from the saved natural terrain.",
+  "template": "0-128",
+  "trial_at": 1792910584.9423347,
+  "sweep_at": 1792910848.4877172,
+  "camp": {
+    "spawn": [
+      16433.5,
+      71.1,
+      16424.5
+    ],
+    "plots": [
+      {
+        "x": 16421,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      {
+        "x": 16429,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      {
+        "x": 16437,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      {
+        "x": 16445,
+        "y": 71,
+        "z": 16420,
+        "tableY": 71
+      },
+      {
+        "x": 16421,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      {
+        "x": 16429,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      {
+        "x": 16437,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      },
+      {
+        "x": 16445,
+        "y": 71,
+        "z": 16428,
+        "tableY": 71
+      }
+    ],
+    "groves": [
+      [
+        [
+          16419,
+          71,
+          16415
+        ],
+        [
+          16419,
+          71,
+          16411
+        ],
+        [
+          16423,
+          71,
+          16415
+        ],
+        [
+          16423,
+          71,
+          16411
+        ]
+      ],
+      [
+        [
+          16427,
+          71,
+          16415
+        ],
+        [
+          16427,
+          71,
+          16411
+        ],
+        [
+          16431,
+          71,
+          16415
+        ],
+        [
+          16431,
+          71,
+          16411
+        ]
+      ],
+      [
+        [
+          16435,
+          71,
+          16415
+        ],
+        [
+          16435,
+          71,
+          16411
+        ],
+        [
+          16439,
+          71,
+          16415
+        ],
+        [
+          16439,
+          71,
+          16411
+        ]
+      ],
+      [
+        [
+          16443,
+          71,
+          16415
+        ],
+        [
+          16443,
+          71,
+          16411
+        ],
+        [
+          16447,
+          71,
+          16415
+        ],
+        [
+          16447,
+          71,
+          16411
+        ]
+      ],
+      [
+        [
+          16419,
+          71,
+          16433
+        ],
+        [
+          16419,
+          71,
+          16437
+        ],
+        [
+          16423,
+          71,
+          16433
+        ],
+        [
+          16423,
+          71,
+          16437
+        ]
+      ],
+      [
+        [
+          16427,
+          71,
+          16433
+        ],
+        [
+          16427,
+          71,
+          16437
+        ],
+        [
+          16431,
+          71,
+          16433
+        ],
+        [
+          16431,
+          71,
+          16437
+        ]
+      ],
+      [
+        [
+          16435,
+          71,
+          16433
+        ],
+        [
+          16435,
+          71,
+          16437
+        ],
+        [
+          16439,
+          71,
+          16433
+        ],
+        [
+          16439,
+          71,
+          16437
+        ]
+      ],
+      [
+        [
+          16443,
+          71,
+          16433
+        ],
+        [
+          16443,
+          71,
+          16437
+        ],
+        [
+          16447,
+          71,
+          16433
+        ],
+        [
+          16447,
+          71,
+          16437
+        ]
+      ]
+    ]
+  }
+}

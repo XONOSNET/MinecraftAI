@@ -1,0 +1,5 @@
+const mineflayer=require('mineflayer'),fs=require('fs');const token=fs.readFileSync('data/api-token','utf8').trim();
+const post=async(path,data)=>{const r=await fetch('http://127.0.0.1:8000'+path,{method:'POST',headers:{'X-Lab-Token':token,'Content-Type':'application/json'},body:JSON.stringify(data)});if(!r.ok)throw Error(await r.text());return r.json();};
+const b=mineflayer.createBot({host:'127.0.0.1',port:25565,username:'LabSurvey',version:'1.21.4'});let menus=0;
+b.on('message',m=>{if(m.toString().includes('AI Laboratory'))menus++;});
+b.once('spawn',async()=>{try{await new Promise(r=>setTimeout(r,4000));await post('/admin/action',{action:'op',player:'LabSurvey'});await post('/world/menu',{player:'LabSurvey'});await new Promise(r=>setTimeout(r,1200));b.chat('/trigger lab_world set 0');await new Promise(r=>setTimeout(r,2500));console.log(JSON.stringify({menuMessages:menus,triggerReopenedMenu:menus>=2}));}catch(e){console.log(e.message);}finally{await post('/admin/action',{action:'deop',player:'LabSurvey'}).catch(()=>{});b.quit();setTimeout(()=>process.exit(),300);}});setTimeout(()=>b.quit(),14000);

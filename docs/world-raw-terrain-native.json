@@ -1,0 +1,158 @@
+{
+  "active": false,
+  "phase": "finished",
+  "run": "world-1792907097563238400",
+  "scenario": 0,
+  "name": "Natural settlement",
+  "size": 128,
+  "bounds": [
+    16384,
+    16512,
+    16384,
+    16512
+  ],
+  "driver": "teacher",
+  "bots": [
+    "LabAI0",
+    "LabAI1",
+    "LabAI2",
+    "LabAI3",
+    "LabAI4",
+    "LabAI5",
+    "LabAI6",
+    "LabAI7"
+  ],
+  "results": {
+    "LabAI1": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "gather: No construction or movement progress for 60 seconds.",
+      "logs": 6,
+      "blocks": 0,
+      "target_blocks": 55,
+      "travelled": 67.48178062062942,
+      "health": 13.166666030883789,
+      "plot": {
+        "x": 16431,
+        "y": 71,
+        "z": 16417,
+        "tableY": 71
+      },
+      "seconds": 276.894
+    },
+    "LabAI6": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "Health or food too low to continue safely.",
+      "logs": 0,
+      "blocks": 0,
+      "target_blocks": 55,
+      "travelled": 4.33462181114071,
+      "health": 7,
+      "plot": {
+        "x": 16473,
+        "y": 64,
+        "z": 16487,
+        "tableY": 64
+      },
+      "seconds": 31.945
+    },
+    "LabAI7": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "Health or food too low to continue safely.",
+      "logs": 0,
+      "blocks": 0,
+      "target_blocks": 55,
+      "travelled": 9.946752228651585,
+      "health": 7,
+      "plot": {
+        "x": 16501,
+        "y": 68,
+        "z": 16486,
+        "tableY": 69
+      },
+      "seconds": 36.358
+    },
+    "LabAI0": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "gather: No construction or movement progress for 60 seconds.",
+      "logs": 6,
+      "blocks": 0,
+      "target_blocks": 55,
+      "travelled": 48.042387591597794,
+      "health": 20,
+      "plot": {
+        "x": 16398,
+        "y": 67,
+        "z": 16416,
+        "tableY": 67
+      },
+      "seconds": 178.056
+    },
+    "LabAI3": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "Health or food too low to continue safely.",
+      "logs": 1,
+      "blocks": 0,
+      "target_blocks": 55,
+      "travelled": 10.286782691784495,
+      "health": 7,
+      "plot": {
+        "x": 16495,
+        "y": 63,
+        "z": 16412,
+        "tableY": 63
+      },
+      "seconds": 34.822
+    },
+    "LabAI5": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "Health or food too low to continue safely.",
+      "logs": 0,
+      "blocks": 0,
+      "target_blocks": 55,
+      "travelled": 0,
+      "health": 6.999998092651367,
+      "seconds": 0
+    },
+    "LabAI2": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "Health or food too low to continue safely.",
+      "logs": 1,
+      "blocks": 0,
+      "target_blocks": 55,
+      "travelled": 9.158659704900463,
+      "health": 7,
+      "plot": {
+        "x": 16468,
+        "y": 63,
+        "z": 16413,
+        "tableY": 63
+      },
+      "seconds": 32.099
+    },
+    "LabAI4": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "Health or food too low to continue safely.",
+      "logs": 0,
+      "blocks": 0,
+      "target_blocks": 55,
+      "travelled": 0,
+      "health": 0.9999980926513672,
+      "seconds": 0
+    }
+  },
+  "started_at": 1792907097.5632384,
+  "round": 4,
+  "progress": 100,
+  "message": "Trial finished. Review each bot\u2019s result; reset starts from the saved natural terrain.",
+  "template": "0-128",
+  "trial_at": 1792907174.7069232,
+  "sweep_at": 1792907452.9085617
+}

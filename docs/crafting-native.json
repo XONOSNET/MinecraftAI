@@ -1,0 +1,60 @@
+{
+  "fixture": "Four logs granted only to this isolated protocol test player; production hut trials harvest their own materials.",
+  "before": [
+    [
+      "spruce_log",
+      4
+    ]
+  ],
+  "afterPlanks": [
+    [
+      "spruce_planks",
+      4
+    ],
+    [
+      "spruce_planks",
+      4
+    ],
+    [
+      "spruce_planks",
+      4
+    ],
+    [
+      "spruce_planks",
+      4
+    ]
+  ],
+  "afterTable": [
+    [
+      "crafting_table",
+      1
+    ],
+    [
+      "spruce_planks",
+      4
+    ],
+    [
+      "spruce_planks",
+      4
+    ],
+    [
+      "spruce_planks",
+      4
+    ]
+  ],
+  "afterDoor": [
+    [
+      "spruce_planks",
+      2
+    ],
+    [
+      "spruce_door",
+      3
+    ],
+    [
+      "spruce_planks",
+      4
+    ]
+  ],
+  "success": true
+}

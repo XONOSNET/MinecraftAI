@@ -1,0 +1,61 @@
+{
+  "before": "oak_log",
+  "mode": "survival",
+  "onGround": true,
+  "digTime": 3000,
+  "harvested": true,
+  "items": [
+    {
+      "p": {
+        "x": -10.511474609375,
+        "y": 181,
+        "z": 10.527587890625
+      },
+      "metadata": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        {
+          "itemCount": 1,
+          "itemId": 134,
+          "addedComponentCount": 0,
+          "removedComponentCount": 0,
+          "components": [],
+          "removeComponents": []
+        }
+      ]
+    },
+    {
+      "p": {
+        "x": -10.28125,
+        "y": 181,
+        "z": 10.7333984375
+      },
+      "metadata": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        {
+          "itemCount": 1,
+          "itemId": 134,
+          "addedComponentCount": 0,
+          "removedComponentCount": 0,
+          "components": [],
+          "removeComponents": []
+        }
+      ]
+    }
+  ],
+  "after": "air",
+  "inventory": []
+}
