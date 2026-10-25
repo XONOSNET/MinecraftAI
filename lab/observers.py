@@ -117,7 +117,14 @@ class Observers:
         available=[]
         for name,agent in sorted(agents.items()):
             if not is_agent(name) or not agent.get('connected') or self.clock()-agent.get('last_seen',0)>=8 or agent.get('health',20)<=0:continue
-            if s.get('active_only',True) and self.camera_mode!='teacher':
+            world=context.get('world')
+            if s.get('active_only',True) and world:
+                # World teachers are finite trials too. Use authoritative
+                # results immediately, before the next telemetry poll arrives.
+                if not world.get('active') or world.get('phase')!='running':continue
+                if name not in world.get('bots',[]):continue
+                if world.get('results',{}).get(name,{}).get('state') in ('complete','stopped'):continue
+            elif s.get('active_only',True) and self.camera_mode!='teacher':
                 # Counts belong to a run, never permanently to a bot or stage.
                 if context.get('run') and agent.get('run')!=context['run']:continue
                 if agent.get('trial_completed',0)>=context.get('episodes',EPISODES_PER_AGENT):continue

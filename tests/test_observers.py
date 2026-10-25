@@ -342,6 +342,30 @@ def test_cycle_single_candidate_keeps_camera_attachment(tmp_path):
     assert not o.cycle_candidates(s,agents)
 
 
+def test_world_teacher_cycle_skips_removed_bots_immediately_and_holds_when_all_done(tmp_path):
+    now=[100.];o=Observers(tmp_path/'camera',lambda c:None,lambda:now[0],settle_delay=0)
+    s=o.start({'player':'Xonosnet','target':'LabAI0','cycle_enabled':True},['Xonosnet'])
+    s=o.sessions['Xonosnet']
+    agents={f'LabAI{i}':dict(connected=True,last_seen=100,entity_id=i+1,trial_completed=0,run='world-one') for i in range(3)}
+    world=dict(active=True,phase='running',bots=['LabAI0','LabAI1'],results={})
+    context={'run':'world-one','episodes':1,'world':world}
+    def tick():
+        for a in agents.values():a['last_seen']=now[0]
+        o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':now[0]}},agents,True,'teacher',progress_context=context)
+    # Exercise selection independently of HUD formatting and camera movement.
+    o.update_hud=lambda *args:None;o.update_roster=lambda *args:None
+    o.progress_context=context;o.camera_mode='teacher'
+    assert o.cycle_candidates(s,agents)==['LabAI0','LabAI1']
+    world['results']['LabAI0']={'state':'stopped'}
+    tick();assert s['target']=='LabAI1'
+    world['results']['LabAI1']={'state':'complete'};now[0]+=1
+    tick();assert s['target']=='LabAI1' and s['cycle_waiting']
+    assert o.next_bot('Xonosnet',agents)['target']=='LabAI1'
+    world.update(active=True,phase='restoring',results={});assert not o.cycle_candidates(s,agents)
+    world['phase']='running';now[0]+=1;tick()
+    assert not s['cycle_waiting'] and s['target']=='LabAI0'
+
+
 def test_active_filter_opt_out_and_teacher_collection(tmp_path):
     o=Observers(tmp_path/'camera',lambda c:None,lambda:100)
     o.start({'player':'Xonosnet','target':'LabAI0','cycle_enabled':True,'active_only':False},['Xonosnet'])
