@@ -2,6 +2,17 @@ const test=require('node:test'),assert=require('node:assert/strict'),{Vec3}=requ
 const {route,standable}=require('../controller/field_navigation');
 const {blueprint,intact,findPlot}=require('../controller/hut_teacher');
 function fixture(blocks={}){return {entity:{position:new Vec3(.5,64,.5)},blockAt(p){const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z);const name=blocks[`${x},${y},${z}`]||(y<64?'grass_block':'air');return name==='unloaded'?null:{name,boundingBox:['air','water','lava'].includes(name)?'empty':'block',position:new Vec3(x,y,z)};}};}
+
+test('a new world batch clears the previous hut and progress before reporting survey',async()=>{
+ const {HutTeacher}=require('../controller/hut_teacher'),teacher=new HutTeacher();
+ Object.assign(teacher,{run:'old',plot:{x:5,y:64,z:5},table:{x:3,y:64,z:6},built:55,secureAt:100,settle:9999999999999,resources:[new Vec3(1,64,1)],destination:'old destination'});
+ const bot=fixture();bot.username='LabAI0';bot.health=20;bot.food=20;bot.game={gameMode:'survival'};bot.inventory={items:()=>[]};
+ const reports=[];
+ await teacher.tick(bot,{pause(){}},{run:'new',world:{bounds:[-64,64,-64,64]}},async(path,data)=>reports.push(data),null,{createRuntime:()=>({})});
+ assert.equal(teacher.phase,'survey');assert.equal(teacher.built,0);assert.equal(teacher.plot,null);assert.equal(teacher.table,null);
+ assert.equal(teacher.secureAt,null);assert.equal(teacher.settle,0);assert.deepEqual(teacher.resources,[]);assert.equal(teacher.destination,null);
+ assert.equal(reports[0].blocks,0);assert.equal(reports[0].plot,null);
+});
 test('field routing avoids water, walls and unloaded blocks while finding a detour',()=>{
  const blocks={};for(let z=-3;z<=3;z++){blocks[`3,64,${z}`]='stone';blocks[`3,65,${z}`]='stone';blocks[`3,66,${z}`]='stone';}
  const bot=fixture(blocks),result=route(bot,[10.5,64,.5]);assert.ok(result.path.length>10);assert.ok(result.path.some(p=>Math.abs(p[2])>3));assert.ok(result.expanded<=4096);
