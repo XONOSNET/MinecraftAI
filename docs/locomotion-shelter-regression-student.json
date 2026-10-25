@@ -1,0 +1,26 @@
+[
+  {
+    "course": "Find overhead shelter",
+    "driver": "student",
+    "seed": 20261024,
+    "run": "skilltest-6-1792886309-v10",
+    "mean_seconds": 3.7687611499999982,
+    "passed": 8,
+    "total": 8,
+    "seconds": 6.06,
+    "mean_steps": 16.5,
+    "moving_fraction": 0.724
+  },
+  {
+    "course": "Open a wooden door",
+    "driver": "student",
+    "seed": 20261024,
+    "run": "skilltest-17-1792886316-v10",
+    "mean_seconds": 9.758516449999998,
+    "passed": 8,
+    "total": 8,
+    "seconds": 13.86,
+    "mean_steps": 36.25,
+    "moving_fraction": 0.774
+  }
+]

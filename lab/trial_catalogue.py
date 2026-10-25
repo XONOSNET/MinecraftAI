@@ -41,7 +41,8 @@ def describe(stage, index):
     if kind=='gather':details.append(f"Collect {stage.get('wood_target',1 if stage['difficulty']==1 else 3)} oak logs")
     if kind=='explore':details.append(f"Visit {stage.get('coverage_target',10 if stage['difficulty']==1 else 18)} distinct spatial cells")
     if kind in ('eat','eat_route'):details.append(f"Reach food {stage.get('food_target',18)}/20 and consume bread after hunger")
-    if kind=='shelter':details.append(f"Canopy radius {stage.get('roof_radius',3)} blocks; arrive within 3 blocks of its goal")
+    if stage.get('enclosed'):details.extend(['Enclosed cobblestone cabin with solid roof, glass windows and interior lighting','Open the wooden door, enter fully, then close it behind you','Remain safely inside the closed, intact shelter for 2 seconds'])
+    elif kind=='shelter':details.append(f"Canopy radius {stage.get('roof_radius',3)} blocks; arrive within 3 blocks of its goal")
     if stage.get('doors'):details.append(f"{stage['doors']} offset wall openings")
     if stage.get('terrain_profile'):details.append('Terrain profile: '+stage['terrain_profile'])
     if stage.get('terrain'):details.append('Terrain style: '+stage['terrain'].replace('_',' '))
@@ -64,8 +65,9 @@ def describe(stage, index):
     elif kind=='expedition':objective='Reach all required checkpoints and the goal height with at least 18 health; avoid hazards and satisfy any water/jump requirements.'
     elif kind in ('gather','explore','eat','eat_route','shelter'):objective='Complete the stated resource, coverage, nutrition or shelter target while alive and inside the practice lane.'
     else:objective='Reach the destination with at least 18 health and no hazard contacts; advanced door courses also require opening their doors.'
+    if stage.get('enclosed'):objective='Enter the intact lit cabin, close its door, and remain safely inside for 2 seconds with at least 18 health.'
     return {'id':stage['id'],'stage':index,'number':index+1,'name':stage['name'],'skill':stage.get('skill','navigation'),
-        'tier':stage['tier'],'tier_name':stage['tier_name'],'kind':kind,'description':FAMILIES[kind],
+        'tier':stage['tier'],'tier_name':stage['tier_name'],'kind':kind,'description':'Find and secure a fully enclosed shelter through a working wooden door.' if stage.get('enclosed') else FAMILIES[kind],
         'details':details,'objective':objective,'threshold':stage.get('threshold',.9),
         'examples_per_cycle':stage.get('examples_per_cycle',1500),
         'definition':copy.deepcopy(stage)}

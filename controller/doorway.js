@@ -9,8 +9,9 @@ function createDoorway(){
   if(!state){label=null;return null;}
   if(d?.id===state.id){state.open=d.open;if(d.open)state.center=d.center;}
   const cross=state.axis==='x'?'z':'x',offset=p[state.axis]-state.plane;
+  if(sensed.enclosedShelter&&state.open&&state.phase==='align'&&offset*state.side<1.1)state.phase='cross';
   const plan={forward:false,back:false,jump:false,sneak:false,yaw:0};
-  if(now-state.started>12000){label='Recovering: doorway blocked; waiting for reset';return {...plan,label};}
+  if(now-state.started>(sensed.enclosedShelter?20000:12000)){label='Recovering: doorway blocked; waiting for reset';return {...plan,label};}
   if(state.phase==='cross'&&offset*state.side< -1.05){finished.add(state.id);state=null;label=null;return null;}
   const lateral=Math.abs(p[cross]-state.center);
   const approach=state.plane+state.side*1.15;

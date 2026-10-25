@@ -1,0 +1,14 @@
+[
+  {
+    "course": "Reach shelter through a doorway",
+    "driver": "teacher",
+    "seed": 20261024,
+    "run": "practice-25-1792885974-v10",
+    "mean_seconds": 15.032782691666668,
+    "passed": 23,
+    "total": 24,
+    "seconds": 141.48,
+    "mean_steps": 70.125,
+    "moving_fraction": 0.439
+  }
+]

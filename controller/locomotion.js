@@ -35,7 +35,7 @@ function motorPlan(action,permissions,task,sensed,angle,traveling=false){
  const steering=turning&&permissions.turn;
  const safe=!!sensed&&!sensed.frontHazard&&!sensed.headBlocked&&!sensed.frontBlocked;
  const walkingTurn=steering&&safe&&(!(sensed.leftUnsafe&&sensed.rightUnsafe)||Math.abs(angle)<.15)&&Math.abs(angle)<.95&&(traveling||Math.abs(angle)<.55);
- const door=action===5&&task?.kind==='advanced'&&!!sensed?.door;
+ const door=action===5&&(task?.kind==='advanced'||task?.enclosed===true)&&!!sensed?.door&&!sensed?.closeShelterDoor;
  return {forward:!!permissions.move&&(action===0||action===3&&!!permissions.jump||walkingTurn||door&&!sensed?.frontHazard),
   jump:!!permissions.jump&&(action===3||task?.kind==='expedition'&&(action===5||turning&&!!sensed?.inWater)),
   sneak:!!permissions.jump&&task?.kind==='expedition'&&action===6,

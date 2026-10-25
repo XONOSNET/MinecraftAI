@@ -41,13 +41,13 @@ def test_construction_commands_fit_vanilla_fill_limits():
 def test_success_requires_real_objective_health_and_practice_bounds():
     basic={'health':20,'inside':True,'y':181,'distance':.5,'hazard_contacts':0}
     for stage in EXTRA_STAGES:
-        task=task_spec(stage,1,0,False);m={**basic,'distance_3d':.5,'checkpoints':len(task['waypoints'])-1,'water_steps':10,'jumps':task.get('required_jumps',0),'wood':task['wood_target'],'food':20,'eaten':2,'hunger_observed':True,'coverage':task['coverage_target'],'sheltered':True,'doors_opened':len(task.get('actual_doors',[])),'weapon_equipped':True,'armor_equipped':True,'shield_equipped':True,'kills':task.get('kill_target',0),'hits':task.get('kill_target',0)}
+        task=task_spec(stage,1,0,False);m={**basic,'distance_3d':.5,'checkpoints':len(task['waypoints'])-1,'water_steps':10,'jumps':task.get('required_jumps',0),'wood':task['wood_target'],'food':20,'eaten':2,'hunger_observed':True,'coverage':task['coverage_target'],'sheltered':True,'shelter_secure':True,'shelter_seconds':2,'doors_opened':len(task.get('actual_doors',[])),'weapon_equipped':True,'armor_equipped':True,'shield_equipped':True,'kills':task.get('kill_target',0),'hits':task.get('kill_target',0)}
         if task['kind']=='expedition':m['y']=task['goal'][1]
         assert task_success(task,m)
         for bad in ({'health':0},{'inside':False},{'y':100}):assert not task_success(task,{**m,**bad})
         if task['kind']=='eat':assert not task_success(task,{**m,'eaten':0})
         if task['kind']=='gather':assert not task_success(task,{**m,'wood':0})
-        if task['kind']=='shelter':assert not task_success(task,{**m,'sheltered':False})
+        if task['kind']=='shelter':assert not task_success(task,{**m,'sheltered':False,'shelter_secure':False})
         if task['kind']=='explore':assert not task_success(task,{**m,'coverage':1})
         if task['kind']=='hazard':assert not task_success(task,{**m,'hazard_contacts':1})
 

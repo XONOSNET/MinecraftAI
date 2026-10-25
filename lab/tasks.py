@@ -2,6 +2,7 @@
 import math
 import random
 from .config import AGENT_COUNT, LANE_END, is_agent
+from .shelter import layout as shelter_layout, commands as shelter_commands, success as shelter_success
 from .combat import COMBAT_STAGES, spec as combat_spec, commands as combat_commands, success as combat_success
 from .advanced import ADVANCED_STAGES, layout as advanced_layout
 from .realistic import REALISTIC_STAGES, spec as realistic_spec
@@ -34,7 +35,7 @@ EXTRA_STAGES=[
  {'name':'Eat until full','skill':'nutrition','task':'eat','difficulty':2,'food_target':20},
  {'name':'Eat then reach safety','skill':'nutrition','task':'eat_route','difficulty':2,'food_target':18},
  {'name':'Find a compact canopy','skill':'shelter','task':'shelter','difficulty':2,'roof_radius':1},
- {'name':'Reach shelter through a doorway','skill':'shelter','task':'shelter','difficulty':2,'doors':1},
+ {'name':'Reach shelter through a doorway','skill':'shelter','task':'shelter','difficulty':2,'doors':1,'enclosed':True},
  {'name':'Hurdle and water course','skill':'integration','task':'mixed','difficulty':1},
  {'name':'Hurdles and magma course','skill':'integration','task':'mixed','difficulty':2},
 ]
@@ -75,7 +76,9 @@ def task_spec(stage,seed,index,evaluation):
     if kind=='advanced':
         terrain_blocks,waypoints,actual_doors=advanced_layout(stage['features'],center,z)
         goal=waypoints[-1]
-    return {'actual_doors':actual_doors,'terrain_blocks':terrain_blocks,'terrain_style':stage.get('terrain'),'kind':kind,'skill':stage['skill'],'difficulty':difficulty,'center':center,'lane_z':z,'feature_x':x,
+    cabin=shelter_layout(x,z) if stage.get('enclosed') else {}
+    if cabin:goal=cabin['goal'];waypoints=cabin['waypoints'];actual_doors=[cabin['shelter_door']];doors=[]
+    return {**cabin,'enclosed':bool(cabin),'actual_doors':actual_doors,'terrain_blocks':terrain_blocks,'terrain_style':stage.get('terrain'),'kind':kind,'skill':stage['skill'],'difficulty':difficulty,'center':center,'lane_z':z,'feature_x':x,
             'start':start,'goal':goal,'yaw':-math.pi/2+rng.uniform(-.35,.35),'max_steps':400 if kind=='advanced' else 320 if kind=='terrain' else 240,
             'wood_target':stage.get('wood_target',1 if difficulty==1 else 3),'coverage_target':stage.get('coverage_target',10 if difficulty==1 else 18),'food_target':stage.get('food_target',18),
             'doors':doors,'hurdles':stage.get('hurdles',[-3] if difficulty==1 else [-7,0,7]),'causeway':stage.get('causeway',False),'pillars':stage.get('pillars',False),'roof_radius':stage.get('roof_radius',3),'hazard_length':stage.get('hazard_length',3),'twin_hazards':stage.get('twin_hazards',False),
@@ -117,6 +120,8 @@ def reset_commands(task,name):
         for offset in range(task['wood_target']):commands.append(f'setblock {x+10+offset//3} {181+offset%3} {z} minecraft:oak_log')
     elif kind in ('eat','eat_route'):
         commands.extend([f'give {name} minecraft:bread 6',f'effect give {name} minecraft:hunger {5 if level==1 else 6} 255 true'])
+    elif kind=='shelter' and task.get('enclosed'):
+        commands.extend(shelter_commands(task))
     elif kind=='shelter':
         radius=task.get('roof_radius',3)
         commands.append(f'fill {x+10-radius} 184 {z-radius} {x+10+radius} 184 {z+radius} minecraft:sea_lantern')
@@ -138,6 +143,7 @@ def task_success(task,metrics):
     if kind=='gather':return metrics.get('wood',0)>=task['wood_target']
     if kind in ('eat','eat_route'):return metrics.get('food',0)>=task.get('food_target',18) and metrics.get('eaten',0)>=1 and metrics.get('hunger_observed',False) and (kind=='eat' or metrics.get('distance',100)<1.25)
     if kind=='explore':return metrics.get('coverage',0)>=task['coverage_target']
+    if kind=='shelter' and task.get('enclosed'):return shelter_success(task,metrics)
     if kind=='shelter':return metrics.get('sheltered',False) and metrics.get('distance',100)<3
     if kind=='advanced' and metrics.get('doors_opened',0)<len(task.get('actual_doors',[])):return False
     return metrics.get('distance',100)<1.25 and metrics.get('health',0)>=18 and metrics.get('hazard_contacts',0)==0 and abs(metrics.get('y',0)-181)<1.5
