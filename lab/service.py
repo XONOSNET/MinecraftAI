@@ -23,6 +23,7 @@ from .config import AGENT_COUNT, EPISODES_PER_AGENT, EXPECTED_EPISODES, LANE_END
 from .observers import Observers, observer_progress
 from .camera_input import CameraInput
 from .world_training import WorldTraining
+from .bot_lights import BotLights
 from .identities import Identities
 from .protection import PracticeProtection
 import copy
@@ -190,6 +191,7 @@ observers=Observers('data/observers.json',console)
 camera_input=CameraInput('logs/minecraft-console.log',console)
 practice_protection=PracticeProtection(console)
 world_training=WorldTraining('data/world-training.json',console,'logs/minecraft-console.log')
+bot_lights=BotLights(console)
 
 def checkpoint():
     stamp=str(time.time_ns());p=Path('checkpoints')/(stamp+'.pt')
@@ -243,7 +245,9 @@ def prepare_server_operation():
     if training_jobs.running:
         training_jobs.cancel();training_jobs.wait()
     with lock:
-        if server_ready():observers.suspend([p['name'] for p in online_players()])
+        if server_ready():
+            observers.suspend([p['name'] for p in online_players()])
+            bot_lights.clear()
         checkpoint()
         for skill in skill_bank.entries:
             skill_bank.save(skill);skill_bank.save_replay(skill)
@@ -753,6 +757,7 @@ def observer_worker():
             with lock:
                 vision_lines.tick(agents,observers.sessions,server_ready() and not server_control.snapshot()['busy'])
                 if server_ready() and not server_control.snapshot()['busy']:
+                    bot_lights.tick(agents,True)
                     camera_input.tick(observers,[p['name'] for p in online_players()],agents)
                     world_training.tick()
                     connected=[n for n,a in agents.items() if is_agent(n) and a.get('connected') and time.time()-a.get('last_seen',0)<8]

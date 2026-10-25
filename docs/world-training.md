@@ -23,3 +23,7 @@ The native protocol tests also confirmed wood-to-planks crafting, workbench craf
 ## Repeating trials
 
 Repeat trials is checked by default. Completed batches save their results, wait ten seconds, then restore the same site with the same size, controller and camp settings. A twenty-minute timeout records unfinished bots as stopped and continues the loop. All assigned bots must reconnect before another batch begins. Stop world trial or Resume basics cancels repetition; terrain-copy failures stop safely instead of retrying indefinitely. Trial numbers continue increasing beyond the retained thirty-result history. Repetition collects teacher examples; model fitting remains an explicit specialist-training action after stopping the loop.
+
+## Bot lighting
+
+All lab bots carry server-managed level-14 light in the overworld. Invisible marker entities own temporary light blocks at head height; the manager updates positions four times per second and sweeps reloaded chunks every two seconds. Only air is replaced: water, plants, existing lights and structures are preserved. Sources can therefore be unavailable when the bot is submerged or its head space is occupied. Old sources are removed after movement/disconnection and during orderly shutdown; unloaded sources are cleaned when their chunks reload. No client mod is needed. A native Mineflayer observer confirmed minecraft:light with level=14 at the bot source position. Three focused automated tests cover ownership, movement, stale/disconnected bots, invalid positions and cleanup.
