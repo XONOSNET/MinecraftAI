@@ -6,6 +6,8 @@ import re
 import time
 from pathlib import Path
 
+LESSONS=['Enclose a hut','Craft and place a chest','Craft a wooden pickaxe','Craft a wooden axe','Craft a wooden shovel','Store eight planks and equip the axe']
+
 SCENARIOS=[dict(id=i,name=name,description=description,spread=spread) for i,(name,description,spread) in enumerate([
  ('Natural settlement','A shared natural spawn and independent hut plots.',9),
  ('Spread-out homestead','Build plots farther from the common spawn.',14),
@@ -43,6 +45,8 @@ class WorldTraining:
         if driver not in ('teacher','student'):raise ValueError('Choose teacher assistance or policy navigation.')
         loop=data.get('loop',True)
         if type(loop) is not bool:raise ValueError('Repeat trials must be enabled or disabled.')
+        mission=data.get('mission','settlement')
+        if mission not in ('hut','settlement'):raise ValueError('Choose hut practice or settlement lessons.')
         x=16384+scenario*4096+(2048 if size==256 else 0);z=16384
         key=f'{scenario}-{size}';restore=key in self.saved['templates']
         anchor=self.saved['templates'].get(key,{}).get('camp_anchor')
@@ -61,6 +65,7 @@ class WorldTraining:
             bots=list(names),prepared=prepared,loop=loop,results={},started_at=self.clock(),round=self.saved.get('round',max((r.get('round',0) for r in self.saved['history']),default=0))+1,
             progress=0,message='Restoring the saved natural terrain.' if restore else 'Saving pristine natural terrain before the first trial.',template=key)
         self.session.update(reset_area=area,copy_y=ys,fast_reset=fast,camp_anchor=anchor if prepared else None)
+        self.session.update(time_budget_seconds=1200,mission=mission,lessons=LESSONS if mission=='settlement' else LESSONS[:1])
         if fast:self.session['message']='Restoring the camp and surrounding chunks; deep underground terrain is preserved.'
         self.jobs=[];self.job=None
         # Incremental two-chunk work avoids permanent force loads and the global limit.
@@ -75,10 +80,12 @@ class WorldTraining:
         if not s or not s.get('loop') or s['phase']!='finished' or self.clock()<s['restart_at']:return None
         if not set(s['bots']).issubset(connected):
             s['message']='Waiting for all trial bots to reconnect before restoring terrain.';return None
-        return {key:s[key] for key in ('scenario','size','driver','prepared','loop')}
+        return {key:s[key] for key in ('scenario','size','driver','prepared','loop','mission')}
 
     def finish(self):
         s=self.session
+        successful=sorted(((name,r) for name,r in s['results'].items() if r.get('state')=='complete'),key=lambda pair:pair[1].get('seconds',float('inf')))
+        for rank,(name,result) in enumerate(successful,1):result['completion_rank']=rank
         s.update(active=False,phase='finished',restart_at=self.clock()+10,message='Batch finished. Restoring terrain for the next batch in 10 seconds.' if s.get('loop') else 'Trial finished. Review each bot’s result; reset starts from the saved natural terrain.')
         self.saved['round']=s['round']
         self.saved['history'].append(copy.deepcopy(s));self.saved['history']=self.saved['history'][-30:];self.save()
@@ -102,7 +109,7 @@ class WorldTraining:
                 if not self.jobs:
                     template=self.saved['templates'].setdefault(s['template'],{})
                     template.update(bounds=s['bounds'],saved_at=self.clock());self.save()
-                    s.update(phase='running',message='Hut trial running. Gathering, crafting and building use a scripted teacher; navigation can use the learned policy.',progress=100,trial_at=self.clock(),reset_seconds=round(self.clock()-s['started_at'],1))
+                    s.update(phase='running',message=('Settlement lessons running: hut, chest, tools and stored supplies. Construction and recipes use a scripted teacher.' if s['mission']=='settlement' else 'Hut trial running. Gathering, crafting and building use a scripted teacher; navigation can use the learned policy.'),progress=100,trial_at=self.clock(),reset_seconds=round(self.clock()-s['started_at'],1))
                     x0,x1,z0,z1=s['bounds']
                     self.command(f'kill @e[type=minecraft:item,x={x0},y=-64,z={z0},dx={x1-x0},dy=256,dz={z1-z0}]')
                     for name in s['bots']:
@@ -141,16 +148,19 @@ class WorldTraining:
                     self.job=None;s['progress']=round(100*(self.total-len(self.jobs))/self.total,1)
                 elif self.clock()-j['at']>20:self.stop('Terrain copy acknowledgement timed out.');return
         elif s['phase']=='running':
-            if self.clock()-s['trial_at']>1200:
+            budget=s.get('time_budget_seconds',1200)
+            if self.clock()-s['trial_at']>budget:
                 for name in s['bots']:
                     if s['results'].get(name,{}).get('state') not in ('complete','stopped'):
-                        self.report(name,dict(run=s['run'],state='stopped',phase='stopped',message='Twenty-minute trial limit reached.',seconds=1200))
+                        result=copy.deepcopy(s['results'].get(name,{}))
+                        result.update(run=s['run'],state='stopped',phase='stopped',message=f'Trial time budget reached ({budget} s). Returned to the lab; eligible next batch.',seconds=self.clock()-s['trial_at'])
+                        self.report(name,result)
 
     def assignment(self,name):
         s=self.session
         if not s or not s['active'] or s['phase']!='running' or name not in s['bots']:return None
         if s['results'].get(name,{}).get('state') in ('complete','stopped'):return None
-        return dict(mode='teacher' if s['driver']=='teacher' else 'evaluate',run=s['run'],world=dict(bounds=s['bounds'],index=s['bots'].index(name),count=len(s['bots']),spread=SCENARIOS[s['scenario']]['spread'],driver=s['driver'],prepared=s['prepared'],camp_anchor=s.get('camp_anchor')))
+        return dict(mode='teacher' if s['driver']=='teacher' else 'evaluate',run=s['run'],world=dict(bounds=s['bounds'],index=s['bots'].index(name),count=len(s['bots']),spread=SCENARIOS[s['scenario']]['spread'],driver=s['driver'],prepared=s['prepared'],camp_anchor=s.get('camp_anchor'),mission=s['mission'],lessons=s['lessons']))
 
     def camp(self,name,position):
         s=self.session
@@ -167,7 +177,7 @@ class WorldTraining:
             px=x+(index%4)*8-12;pz=z+(index//4)*8-4;direction=-1 if index<4 else 1
             plots.append(dict(x=px,y=y,z=pz,tableY=y));trees=[]
             for dx in (-2,2):
-                for distance in (5,9):
+                for distance in (5,9,13):
                     tx=px+dx;tz=pz+direction*distance;trees.append([tx,y,tz])
                     self.command(f'fill {tx} {y} {tz} {tx} {y+3} {tz} minecraft:oak_log')
                     self.command(f'fill {tx-1} {y+4} {tz-1} {tx+1} {y+5} {tz+1} minecraft:oak_leaves[persistent=true]')
@@ -175,6 +185,20 @@ class WorldTraining:
         s['camp']=dict(spawn=[x+.5,y+.1,z+.5],plots=plots,groves=groves)
         self.saved['templates'].setdefault(s['template'],{})['camp_anchor']=[x,y,z];self.save()
         return copy.deepcopy(s['camp'])
+
+    def lesson_resources(self,name):
+        s=self.session
+        if not s or not s['active'] or s['phase']!='running' or name not in s['bots'] or not s.get('camp'):raise ValueError('No active prepared camp lesson.')
+        supplied=s.setdefault('lesson_resources',{})
+        if name in supplied:return copy.deepcopy(supplied[name])
+        index=s['bots'].index(name);plot=s['camp']['plots'][index];direction=-1 if index<4 else 1;trees=[]
+        # A separate outer row leaves doors and approaches clear. Each bot gets
+        # two real trees, once per batch; no inventory items are injected.
+        for dx in (-2,2):
+            x=plot['x']+dx;y=plot['y'];z=plot['z']+direction*13;trees.append([x,y,z])
+            self.command(f'fill {x} {y} {z} {x} {y+3} {z} minecraft:oak_log')
+            self.command(f'fill {x-1} {y+4} {z-1} {x+1} {y+5} {z+1} minecraft:oak_leaves[persistent=true]')
+        supplied[name]=trees;return copy.deepcopy(trees)
 
     def spawn(self,name,position):
         s=self.session
@@ -191,7 +215,7 @@ class WorldTraining:
         if not s or not s['active'] or data.get('run')!=s['run'] or name not in s['bots']:return
         if data.get('state')=='stopped' and s['results'].get(name,{}).get('state')!='stopped':
             self.command(f'effect give {name} minecraft:fire_resistance 20 0 true');self.command(f'tp {name} 0 181 0')
-        allowed=('state','phase','message','logs','blocks','target_blocks','distance','travelled','health','plot','seconds')
+        allowed=('state','phase','message','logs','blocks','target_blocks','distance','travelled','health','plot','seconds','timings','milestones','lesson','lesson_total')
         s['results'][name]={k:copy.deepcopy(data[k]) for k in allowed if k in data}
         if len(s['results'])==len(s['bots']) and all(r.get('state') in ('complete','stopped') for r in s['results'].values()):
             self.finish()
@@ -214,7 +238,7 @@ class WorldTraining:
 
     def menu(self,player):
         parts=[{'text':'AI Laboratory\n','color':'gold','bold':True}]
-        for label,choice in [('Basics training',1),('Real world: repeat teacher hut trials',2),('Real world: repeat policy navigation + hut teacher',3),('Stop current mode',4),('Train gathering from examples',5),('Train navigation from examples',6)]:
+        for label,choice in [('Basics training',1),('Real world: repeat teacher settlement lessons',2),('Real world: repeat policy navigation + settlement teacher',3),('Stop current mode',4),('Train gathering from examples',5),('Train navigation from examples',6)]:
             parts.extend([{'text':'['+label+']\n','color':'aqua','clickEvent':{'action':'run_command','value':f'/trigger lab_world set {choice}'}}])
         parts.append({'text':'World trials use a reserved natural area, restored between trials. Hut construction is teacher assisted. Dashboard: 127.0.0.1:8000','color':'gray'})
         self.command(f'tellraw {player} '+json.dumps(parts))

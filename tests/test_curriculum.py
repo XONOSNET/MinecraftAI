@@ -13,6 +13,16 @@ class World:
                 'results':lambda run:{'episodes':15,'successes':self.score},'count':lambda:self.count,
                 'train':self.train,'health':lambda:self.problem,'event':lambda result:None}
 
+
+def test_equal_success_but_much_slower_candidate_restores_champion(tmp_path):
+    w=World();speed=[10];hooks=w.hooks()
+    hooks['results']=lambda run:dict(episodes=15,successes=10,timed_successes=10,median_success_seconds=speed[0])
+    c=Curriculum(tmp_path/'state.json',hooks,lambda:w.time);c.start()
+    c.tick();c.tick();w.count=1500;c.tick();w.job={'status':'completed'};c.tick()
+    speed[0]=20;c.tick()
+    assert w.restores==1 and not c.state['history'][-1]['accepted']
+    assert 'slower' in c.state['history'][-1]['selection_reason']
+
 def cycle(c,w,before=15,after=15):
     c.tick();assert c.state['phase']=='baseline'
     w.score=before;c.tick();assert c.state['phase']=='collecting'

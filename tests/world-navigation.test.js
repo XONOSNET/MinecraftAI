@@ -3,6 +3,30 @@ const {route,standable}=require('../controller/field_navigation');
 const {blueprint,intact,findPlot}=require('../controller/hut_teacher');
 function fixture(blocks={}){return {entity:{position:new Vec3(.5,64,.5)},blockAt(p){const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z);const name=blocks[`${x},${y},${z}`]||(y<64?'grass_block':'air');return name==='unloaded'?null:{name,boundingBox:['air','water','lava'].includes(name)?'empty':'block',position:new Vec3(x,y,z)};}};}
 
+test('tree focus survives nearest-distance crossover but releases depleted trees',()=>{
+ const {treeFocus}=require('../controller/world_timing'),a=new Vec3(0,64,0),b=new Vec3(3,64,0);
+ const selected=treeFocus([a,b],null);assert.equal(selected.key,'0,0');
+ assert.deepEqual(treeFocus([b,a],selected.key).targets,[a]);
+ assert.equal(treeFocus([b],selected.key).key,'3,0');assert.equal(treeFocus([],selected.key).key,null);
+});
+
+test('settlement chest fits inside the hut and teaching milestones are idempotent',()=>{
+ const {chestPosition,TOOLS}=require('../controller/settlement'),{HutTeacher}=require('../controller/hut_teacher');
+ const plot={x:20,y:70,z:30},chest=chestPosition(plot);
+ assert.ok(Math.abs(chest.x-plot.x)<2&&Math.abs(chest.z-plot.z)<2);
+ assert.equal(blueprint(plot).some(p=>p.x===chest.x&&p.y===chest.y&&p.z===chest.z),false);
+ assert.deepEqual(TOOLS,['wooden_pickaxe','wooden_axe','wooden_shovel']);
+ const teacher=new HutTeacher();teacher.milestones=[];teacher.milestone('hut');teacher.milestone('hut');assert.deepEqual(teacher.milestones,['hut']);
+});
+
+test('world timings include blocking work and count rapid turn reversals',()=>{
+ const {WorldTiming}=require('../controller/world_timing'),t=new WorldTiming(1000);
+ t.mark('gather','aligning',2000);t.action(1,2000);t.action(2,2100);t.action(1,5000);
+ t.mark('gather','harvesting',5000);const snapshot=t.snapshot(1,9000);
+ assert.equal(snapshot.phase_seconds.gather,7);assert.equal(snapshot.activity_seconds.aligning,3);assert.equal(snapshot.activity_seconds.harvesting,4);
+ assert.equal(snapshot.first_log_seconds,8);assert.equal(snapshot.turn_reversals,1);
+});
+
 test('a new world batch clears the previous hut and progress before reporting survey',async()=>{
  const {HutTeacher}=require('../controller/hut_teacher'),teacher=new HutTeacher();
  Object.assign(teacher,{run:'old',plot:{x:5,y:64,z:5},table:{x:3,y:64,z:6},built:55,secureAt:100,settle:9999999999999,resources:[new Vec3(1,64,1)],destination:'old destination'});

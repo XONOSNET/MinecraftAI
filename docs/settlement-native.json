@@ -1,0 +1,11 @@
+{
+  "fixture": "Twelve logs granted only to an isolated protocol test player. Production lessons harvest all wood.",
+  "storedPlanks": 8,
+  "tools": [
+    "wooden_pickaxe",
+    "wooden_axe",
+    "wooden_shovel"
+  ],
+  "equipped": "wooden_axe",
+  "success": true
+}

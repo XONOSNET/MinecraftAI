@@ -1,0 +1,837 @@
+{
+  "active": false,
+  "phase": "finished",
+  "run": "world-1792941190165454200",
+  "scenario": 0,
+  "name": "Natural settlement",
+  "size": 128,
+  "bounds": [
+    16384,
+    16512,
+    16384,
+    16512
+  ],
+  "driver": "teacher",
+  "bots": [
+    "LabAI0",
+    "LabAI1",
+    "LabAI2",
+    "LabAI3",
+    "LabAI4",
+    "LabAI5",
+    "LabAI6",
+    "LabAI7"
+  ],
+  "prepared": true,
+  "loop": true,
+  "results": {
+    "LabAI5": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "gather: No construction or movement progress for 60 seconds.",
+      "logs": 15,
+      "blocks": 0,
+      "target_blocks": 55,
+      "travelled": 55.924434585549776,
+      "health": 20,
+      "plot": {
+        "x": 16441,
+        "y": 70,
+        "z": 16440,
+        "tableY": 70
+      },
+      "seconds": 184.988,
+      "timings": {
+        "phase_seconds": {
+          "survey": 4.1,
+          "gather": 180.9
+        },
+        "activity_seconds": {
+          "waiting": 81.8,
+          "aligning": 12.6,
+          "navigating": 1.3,
+          "collecting": 8.3,
+          "harvesting": 81
+        },
+        "first_log_seconds": 36.8,
+        "turn_reversals": 25,
+        "target_switches": 4,
+        "route_replans": 33
+      },
+      "milestones": [],
+      "lesson": 1,
+      "lesson_total": 6
+    },
+    "LabAI6": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Settlement complete: enclosed hut, chest with 8 planks, pickaxe, axe and shovel; axe equipped.",
+      "logs": 0,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 143.12220801012265,
+      "health": 20,
+      "plot": {
+        "x": 16449,
+        "y": 70,
+        "z": 16440,
+        "tableY": 70
+      },
+      "seconds": 293.496,
+      "timings": {
+        "phase_seconds": {
+          "survey": 4.5,
+          "gather": 166.3,
+          "craft": 10.6,
+          "table": 3.2,
+          "door_craft": 3.8,
+          "build": 44,
+          "door": 1.7,
+          "enter": 0.2,
+          "shelter": 3.3,
+          "leave_hut": 17.2,
+          "supply_craft": 7.1,
+          "return_home": 17.3,
+          "chest": 3.9,
+          "tools": 7.4,
+          "stock_chest": 3
+        },
+        "activity_seconds": {
+          "waiting": 32.5,
+          "aligning": 38.3,
+          "navigating": 9.3,
+          "harvesting": 123.5,
+          "collecting": 8.9,
+          "crafting": 31.9,
+          "building": 46,
+          "stocking": 3
+        },
+        "first_log_seconds": 0,
+        "turn_reversals": 54,
+        "target_switches": 4,
+        "route_replans": 61
+      },
+      "milestones": [
+        "hut",
+        "chest",
+        "wooden_pickaxe",
+        "wooden_axe",
+        "wooden_shovel",
+        "stocked"
+      ],
+      "lesson": 6,
+      "lesson_total": 6,
+      "completion_rank": 2
+    },
+    "LabAI7": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Settlement complete: enclosed hut, chest with 8 planks, pickaxe, axe and shovel; axe equipped.",
+      "logs": 0,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 192.93990111742573,
+      "health": 20,
+      "plot": {
+        "x": 16457,
+        "y": 70,
+        "z": 16440,
+        "tableY": 70
+      },
+      "seconds": 362.592,
+      "timings": {
+        "phase_seconds": {
+          "survey": 4.2,
+          "gather": 181.9,
+          "craft": 10.5,
+          "table": 3.9,
+          "door_craft": 4.3,
+          "build": 55.9,
+          "door": 1.3,
+          "enter": 0.1,
+          "shelter": 3.1,
+          "leave_hut": 15.3,
+          "supply_craft": 3.8,
+          "return_home": 64.1,
+          "chest": 3.9,
+          "tools": 7.3,
+          "stock_chest": 2.9
+        },
+        "activity_seconds": {
+          "waiting": 43.7,
+          "aligning": 78.9,
+          "navigating": 15.6,
+          "harvesting": 142.3,
+          "collecting": 4.1,
+          "crafting": 28.9,
+          "building": 46.2,
+          "stocking": 2.9
+        },
+        "first_log_seconds": 28.6,
+        "turn_reversals": 81,
+        "target_switches": 5,
+        "route_replans": 69
+      },
+      "milestones": [
+        "hut",
+        "chest",
+        "wooden_pickaxe",
+        "wooden_axe",
+        "wooden_shovel",
+        "stocked"
+      ],
+      "lesson": 6,
+      "lesson_total": 6,
+      "completion_rank": 5
+    },
+    "LabAI1": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Settlement complete: enclosed hut, chest with 8 planks, pickaxe, axe and shovel; axe equipped.",
+      "logs": 0,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 180.70376091792554,
+      "health": 20,
+      "plot": {
+        "x": 16441,
+        "y": 70,
+        "z": 16432,
+        "tableY": 70
+      },
+      "seconds": 318.489,
+      "timings": {
+        "phase_seconds": {
+          "survey": 4.2,
+          "gather": 164.7,
+          "craft": 11.1,
+          "table": 4.6,
+          "door_craft": 0.1,
+          "build": 43.3,
+          "door": 1.6,
+          "enter": 0.3,
+          "shelter": 2.9,
+          "leave_hut": 55.8,
+          "supply_craft": 3.8,
+          "return_home": 12.1,
+          "chest": 3.8,
+          "tools": 7,
+          "stock_chest": 3
+        },
+        "activity_seconds": {
+          "waiting": 43.2,
+          "navigating": 18.2,
+          "aligning": 60.2,
+          "harvesting": 116.8,
+          "collecting": 6.1,
+          "crafting": 24.9,
+          "building": 46,
+          "stocking": 3
+        },
+        "first_log_seconds": 22.2,
+        "turn_reversals": 71,
+        "target_switches": 4,
+        "route_replans": 65
+      },
+      "milestones": [
+        "hut",
+        "chest",
+        "wooden_pickaxe",
+        "wooden_axe",
+        "wooden_shovel",
+        "stocked"
+      ],
+      "lesson": 6,
+      "lesson_total": 6,
+      "completion_rank": 3
+    },
+    "LabAI2": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Settlement complete: enclosed hut, chest with 8 planks, pickaxe, axe and shovel; axe equipped.",
+      "logs": 0,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 250.4337305947948,
+      "health": 20,
+      "plot": {
+        "x": 16449,
+        "y": 70,
+        "z": 16432,
+        "tableY": 70
+      },
+      "seconds": 383.862,
+      "timings": {
+        "phase_seconds": {
+          "survey": 4.2,
+          "gather": 155.1,
+          "craft": 12.5,
+          "table": 10.6,
+          "door_craft": 0.3,
+          "build": 42.9,
+          "door": 1.4,
+          "enter": 0,
+          "shelter": 3.1,
+          "leave_hut": 95.6,
+          "supply_craft": 3.8,
+          "return_home": 40.5,
+          "chest": 3.8,
+          "tools": 7.1,
+          "stock_chest": 3
+        },
+        "activity_seconds": {
+          "waiting": 62.1,
+          "aligning": 100.8,
+          "navigating": 23.3,
+          "harvesting": 108.1,
+          "collecting": 13.7,
+          "crafting": 26.7,
+          "building": 46.2,
+          "stocking": 3
+        },
+        "first_log_seconds": 0,
+        "turn_reversals": 110,
+        "target_switches": 4,
+        "route_replans": 93
+      },
+      "milestones": [
+        "hut",
+        "chest",
+        "wooden_pickaxe",
+        "wooden_axe",
+        "wooden_shovel",
+        "stocked"
+      ],
+      "lesson": 6,
+      "lesson_total": 6,
+      "completion_rank": 6
+    },
+    "LabAI3": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Settlement complete: enclosed hut, chest with 8 planks, pickaxe, axe and shovel; axe equipped.",
+      "logs": 0,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 130.0779352765492,
+      "health": 20,
+      "plot": {
+        "x": 16457,
+        "y": 70,
+        "z": 16432,
+        "tableY": 70
+      },
+      "seconds": 292.276,
+      "timings": {
+        "phase_seconds": {
+          "survey": 4.1,
+          "gather": 174.6,
+          "craft": 10.4,
+          "table": 2.9,
+          "door_craft": 4.1,
+          "build": 52.5,
+          "door": 1.5,
+          "enter": 0.1,
+          "shelter": 3.1,
+          "leave_hut": 1.4,
+          "supply_craft": 7.1,
+          "return_home": 16.1,
+          "chest": 4,
+          "tools": 7.3,
+          "stock_chest": 3.1
+        },
+        "activity_seconds": {
+          "waiting": 37.4,
+          "aligning": 33.1,
+          "navigating": 7.7,
+          "harvesting": 122.5,
+          "collecting": 10.6,
+          "crafting": 32,
+          "building": 46,
+          "stocking": 3.1
+        },
+        "first_log_seconds": 31.8,
+        "turn_reversals": 46,
+        "target_switches": 5,
+        "route_replans": 47
+      },
+      "milestones": [
+        "hut",
+        "chest",
+        "wooden_pickaxe",
+        "wooden_axe",
+        "wooden_shovel",
+        "stocked"
+      ],
+      "lesson": 6,
+      "lesson_total": 6,
+      "completion_rank": 1
+    },
+    "LabAI0": {
+      "state": "complete",
+      "phase": "complete",
+      "message": "Settlement complete: enclosed hut, chest with 8 planks, pickaxe, axe and shovel; axe equipped.",
+      "logs": 1,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 208.96766033585618,
+      "health": 20,
+      "plot": {
+        "x": 16433,
+        "y": 70,
+        "z": 16432,
+        "tableY": 70
+      },
+      "seconds": 340.965,
+      "timings": {
+        "phase_seconds": {
+          "survey": 4.5,
+          "gather": 175.4,
+          "craft": 16.1,
+          "table": 17.5,
+          "door_craft": 0.2,
+          "build": 46.1,
+          "door": 1.2,
+          "enter": 0.1,
+          "shelter": 3.1,
+          "leave_hut": 53.9,
+          "supply_craft": 3.1,
+          "return_home": 5.5,
+          "chest": 4.2,
+          "tools": 7.2,
+          "stock_chest": 3
+        },
+        "activity_seconds": {
+          "waiting": 55.1,
+          "aligning": 71.3,
+          "navigating": 15.1,
+          "collecting": 11.5,
+          "harvesting": 115.6,
+          "crafting": 29.6,
+          "building": 39.7,
+          "stocking": 3
+        },
+        "first_log_seconds": 47.6,
+        "turn_reversals": 83,
+        "target_switches": 5,
+        "route_replans": 79
+      },
+      "milestones": [
+        "hut",
+        "chest",
+        "wooden_pickaxe",
+        "wooden_axe",
+        "wooden_shovel",
+        "stocked"
+      ],
+      "lesson": 6,
+      "lesson_total": 6,
+      "completion_rank": 4
+    },
+    "LabAI4": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "gather: No construction or movement progress for 60 seconds.",
+      "logs": 0,
+      "blocks": 55,
+      "target_blocks": 55,
+      "travelled": 85.0795482163247,
+      "health": 20,
+      "plot": {
+        "x": 16433,
+        "y": 70,
+        "z": 16440,
+        "tableY": 70
+      },
+      "seconds": 269.005,
+      "timings": {
+        "phase_seconds": {
+          "survey": 4.4,
+          "gather": 189.6,
+          "craft": 17.3,
+          "table": 5.9,
+          "door_craft": 3.9,
+          "build": 41.9,
+          "door": 1.3,
+          "enter": 0.1,
+          "shelter": 3.2,
+          "leave_hut": 1.4
+        },
+        "activity_seconds": {
+          "waiting": 93.3,
+          "aligning": 26.4,
+          "navigating": 4.1,
+          "harvesting": 81.7,
+          "collecting": 3.9,
+          "crafting": 21.2,
+          "building": 38.4
+        },
+        "first_log_seconds": 28.4,
+        "turn_reversals": 42,
+        "target_switches": 7,
+        "route_replans": 43
+      },
+      "milestones": [
+        "hut"
+      ],
+      "lesson": 2,
+      "lesson_total": 6
+    }
+  },
+  "started_at": 1792941190.1654541,
+  "round": 86,
+  "progress": 100,
+  "message": "Batch finished. Restoring terrain for the next batch in 10 seconds.",
+  "template": "0-128",
+  "reset_area": [
+    16400,
+    16480,
+    16400,
+    16480
+  ],
+  "copy_y": [
+    62,
+    126
+  ],
+  "fast_reset": true,
+  "camp_anchor": [
+    16445,
+    70,
+    16436
+  ],
+  "time_budget_seconds": 1200,
+  "mission": "settlement",
+  "lessons": [
+    "Enclose a hut",
+    "Craft and place a chest",
+    "Craft a wooden pickaxe",
+    "Craft a wooden axe",
+    "Craft a wooden shovel",
+    "Store eight planks and equip the axe"
+  ],
+  "trial_at": 1792941207.817606,
+  "reset_seconds": 17.7,
+  "sweep_at": 1792941596.399876,
+  "camp": {
+    "spawn": [
+      16445.5,
+      70.1,
+      16436.5
+    ],
+    "plots": [
+      {
+        "x": 16433,
+        "y": 70,
+        "z": 16432,
+        "tableY": 70
+      },
+      {
+        "x": 16441,
+        "y": 70,
+        "z": 16432,
+        "tableY": 70
+      },
+      {
+        "x": 16449,
+        "y": 70,
+        "z": 16432,
+        "tableY": 70
+      },
+      {
+        "x": 16457,
+        "y": 70,
+        "z": 16432,
+        "tableY": 70
+      },
+      {
+        "x": 16433,
+        "y": 70,
+        "z": 16440,
+        "tableY": 70
+      },
+      {
+        "x": 16441,
+        "y": 70,
+        "z": 16440,
+        "tableY": 70
+      },
+      {
+        "x": 16449,
+        "y": 70,
+        "z": 16440,
+        "tableY": 70
+      },
+      {
+        "x": 16457,
+        "y": 70,
+        "z": 16440,
+        "tableY": 70
+      }
+    ],
+    "groves": [
+      [
+        [
+          16431,
+          70,
+          16427
+        ],
+        [
+          16431,
+          70,
+          16423
+        ],
+        [
+          16435,
+          70,
+          16427
+        ],
+        [
+          16435,
+          70,
+          16423
+        ]
+      ],
+      [
+        [
+          16439,
+          70,
+          16427
+        ],
+        [
+          16439,
+          70,
+          16423
+        ],
+        [
+          16443,
+          70,
+          16427
+        ],
+        [
+          16443,
+          70,
+          16423
+        ]
+      ],
+      [
+        [
+          16447,
+          70,
+          16427
+        ],
+        [
+          16447,
+          70,
+          16423
+        ],
+        [
+          16451,
+          70,
+          16427
+        ],
+        [
+          16451,
+          70,
+          16423
+        ]
+      ],
+      [
+        [
+          16455,
+          70,
+          16427
+        ],
+        [
+          16455,
+          70,
+          16423
+        ],
+        [
+          16459,
+          70,
+          16427
+        ],
+        [
+          16459,
+          70,
+          16423
+        ]
+      ],
+      [
+        [
+          16431,
+          70,
+          16445
+        ],
+        [
+          16431,
+          70,
+          16449
+        ],
+        [
+          16435,
+          70,
+          16445
+        ],
+        [
+          16435,
+          70,
+          16449
+        ]
+      ],
+      [
+        [
+          16439,
+          70,
+          16445
+        ],
+        [
+          16439,
+          70,
+          16449
+        ],
+        [
+          16443,
+          70,
+          16445
+        ],
+        [
+          16443,
+          70,
+          16449
+        ]
+      ],
+      [
+        [
+          16447,
+          70,
+          16445
+        ],
+        [
+          16447,
+          70,
+          16449
+        ],
+        [
+          16451,
+          70,
+          16445
+        ],
+        [
+          16451,
+          70,
+          16449
+        ]
+      ],
+      [
+        [
+          16455,
+          70,
+          16445
+        ],
+        [
+          16455,
+          70,
+          16449
+        ],
+        [
+          16459,
+          70,
+          16445
+        ],
+        [
+          16459,
+          70,
+          16449
+        ]
+      ]
+    ]
+  },
+  "lesson_resources": {
+    "LabAI3": [
+      [
+        16455,
+        70,
+        16419
+      ],
+      [
+        16459,
+        70,
+        16419
+      ]
+    ],
+    "LabAI6": [
+      [
+        16447,
+        70,
+        16453
+      ],
+      [
+        16451,
+        70,
+        16453
+      ]
+    ],
+    "LabAI7": [
+      [
+        16455,
+        70,
+        16453
+      ],
+      [
+        16459,
+        70,
+        16453
+      ]
+    ],
+    "LabAI4": [
+      [
+        16431,
+        70,
+        16453
+      ],
+      [
+        16435,
+        70,
+        16453
+      ]
+    ],
+    "LabAI1": [
+      [
+        16439,
+        70,
+        16419
+      ],
+      [
+        16443,
+        70,
+        16419
+      ]
+    ],
+    "LabAI0": [
+      [
+        16431,
+        70,
+        16419
+      ],
+      [
+        16435,
+        70,
+        16419
+      ]
+    ],
+    "LabAI2": [
+      [
+        16447,
+        70,
+        16419
+      ],
+      [
+        16451,
+        70,
+        16419
+      ]
+    ]
+  },
+  "restart_at": 1792941601.7249537
+}

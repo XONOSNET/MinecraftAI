@@ -9,6 +9,7 @@ from pathlib import Path
 from .tasks import EXTRA_STAGES
 from .config import AGENT_COUNT
 from .trial_queue import TrialQueue
+from .efficiency import compare_candidate
 
 LEGACY_STAGES=[{'name':'Short routes','min_distance':3,'max_distance':7,'yaw':.6},
         {'name':'Longer routes','min_distance':7,'max_distance':14,'yaw':1.5},
@@ -192,6 +193,7 @@ class Curriculum:
                 if score>=STAGES[s['stage']].get('threshold',s['threshold']):
                     self.h['pause']();s['restore_pending']=False;s['streak']+=1
                     result={'cycle':s['cycle'],'stage':s['stage'],'stage_id':STAGES[s['stage']]['id'],'skill':STAGES[s['stage']].get('skill','navigation'),'agent_count':AGENT_COUNT,'episodes':rows['episodes'],'baseline':score,'score':score,'accepted':True,'kind':'saved_model_validation','seed':s['seed'],'time':self.clock()}
+                    result['timing']={k:rows.get(k) for k in ('median_success_seconds','timed_successes')}
                     s['history'].append(result);s['history']=s['history'][-100:];self.h['event'](result)
                     self.finish_cycle()
                     if s['enabled'] and s['phase']=='waiting':
@@ -199,14 +201,15 @@ class Curriculum:
                         self.save()
                     return
                 s['streak']=0
-                s['baseline']=score;s['collected_start']=self.h['count']();s['collected']=0
+                s['baseline']=score;s['baseline_timing']={k:rows.get(k) for k in ('median_success_seconds','timed_successes','successful_case_seconds')};s['collected_start']=self.h['count']();s['collected']=0
                 self.h['mode']('teacher',f"auto-{s['cycle']}-teacher");self.phase('collecting','Collecting fresh examples for '+STAGES[s['stage']]['name']+'.');return
-            accepted=score>=s['baseline'];self.h['pause']()
+            accepted,selection_reason=compare_candidate(s['baseline'],score,rows,s.get('baseline_timing'));self.h['pause']()
             if accepted:self.h['protect']()
             else:self.h['restore']()
             s['restore_pending']=False
             s['streak']=s['streak']+1 if accepted and score>=STAGES[s['stage']].get('threshold',s['threshold']) else 0
             s['history'].append({'cycle':s['cycle'],'stage':s['stage'],'stage_id':STAGES[s['stage']]['id'],'skill':STAGES[s['stage']].get('skill','navigation'),'agent_count':AGENT_COUNT,'episodes':rows['episodes'],'baseline':s['baseline'],'score':score,'accepted':accepted,'time':self.clock()});s['history']=s['history'][-100:]
+            s['history'][-1].update(selection_reason=selection_reason,baseline_timing=s.get('baseline_timing'),timing={k:rows.get(k) for k in ('median_success_seconds','timed_successes')})
             self.h['event'](s['history'][-1])
             self.finish_cycle();return
         if s['phase']=='collecting':

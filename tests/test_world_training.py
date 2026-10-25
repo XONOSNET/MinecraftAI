@@ -16,7 +16,7 @@ def test_loop_restores_same_settings_after_batch_and_waits_for_all_bots(tmp_path
     clock[0]=11
     assert world.next_batch(['LabAI0']) is None
     settings=world.next_batch(['LabAI0','LabAI1'])
-    assert settings==dict(scenario=1,size=256,driver='student',prepared=False,loop=True)
+    assert settings==dict(scenario=1,size=256,driver='student',prepared=False,loop=True,mission='settlement')
     world.saved['templates']['1-256']={}
     world.start(settings,['LabAI0','LabAI1'])
     assert world.session['phase']=='restoring' and world.session['round']==2 and world.session['run']!=run
@@ -31,6 +31,21 @@ def test_timeout_records_results_and_repeats_but_copy_failure_does_not(tmp_path)
     clock[0]+=11;assert world.next_batch(['LabAI0'])
     world.stop('Terrain copy failed.')
     assert world.next_batch(['LabAI0']) is None
+
+
+def test_safety_deadline_preserves_slow_attempts_and_ranks_successes_first(tmp_path):
+    world,commands,clock,log=fixture(tmp_path)
+    world.saved['history']=[dict(scenario=0,size=128,driver='teacher',prepared=True,results={str(i):dict(state='complete',seconds=100) for i in range(12)})]
+    world.start({},['LabAI0','LabAI1','LabAI2']);world.session.update(phase='running',trial_at=0)
+    run=world.session['run'];assert world.session['time_budget_seconds']==1200
+    world.report('LabAI0',dict(run=run,state='complete',seconds=120,timings={'activity_seconds':{'aligning':10}}))
+    world.report('LabAI1',dict(run=run,state='complete',seconds=90))
+    clock[0]=251;world.tick();assert world.session['active'] and 'LabAI2' not in world.session['results']
+    clock[0]=1201;world.tick();s=world.session
+    assert s['results']['LabAI2']['state']=='stopped' and 'time budget' in s['results']['LabAI2']['message']
+    assert s['results']['LabAI1']['completion_rank']==1 and s['results']['LabAI0']['completion_rank']==2
+    assert s['results']['LabAI0']['timings']['activity_seconds']['aligning']==10
+    assert s['phase']=='finished' and s['loop']
 
 
 def test_single_batch_option_and_round_counter_survive_history_limit(tmp_path):
@@ -79,10 +94,22 @@ def test_reset_uses_template_and_spawn_validation_rejects_out_of_bounds(tmp_path
 
 def test_prepared_camp_generates_harvestable_resources_once_without_inventory_grants(tmp_path):
     world,commands,clock,log=fixture(tmp_path);world.start({},[f'LabAI{i}' for i in range(8)]);world.session['phase']='running'
-    camp=world.camp('LabAI0',[16448.5,71.1,16448.5]);assert len(camp['plots'])==8 and all(len(trees)==4 for trees in camp['groves'])
-    assert sum('minecraft:oak_log' in c for c in commands)==32
+    camp=world.camp('LabAI0',[16448.5,71.1,16448.5]);assert len(camp['plots'])==8 and all(len(trees)==6 for trees in camp['groves'])
+    assert sum('minecraft:oak_log' in c for c in commands)==48
     assert not any(c.startswith('give ') for c in commands)
     before=len(commands);assert world.camp('LabAI1',[16448.5,71.1,16448.5])==camp;assert len(commands)==before
+
+
+def test_settlement_lessons_supply_real_trees_once_and_keep_doors_clear(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},[f'LabAI{i}' for i in range(8)]);world.session['phase']='running'
+    camp=world.camp('LabAI0',[16448.5,70.1,16448.5]);assert len(world.session['lessons'])==6
+    for i in range(8):
+        trees=world.lesson_resources(f'LabAI{i}');plot=camp['plots'][i]
+        assert len(trees)==2 and all(abs(z-plot['z'])==13 for x,y,z in trees)
+        assert all(abs(x-16448)<=18 and abs(z-16448)<=18 for x,y,z in trees)
+        before=len(commands);assert world.lesson_resources(f'LabAI{i}')==trees and len(commands)==before
+    assert not any(c.startswith('give ') for c in commands)
+    world.stop();world.start({'mission':'hut'},['LabAI0']);assert len(world.session['lessons'])==1
 
 
 def test_prepared_reset_covers_camp_and_surrounding_chunks_with_bounded_clones(tmp_path):

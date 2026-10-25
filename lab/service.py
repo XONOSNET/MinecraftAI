@@ -24,6 +24,7 @@ from .observers import Observers, observer_progress
 from .camera_input import CameraInput
 from .world_training import WorldTraining
 from .bot_lights import BotLights
+from .efficiency import completion_timing
 from .identities import Identities
 from .protection import PracticeProtection
 import copy
@@ -639,12 +640,15 @@ def auto_restore():
     evolution.record('navigation',model.state_dict(),'checkpoints/latest.pt',source='restored')
 
 def auto_results(identifier):
-    rows=db.execute('SELECT agent,success FROM episodes WHERE run=? ORDER BY id',(identifier,)).fetchall()
-    counts={};successes=0
-    for name,success in rows:
+    rows=db.execute('SELECT agent,success,episode_timing.seconds FROM episodes LEFT JOIN episode_timing ON episodes.id=episode_timing.episode WHERE run=? ORDER BY episodes.id',(identifier,)).fetchall()
+    counts={};successes=0;seconds=[];cases={}
+    for name,success,elapsed in rows:
         counts[name]=counts.get(name,0)+1
-        if counts[name]<=EPISODES_PER_AGENT:successes+=success
-    return {'episodes':sum(min(v,EPISODES_PER_AGENT) for v in counts.values()),'successes':successes}
+        if counts[name]<=EPISODES_PER_AGENT:
+            successes+=success
+            if success:
+                seconds.append(elapsed);cases[f'{name}:{counts[name]}']=elapsed
+    return {'episodes':sum(min(v,EPISODES_PER_AGENT) for v in counts.values()),'successes':successes,'successful_case_seconds':cases,**completion_timing(seconds,successes)}
 
 def auto_health(recovering=False):
     if psutil.virtual_memory().percent>(84 if recovering else 88):return 'System memory is above '+('84%' if recovering else '88%')+'.'
@@ -812,6 +816,12 @@ def prepare_world_camp(d:dict):
 def world_spawn(d:dict):
     with lock:
         try:world_training.spawn(d.get('agent'),d.get('position'));return {'ok':True}
+        except ValueError as error:raise HTTPException(400,str(error))
+
+@app.post('/world/resources',dependencies=[Depends(auth)])
+def world_lesson_resources(d:dict):
+    with lock:
+        try:return {'trees':world_training.lesson_resources(d.get('agent'))}
         except ValueError as error:raise HTTPException(400,str(error))
 
 @app.post('/world/report',dependencies=[Depends(auth)])

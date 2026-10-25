@@ -215,13 +215,17 @@ class Observers:
         if world and job.get('status') not in ('running','cancelling'):
             result=world['results'].get(s['target'],{});progress=round(100*result.get('blocks',0)/55)
             lines['task']=f"{display_name} | {result.get('phase',world['phase']).title()} | Hut {result.get('blocks',0)}/55"
+            if result.get('lesson_total',1)>1:
+                progress=round(100*len(result.get('milestones',[]))/result['lesson_total'])
+                lines['task']=f"{display_name} | Lesson {result.get('lesson',1)}/{result['lesson_total']} | {result.get('phase',world['phase']).replace('_',' ').title()}"
             lines['state']=str(result.get('message',world['message']))[:110]
             route_visible=False
         if context.get('stage'):
             lines={'stage':((context.get('label')+' | ') if context.get('label') else (f"Review {context['round']} | " if context.get('round') else ''))+f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
         if world:
             complete=sum(r.get('state')=='complete' for r in world['results'].values())
-            lines['stage']=f"World trial {world['round']} | {world['name']} | Huts {complete}/{len(world['bots'])}"
+            label='Sequences' if world.get('mission')=='settlement' else 'Huts'
+            lines['stage']=f"World trial {world['round']} | {world['name']} | {label} {complete}/{len(world['bots'])}"
         for suffix,value in lines.items():
             key=prefix+'_'+suffix;name=json.dumps({'text':value,'color':'aqua' if suffix=='task' else 'white'})
             if not s.get('hud_ready'):
