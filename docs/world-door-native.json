@@ -1,0 +1,53 @@
+{
+  "runs": [
+    {
+      "hinge": "left",
+      "direction": 1,
+      "complete": true,
+      "planeCrossings": 1,
+      "seconds": 2.055,
+      "position": {
+        "x": -7.403750081968371,
+        "y": 181,
+        "z": 14.377442336958248
+      }
+    },
+    {
+      "hinge": "left",
+      "direction": -1,
+      "complete": true,
+      "planeCrossings": 1,
+      "seconds": 1.602,
+      "position": {
+        "x": -7.400057467699253,
+        "y": 181,
+        "z": 10.911693982193759
+      }
+    },
+    {
+      "hinge": "right",
+      "direction": 1,
+      "complete": true,
+      "planeCrossings": 1,
+      "seconds": 1.618,
+      "position": {
+        "x": -7.601010878295351,
+        "y": 181,
+        "z": 14.08830898472946
+      }
+    },
+    {
+      "hinge": "right",
+      "direction": -1,
+      "complete": true,
+      "planeCrossings": 1,
+      "seconds": 1.608,
+      "position": {
+        "x": -7.598701969440619,
+        "y": 181,
+        "z": 10.711849550871033
+      }
+    }
+  ],
+  "success": true
+}

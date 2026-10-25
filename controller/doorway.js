@@ -1,5 +1,14 @@
 // Hold one approach side through a narrow doorway; opening remains a policy action.
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
+function doorwayDescriptor(bot,block,goal){
+ if(!block?.name.endsWith('_door')||!goal)return null;
+ const properties=block.getProperties(),p=bot.entity.position,axis=['north','south'].includes(properties.facing)?'z':'x',cross=axis==='x'?'z':'x';
+ const plane=block.position[axis]+.5,offset=p[axis]-plane,remaining=goal[axis==='x'?0:2]-plane;
+ if(Math.abs(p.y-block.position.y)>1.1||Math.abs(offset)>=3.5||Math.abs(p[cross]-block.position[cross]-.5)>=2.5||offset*remaining>=0)return null;
+ const panel=(block.shapes||[])[0];let center=block.position[cross]+.5;
+ if(properties.open&&panel){const low=panel[cross==='x'?0:2],high=panel[cross==='x'?3:5];if(high-low<.3)center=block.position[cross]+(low<.5?(high+1)/2:low/2);}
+ return {id:`${block.position.x},${block.position.y},${block.position.z}`,axis,plane,center,open:!!properties.open,y:block.position.y};
+}
 function createDoorway(){
  let state=null,finished=new Set(),label=null;
  function reset(){state=null;finished.clear();label=null;}
@@ -49,4 +58,4 @@ function createDoorway(){
  }
  return {update,reset,active:()=>!!state,label:()=>label};
 }
-module.exports={createDoorway};
+module.exports={createDoorway,doorwayDescriptor};

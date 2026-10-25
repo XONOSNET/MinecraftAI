@@ -8,6 +8,7 @@ const {route,standable}=require('./field_navigation');
 const {WorldTiming,treeFocus}=require('./world_timing');
 const settlement=require('./settlement');
 const {scanTrees}=require('./target_scan');
+const {doorwayDescriptor}=require('./doorway');
 const LOG=/^(oak|birch|spruce|jungle|acacia|dark_oak|mangrove|cherry)_log$/;
 const planks=name=>name.endsWith('_planks');
 const count=(bot,match)=>bot.inventory.items().filter(i=>match(i.name)).reduce((n,i)=>n+i.count,0);
@@ -220,8 +221,9 @@ class HutTeacher{
  }
  async walk(bot,motor,goal,state,api,scan,tasks){
   const p=bot.entity.position,now=Date.now();
+  const passage=this.plot?doorwayDescriptor(bot,bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-2)),goal):null;
   while(this.path.length&&Math.hypot(this.path[0][0]-p.x,this.path[0][2]-p.z)<.55&&Math.abs(this.path[0][1]-p.y)<.8)this.path.shift();
-  const dest=goal.join(',');if(!this.path.length||this.destination!==dest||now-this.lastPlan>2500){const planned=route(bot,goal);this.timing.replans++;this.path=planned.path;this.destination=dest;this.lastPlan=now;if(!this.path.length){motor.pause();this.message=planned.message;return false;}}
+  const dest=goal.join(',');if(!this.path.length||this.destination!==dest||now-this.lastPlan>2500){const planned=route(bot,goal);this.timing.replans++;this.path=planned.path;this.destination=dest;this.lastPlan=now;if(!this.path.length){if(passage||motor.passageActive?.())this.path=[goal];else{motor.pause();this.message=planned.message;return false;}}}
   const cue=this.path[0];if(!this.inside(new Vec3(...cue),state.world.bounds)){motor.pause();throw Error('Planned route reached the trial boundary.');}
   const skill=this.phase==='enter'?'shelter':'expedition';
   const task={kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],bounds:state.world.bounds,actual_doors:[],allow_water:false,coverage_target:100,quick_look:true,navigation_lock:state.world.driver==='teacher'};
@@ -231,7 +233,7 @@ class HutTeacher{
   const teacher=tasks.teacherAction(bot,task,sensed,this.runtime,angle);
   const result=await api('/step',{agent:bot.username,run:state.run,world_skill:skill,obs,teacher,reward:0,position:[p.x,p.y,p.z],health:bot.health,food:bot.food,hits:sensedScan.hits,perception_ms:0,steps:0,goal,task:'expedition',metrics:sensed.metrics});
   this.timing.action(result.action);this.timing.mark(this.phase,this.collecting?'collecting':result.action===1||result.action===2?'aligning':'navigating');
-  const motorLabel=motor.command(result.action,task,{...sensed,...sensedScan.proximity,focusPoint:cue,cueDistance:Math.hypot(cue[0]-p.x,cue[2]-p.z)},angle);if(motorLabel)this.message=motorLabel;
+  const motorLabel=motor.command(result.action,task,{...sensed,...sensedScan.proximity,doorway:passage,focusPoint:cue,cueDistance:Math.hypot(cue[0]-p.x,cue[2]-p.z)},angle);if(motorLabel)this.message=motorLabel;
  }
 }
 module.exports={HutTeacher,blueprint,intact,findPlot,findSpawn,surface,reference};

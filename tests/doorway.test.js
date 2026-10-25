@@ -1,6 +1,16 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');const {createDoorway}=require('../controller/doorway');
 const permissions={move:true,turn:true},base={forward:true},door={id:'0,0',axis:'x',plane:.5,center:.59375,open:true,y:181};
 const sensed=(d=door,canWalk=()=>true)=>({doorway:d,canWalk});
+
+test('world-height doors target the open space beside either hinge panel',()=>{
+ const {doorwayDescriptor}=require('../controller/doorway'),{Vec3}=require('vec3');
+ const bot={entity:{position:new Vec3(.5,70,-2)}};
+ const block={name:'oak_door',position:new Vec3(0,70,0),getProperties:()=>({facing:'north',open:true}),shapes:[[0,0,0,.1875,1,1]]};
+ const a=doorwayDescriptor(bot,block,[.5,70,3]);assert.equal(a.y,70);assert.equal(a.center,.59375);
+ block.shapes=[[.8125,0,0,1,1,1]];assert.equal(doorwayDescriptor(bot,block,[.5,70,3]).center,.40625);
+ assert.equal(doorwayDescriptor(bot,block,[.5,70,-4]),null);
+ bot.entity.position.y=181;assert.equal(doorwayDescriptor(bot,block,[.5,70,3]),null);
+});
 test('doorway holds entry side, centres first and crosses without flipping at the plane',()=>{
  const c=createDoorway();let p={x:-1,z:1.2};let a=c.update(base,sensed(),p,0,0,permissions);assert.match(a.label,/lining up/);assert.equal(a.forward,false);
  p={x:-.65,z:.59375};a=c.update(base,sensed(),p,-Math.PI/2,100,permissions);assert.match(a.label,/crossing/);assert.equal(a.forward,true);

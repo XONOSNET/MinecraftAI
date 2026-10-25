@@ -73,6 +73,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    return plan.label;
   },
   pause:clear,
+  passageActive:()=>doorway.active(),
   status(){return stalled?'Waiting for policy response':doorway.active()?doorway.label():recovery.active()?recovery.label():plan?.sprint&&bot.getControlState('sprint')?'Sprinting on clear ground':null;},
   lockLook(value){lookLocked=value;},
   tick(){
