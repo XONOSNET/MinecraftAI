@@ -41,11 +41,13 @@ class WorldTraining:
         if type(prepared) is not bool:raise ValueError('Prepared camp must be enabled or disabled.')
         driver=data.get('driver','teacher')
         if driver not in ('teacher','student'):raise ValueError('Choose teacher assistance or policy navigation.')
+        loop=data.get('loop',True)
+        if type(loop) is not bool:raise ValueError('Repeat trials must be enabled or disabled.')
         x=16384+scenario*4096+(2048 if size==256 else 0);z=16384
         key=f'{scenario}-{size}';restore=key in self.saved['templates']
         self.session=dict(active=True,phase='restoring' if restore else 'snapshotting',run='world-'+str(time.time_ns()),
             scenario=scenario,name=SCENARIOS[scenario]['name'],size=size,bounds=[x,x+size,z,z+size],driver=driver,
-            bots=list(names),prepared=prepared,results={},started_at=self.clock(),round=len(self.saved['history'])+1,
+            bots=list(names),prepared=prepared,loop=loop,results={},started_at=self.clock(),round=self.saved.get('round',max((r.get('round',0) for r in self.saved['history']),default=0))+1,
             progress=0,message='Restoring the saved natural terrain.' if restore else 'Saving pristine natural terrain before the first trial.',template=key)
         self.jobs=[];self.job=None
         # Incremental two-chunk work avoids permanent force loads and the global limit.
@@ -54,6 +56,19 @@ class WorldTraining:
                 source=xx+1024 if restore else xx;dest=xx if restore else xx+1024
                 self.jobs.append((source,dest,zz))
         self.total=len(self.jobs);return self.snapshot()
+
+    def next_batch(self,connected):
+        s=self.session
+        if not s or not s.get('loop') or s['phase']!='finished' or self.clock()<s['restart_at']:return None
+        if not set(s['bots']).issubset(connected):
+            s['message']='Waiting for all trial bots to reconnect before restoring terrain.';return None
+        return {key:s[key] for key in ('scenario','size','driver','prepared','loop')}
+
+    def finish(self):
+        s=self.session
+        s.update(active=False,phase='finished',restart_at=self.clock()+10,message='Batch finished. Restoring terrain for the next batch in 10 seconds.' if s.get('loop') else 'Trial finished. Review each bot’s result; reset starts from the saved natural terrain.')
+        self.saved['round']=s['round']
+        self.saved['history'].append(copy.deepcopy(s));self.saved['history']=self.saved['history'][-30:];self.save()
 
     def _read(self,offset):
         if not self.logpath.exists():return '',offset
@@ -111,7 +126,10 @@ class WorldTraining:
                     self.job=None;s['progress']=round(100*(self.total-len(self.jobs))/self.total,1)
                 elif self.clock()-j['at']>20:self.stop('Terrain copy acknowledgement timed out.');return
         elif s['phase']=='running':
-            if self.clock()-s['trial_at']>1200:self.stop('Twenty-minute trial limit reached. Results retained.')
+            if self.clock()-s['trial_at']>1200:
+                for name in s['bots']:
+                    if s['results'].get(name,{}).get('state') not in ('complete','stopped'):
+                        self.report(name,dict(run=s['run'],state='stopped',phase='stopped',message='Twenty-minute trial limit reached.',seconds=1200))
 
     def assignment(self,name):
         s=self.session
@@ -159,8 +177,7 @@ class WorldTraining:
         allowed=('state','phase','message','logs','blocks','target_blocks','distance','travelled','health','plot','seconds')
         s['results'][name]={k:copy.deepcopy(data[k]) for k in allowed if k in data}
         if len(s['results'])==len(s['bots']) and all(r.get('state') in ('complete','stopped') for r in s['results'].values()):
-            s.update(active=False,phase='finished',message='Trial finished. Review each bot’s result; reset starts from the saved natural terrain.')
-            self.saved['history'].append(copy.deepcopy(s));self.saved['history']=self.saved['history'][-30:];self.save()
+            self.finish()
 
     def stop(self,reason='World trial paused by you.'):
         if self.job:
@@ -174,13 +191,13 @@ class WorldTraining:
                 for name in self.session['bots']:
                     try:self.command(f'tp {name} 0 181 0')
                     except RuntimeError:pass
-            self.session.update(active=False,phase='paused',message=reason)
+            self.session.update(active=False,loop=False,phase='paused',message=reason)
 
     def snapshot(self):return dict(session=copy.deepcopy(self.session),scenarios=SCENARIOS,history=copy.deepcopy(self.saved['history'][-10:]))
 
     def menu(self,player):
         parts=[{'text':'AI Laboratory\n','color':'gold','bold':True}]
-        for label,choice in [('Basics training',1),('Real world: teacher hut trial',2),('Real world: policy navigation + hut teacher',3),('Stop current mode',4),('Train gathering from examples',5),('Train navigation from examples',6)]:
+        for label,choice in [('Basics training',1),('Real world: repeat teacher hut trials',2),('Real world: repeat policy navigation + hut teacher',3),('Stop current mode',4),('Train gathering from examples',5),('Train navigation from examples',6)]:
             parts.extend([{'text':'['+label+']\n','color':'aqua','clickEvent':{'action':'run_command','value':f'/trigger lab_world set {choice}'}}])
         parts.append({'text':'World trials use a reserved natural area, restored between trials. Hut construction is teacher assisted. Dashboard: 127.0.0.1:8000','color':'gray'})
         self.command(f'tellraw {player} '+json.dumps(parts))

@@ -19,3 +19,7 @@ Reserved sources start at X=16384 + site_index×4096 (+2048 for the 256-block va
 The final prepared-camp teacher trial completed seven of eight huts, each with all 55 enclosure blocks, a closed door, three seconds sheltered and full health. The eighth bot reached the movement timeout and was returned to the protected lab. This is a pilot result, not a claim of reliable untouched-world survival or learned construction. See world-hut-native.json; earlier raw-terrain failures are retained separately in world-raw-terrain-native.json.
 
 The native protocol tests also confirmed wood-to-planks crafting, workbench crafting, door crafting, real server-confirmed harvesting and reopening the vanilla chat menu. Automated verification: 83 Python checks and 23 JavaScript checks passed. No production trial grants inventory wood or building blocks.
+
+## Repeating trials
+
+Repeat trials is checked by default. Completed batches save their results, wait ten seconds, then restore the same site with the same size, controller and camp settings. A twenty-minute timeout records unfinished bots as stopped and continues the loop. All assigned bots must reconnect before another batch begins. Stop world trial or Resume basics cancels repetition; terrain-copy failures stop safely instead of retrying indefinitely. Trial numbers continue increasing beyond the retained thirty-result history. Repetition collects teacher examples; model fitting remains an explicit specialist-training action after stopping the loop.

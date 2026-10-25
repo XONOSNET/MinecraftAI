@@ -7,6 +7,39 @@ def fixture(tmp_path):
     return world,commands,clock,log
 
 
+def test_loop_restores_same_settings_after_batch_and_waits_for_all_bots(tmp_path):
+    world,commands,clock,log=fixture(tmp_path)
+    world.start({'scenario':1,'size':256,'driver':'student','prepared':False},['LabAI0','LabAI1'])
+    world.session['phase']='running';run=world.session['run']
+    for name in world.session['bots']:world.report(name,dict(run=run,state='complete'))
+    assert len(world.saved['history'])==1 and world.next_batch(['LabAI0','LabAI1']) is None
+    clock[0]=11
+    assert world.next_batch(['LabAI0']) is None
+    settings=world.next_batch(['LabAI0','LabAI1'])
+    assert settings==dict(scenario=1,size=256,driver='student',prepared=False,loop=True)
+    world.saved['templates']['1-256']={}
+    world.start(settings,['LabAI0','LabAI1'])
+    assert world.session['phase']=='restoring' and world.session['round']==2 and world.session['run']!=run
+    world.stop();clock[0]=50
+    assert not world.session['loop'] and world.next_batch(['LabAI0','LabAI1']) is None
+
+
+def test_timeout_records_results_and_repeats_but_copy_failure_does_not(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.session.update(phase='running',trial_at=0)
+    clock[0]=1201;world.tick()
+    assert world.session['phase']=='finished' and world.session['results']['LabAI0']['state']=='stopped'
+    clock[0]+=11;assert world.next_batch(['LabAI0'])
+    world.stop('Terrain copy failed.')
+    assert world.next_batch(['LabAI0']) is None
+
+
+def test_single_batch_option_and_round_counter_survive_history_limit(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.saved['round']=45
+    world.start({'loop':False},['LabAI0']);world.session['phase']='running'
+    world.report('LabAI0',dict(run=world.session['run'],state='complete'));clock[0]=20
+    assert world.session['round']==46 and world.next_batch(['LabAI0']) is None
+
+
 def test_copy_acknowledged_before_deployment_and_scoped_to_reserved_terrain(tmp_path):
     world,commands,clock,log=fixture(tmp_path)
     world.start({'scenario':0,'size':128},['LabAI0']);world.tick();assert not world.assignment('LabAI0')

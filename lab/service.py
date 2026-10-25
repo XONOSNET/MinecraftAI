@@ -755,6 +755,9 @@ def observer_worker():
                 if server_ready() and not server_control.snapshot()['busy']:
                     camera_input.tick(observers,[p['name'] for p in online_players()],agents)
                     world_training.tick()
+                    connected=[n for n,a in agents.items() if is_agent(n) and a.get('connected') and time.time()-a.get('last_seen',0)<8]
+                    repeat=world_training.next_batch(connected)
+                    if repeat and not training_jobs.running and not curriculum.state['enabled']:start_world(repeat)
                     online=[p['name'] for p in online_players() if not p['is_bot']]
                     for player,choice in world_training.ui(online,[p['name'] for p in operators() if p.get('level',0)>=4]):
                         try:
@@ -822,6 +825,7 @@ def train_world(d:dict={}):
             if not world_training.saved['history']:raise HTTPException(409,'Run a teacher world trial first.')
             world_training.session=copy.deepcopy(world_training.saved['history'][-1]);world_training.session['active']=False
         curriculum.pause('Basics saved while training the selected world specialist.')
+        world_training.session['loop']=False
         world_training.session['training_skill']=skill
         return start_training(background=True)
 
@@ -869,5 +873,3 @@ def dashboard():
     response=HTMLResponse(Path('lab/dashboard.html').read_text(encoding='utf-8'),headers={'Cache-Control':'no-store'})
     response.set_cookie('lab_session',TOKEN,httponly=True,samesite='strict',path='/')
     return response
-
-
