@@ -41,3 +41,17 @@ test('catalogue search matches numbers and concrete mechanics while respecting s
  const trial={number:49,name:'Three alternating wooden doors',skill:'advanced',tier_name:'Terrain',description:'Door course',details:['Door count: 3']};
  assert.equal(matchTrial(trial,'49','advanced'),true);assert.equal(matchTrial(trial,'DOOR COUNT','advanced'),true);assert.equal(matchTrial(trial,'doors','combat'),false);
 });
+
+const modelHelpers=html.slice(html.indexOf('function modelRole('),html.indexOf('function renderModels('));
+const helpers=vm.runInNewContext(modelHelpers+';({modelRole,modelLayerCounts})');
+test('model collection explains all twelve specialists and counts real layer shapes',()=>{
+ const nav=helpers.modelLayerCounts({architecture:[70,128,4]});
+ const specialist=helpers.modelLayerCounts({architecture:[82,128,7]});
+ assert.equal(nav.reduce((a,b)=>a+b,0),9604);
+ assert.equal(specialist.reduce((a,b)=>a+b,0),11527);
+ assert.equal(nav.reduce((a,b)=>a+b,0)+11*specialist.reduce((a,b)=>a+b,0),136401);
+ for(const skill of ['navigation','traversal','hazards','exploration','gathering','nutrition','shelter','integration','terrain','advanced','expedition','combat'])assert.notEqual(helpers.modelRole(skill),'Task-specific action selection');
+ assert.match(html,/Combined learned parameters/);
+ assert.match(html,/Bots share these weights/);
+ assert.match(html,/individual spatial memory stores/);
+});
