@@ -7,6 +7,7 @@ const {createDoorway}=require('./doorway');
 const {proximity}=require('./perception');
 const space=require('./resource_space');
 const {forBot}=require('./behavior');
+const {corridorDistance}=require('./world_navigation');
 function applyPose(bot,wantsCrouch){
  if(!bot.physics||!bot.entity?.position||!bot.blockAt)return;
  const p=bot.entity.position;let ceiling=false;
@@ -59,6 +60,10 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    // Face the planned corridor before trying to move. A wall in the old
    // viewing direction is not evidence that the new corridor requires backing.
    if(focus&&Math.abs(angle)>.35){plan.forward=false;plan.jump=false;}
+   const rise=task?.strict_ground&&task.waypoints?.length?task.waypoints[0][1]-bot.entity.position.y:0;
+   // A verified ascending waypoint is a step, even when the longer wall probe
+   // also sees the next terrace. Execute a chosen jump without backing away.
+   if(action===3&&permissions.jump&&rise>.6&&rise<1.2&&Math.abs(angle)<.35){recovery.reset();sensed={...sensed,wallAhead:false};}
    const passage=doorway.update(plan,sensed||{},bot.entity.position,bot.entity.yaw,clock(),permissions);
    if(passage){recovery.reset();plan=passage;}
    else{
@@ -69,12 +74,13 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     plan.focusPoint=focus;plan.label=Math.abs(angle)>.35?'Acquiring locked route heading':'Following locked route';
    }
    if(task?.safe_walk){
-    plan.safeWalk=true;
+    plan.safeWalk=true;plan.strictGround=!!task.strict_ground;plan.corridor=task.route_corridor||null;
     const rise=(task.waypoints?.[0]?.[1]??bot.entity.position.y)-bot.entity.position.y;
     const plannedStep=rise>.6&&rise<1.2&&Math.abs(angle)<.35;
+    plan.descent=plan.strictGround&&rise<-.6&&rise> -1.2&&Math.abs(angle)<.35;
     if(!plannedStep)plan.jump=false;
     if(plannedStep&&plan.jump)plan.stepLevel=task.waypoints[0][1];
-    if(plan.forward&&bot.entity.onGround!==false&&typeof sensed?.canStepDown==='function'&&!sensed.canStepDown(bot.entity.yaw,.75)&&!(plan.jump&&plannedStep)){
+    if(plan.forward&&bot.entity.onGround!==false&&typeof sensed?.canStepDown==='function'&&!(plan.strictGround&&!plan.descent&&sensed.canWalk?sensed.canWalk(bot.entity.yaw,.75):sensed.canStepDown(bot.entity.yaw,.75))&&!(plan.jump&&plannedStep)){
      plan.forward=false;plan.label='Holding: blocked ground or unsafe drop ahead';
     }
    }
@@ -97,8 +103,13 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    let forward=!!plan.forward;
    // Policy replies can arrive late; recheck support while holding an intention.
    if(forward&&plan.safeWalk&&bot.blockAt&&bot.entity.onGround!==false&&!(plan.stepLevel&&bot.entity.position.y<plan.stepLevel-.3)){
-    if(now-lastSafetyAt>=100){groundSafe=proximity(bot,{recovery:false}).canStepDown(bot.entity.yaw,.75);lastSafetyAt=now;}
+    if(now-lastSafetyAt>=100){const local=proximity(bot,{recovery:false}),distance=Math.max(.75,Math.hypot(bot.entity.velocity?.x||0,bot.entity.velocity?.z||0)*3+.35);groundSafe=plan.strictGround&&!plan.descent?local.canWalk(bot.entity.yaw,distance):local.canStepDown(bot.entity.yaw,distance);lastSafetyAt=now;}
     if(!groundSafe){forward=false;plan.label='Holding: blocked ground or unsafe drop ahead';}
+   }
+   if(plan.strictGround&&plan.back&&bot.blockAt&&bot.entity.onGround!==false&&!proximity(bot,{recovery:false}).canWalk(bot.entity.yaw+Math.PI,.75)){plan.back=false;plan.label='Holding: unsafe ground behind me';}
+   if(plan.corridor?.length>1&&forward){
+    const p=bot.entity.position,q={x:p.x-Math.sin(bot.entity.yaw)*.7,z:p.z-Math.cos(bot.entity.yaw)*.7};
+    if(corridorDistance(q,plan.corridor)>.65){forward=false;plan.label='Aligning with the verified route';}
    }
    if(plan.focusPoint){
     const dx=plan.focusPoint[0]-bot.entity.position.x,dz=plan.focusPoint[2]-bot.entity.position.z,d=Math.hypot(dx,dz);

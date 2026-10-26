@@ -1,0 +1,62 @@
+{
+  "fixture": "Inspection and survival return from the five-block drop reported at the prepared camp; no terrain changes, no teleporting during the return.",
+  "before": {
+    "reached": true,
+    "expanded": 288,
+    "ms": 44,
+    "path_length": 26,
+    "endpoint": [
+      16457.5,
+      70.1,
+      16428.5
+    ],
+    "min_y": 66.1,
+    "max_y": 70.1
+  },
+  "after": {
+    "reached": true,
+    "expanded": 104,
+    "ms": 8,
+    "path_length": 26,
+    "endpoint": [
+      16457.5,
+      70.1,
+      16428.5
+    ],
+    "min_y": 66.1,
+    "max_y": 70.1
+  },
+  "walk": {
+    "seconds": 6.715,
+    "position": {
+      "x": 16457.8755559904,
+      "y": 70,
+      "z": 16428.536592350145
+    },
+    "navigation": {
+      "home": [
+        16457.5,
+        70.1,
+        16428.5
+      ],
+      "target": [
+        16457.5,
+        70.1,
+        16428.5
+      ],
+      "state": "arrived",
+      "height_delta": 0.1,
+      "route_complete": true,
+      "remaining_blocks": 0,
+      "waypoints": 0,
+      "no_progress_seconds": 0,
+      "reset_seconds": 90,
+      "expanded": 9
+    },
+    "lastAction": 0,
+    "motor": null,
+    "path": [],
+    "yaw": 1.4739303402563295
+  },
+  "success": true
+}

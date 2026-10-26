@@ -16,7 +16,7 @@ function chooseTree(bot,targets,previous,surface,run){
    }
   }
   approaches.sort((a,b)=>Math.hypot(a[0]-p.x,a[2]-p.z)-Math.hypot(b[0]-p.x,b[2]-p.z));
-  for(const goal of approaches.slice(0,2))if(route(bot,goal,32,512,true).reached)return {key:id,targets:blocks,approach:goal};
+  for(const goal of approaches.slice(0,2))if(route(bot,goal,32,512,true,{reversible:true}).reached)return {key:id,targets:blocks,approach:goal};
  }
  return {key:null,targets:[]};
 }

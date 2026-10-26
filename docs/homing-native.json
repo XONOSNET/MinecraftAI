@@ -1,0 +1,32 @@
+{
+  "fixture": "Survival player returns up a five-block hill using a distant staircase, via the real world controller. No teleporting during navigation.",
+  "position": {
+    "x": -3.5002295743868954,
+    "y": 191,
+    "z": 7.0309865908098494
+  },
+  "seconds": 11.459,
+  "farthest_z": 16.68899382626015,
+  "upward_samples": 7,
+  "navigation": {
+    "home": [
+      -3.5,
+      191.1,
+      2.5
+    ],
+    "target": [
+      -3.5,
+      191.1,
+      6.5
+    ],
+    "state": "following",
+    "height_delta": 0.1,
+    "route_complete": true,
+    "remaining_blocks": 0.6,
+    "waypoints": 2,
+    "no_progress_seconds": 0,
+    "reset_seconds": 90,
+    "expanded": 6
+  },
+  "success": true
+}

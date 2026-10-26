@@ -1,6 +1,18 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
 const {motorPlan,createMotor}=require('../controller/locomotion');
 const permissions={move:true,turn:true,jump:true},safe={frontBlocked:false,headBlocked:false,frontHazard:false};
+test('strict world routes disallow an unplanned one-block drop but permit a checked descent',()=>{
+ const {Vec3}=require('vec3');let now=0;const controls={},bot={entity:{yaw:0,pitch:0,onGround:true,position:new Vec3(0,70,0)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v};
+ const motor=createMotor(bot,permissions,{clock:()=>now}),sensed={...safe,canWalk:()=>false,canStepDown:()=>true};
+ motor.command(0,{kind:'expedition',safe_walk:true,strict_ground:true,waypoints:[[0,70.1,-1]]},sensed,0);now+=50;motor.tick();assert.equal(!!controls.forward,false);
+ motor.command(0,{kind:'expedition',safe_walk:true,strict_ground:true,waypoints:[[0,69.1,-1]]},sensed,0);now+=50;motor.tick();assert.equal(controls.forward,true);
+});
+test('route corridor stops a policy from walking away from the planned path without changing its turn choice',()=>{
+ const {Vec3}=require('vec3');let now=0;const controls={},bot={entity:{yaw:Math.PI/2,pitch:0,onGround:true,position:new Vec3(.5,70,.5)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,look(yaw){this.entity.yaw=yaw;return Promise.resolve();}};
+ const motor=createMotor(bot,permissions,{clock:()=>now}),task={kind:'expedition',safe_walk:true,strict_ground:true,route_corridor:[[.5,70,.5],[.5,70,-3]]},sensed={...safe,canWalk:()=>true,canStepDown:()=>true};
+ motor.command(0,task,sensed,0);now+=50;motor.tick();assert.equal(!!controls.forward,false);assert.equal(bot.entity.yaw,Math.PI/2);
+ motor.command(2,task,sensed,-1);now+=50;motor.tick();assert.ok(bot.entity.yaw<Math.PI/2);
+});
 
 test('world policy forward and jump cannot carry a bot over unsupported ground',()=>{
  const {Vec3}=require('vec3');let now=0,supported=false;const controls={},bot={entity:{yaw:0,onGround:true,position:new Vec3(0,70,0)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v};

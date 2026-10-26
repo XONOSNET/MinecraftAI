@@ -241,7 +241,7 @@ class WorldTraining:
         if s['results'].get(name,{}).get('state') in ('complete','stopped'):return
         if data.get('state')=='stopped' and s['results'].get(name,{}).get('state')!='stopped':
             self.command(f'effect give {name} minecraft:fire_resistance 20 0 true');self.command(f'tp {name} 0 181 0')
-        allowed=('harvest_target','state','phase','message','logs','blocks','target_blocks','distance','travelled','health','plot','seconds','timings','milestones','lesson','lesson_total','idle_seconds','stall_seconds_left')
+        allowed=('navigation','harvest_target','state','phase','message','logs','blocks','target_blocks','distance','travelled','health','plot','seconds','timings','milestones','lesson','lesson_total','idle_seconds','stall_seconds_left')
         previous=s['results'].get(name,{})
         s['results'][name]={k:copy.deepcopy(data[k]) for k in allowed if k in data}
         s['results'][name].update(peak_logs=max(previous.get('peak_logs',0),data.get('logs',0)),peak_blocks=max(previous.get('peak_blocks',0),data.get('blocks',0)))
