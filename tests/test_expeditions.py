@@ -3,8 +3,8 @@ from lab.curriculum import STAGES
 from lab.tasks import reset_commands,task_success
 
 def test_fifty_expeditions_are_bounded_and_fill_commands_fit():
-    assert len(EXPEDITION_STAGES)==50 and len(STAGES)==140
-    assert len({s['id'] for s in STAGES})==140
+    assert len(EXPEDITION_STAGES)==50 and len(STAGES)==150
+    assert len({s['id'] for s in STAGES})==len(STAGES)
     for stage in EXPEDITION_STAGES:
         t=spec(stage,123,7,True)
         assert t['goal']!=t['start'] and len(t['waypoints'])>0

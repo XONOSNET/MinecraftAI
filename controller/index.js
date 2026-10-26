@@ -25,8 +25,10 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  b.on('entityDead',entity=>combat.death(entity,task,runtime));
  b.on('death',()=>{api('/agent-life',{agent:name,event:'death',id:randomUUID()}).catch(e=>console.error(name,e.message));interrupted('death');});
  b.on('end',()=>{interrupted('disconnect');api('/agent-disconnected',{agent:name}).catch(()=>{});console.log(name,'disconnected');if(!quitting)setTimeout(()=>spawn(i),5000);});
- b.on('physicsTick',async()=>{if(++tick%(motorConfig.smooth_movement?(motorConfig.decision_ticks||2):task?.kind==='expedition'?2:5)||busy||!b.entity)return;busy=true;try{
  const heartbeat=()=>({agent:name,index:i,episode,trial_seconds:trialStarted===null?null:(performance.now()-trialStarted)/1000,position:[b.entity.position.x,b.entity.position.y,b.entity.position.z],health:b.health,food:b.food,entity_id:b.entity.id,dimension:b.game.dimension,activity:motor.status()||activity,reset_seconds:goal?Math.ceil(Math.max(0,(task?.max_steps||(motorConfig.smooth_movement?300:120))-steps)*decisionMs/1000):null,reset_steps_left:goal?Math.max(0,(task?.max_steps||(motorConfig.smooth_movement?300:120))-steps):null,speed:Math.hypot(b.entity.velocity.x,b.entity.velocity.z)*20,players:Object.values(b.players).map(p=>({name:p.username,mode:p.gamemode}))});
+ const pulse=setInterval(()=>{if(busy&&phase.startsWith('world-')&&b.entity)api('/assignment',heartbeat()).catch(()=>{});},1500);b.once('end',()=>clearInterval(pulse));
+ b.on('physicsTick',async()=>{if(++tick%(motorConfig.smooth_movement?(motorConfig.decision_ticks||2):task?.kind==='expedition'?2:5)||busy||!b.entity)return;busy=true;try{
+
  let state=await api('/assignment',heartbeat());
  if(phase!==state.run){episode=0;state=await api('/assignment',heartbeat());}
  if(state.world){if(phase!==state.run){motor.pause();phase=state.run;}goal=null;task=null;trialStarted=null;activity=await hutTeacher.tick(b,motor,state,api,scan,tasks);return;}

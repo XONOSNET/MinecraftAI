@@ -16,7 +16,7 @@ def test_loop_restores_same_settings_after_batch_and_waits_for_all_bots(tmp_path
     clock[0]=11
     assert world.next_batch(['LabAI0']) is None
     settings=world.next_batch(['LabAI0','LabAI1'])
-    assert settings==dict(scenario=1,size=256,driver='student',prepared=False,loop=True,mission='settlement')
+    assert settings==dict(scenario=1,size=256,driver='student',prepared=False,loop=True,mission='settlement',layout=0)
     world.saved['templates']['1-256']={}
     world.start(settings,['LabAI0','LabAI1'])
     assert world.session['phase']=='restoring' and world.session['round']==2 and world.session['run']!=run
@@ -138,3 +138,32 @@ def test_existing_history_migrates_camp_anchor_but_raw_and_unknown_camps_restore
     world.start({},['LabAI0']);assert world.session['fast_reset']
     world.stop();world.start({'prepared':False},['LabAI0'])
     assert not world.session['fast_reset'] and len(world.jobs)==64 and world.session['copy_y']==[-64,192]
+
+
+def test_stone_lessons_generate_bounded_real_quarries_once_per_bot(tmp_path):
+    world,commands,clock,log=fixture(tmp_path)
+    world.start({'mission':'stone_age'},[f'LabAI{i}' for i in range(8)]);world.session['phase']='running'
+    world.camp('LabAI0',[16448.5,70.1,16448.5]);assert len(world.session['lessons'])==12
+    for i in range(8):
+        quarry=world.quarry(f'LabAI{i}');assert len(quarry['blocks'])==16 and len(quarry['fuel'])==4
+        assert all(16400<x<16496 and 16400<z<16496 for x,y,z in quarry['blocks']+quarry['fuel'])
+        count=len(commands);assert world.quarry(f'LabAI{i}')==quarry and len(commands)==count
+    assert sum('minecraft:stone' in c for c in commands)==8
+    assert not any(c.startswith('give ') for c in commands)
+    quarries=list(world.session['quarries'].values())
+    for i,q in enumerate(quarries):
+        for j,other in enumerate(quarries):
+            if i==j:continue
+            x,y,z=q['blocks'][0];left=x-3;right=x+7
+            assert all(not (left<=fx<=right and z-4<=fz<=z+4) for fx,fy,fz in other['fuel'])
+
+
+def test_terminal_reports_preserve_death_and_peak_resource_progress(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0','LabAI1']);world.session['phase']='running'
+    run=world.session['run']
+    world.report('LabAI0',dict(run=run,state='working',logs=10,blocks=12))
+    world.report('LabAI0',dict(run=run,state='stopped',health=0,logs=0,blocks=1))
+    world.report('LabAI0',dict(run=run,state='working',health=20,logs=1))
+    result=world.session['results']['LabAI0']
+    assert result['health']==0 and result['state']=='stopped'
+    assert result['peak_logs']==10 and result['peak_blocks']==12

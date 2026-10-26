@@ -5,9 +5,9 @@ from lab.tasks import reset_commands, task_success
 
 
 def test_twenty_realistic_courses_are_safe_bounded_and_progressive():
-    assert len(REALISTIC_STAGES)==20 and len(STAGES)==140
+    assert len(REALISTIC_STAGES)==20 and len(STAGES)==150
     assert [s['tier'] for s in STAGES]==sorted(s['tier'] for s in STAGES)
-    assert len({s['id'] for s in STAGES})==140
+    assert len({s['id'] for s in STAGES})==len(STAGES)
     for stage in REALISTIC_STAGES:
         for seed in (1,123,789):
             task=spec(stage,seed,7,True)

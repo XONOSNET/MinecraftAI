@@ -243,8 +243,10 @@ class Observers:
             lines={'stage':((context.get('label')+' | ') if context.get('label') else (f"Review {context['round']} | " if context.get('round') else ''))+f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
         if world:
             complete=sum(r.get('state')=='complete' for r in world['results'].values())
-            label='Sequences' if world.get('mission')=='settlement' else 'Huts'
+            label='Sequences' if world.get('mission')!='hut' else 'Huts'
             lines['stage']=f"World trial {world['round']} | {world['name']} | {label} {complete}/{len(world['bots'])}"
+            if world.get('learning_cycle'):
+                lines['stage']=f"Learning {world['learning_cycle']} | {world.get('learning_phase','').title()} | {label} {complete}/{len(world['bots'])}"
         for suffix,value in lines.items():
             key=prefix+'_'+suffix;name=json.dumps({'text':value,'color':'aqua' if suffix=='task' else 'white'})
             if not s.get('hud_ready'):

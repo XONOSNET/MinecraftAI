@@ -6,8 +6,14 @@ const html=new TextDecoder('utf-8',{fatal:true}).decode(fs.readFileSync('lab/das
 for(const script of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Function(script[1]);
 const source=html.slice(html.indexOf('function describeLabActivity('),html.indexOf('function renderLabStatus('));
 const describe=vm.runInNewContext(source+';describeLabActivity');
+
+test('world learning banner explains student baseline and CPU training takes precedence',()=>{
+ const s={world_learning:{enabled:true,phase:'baseline',round:3,message:'Testing without teacher control',options:{mission:'stone_age'}},world_training:{session:{active:true,phase:'running',bots:['A','B'],results:{A:{state:'complete'}},message:'In progress'}},training_job:{status:'idle'}};
+ let v=describe(s);assert.match(v.title,/World learning.*baseline/);assert.match(v.context,/cycle 3.*stone_age/);assert.match(v.detail,/1 \/ 2/);assert.match(v.copy,/without teacher/);
+ s.training_job={status:'running',epoch:50,epochs:100,percent:50};v=describe(s);assert.match(v.copy,/Bots wait/);assert.equal(v.progress,50);
+});
 test('world timing separates phase duration, alignment and first pickup',()=>{
- const start=html.indexOf('function worldTimingText('),end=html.indexOf('function renderWorld(',start);
+ const start=html.indexOf('function worldTimingText('),end=html.indexOf('function renderWorldLearning(',start);
  const format=vm.runInNewContext(html.slice(start,end)+';worldTimingText');
  assert.match(format({seconds:90,timings:{phase_seconds:{gather:80},activity_seconds:{aligning:12},first_log_seconds:8,turn_reversals:4,target_switches:2}}),/Total 90 s.*Gathering 80 s.*Aligning 12 s.*First log 8 s.*Turn reversals 4/);
  assert.match(format({seconds:2}),/First log —/);

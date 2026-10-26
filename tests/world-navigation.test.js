@@ -17,6 +17,17 @@ test('peripheral acquisition scans behind the bot and accepts only actual log hi
  bot.world.raycast=()=>({name:'stone',position:new Vec3(0,70,4)});assert.deepEqual(scanTrees(bot),[]);
 });
 
+test('elevated blocks remain visible when the near-corner distance truncates a ray; walls still occlude',()=>{
+ const {visibleBlock}=require('../controller/target_scan'),registry=require('minecraft-data')('1.21.4'),World=require('prismarine-world')('1.21.4'),Chunk=require('prismarine-chunk')('1.21.4');
+ const world=new World(null).sync;world.setColumn(0,0,new Chunk());
+ const target=new Vec3(1,73,2);world.setBlockStateId(target,registry.blocksByName.stone.defaultState);
+ const bot={world,entity:{position:new Vec3(.498247,70,.365373),eyeHeight:1.62}},block=world.getBlock(target),eye=bot.entity.position.offset(0,1.62,0),direction=target.offset(.5,.5,.5).minus(eye).normalize();
+ assert.equal(world.raycast(eye,direction,eye.distanceTo(target)),null);
+ assert.equal(visibleBlock(bot,block),true);
+ world.setBlockStateId(new Vec3(0,72,1),registry.blocksByName.stone.defaultState);
+ assert.equal(visibleBlock(bot,block),false);
+});
+
 test('settlement chest fits inside the hut and teaching milestones are idempotent',()=>{
  const {chestPosition,TOOLS}=require('../controller/settlement'),{HutTeacher}=require('../controller/hut_teacher');
  const plot={x:20,y:70,z:30},chest=chestPosition(plot);
@@ -37,12 +48,12 @@ test('world timings include blocking work and count rapid turn reversals',()=>{
 test('a new world batch clears the previous hut and progress before reporting survey',async()=>{
  const {HutTeacher}=require('../controller/hut_teacher'),teacher=new HutTeacher();
  Object.assign(teacher,{run:'old',plot:{x:5,y:64,z:5},table:{x:3,y:64,z:6},built:55,secureAt:100,settle:9999999999999,resources:[new Vec3(1,64,1)],destination:'old destination'});
- const bot=fixture();bot.username='LabAI0';bot.health=20;bot.food=20;bot.game={gameMode:'survival'};bot.inventory={items:()=>[]};
+ const bot=fixture();bot.username='LabAI0';bot.health=20;bot.food=20;bot.game={gameMode:'survival'};bot.inventory={items:()=>[{name:'oak_log',count:9}]};
  const reports=[];
  await teacher.tick(bot,{pause(){}},{run:'new',world:{bounds:[-64,64,-64,64]}},async(path,data)=>reports.push(data),null,{createRuntime:()=>({})});
  assert.equal(teacher.phase,'survey');assert.equal(teacher.built,0);assert.equal(teacher.plot,null);assert.equal(teacher.table,null);
  assert.equal(teacher.secureAt,null);assert.equal(teacher.settle,0);assert.deepEqual(teacher.resources,[]);assert.equal(teacher.destination,null);
- assert.equal(reports[0].blocks,0);assert.equal(reports[0].plot,null);
+ assert.equal(reports[0].blocks,0);assert.equal(reports[0].plot,null);assert.equal(reports[0].logs,0);assert.equal(reports[0].timings.first_log_seconds,null);
 });
 test('field routing avoids water, walls and unloaded blocks while finding a detour',()=>{
  const blocks={};for(let z=-3;z<=3;z++){blocks[`3,64,${z}`]='stone';blocks[`3,65,${z}`]='stone';blocks[`3,66,${z}`]='stone';}
@@ -90,6 +101,15 @@ test('construction budget accounts for existing walls, workbench and crafted doo
  const bot=fixture();bot.inventory={items:()=>[]};assert.equal(teacher.requiredWood(bot),64);
  const pieces=blueprint(plot).filter(q=>!q.table).slice(0,6),map=Object.fromEntries(pieces.map(q=>[`${q.x},${q.y},${q.z}`,'oak_planks']));map['-2,64,1']='crafting_table';
  const resumed=fixture(map);resumed.inventory={items:()=>[{name:'oak_door',count:3}]};assert.equal(teacher.requiredWood(resumed),48);
+});
+
+test('world navigation replans after a blocked local recovery without extending its progress deadline',async()=>{
+ const {HutTeacher}=require('../controller/hut_teacher'),{WorldTiming}=require('../controller/world_timing'),teacher=new HutTeacher(),bot=fixture();
+ bot.entity.yaw=0;bot.entity.onGround=true;bot.health=20;bot.food=20;bot.username='LabAI0';
+ Object.assign(teacher,{path:[],lastPlan:0,plot:null,runtime:{},phase:'stone_return',timing:new WorldTiming(Date.now()),lastProgress:123});
+ let blocked=true,paused=0;const motor={status:()=>blocked?'Recovering: no checked local route; waiting for reset':null,pause:()=>{paused++;blocked=false;},command:()=>null};
+ await teacher.walk(bot,motor,[4.5,64,.5],{run:'test',world:{bounds:[-64,64,-64,64],driver:'teacher'}},async()=>({action:0}),()=>({pooled:Array(64).fill(0),proximity:{}}),{observeTask:()=>({extra:Array(12).fill(0),metrics:{}}),teacherAction:()=>0});
+ assert.equal(paused,1);assert.ok(teacher.path.length);assert.equal(teacher.lastProgress,123);
 });
 
 test('placement uses a plain support instead of opening the workbench',()=>{

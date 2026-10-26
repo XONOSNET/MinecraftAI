@@ -1,10 +1,10 @@
 // Confirm real server block removal before treating a harvest as completed.
 async function harvest(bot,block){
- if(!block||!block.name.endsWith('_log'))return false;
+ if(!block||!block.name.endsWith('_log')&&block.name!=='stone')return false;
  for(let i=0;i<10&&(!bot.entity.onGround||Math.abs(bot.entity.velocity?.y||0)>.05);i++)await new Promise(r=>setTimeout(r,100));
  if(!bot.entity.onGround)return false;
  await bot.lookAt(block.position.offset(.5,.5,.5),true);
- const duration=Math.max(3200,bot.digTime(block)+200),sequence=(bot.labHarvestSequence||0)+1;bot.labHarvestSequence=sequence;
+ const duration=Math.max(block.name==='stone'?150:3200,bot.digTime(block)+200),sequence=(bot.labHarvestSequence||0)+1;bot.labHarvestSequence=sequence;
  let swing,timeout,listener;
  const removed=new Promise(resolve=>{
   listener=(old,next)=>{if(next?.position?.equals(block.position)&&next.name==='air')resolve(true);};
