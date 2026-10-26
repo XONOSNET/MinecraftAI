@@ -7,6 +7,16 @@ def fixture(tmp_path):
     return world,commands,clock,log
 
 
+def test_world_protection_includes_zombie_villagers_and_keeps_tagged_combat_mobs(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0'])
+    world.session.update(phase='running',trial_at=0);clock[0]=2;commands.clear();world.tick()
+    sweeps=[c for c in commands if c.startswith('kill @e[type=minecraft:')]
+    assert any('type=minecraft:zombie_villager,' in c for c in sweeps)
+    assert any('type=minecraft:cave_spider,' in c for c in sweeps)
+    assert all('tag=!lab_combat' in c and 'y=-64' in c and 'dy=383' in c for c in sweeps)
+    assert all('x=16384' in c and 'z=16384' in c and 'dx=127' in c and 'dz=127' in c for c in sweeps)
+
+
 def test_loop_restores_same_settings_after_batch_and_waits_for_all_bots(tmp_path):
     world,commands,clock,log=fixture(tmp_path)
     world.start({'scenario':1,'size':256,'driver':'student','prepared':False},['LabAI0','LabAI1'])

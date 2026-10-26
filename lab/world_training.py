@@ -6,6 +6,7 @@ import re
 import time
 from .world_survival import SurvivalLessons, MISSION_LESSONS, ADVANCED
 from pathlib import Path
+from .protection import HOSTILES
 
 LESSONS=['Enclose a hut','Craft and place a chest','Craft a wooden pickaxe','Craft a wooden axe','Craft a wooden shovel','Store eight planks and equip the axe']
 HOUSE=json.loads((Path(__file__).resolve().parent.parent/'config/house.json').read_text(encoding='utf-8'))
@@ -116,8 +117,8 @@ class WorldTraining(SurvivalLessons):
         if not s:return
         if s['phase'] not in ('snapshotting','restoring') and self.clock()-s.get('sweep_at',0)>1:
             x0,x1,z0,z1=s['bounds']
-            for mob in ('phantom','creeper','zombie','skeleton','spider','witch','enderman','slime','husk','drowned'):
-                self.command(f'kill @e[type=minecraft:{mob},tag=!lab_combat,x={x0},y=-64,z={z0},dx={x1-x0},dy=320,dz={z1-z0}]')
+            for mob in ('phantom',*HOSTILES):
+                self.command(f'kill @e[type=minecraft:{mob},tag=!lab_combat,x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}]')
             s['sweep_at']=self.clock()
         if not s['active']:return
         if s['phase'] in ('snapshotting','restoring'):

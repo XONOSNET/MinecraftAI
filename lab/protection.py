@@ -2,7 +2,7 @@
 from .config import LANE_END
 
 CENTERS=(0,80,160,240,320,480)
-HOSTILES=('creeper','zombie','skeleton','spider','witch','enderman','slime','husk','stray','drowned','pillager')
+HOSTILES=('creeper','zombie','zombie_villager','skeleton','spider','cave_spider','witch','enderman','slime','husk','stray','drowned','bogged','pillager','vindicator','evoker','vex','ravager','silverfish','endermite')
 
 def roof_commands():
     # Above the highest camera setting and beyond the six-block shelter sensor.
