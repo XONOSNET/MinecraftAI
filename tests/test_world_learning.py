@@ -94,3 +94,21 @@ def test_success_and_health_outweigh_speed_and_zero_progress_does_not_win():
 def test_sustained_student_success_advances_the_mission(tmp_path):
     m,lab,clock=fixture(tmp_path);reach_candidate(m,lab);m.state['streak']=1;lab.finish(2);m.tick()
     assert m.state['options']['mission']=='stone_age'
+
+
+def test_survival_tiers_unlock_only_after_reliable_student_cycles(tmp_path):
+    for current,expected in [('stone_age','iron_age'),('iron_age','homestead'),('homestead','home_defense')]:
+        root=tmp_path/current;root.mkdir();m,lab,clock=fixture(root)
+        m.state['options']['mission']=current;reach_candidate(m,lab);m.state['streak']=1;lab.finish(2);m.tick()
+        assert m.state['options']['mission']==expected
+    root=tmp_path/'not_ready';root.mkdir();m,lab,clock=fixture(root)
+    m.state['options']['mission']='stone_age';reach_candidate(m,lab);lab.finish(1);m.tick()
+    assert m.state['options']['mission']=='stone_age'
+
+
+def test_world_combat_demonstrations_join_protected_training_bundle(tmp_path):
+    m,lab,clock=fixture(tmp_path);m.tick();lab.finish(0);m.tick()
+    lab.counts['combat']=50;lab.finish(2);m.tick()
+    assert m.state['training_skill']=='combat' and m.state['restore_pending']
+    lab.job['status']='completed';m.tick();assert m.state['phase']=='evaluating'
+    lab.finish(0);m.tick();assert lab.restores==1 and not m.state['restore_pending']

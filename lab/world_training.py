@@ -4,6 +4,7 @@ import json
 import math
 import re
 import time
+from .world_survival import SurvivalLessons, MISSION_LESSONS, ADVANCED
 from pathlib import Path
 
 LESSONS=['Enclose a hut','Craft and place a chest','Craft a wooden pickaxe','Craft a wooden axe','Craft a wooden shovel','Store eight planks and equip the axe']
@@ -24,7 +25,7 @@ SCENARIOS=[dict(id=i,name=name,description=description,spread=spread) for i,(nam
  ('Unseen natural site 12','A final separate natural site for comparing teacher and policy navigation.',22)])]
 
 
-class WorldTraining:
+class WorldTraining(SurvivalLessons):
     def __init__(self,path,command,logpath,clock=time.time):
         self.path=Path(path);self.command=command;self.logpath=Path(logpath);self.clock=clock
         self.saved=json.loads(self.path.read_text(encoding='utf-8')) if self.path.exists() else {'templates':{},'history':[]}
@@ -47,8 +48,8 @@ class WorldTraining:
         loop=data.get('loop',True)
         if type(loop) is not bool:raise ValueError('Repeat trials must be enabled or disabled.')
         mission=data.get('mission','settlement')
-        if mission not in ('hut','settlement','stone_age'):raise ValueError('Choose hut, settlement or stone-age lessons.')
-        if mission=='stone_age' and not prepared:raise ValueError('Stone-age lessons require a prepared camp and its verified resource stations.')
+        if mission not in ('hut','settlement','stone_age',*ADVANCED):raise ValueError('Choose a supported world lesson sequence.')
+        if mission in ('stone_age',*ADVANCED) and not prepared:raise ValueError('Stone-age lessons require a prepared camp and its verified resource stations.')
         layout=data.get('layout',0)
         if type(layout) is not int or not 0<=layout<=3:raise ValueError('Unknown resource layout.')
         x=16384+scenario*4096+(2048 if size==256 else 0);z=16384
@@ -63,13 +64,15 @@ class WorldTraining:
         if fast:
             cx,cy,cz=anchor
             area=[max(x,(cx-18)//16*16-16),min(x+size,(cx+18)//16*16+32),max(z,(cz-18)//16*16-16),min(z+size,(cz+18)//16*16+32)]
+            if mission in ADVANCED:area=[max(x,(cx-32)//16*16),min(x+size,(cx+32)//16*16+16),max(z,(cz-48)//16*16),min(z+size,(cz+48)//16*16+16)]
             low=max(-64,min(128,cy-8));ys=[low,low+64]
         self.session=dict(active=True,phase='restoring' if restore else 'snapshotting',run='world-'+str(time.time_ns()),
             scenario=scenario,name=SCENARIOS[scenario]['name'],size=size,bounds=[x,x+size,z,z+size],driver=driver,
             bots=list(names),prepared=prepared,loop=loop,results={},started_at=self.clock(),round=self.saved.get('round',max((r.get('round',0) for r in self.saved['history']),default=0))+1,
             progress=0,message='Restoring the saved natural terrain.' if restore else 'Saving pristine natural terrain before the first trial.',template=key)
         self.session.update(reset_area=area,copy_y=ys,fast_reset=fast,camp_anchor=anchor if prepared else None)
-        self.session.update(time_budget_seconds=1200,mission=mission,layout=layout,lessons=STONE_LESSONS if mission=='stone_age' else LESSONS if mission=='settlement' else LESSONS[:1])
+        self.session.update(time_budget_seconds=2400 if mission in ADVANCED else 1200,mission=mission,layout=layout,lessons=MISSION_LESSONS.get(mission,STONE_LESSONS if mission=='stone_age' else LESSONS if mission=='settlement' else LESSONS[:1]))
+        self.cleanup_survival()
         if fast:self.session['message']='Restoring the camp and surrounding chunks; deep underground terrain is preserved.'
         self.jobs=[];self.job=None
         # Incremental two-chunk work avoids permanent force loads and the global limit.
@@ -113,7 +116,7 @@ class WorldTraining:
                 if not self.jobs:
                     template=self.saved['templates'].setdefault(s['template'],{})
                     template.update(bounds=s['bounds'],saved_at=self.clock());self.save()
-                    s.update(phase='running',message=('Stone-age lessons running: settlement, mining, stone tools, furnace, charcoal and lighting.' if s['mission']=='stone_age' else 'Settlement lessons running: hut, chest, tools and stored supplies.' if s['mission']=='settlement' else 'Hut trial running.')+' Movement and harvesting follow the selected driver. Recipes and building use scripted helpers.',progress=100,trial_at=self.clock(),reset_seconds=round(self.clock()-s['started_at'],1))
+                    s.update(phase='running',message=(('Survival progression: '+s['mission']+'. ') if s['mission'] in ADVANCED else '')+('Stone-age lessons running: settlement, mining, stone tools, furnace, charcoal and lighting.' if s['mission']=='stone_age' else 'Settlement lessons running: hut, chest, tools and stored supplies.' if s['mission']=='settlement' else 'Survival lessons running: '+s['mission']+'.' if s['mission'] in ADVANCED else 'Hut trial running.')+' Movement and harvesting follow the selected driver. Recipes and building use scripted helpers.',progress=100,trial_at=self.clock(),reset_seconds=round(self.clock()-s['started_at'],1))
                     x0,x1,z0,z1=s['bounds']
                     self.command(f'kill @e[type=minecraft:item,x={x0},y=-64,z={z0},dx={x1-x0},dy=256,dz={z1-z0}]')
                     for name in s['bots']:
@@ -164,7 +167,7 @@ class WorldTraining:
         s=self.session
         if not s or not s['active'] or s['phase']!='running' or name not in s['bots']:return None
         if s['results'].get(name,{}).get('state') in ('complete','stopped'):return None
-        return dict(mode='teacher' if s['driver']=='teacher' else 'evaluate',run=s['run'],world=dict(bounds=s['bounds'],index=s['bots'].index(name),count=len(s['bots']),spread=SCENARIOS[s['scenario']]['spread'],driver=s['driver'],prepared=s['prepared'],camp_anchor=s.get('camp_anchor'),mission=s['mission'],lessons=s['lessons']))
+        return dict(mode='teacher' if s['driver']=='teacher' else 'evaluate',run=s['run'],world=dict(bounds=s['bounds'],index=s['bots'].index(name),count=len(s['bots']),spread=SCENARIOS[s['scenario']]['spread'],driver=s['driver'],prepared=s['prepared'],camp_anchor=s.get('camp_anchor'),mission=s['mission'],lessons=s['lessons'],time_budget_seconds=s['time_budget_seconds']))
 
     def camp(self,name,position):
         s=self.session
@@ -206,7 +209,7 @@ class WorldTraining:
 
     def quarry(self,name):
         s=self.session
-        if not s or not s['active'] or s['phase']!='running' or s.get('mission')!='stone_age' or name not in s['bots'] or not s.get('camp'):raise ValueError('No active prepared stone-age lesson.')
+        if not s or not s['active'] or s['phase']!='running' or s.get('mission') not in ('stone_age',*ADVANCED) or name not in s['bots'] or not s.get('camp'):raise ValueError('No active prepared stone-age lesson.')
         quarries=s.setdefault('quarries',{})
         if name in quarries:return copy.deepcopy(quarries[name])
         index=s['bots'].index(name);plot=s['camp']['plots'][index];direction=-1 if index<4 else 1
@@ -239,9 +242,10 @@ class WorldTraining:
         s=self.session
         if not s or not s['active'] or data.get('run')!=s['run'] or name not in s['bots']:return
         if s['results'].get(name,{}).get('state') in ('complete','stopped'):return
+        if data.get('state') in ('complete','stopped') and s.get('mission') in ADVANCED:self.command(f'kill @e[tag=lab_world_{name}]')
         if data.get('state')=='stopped' and s['results'].get(name,{}).get('state')!='stopped':
             self.command(f'effect give {name} minecraft:fire_resistance 20 0 true');self.command(f'tp {name} 0 181 0')
-        allowed=('navigation','harvest_target','state','phase','message','logs','blocks','target_blocks','distance','travelled','health','plot','seconds','timings','milestones','lesson','lesson_total','idle_seconds','stall_seconds_left')
+        allowed=('navigation','harvest_target','state','phase','message','logs','blocks','target_blocks','distance','travelled','health','plot','seconds','timings','milestones','lesson','lesson_total','idle_seconds','stall_seconds_left','home','survival')
         previous=s['results'].get(name,{})
         s['results'][name]={k:copy.deepcopy(data[k]) for k in allowed if k in data}
         s['results'][name].update(peak_logs=max(previous.get('peak_logs',0),data.get('logs',0)),peak_blocks=max(previous.get('peak_blocks',0),data.get('blocks',0)))
@@ -255,6 +259,7 @@ class WorldTraining:
                 try:self.command(f"forceload remove {xx} {j['z']} {xx+j['width']-1} {j['z']+15}")
                 except RuntimeError:pass
         self.jobs=[];self.job=None
+        self.cleanup_survival()
         if self.session:
             if self.session['active']:
                 for name in self.session['bots']:
@@ -266,7 +271,7 @@ class WorldTraining:
 
     def menu(self,player):
         parts=[{'text':'AI Laboratory\n','color':'gold','bold':True}]
-        for label,choice in [('Automatic world learning',8),('Basics training',1),('Real world: repeat teacher settlement lessons',2),('Real world: repeat policy navigation + settlement teacher',3),('Stop current mode',4),('Train gathering from examples',5),('Train navigation from examples',6)]:
+        for label,choice in [('Automatic world learning',8),('Iron tools lessons',9),('Beds, food and armor lessons',10),('Home defense lessons',11),('Basics training',1),('Real world: repeat teacher settlement lessons',2),('Real world: repeat policy navigation + settlement teacher',3),('Stop current mode',4),('Train gathering from examples',5),('Train navigation from examples',6)]:
             parts.extend([{'text':'['+label+']\n','color':'aqua','clickEvent':{'action':'run_command','value':f'/trigger lab_world set {choice}'}}])
         parts.append({'text':'Camera while following: Ctrl = view; W/S = distance; A/D = height.\n','color':'gray'})
         for label,value in [('Next view',1),('Farther',2),('Closer',3),('Lower',4),('Higher',5)]:

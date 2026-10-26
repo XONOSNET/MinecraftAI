@@ -1,0 +1,106 @@
+{
+  "fixture": "Isolated homestead and defense continuation from granted iron tools",
+  "grants": [
+    "Completed stone base",
+    "Iron pickaxe, shears, sword, 25 ingots, eight planks and six coal"
+  ],
+  "phases": [
+    {
+      "phase": "survival_sheep_trip",
+      "seconds": 0
+    },
+    {
+      "phase": "survival_wool",
+      "seconds": 13
+    },
+    {
+      "phase": "survival_bed_return",
+      "seconds": 18
+    },
+    {
+      "phase": "survival_bed",
+      "seconds": 30
+    },
+    {
+      "phase": "survival_food_trip",
+      "seconds": 35
+    },
+    {
+      "phase": "survival_food",
+      "seconds": 47
+    },
+    {
+      "phase": "survival_food_return",
+      "seconds": 52
+    },
+    {
+      "phase": "survival_cook",
+      "seconds": 64
+    },
+    {
+      "phase": "survival_armor",
+      "seconds": 86
+    },
+    {
+      "phase": "survival_store",
+      "seconds": 96
+    },
+    {
+      "phase": "survival_patrol",
+      "seconds": 97
+    },
+    {
+      "phase": "survival_threat",
+      "seconds": 99
+    },
+    {
+      "phase": "survival_shelter",
+      "seconds": 100
+    },
+    {
+      "phase": "survival_secure",
+      "seconds": 102
+    },
+    {
+      "phase": "survival_defend_exit",
+      "seconds": 102
+    },
+    {
+      "phase": "survival_defend",
+      "seconds": 104
+    },
+    {
+      "phase": "survival_defense_return",
+      "seconds": 106
+    },
+    {
+      "phase": "survival_finish",
+      "seconds": 108
+    }
+  ],
+  "started": 1793013758267,
+  "pulse": 1793013865272,
+  "home_registered": true,
+  "milestones": [
+    "wool",
+    "bed_home",
+    "food",
+    "cooked",
+    "armor",
+    "provisions",
+    "retreat",
+    "defended",
+    "home_safe"
+  ],
+  "home": {
+    "position": [
+      -94,
+      170,
+      -102
+    ],
+    "owner": "Fixture",
+    "run": "survival-native"
+  },
+  "health": 20,
+  "success": true
+}

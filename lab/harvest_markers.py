@@ -60,7 +60,7 @@ def validate_intent(intent,session,name,now):
     if not isinstance(intent,dict) or not session or not session.get('active') or session.get('phase')!='running' or name not in session.get('bots',[]):return None
     if intent.get('run')!=session.get('run') or intent.get('kind') not in ('approach','mining'):return None
     block=intent.get('block')
-    if block not in ('stone','oak_log','birch_log','spruce_log','jungle_log','acacia_log','dark_oak_log','mangrove_log','cherry_log'):return None
+    if block not in ('stone','iron_ore','coal_ore','oak_log','birch_log','spruce_log','jungle_log','acacia_log','dark_oak_log','mangrove_log','cherry_log'):return None
     p=intent.get('position');bounds=session.get('bounds',[])
     if not isinstance(p,list) or len(p)!=3 or not all(type(v) in (float,int) and math.isfinite(v) and int(v)==v for v in p):return None
     x,y,z=map(int,p)

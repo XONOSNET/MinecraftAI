@@ -21,7 +21,11 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
  if(!stand(...start)){
   if(bot.entity.onGround!==true)return {path:[],expanded:0,message:'Waiting to settle on safe ground'};
   const occupied=bot.blockAt(new Vec3(...start));if(!occupied||BAD.has(occupied.name))return {path:[],expanded:0,message:'Hazard or unloaded ground under the bot; holding position'};
-  const candidates=[];for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])for(const dy of [0,1,-1]){const n=[start[0]+dx,start[1]+dy,start[2]+dz];if(stand(...n))candidates.push(n);}
+  // The body's trailing edge can still stand on the upper terrace after its
+  // center crosses into the next stair cell. Continue the verified one-block
+  // landing instead of sending it back toward the previous stair's center.
+  const candidates=[];if(stand(start[0],start[1]-1,start[2]))candidates.push([start[0],start[1]-1,start[2]]);
+  for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])for(const dy of [0,1,-1]){const n=[start[0]+dx,start[1]+dy,start[2]+dz];if(stand(...n))candidates.push(n);}
   candidates.sort((a,b)=>Math.hypot(a[0]+.5-p.x,a[2]+.5-p.z)-Math.hypot(b[0]+.5-p.x,b[2]+.5-p.z));
   if(!candidates.length)return {path:[],expanded:0,message:'Waiting for safe solid ground and loaded terrain'};
   start=candidates[0];escape=[start[0]+.5,start[1]+.1,start[2]+.5];

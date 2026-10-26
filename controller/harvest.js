@@ -18,7 +18,7 @@ async function level(bot){
 }
 // Confirm real server block removal; use the equipped tool's native break time.
 async function harvest(bot,block){
- if(!block||!block.name.endsWith('_log')&&block.name!=='stone')return false;
+ if(!block||!block.name.endsWith('_log')&&!['stone','iron_ore','coal_ore'].includes(block.name))return false;
  for(let i=0;i<10&&(!bot.entity.onGround||Math.abs(bot.entity.velocity?.y||0)>.05);i++)await new Promise(r=>setTimeout(r,100));
  if(!bot.entity.onGround)return false;
  await aim(bot,block.position.offset(.5,.5,.5));

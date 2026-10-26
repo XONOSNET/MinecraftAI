@@ -1,0 +1,70 @@
+{
+  "fixture": "All eight real prepared stations, Minecraft block shapes, complete reversible routes without natural-terrain shortcuts.",
+  "rows": [
+    {
+      "bot": "LabAI0",
+      "descend": true,
+      "climb_home": true,
+      "animal_station": true,
+      "down_waypoints": 39,
+      "up_waypoints": 39
+    },
+    {
+      "bot": "LabAI1",
+      "descend": true,
+      "climb_home": true,
+      "animal_station": true,
+      "down_waypoints": 35,
+      "up_waypoints": 35
+    },
+    {
+      "bot": "LabAI2",
+      "descend": true,
+      "climb_home": true,
+      "animal_station": true,
+      "down_waypoints": 35,
+      "up_waypoints": 35
+    },
+    {
+      "bot": "LabAI3",
+      "descend": true,
+      "climb_home": true,
+      "animal_station": true,
+      "down_waypoints": 39,
+      "up_waypoints": 39
+    },
+    {
+      "bot": "LabAI4",
+      "descend": true,
+      "climb_home": true,
+      "animal_station": true,
+      "down_waypoints": 46,
+      "up_waypoints": 46
+    },
+    {
+      "bot": "LabAI5",
+      "descend": true,
+      "climb_home": true,
+      "animal_station": true,
+      "down_waypoints": 42,
+      "up_waypoints": 42
+    },
+    {
+      "bot": "LabAI6",
+      "descend": true,
+      "climb_home": true,
+      "animal_station": true,
+      "down_waypoints": 42,
+      "up_waypoints": 42
+    },
+    {
+      "bot": "LabAI7",
+      "descend": true,
+      "climb_home": true,
+      "animal_station": true,
+      "down_waypoints": 46,
+      "up_waypoints": 46
+    }
+  ],
+  "success": true
+}

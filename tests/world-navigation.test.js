@@ -3,6 +3,11 @@ const {route,standable}=require('../controller/field_navigation');
 const {blueprint,intact,findPlot}=require('../controller/hut_teacher');
 function fixture(blocks={}){return {entity:{position:new Vec3(.5,64,.5)},blockAt(p){const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z);const name=blocks[`${x},${y},${z}`]||(y<64?'grass_block':'air');return name==='unloaded'?null:{name,boundingBox:['air','water','lava'].includes(name)?'empty':'block',position:new Vec3(x,y,z)};}};}
 
+test('a body partly across a terrace edge continues to the lower landing instead of reversing uphill',()=>{
+ const bot={players:{},entity:{position:new Vec3(.5,64,-.265),onGround:true},blockAt(p){const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z),floor=64+Math.min(0,z);return {name:y<floor?'stone':'air',position:new Vec3(x,y,z),boundingBox:y<floor?'block':'empty'};}};
+ const planned=route(bot,[.5,62.1,-1.5],8,128,true,{reversible:true});assert.equal(planned.reached,true);assert.deepEqual(planned.path[0],[.5,63.1,-.5]);
+});
+
 test('tree focus survives nearest-distance crossover but releases depleted trees',()=>{
  const {treeFocus}=require('../controller/world_timing'),a=new Vec3(0,64,0),b=new Vec3(3,64,0);
  const selected=treeFocus([a,b],null);assert.equal(selected.key,'0,0');
@@ -60,7 +65,7 @@ test('a motionless world attempt reports failure and releases the batch instead 
  const {HutTeacher}=require('../controller/hut_teacher'),teacher=new HutTeacher(),bot=fixture();
  Object.assign(bot,{username:'LabAI0',health:20,food:20,game:{gameMode:'survival'},inventory:{items:()=>[]}});
  const reports=[],state={run:'stall-test',world:{bounds:[-64,64,-64,64]}},api=async(path,data)=>reports.push(data),tasks={createRuntime:()=>({})},motor={pause(){}};
- await teacher.tick(bot,motor,state,api,null,tasks);teacher.phase='gather';teacher.stall.update(bot.entity.position,'gather|0|0|',Date.now()-91000);
+ await teacher.tick(bot,motor,state,api,null,tasks);teacher.phase='gather';teacher.stall.update(bot.entity.position,'gather|0|0|0|',Date.now()-91000);
  await teacher.tick(bot,motor,state,api,null,tasks);
  assert.equal(teacher.phase,'stopped');assert.equal(reports.at(-1).state,'stopped');assert.match(reports.at(-1).message,/Stationary for 90 seconds/);assert.equal(reports.at(-1).stall_seconds_left,null);
 });

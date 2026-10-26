@@ -482,7 +482,7 @@ def step(d:dict):
         torch.set_num_threads(1)
         if d.get('run')!=run or mode=='paused':return {'action':4,'inference_ms':0}
         skill=active_skill()
-        if world_training.session and world_training.session['active'] and d.get('world_skill') in ('expedition','gathering','shelter'):skill=d['world_skill']
+        if world_training.session and world_training.session['active'] and d.get('world_skill') in ('expedition','gathering','shelter','combat'):skill=d['world_skill']
         policy,optimizer,replay=learning_context(skill)
         if len(d['obs'])!=policy.net[0].in_features or not np.isfinite(d['obs']).all():raise HTTPException(400,'Invalid observation')
         t=time.perf_counter()
@@ -816,6 +816,7 @@ def observer_worker():
                             elif choice in (2,3):start_world({'scenario':0,'size':128,'driver':'teacher' if choice==2 else 'student'})
                             elif choice==4:stop_world();curriculum.pause()
                             elif choice==8:start_world_learning({})
+                            elif choice in (9,10,11):start_world_learning({'mission':{9:'iron_age',10:'homestead',11:'home_defense'}[choice]})
                             elif choice in (5,6,7):train_world({'skill':{5:'gathering',6:'expedition',7:'shelter'}[choice]})
                             else:world_training.menu(player)
                         except (ValueError,HTTPException) as error:console('tellraw '+player+' '+json.dumps({'text':str(getattr(error,'detail',error)),'color':'red'}))
@@ -884,6 +885,12 @@ def prepare_world_quarry(d:dict):
         try:return world_training.quarry(d.get('agent'))
         except ValueError as error:raise HTTPException(400,str(error))
 
+@app.post('/world/survival',dependencies=[Depends(auth)])
+def world_survival(d:dict):
+    with lock:
+        try:return world_training.survival(d,agents.get(d.get('agent'),{}).get('display_name') or d.get('agent'))
+        except ValueError as error:raise HTTPException(400,str(error))
+
 @app.post('/world/report',dependencies=[Depends(auth)])
 def world_report(d:dict):
     with lock:
@@ -894,7 +901,7 @@ def train_world(d:dict={}):
     with lock:
         if world_learning.state.get('enabled') or world_learning.state.get('restore_pending'):raise HTTPException(409,'Pause automatic world learning before manual training.')
         skill=d.get('skill','expedition')
-        if skill not in ('expedition','gathering','shelter'):raise HTTPException(400,'Choose navigation, gathering or shelter.')
+        if skill not in ('expedition','gathering','shelter','combat'):raise HTTPException(400,'Choose navigation, gathering or shelter.')
         if world_training.session and world_training.session['active']:raise HTTPException(409,'Finish or stop the world trial before training.')
         if training_jobs.running or curriculum.state.get('restore_pending'):raise HTTPException(409,'Wait for the current model operation to finish.')
         if not world_training.session:
@@ -966,7 +973,7 @@ def dashboard():
     return response
 
 
-WORLD_SKILLS=('expedition','gathering','shelter')
+WORLD_SKILLS=('expedition','gathering','shelter','combat')
 
 def protect_world_models():
     root=Path('checkpoints/world-learning');root.mkdir(parents=True,exist_ok=True)
@@ -1013,7 +1020,7 @@ def start_world_learning(d:dict={}):
     with lock:
         if training_jobs.running or curriculum.state.get('restore_pending'):raise HTTPException(409,'Wait for the current model operation to finish.')
         scenario=d.get('scenario',0);size=d.get('size',128);mission=d.get('mission','settlement');progress=d.get('auto_progress',True)
-        if type(scenario) is not int or not 0<=scenario<12 or type(size) is not int or size not in (128,256) or mission not in ('settlement','stone_age') or type(progress) is not bool:raise HTTPException(400,'Choose a valid world learning curriculum.')
+        if type(scenario) is not int or not 0<=scenario<12 or type(size) is not int or size not in (128,256) or mission not in ('settlement','stone_age','iron_age','homestead','home_defense') or type(progress) is not bool:raise HTTPException(400,'Choose a valid world learning curriculum.')
         curriculum.pause('Basics saved while automatic world learning is selected.')
         try:return world_learning.start(dict(scenario=scenario,size=size,mission=mission,prepared=True,auto_progress=progress))
         except ValueError as error:raise HTTPException(409,str(error))

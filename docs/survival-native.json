@@ -1,0 +1,162 @@
+{
+  "fixture": "Isolated stone-base continuation: actual staircase descent/ascent, coal and eight iron ore mined/smelted, iron tools, sheep shearing, bed, food cooking/storage, armor crafting and controlled home defense.",
+  "grants": [
+    "Starting stone base, stone tools and furnace",
+    "24 additional iron ingots for armor to shorten fixture smelting; production must mine/smelt all 32"
+  ],
+  "phases": [
+    {
+      "phase": "survival_setup",
+      "seconds": 0
+    },
+    {
+      "phase": "survival_wood_trip",
+      "seconds": 0
+    },
+    {
+      "phase": "survival_wood",
+      "seconds": 12
+    },
+    {
+      "phase": "survival_wood_craft",
+      "seconds": 23
+    },
+    {
+      "phase": "survival_mine_enter",
+      "seconds": 24
+    },
+    {
+      "phase": "survival_mine_down",
+      "seconds": 27
+    },
+    {
+      "phase": "survival_coal",
+      "seconds": 31
+    },
+    {
+      "phase": "survival_iron",
+      "seconds": 52
+    },
+    {
+      "phase": "survival_mine_up",
+      "seconds": 114
+    },
+    {
+      "phase": "survival_mine_return",
+      "seconds": 118
+    },
+    {
+      "phase": "survival_iron_smelt",
+      "seconds": 129
+    },
+    {
+      "phase": "survival_iron_tools",
+      "seconds": 216
+    },
+    {
+      "phase": "survival_sheep_trip",
+      "seconds": 221
+    },
+    {
+      "phase": "survival_wool",
+      "seconds": 233
+    },
+    {
+      "phase": "survival_bed_return",
+      "seconds": 237
+    },
+    {
+      "phase": "survival_bed",
+      "seconds": 248
+    },
+    {
+      "phase": "survival_food_trip",
+      "seconds": 253
+    },
+    {
+      "phase": "survival_food",
+      "seconds": 265
+    },
+    {
+      "phase": "survival_food_return",
+      "seconds": 268
+    },
+    {
+      "phase": "survival_cook",
+      "seconds": 279
+    },
+    {
+      "phase": "survival_armor",
+      "seconds": 301
+    },
+    {
+      "phase": "survival_store",
+      "seconds": 310
+    },
+    {
+      "phase": "survival_patrol",
+      "seconds": 311
+    },
+    {
+      "phase": "survival_threat",
+      "seconds": 313
+    },
+    {
+      "phase": "survival_shelter",
+      "seconds": 315
+    },
+    {
+      "phase": "survival_secure",
+      "seconds": 316
+    },
+    {
+      "phase": "survival_defend_exit",
+      "seconds": 316
+    },
+    {
+      "phase": "survival_defend",
+      "seconds": 318
+    },
+    {
+      "phase": "survival_defense_return",
+      "seconds": 320
+    },
+    {
+      "phase": "survival_finish",
+      "seconds": 323
+    }
+  ],
+  "started": 1793014299159,
+  "pulse": 1793014620602,
+  "home_registered": true,
+  "milestones": [
+    "mine_descent",
+    "coal",
+    "iron_ore",
+    "mine_return",
+    "iron_smelt",
+    "iron_pickaxe",
+    "shears",
+    "iron_sword",
+    "wool",
+    "bed_home",
+    "food",
+    "cooked",
+    "armor",
+    "provisions",
+    "retreat",
+    "defended",
+    "home_safe"
+  ],
+  "home": {
+    "position": [
+      -94,
+      170,
+      -102
+    ],
+    "owner": "Fixture",
+    "run": "survival-native"
+  },
+  "health": 20,
+  "success": true
+}

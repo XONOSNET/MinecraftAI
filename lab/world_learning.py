@@ -110,7 +110,7 @@ class WorldLearning:
                 self.begin('teacher','demonstrating',0);return
             if s['phase']=='demonstrating':
                 counts=self.h['counts']();before=s.get('before_counts',{})
-                s['new_examples']={skill:counts.get(skill,0)-before.get(skill,0) for skill in ('expedition','gathering','shelter')}
+                s['new_examples']={skill:counts.get(skill,0)-before.get(skill,0) for skill in ('expedition','gathering','shelter','combat')}
                 s['queue']=[skill for skill,n in s['new_examples'].items() if n>=30]
                 if not s['queue']:
                     self.phase('cooldown','Teacher run saved fewer than 30 new examples per specialist. Collecting another cycle without changing the models.');return
@@ -126,7 +126,8 @@ class WorldLearning:
             s['restore_pending']=False;s['history'].append(result);s['history']=s['history'][-40:]
             champion=candidate if accepted else s['baseline'];s['streak']=s.get('streak',0)+1 if champion['completed']/max(1,champion['bots'])>=.75 else 0
             if s.get('streak',0)>=2 and s['options'].get('auto_progress',True):
-                if s['options']['mission']=='settlement':s['options']['mission']='stone_age'
+                tiers=['settlement','stone_age','iron_age','homestead','home_defense']
+                if s['options']['mission'] in tiers[:-1]:s['options']['mission']=tiers[tiers.index(s['options']['mission'])+1]
                 else:s['options']['scenario']=(s['options']['scenario']+1)%12
                 s['streak']=0;reason+=' Next cycle advances the curriculum.'
             self.phase('cooldown',reason+' New teacher examples remain available either way.');return

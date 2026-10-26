@@ -11,7 +11,7 @@ function equipment(bot,task){
 function ownedTarget(entity,task){
  if(!entity?.position||!task.mobs.includes(entity.name)||entity.isValid===false)return false;
  const p=entity.position,b=task.bounds;
- return p.x>b[0]&&p.x<b[1]&&p.z>b[2]&&p.z<b[3]&&p.y>=179&&p.y<=186&&JSON.stringify(entity.metadata?.[2]||'').includes(task.mob_label);
+ return p.x>b[0]&&p.x<b[1]&&p.z>b[2]&&p.z<b[3]&&p.y>=(task.min_y??179)&&p.y<=(task.max_y??186)&&JSON.stringify(entity.metadata?.[2]||'').includes(task.mob_label);
 }
 function target(bot,task){return Object.values(bot.entities||{}).filter(e=>ownedTarget(e,task)).sort((a,b)=>a.position.distanceTo(bot.entity.position)-b.position.distanceTo(bot.entity.position))[0]||null;}
 function visible(bot,entity){
@@ -47,7 +47,7 @@ function death(entity,task,runtime){
 async function interact(bot,task,sensed,runtime,action,permissions,now=Date.now()){
  if(!permissions.combat_practice)return false;
  const p=bot.entity.position,b=task.bounds;
- if(!(p.x>b[0]&&p.x<b[1]&&p.z>b[2]&&p.z<b[3]&&p.y>=179&&p.y<=186))return false;
+ if(!(p.x>b[0]&&p.x<b[1]&&p.z>b[2]&&p.z<b[3]&&p.y>=(task.min_y??179)&&p.y<=(task.max_y??186)))return false;
  if(action!==4)bot.deactivateItem();
  if(action===5){
   const equip=async(name,slot)=>{const item=bot.inventory.items().find(i=>i.name===name);if(item)await bot.equip(item,slot);};

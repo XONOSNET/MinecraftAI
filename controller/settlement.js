@@ -1,7 +1,7 @@
 const {Vec3}=require('vec3');
 const TOOLS=['wooden_pickaxe','wooden_axe','wooden_shovel'];
 function supplied(bot){return bot.inventory.items().filter(i=>i.name.endsWith('_planks')).reduce((n,i)=>n+i.count,0);}
-async function stockChest(bot,block,amount=8){
+async function stockChest(bot,block,amount=8,match=n=>n.endsWith('_planks')){
  const Item=require('prismarine-item')(bot.registry);let window;
  const click=async(slot,button=0,mode=0)=>{
   await new Promise((resolve,reject)=>{
@@ -11,10 +11,10 @@ async function stockChest(bot,block,amount=8){
  };
  try{
   window=await bot.openContainer(block);await click(-999,2,5);
-  const stored=()=>window.slots.slice(0,window.inventoryStart).filter(i=>i?.name.endsWith('_planks')).reduce((n,i)=>n+i.count,0);
+  const stored=()=>window.slots.slice(0,window.inventoryStart).filter(i=>i&&match(i.name)).reduce((n,i)=>n+i.count,0);
   while(stored()<amount){
-   const source=window.slots.slice(window.inventoryStart,window.inventoryEnd).find(i=>i?.name.endsWith('_planks'));
-   if(!source)throw Error('Not enough planks for the chest lesson');
+   const source=window.slots.slice(window.inventoryStart,window.inventoryEnd).find(i=>i&&match(i.name));
+   if(!source)throw Error('Not enough matching supplies for the chest lesson');
    let dest=window.slots.slice(0,window.inventoryStart).findIndex(i=>i?.type===source.type&&i.count<i.stackSize);
    if(dest<0)dest=window.slots.slice(0,window.inventoryStart).findIndex(i=>!i);
    if(dest<0)throw Error('No chest slot available');
