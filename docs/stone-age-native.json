@@ -2,7 +2,7 @@
   "fixture": "Isolated survival player granted logs, planks, sticks and a wooden pickaxe; actual stone mined, stone tools and furnace crafted, charcoal smelted, torch crafted and placed.",
   "mined": 16,
   "removed": 16,
-  "cobblestone": 14,
+  "cobblestone": 15,
   "charcoal": true,
   "torch": "torch",
   "tools": true,

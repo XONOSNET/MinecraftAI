@@ -201,6 +201,8 @@ def console(command):
     server.stdin.write(command+'\n');server.stdin.flush()
 from .vision import VisionLines
 vision_lines=VisionLines('data/vision.json',console)
+from .harvest_markers import HarvestMarkers
+harvest_markers=HarvestMarkers('data/harvest-markers.json',console)
 observers=Observers('data/observers.json',console)
 camera_input=CameraInput('logs/minecraft-console.log',console,'server/world/datapacks/lab_camera_controls')
 practice_protection=PracticeProtection(console)
@@ -404,7 +406,7 @@ def status():
         metrics=episode_metrics()
         run_sizes={r[0]:r[1]*r[2] for r in db.execute('SELECT * FROM run_config')}
         activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error','world_learning_cycle') ORDER BY id DESC LIMIT 20")]
-        return {'world_learning':world_learning.snapshot(),'world_training':world_training.snapshot(),'model_evolution':evolution.snapshot(active_skill()),'vision':dict(vision_lines.settings),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
+        return {'world_learning':world_learning.snapshot(),'world_training':world_training.snapshot(),'model_evolution':evolution.snapshot(active_skill()),'vision':dict(vision_lines.settings),'harvest_markers':dict(harvest_markers.settings),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:
@@ -786,6 +788,7 @@ def observer_worker():
     while not shutting_down:
         try:
             with lock:
+                harvest_markers.tick(world_training.session,agents,server_ready() and not server_control.snapshot()['busy'])
                 vision_lines.tick(agents,observers.sessions,server_ready() and not server_control.snapshot()['busy'])
                 if server_ready() and not server_control.snapshot()['busy']:
                     bot_lights.tick(agents,True)
@@ -895,6 +898,12 @@ def world_menu(d:dict={}):
         allowed=[p['name'] for p in online_players() if not p['is_bot']]
         if player not in allowed:raise HTTPException(400,'Choose an online human player.')
         console('scoreboard objectives add lab_world trigger');console(f'scoreboard players enable {player} lab_world');world_training.menu(player);return {'ok':True}
+
+@app.post('/harvest-markers',dependencies=[Depends(auth)])
+def configure_harvest_markers(d:dict):
+    with lock:
+        try:return harvest_markers.configure(d)
+        except ValueError as error:raise HTTPException(400,str(error))
 
 @app.post('/vision',dependencies=[Depends(auth)])
 def configure_vision(d:dict):

@@ -5,6 +5,7 @@ const {sprintIntent,basicSprintSafe}=require('./sprint');
 const {createRecovery}=require('./recovery');
 const {createDoorway}=require('./doorway');
 const {proximity}=require('./perception');
+const space=require('./resource_space');
 function applyPose(bot,wantsCrouch){
  if(!bot.physics||!bot.entity?.position||!bot.blockAt)return;
  const p=bot.entity.position;let ceiling=false;
@@ -76,6 +77,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
      plan.forward=false;plan.label='Holding: blocked ground or unsafe drop ahead';
     }
    }
+   plan.avoidPlayers=!!task?.avoid_players;plan.levelLook=!!task?.quick_look;
    plan.yawRate=task?.quick_look?Math.PI*3:Math.PI;
    if(plan.forward&&sensed?.crouchClearance){plan.sneak=true;plan.jump=false;plan.label='Crouching under low clearance';}
    plan.sprint=sprintIntent(bot,permissions,task,plan,sensed,angle,!!bot.getControlState('sprint'));
@@ -108,13 +110,20 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     // Brake close to the alignment target without using the crouch pose as a speed limiter.
     if(d<.035||d<approaching*2.4+.04)forward=false;
    }
+   if(plan.avoidPlayers){
+    const p=bot.entity.position,others=space.players(bot),clear=sign=>space.stepClear(p,{x:p.x-sign*Math.sin(bot.entity.yaw)*.7,y:p.y,z:p.z-sign*Math.cos(bot.entity.yaw)*.7},others);
+    if(forward&&!clear(1)){forward=false;plan.label='Waiting for nearby player to clear the route';}
+    if(plan.back&&!clear(-1))plan.back=false;
+   }
    for(const control of ['forward','back','jump','sneak'])if(!!bot.getControlState(control)!==(control==='forward'?forward:!!plan[control]))bot.setControlState(control,control==='forward'?forward:!!plan[control]);
    const sprint=!!plan.sprint&&forward&&!lookLocked&&now<=expires-750&&basicSprintSafe(bot);
    if(!!bot.getControlState('sprint')!==sprint)bot.setControlState('sprint',sprint);
    applyPose(bot,!!plan.sneak);
-   if(targetYaw!==null&&!lookLocked&&permissions.turn){
-    const delta=wrap(targetYaw-bot.entity.yaw),step=Math.sign(delta)*Math.min(Math.abs(delta),(plan.yawRate||Math.PI)*dt);
-    if(Math.abs(delta)>.002)Promise.resolve(bot.look(bot.entity.yaw+step,0,true)).catch(()=>clear());
+   if((targetYaw!==null||plan.levelLook&&Math.abs(bot.entity.pitch)>.01)&&!lookLocked&&permissions.turn){
+    const delta=targetYaw===null?0:wrap(targetYaw-bot.entity.yaw),step=Math.sign(delta)*Math.min(Math.abs(delta),(plan.yawRate||Math.PI)*dt);
+    const currentPitch=Number.isFinite(bot.entity.pitch)?bot.entity.pitch:0;
+    const pitch=plan.levelLook?currentPitch-Math.sign(currentPitch)*Math.min(Math.abs(currentPitch),Math.PI*dt):0;
+    if(Math.abs(delta)>.002||Math.abs(bot.entity.pitch-pitch)>.002)Promise.resolve(bot.look(bot.entity.yaw+step,pitch,true)).catch(()=>clear());
     else targetYaw=null;
    }
   }

@@ -1,0 +1,21 @@
+{
+  "fixture": "Hand versus wooden axe on server-confirmed oak logs, including smooth elevated aiming.",
+  "dig_starts": [
+    {
+      "tool": "hand",
+      "on_ground": true,
+      "native_ms": 3000
+    },
+    {
+      "tool": "wooden_axe",
+      "on_ground": true,
+      "native_ms": 1500
+    }
+  ],
+  "hand_removed": true,
+  "hand_ms": 4558,
+  "axe_removed": true,
+  "axe_ms": 3449,
+  "aim_pitch_samples": 14,
+  "success": true
+}

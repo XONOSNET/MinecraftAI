@@ -1,10 +1,22 @@
-// Confirm real server block removal before treating a harvest as completed.
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
+async function aim(bot,point){
+ const p=bot.entity.position,dx=point.x-p.x,dz=point.z-p.z,dy=point.y-p.y-(bot.entity.eyeHeight||1.62);
+ const yaw=Math.atan2(-dx,-dz),pitch=Math.atan2(dy,Math.hypot(dx,dz));
+ for(let i=0;i<40;i++){
+  const dyaw=wrap(yaw-bot.entity.yaw),dp=pitch-bot.entity.pitch;
+  if(Math.abs(dyaw)<.01&&Math.abs(dp)<.01)return;
+  const limit=(v,n)=>Math.sign(v)*Math.min(Math.abs(v),n);
+  await Promise.all([bot.look(bot.entity.yaw+limit(dyaw,Math.PI/12),bot.entity.pitch+limit(dp,Math.PI/20),true),wait(50)]);
+ }
+}
+// Confirm real server block removal; use the equipped tool's native break time.
 async function harvest(bot,block){
  if(!block||!block.name.endsWith('_log')&&block.name!=='stone')return false;
  for(let i=0;i<10&&(!bot.entity.onGround||Math.abs(bot.entity.velocity?.y||0)>.05);i++)await new Promise(r=>setTimeout(r,100));
  if(!bot.entity.onGround)return false;
- await bot.lookAt(block.position.offset(.5,.5,.5),true);
- const duration=Math.max(block.name==='stone'?150:3200,bot.digTime(block)+200),sequence=(bot.labHarvestSequence||0)+1;bot.labHarvestSequence=sequence;
+ await aim(bot,block.position.offset(.5,.5,.5));
+ const duration=Math.max(100,bot.digTime(block)+100),sequence=(bot.labHarvestSequence||0)+1;bot.labHarvestSequence=sequence;
  let swing,timeout,listener;
  const removed=new Promise(resolve=>{
   listener=(old,next)=>{if(next?.position?.equals(block.position)&&next.name==='air')resolve(true);};
@@ -14,7 +26,7 @@ async function harvest(bot,block){
   bot._client.write('block_dig',{status:0,location:block.position,face:1,sequence});bot.swingArm();swing=setInterval(()=>bot.swingArm(),350);
   await new Promise(r=>setTimeout(r,duration));
   bot._client.write('block_dig',{status:2,location:block.position,face:1,sequence});
-  const success=await removed;if(success)await new Promise(r=>setTimeout(r,300));return success;
+  return await removed;
  }finally{clearInterval(swing);clearTimeout(timeout);bot.removeListener('blockUpdate',listener);}
 }
-module.exports={harvest};
+module.exports={harvest,aim};
