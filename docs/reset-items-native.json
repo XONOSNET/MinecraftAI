@@ -1,0 +1,6 @@
+{
+  "fixture": "Embedded item at Y40, high item at Y240, template-tile item and an adjacent-tile control; no block changes.",
+  "before": 4,
+  "after": 1,
+  "success": true
+}

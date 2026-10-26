@@ -102,6 +102,12 @@ class WorldTraining(SurvivalLessons):
         with self.logpath.open('rb') as stream:
             stream.seek(min(offset,self.logpath.stat().st_size));data=stream.read(262144);return re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]','',data.decode('utf-8',errors='replace')).replace('\r','\n'),stream.tell()
 
+    def clear_tile_items(self,job):
+        # Entity selectors see loaded chunks only. Keep both tiles force-loaded
+        # until cleanup finishes, including underground and above the copy band.
+        for x in (job['source'],job['dest']):
+            self.command(f"kill @e[type=minecraft:item,x={x},y=-64,z={job['z']},dx={job['width']-1},dy=383,dz=15]")
+
     def tick(self):
         s=self.session
         if not s:return
@@ -118,7 +124,7 @@ class WorldTraining(SurvivalLessons):
                     template.update(bounds=s['bounds'],saved_at=self.clock());self.save()
                     s.update(phase='running',message=(('Survival progression: '+s['mission']+'. ') if s['mission'] in ADVANCED else '')+('Stone-age lessons running: settlement, mining, stone tools, furnace, charcoal and lighting.' if s['mission']=='stone_age' else 'Settlement lessons running: hut, chest, tools and stored supplies.' if s['mission']=='settlement' else 'Survival lessons running: '+s['mission']+'.' if s['mission'] in ADVANCED else 'Hut trial running.')+' Movement and harvesting follow the selected driver. Recipes and building use scripted helpers.',progress=100,trial_at=self.clock(),reset_seconds=round(self.clock()-s['started_at'],1))
                     x0,x1,z0,z1=s['bounds']
-                    self.command(f'kill @e[type=minecraft:item,x={x0},y=-64,z={z0},dx={x1-x0},dy=256,dz={z1-z0}]')
+                    self.command(f'kill @e[type=minecraft:item,x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}]')
                     for name in s['bots']:
                         self.command(f'gamemode survival {name}')
                         self.command(f'clear {name}')
@@ -136,6 +142,7 @@ class WorldTraining(SurvivalLessons):
             j=self.job
             if j['phase']=='loading' and self.clock()-j['at']>=.8:
                 self.offset=self.logpath.stat().st_size if self.logpath.exists() else 0
+                self.clear_tile_items(j)
                 for y in range(*s['copy_y'],64):self.command(f"clone {j['source']} {y} {j['z']} {j['source']+j['width']-1} {y+63} {j['z']+15} {j['dest']} {y} {j['z']} replace force")
                 self.serial+=1;self.command(f'scoreboard players set #world_ack lab_world {self.serial}')
                 j.update(phase='waiting',at=self.clock(),serial=self.serial,log='');return
@@ -151,9 +158,14 @@ class WorldTraining(SurvivalLessons):
                     if end+1==x1:self.command(f'fill {end} -64 {zz} {end} 191 {zz+15} minecraft:glass')
                     if zz==z0:self.command(f'fill {xx} -64 {zz} {end} 191 {zz} minecraft:glass')
                     if zz+16==z1:self.command(f'fill {xx} -64 {zz+15} {end} 191 {zz+15} minecraft:glass')
-                    for xx in (j['source'],j['dest']):self.command(f"forceload remove {xx} {j['z']} {xx+j['width']-1} {j['z']+15}")
-                    self.job=None;s['progress']=round(100*(self.total-len(self.jobs))/self.total,1)
+                    j.update(phase='cleaning',at=self.clock())
                 elif self.clock()-j['at']>20:self.stop('Terrain copy acknowledgement timed out.');return
+            elif j['phase']=='cleaning' and self.clock()-j['at']>=.25:
+                # Container replacement and broken-block drops can arrive after
+                # the clone acknowledgement. Sweep before releasing the chunks.
+                self.clear_tile_items(j)
+                for xx in (j['source'],j['dest']):self.command(f"forceload remove {xx} {j['z']} {xx+j['width']-1} {j['z']+15}")
+                self.job=None;s['progress']=round(100*(self.total-len(self.jobs))/self.total,1)
         elif s['phase']=='running':
             budget=s.get('time_budget_seconds',1200)
             if self.clock()-s['trial_at']>budget:

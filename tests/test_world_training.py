@@ -63,7 +63,7 @@ def test_copy_acknowledged_before_deployment_and_scoped_to_reserved_terrain(tmp_
         if command.startswith('clone '):
             xyz=list(map(int,command.split()[1:10]));assert (xyz[3]-xyz[0]+1)*(xyz[4]-xyz[1]+1)*(xyz[5]-xyz[2]+1)<=32768
     log.write_text(('Successfully cloned 16384 blocks\n'*4)+'Set [lab_world] for #world_ack to 1\n')
-    world.tick();assert world.session['progress']>0;assert any('minecraft:glass' in c for c in commands)
+    world.tick();assert world.job['phase']=='cleaning';clock[0]+=.3;world.tick();assert world.session['progress']>0;assert any('minecraft:glass' in c for c in commands)
     assert any(c.startswith('forceload remove') for c in commands)
     world.jobs=[];world.tick();assert world.session['phase']=='running';assert world.assignment('LabAI0')['world']['bounds']==[16384,16512,16384,16512]
     assert any(c.startswith('clear LabAI0') for c in commands)
@@ -124,7 +124,7 @@ def test_prepared_reset_covers_camp_and_surrounding_chunks_with_bounded_clones(t
     assert len(clones)==1
     xyz=list(map(int,clones[0].split()[1:10]));assert (xyz[3]-xyz[0]+1)*(xyz[4]-xyz[1]+1)*(xyz[5]-xyz[2]+1)==32768
     log.write_text('Successfully cloned 32768 blocks\nSet [lab_world] for #world_ack to 1\n')
-    world.tick();assert world.session['active'] and world.job is None
+    world.tick();assert world.job['phase']=='cleaning';clock[0]+=.3;world.tick();assert world.session['active'] and world.job is None
     world.jobs=[];world.tick()
     assert world.saved['templates']['0-128']['camp_anchor']==[16448,70,16448]
     assert world.assignment('LabAI0')['world']['camp_anchor']==[16448,70,16448]
@@ -167,3 +167,21 @@ def test_terminal_reports_preserve_death_and_peak_resource_progress(tmp_path):
     result=world.session['results']['LabAI0']
     assert result['health']==0 and result['state']=='stopped'
     assert result['peak_logs']==10 and result['peak_blocks']==12
+
+
+def test_restore_clears_embedded_and_high_items_while_each_tile_is_loaded(tmp_path):
+    world,commands,clock,log=fixture(tmp_path)
+    world.saved['templates']['0-128']={'camp_anchor':[16448,70,16448]}
+    world.start({},['LabAI0']);world.tick();job=world.job.copy()
+    clock[0]=1;world.tick()
+    sweeps=[c for c in commands if c.startswith('kill @e[type=minecraft:item,')]
+    assert len(sweeps)==2 and all('y=-64' in c and 'dy=383' in c and 'dx=31' in c and 'dz=15' in c for c in sweeps)
+    assert commands.index(sweeps[0])<next(i for i,c in enumerate(commands) if c.startswith('clone '))
+    log.write_text('Successfully cloned 32768 blocks\nSet [lab_world] for #world_ack to 1\n')
+    world.tick();assert world.job['phase']=='cleaning'
+    assert not any(c.startswith('forceload remove') for c in commands)
+    clock[0]+=.1;world.tick();assert world.job is not None
+    clock[0]+=.2;world.tick();assert world.job is None
+    assert sum(c.startswith('kill @e[type=minecraft:item,') for c in commands)==4
+    assert commands[-3].startswith('kill @e[type=minecraft:item,')
+    assert all(c.startswith('forceload remove') for c in commands[-2:])
