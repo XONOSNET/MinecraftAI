@@ -1,16 +1,17 @@
-const {route}=require('./field_navigation'),space=require('./resource_space');
+const {route}=require('./field_navigation'),space=require('./resource_space'),{Vec3}=require('vec3'),{withinReach}=require('./resource_target');
 // Choose once from a bounded set of reachable trees, then retain the trunk lock.
-function chooseTree(bot,targets,previous,surface,run){
+function chooseTree(bot,targets,previous,surface,run,previousApproach=null){
  const groups=new Map(),p=bot.entity.position;
  for(const v of targets){const id=v.x+','+v.z;if(!groups.has(id))groups.set(id,[]);groups.get(id).push(v);}
- if(groups.has(previous)&&!space.busy(bot,run,groups.get(previous)[0].offset(.5,0,.5)))return {key:previous,targets:groups.get(previous)};
+ if(previousApproach&&groups.has(previous)&&!space.busy(bot,run,groups.get(previous)[0].offset(.5,0,.5))&&groups.get(previous).some(b=>withinReach(bot,b,new Vec3(...previousApproach))))return {key:previous,targets:groups.get(previous),approach:previousApproach};
  const ordered=[...groups].filter(([,blocks])=>!space.busy(bot,run,blocks[0].offset(.5,0,.5))).sort((a,b)=>Math.hypot(a[1][0].x+.5-p.x,a[1][0].z+.5-p.z)-Math.hypot(b[1][0].x+.5-p.x,b[1][0].z+.5-p.z));
+ ordered.sort((a,b)=>Number(b[0]===previous)-Number(a[0]===previous));
  for(const [id,blocks] of ordered.slice(0,6)){
   const trunk=blocks[0];if(space.busy(bot,run,trunk.offset(.5,0,.5)))continue;
   const approaches=[];
   for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
    const y=surface(bot,trunk.x+dx,trunk.z+dz);
-   if(y!==null&&blocks.some(b=>b.y-y<3.2&&b.y-y>-.5)){
+   if(y!==null&&blocks.some(b=>withinReach(bot,b,new Vec3(trunk.x+dx+.5,y+.1,trunk.z+dz+.5)))){
     const goal=[trunk.x+dx+.5,y+.1,trunk.z+dz+.5];
     if(space.clearOfPlayers(bot,{x:goal[0],y:goal[1],z:goal[2]}))approaches.push(goal);
    }

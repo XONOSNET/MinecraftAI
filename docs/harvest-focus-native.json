@@ -1,0 +1,42 @@
+{
+  "fixture": "Five stacked oak logs, real survival digging through world harvest controller; initial gaze deliberately stale.",
+  "passes": [
+    {
+      "y": 182,
+      "removed": true,
+      "aligned": true,
+      "log_visible": true,
+      "pitch": -0.11257368349032859
+    },
+    {
+      "y": 181,
+      "removed": true,
+      "aligned": true,
+      "log_visible": true,
+      "pitch": -0.8429939754499101
+    },
+    {
+      "y": 183,
+      "removed": true,
+      "aligned": true,
+      "log_visible": true,
+      "pitch": 0.7225663635889061
+    },
+    {
+      "y": 184,
+      "removed": true,
+      "aligned": true,
+      "log_visible": true,
+      "pitch": 1.0812315248737185
+    },
+    {
+      "y": 185,
+      "removed": true,
+      "aligned": true,
+      "log_visible": true,
+      "pitch": 1.235693163675207
+    }
+  ],
+  "final_pitch": 5.326329866051083e-8,
+  "success": true
+}

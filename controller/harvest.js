@@ -12,12 +12,17 @@ async function aim(bot,point){
   await Promise.all([bot.look(bot.entity.yaw+limit(dyaw,yawStep),bot.entity.pitch+limit(dp,pitchStep),true),wait(50)]);
  }
 }
+async function level(bot){
+ const p=bot.entity.position,yaw=bot.entity.yaw;
+ await aim(bot,p.offset(-Math.sin(yaw)*4,bot.entity.eyeHeight||1.62,-Math.cos(yaw)*4));
+}
 // Confirm real server block removal; use the equipped tool's native break time.
 async function harvest(bot,block){
  if(!block||!block.name.endsWith('_log')&&block.name!=='stone')return false;
  for(let i=0;i<10&&(!bot.entity.onGround||Math.abs(bot.entity.velocity?.y||0)>.05);i++)await new Promise(r=>setTimeout(r,100));
  if(!bot.entity.onGround)return false;
  await aim(bot,block.position.offset(.5,.5,.5));
+ if(bot.blockAt&&bot.blockAt(block.position)?.name!==block.name){await level(bot);return false;}
  const duration=Math.max(100,bot.digTime(block)+100),sequence=(bot.labHarvestSequence||0)+1;bot.labHarvestSequence=sequence;
  let swing,timeout,listener;
  const removed=new Promise(resolve=>{
@@ -31,4 +36,4 @@ async function harvest(bot,block){
   return await removed;
  }finally{clearInterval(swing);clearTimeout(timeout);bot.removeListener('blockUpdate',listener);}
 }
-module.exports={harvest,aim};
+module.exports={harvest,aim,level};

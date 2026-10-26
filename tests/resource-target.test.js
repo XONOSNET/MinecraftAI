@@ -56,6 +56,7 @@ test('harvest aiming moves upward in bounded steps rather than snapping',async()
 });
 test('tool break time is respected without the old log floor, and success requires server removal',async()=>{
  const b=bot(),pos=new Vec3(0,65,-2),block={name:'oak_log',position:pos};
+ const base=b.blockAt;b.blockAt=p=>p.equals(pos)?block:base(p);
  b.entity.position=new Vec3(.5,63.88,.5);b.look=async(yaw,pitch)=>Object.assign(b.entity,{yaw,pitch});b.swingArm=()=>{};b.digTime=()=>100;
  let start,elapsed;b._client={write(packet,data){if(data.status===0)start=Date.now();if(data.status===2){elapsed=Date.now()-start;b.emit('blockUpdate',block,{position:pos,name:'air'});}}};
  assert.equal(await harvest(b,block),true);assert.ok(elapsed>=190&&elapsed<800);assert.equal(b.listenerCount('blockUpdate'),0);
