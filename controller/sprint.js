@@ -2,6 +2,19 @@
 const {Vec3}=require('vec3');
 const UNSAFE=new Set(['lava','water','magma_block','fire','campfire','sweet_berry_bush','ice','packed_ice','blue_ice','soul_sand','soul_soil','honey_block','slime_block','mud','cobweb','powder_snow']);
 const ALLOWED=new Set(['explore','gather','eat_route','shelter','combat']);
+function routeRunway(bot,task){
+ if(!task?.travel_sprint||!Array.isArray(task.sprint_path))return 0;
+ const p=bot.entity.position,yaw=bot.entity.yaw;let length=0,previous=p;
+ for(const q of task.sprint_path){
+  const dx=q[0]-previous.x,dz=q[2]-previous.z,d=Math.hypot(dx,dz);
+  if(Math.abs(q[1]-p.y)>.2)break;
+  if(d<.05)continue;
+  if(previous===p&&d<.4)continue;
+  if((-Math.sin(yaw)*dx-Math.cos(yaw)*dz)/d<.99)break;
+  length+=d;previous={x:q[0],y:q[1],z:q[2]};
+ }
+ return length;
+}
 function basicSprintSafe(bot){return bot.entity?.onGround===true&&!bot.entity.isInWater&&!bot.entity.isInLava&&bot.food>=8&&!bot.getControlState('sneak');}
 function flatSprintPath(bot,task){
  if(!bot.blockAt||!bot.entity?.position)return false;
@@ -18,13 +31,15 @@ function flatSprintPath(bot,task){
  return true;
 }
 function sprintIntent(bot,permissions,task,plan,sensed,angle,already=false){
- if(!permissions.sprint||!permissions.move||!plan.forward||plan.back||plan.jump||plan.sneak||plan.yaw||plan.moveTarget||plan.targetYaw!==undefined||plan.label)return false;
- if(task&&!ALLOWED.has(task.kind))return false;
+ const travel=task?.kind==='expedition'&&task.travel_sprint===true;
+ if(!permissions.sprint||!permissions.move||!plan.forward||plan.back||plan.jump||plan.sneak||plan.yaw||plan.moveTarget||plan.targetYaw!==undefined||plan.label&&!(travel&&plan.label==='Following locked route'))return false;
+ if(task&&!ALLOWED.has(task.kind)&&!travel)return false;
  if(!basicSprintSafe(bot)||Math.abs(angle)>.12||sensed?.wallAhead||sensed?.frontBlocked||sensed?.headBlocked||sensed?.frontHazard||sensed?.crouchClearance||sensed?.doorway||sensed?.door)return false;
  const minimum=already?4.5:6;
- if(!Number.isFinite(sensed?.cueDistance)||sensed.cueDistance<minimum)return false;
+ const distance=travel?routeRunway(bot,task):sensed?.cueDistance;
+ if(!Number.isFinite(distance)||distance<minimum||travel&&bot.food<12)return false;
  if(task?.kind==='combat'&&(!sensed.enemy||sensed.distance<6||!sensed.gear?.ready))return false;
  if(!sensed.canWalk?.(bot.entity.yaw,3,1.79))return false;
  return flatSprintPath(bot,task);
 }
-module.exports={sprintIntent,flatSprintPath,basicSprintSafe};
+module.exports={sprintIntent,flatSprintPath,basicSprintSafe,routeRunway};

@@ -355,7 +355,7 @@ class HutTeacher{
   const crossesDoor=this.plot&&planned.path.some(q=>Math.floor(q[0])===this.plot.x&&Math.floor(q[2])===this.plot.z-3);
   const passage=crossesDoor?doorwayDescriptor(bot,bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-3)),goal):null;
   const skill=this.phase==='enter'?'shelter':'expedition';
-  const task={kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],bounds:state.world.bounds,actual_doors:[],allow_water:false,coverage_target:100,quick_look:true,safe_walk:true,strict_ground:true,route_corridor:planned.corridor,avoid_players:true,navigation_lock:state.world.driver==='teacher'};
+  const task={kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],bounds:state.world.bounds,actual_doors:[],allow_water:false,coverage_target:100,quick_look:true,safe_walk:true,strict_ground:true,route_corridor:planned.corridor,avoid_players:true,navigation_lock:state.world.driver==='teacher',travel_sprint:!['floor','table','build','door','enter'].includes(this.phase),sprint_path:planned.path};
   const desired=Math.atan2(-(cue[0]-p.x),-(cue[2]-p.z)),angle=Math.atan2(Math.sin(desired-bot.entity.yaw),Math.cos(desired-bot.entity.yaw));
   const sensedScan=scan(bot,{goalYaw:desired}),sensed=tasks.observeTask(bot,task,sensedScan,this.runtime);
   const obs=[...sensedScan.pooled,Math.sin(angle),Math.cos(angle),Math.min(p.distanceTo(new Vec3(...goal))/32,1),bot.health/20,bot.food/20,bot.entity.onGround?1:0,...sensed.extra];

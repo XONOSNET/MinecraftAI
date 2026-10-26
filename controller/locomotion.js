@@ -1,7 +1,7 @@
 // Decode policy intentions into independent held controls and 20 Hz aiming.
 const {applyMotion,pauseMotion}=require('./motion');
 const {Vec3}=require('vec3');
-const {sprintIntent,basicSprintSafe}=require('./sprint');
+const {sprintIntent,basicSprintSafe,flatSprintPath,routeRunway}=require('./sprint');
 const {createRecovery}=require('./recovery');
 const {createDoorway}=require('./doorway');
 const {proximity}=require('./perception');
@@ -49,7 +49,7 @@ function motorPlan(action,permissions,task,sensed,angle,traveling=false){
 }
 function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
  const recovery=createRecovery(()=>forBot(bot)),doorway=createDoorway(),strafe=createStrafe(bot);
- let plan=null,targetYaw=null,expires=0,last=clock(),paused=true,lookLocked=false,stalled=false,lastSafetyAt=-Infinity,groundSafe=true;
+ let plan=null,targetYaw=null,expires=0,last=clock(),paused=true,lookLocked=false,stalled=false,lastSafetyAt=-Infinity,groundSafe=true,lastSprintSafetyAt=-Infinity,sprintSafe=false;
  function clear(){recovery.reset();doorway.reset();strafe.reset();bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
  return {
   command(action,task,sensed,angle){
@@ -93,6 +93,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    plan.yawRate=task?.quick_look?forBot(bot).walk_yaw_deg_per_sec*Math.PI/180:Math.PI;
    if(plan.forward&&sensed?.crouchClearance){plan.sneak=true;plan.jump=false;plan.label='Crouching under low clearance';}
    plan.sprint=!plan.side&&!plan.descent&&sprintIntent(bot,permissions,task,plan,sensed,angle,!!bot.getControlState('sprint'));
+   plan.sprintTask=task;lastSprintSafetyAt=-Infinity;
    if(plan.sprint)plan.label='Sprinting on clear ground';
    targetYaw=Number.isFinite(plan.targetYaw)?plan.targetYaw:plan.yaw?bot.entity.yaw+plan.yaw:null;expires=clock()+1000;paused=false;
    return plan.label;
@@ -134,7 +135,9 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    }
    const side=!lookLocked&&plan.side&&strafeSafe(bot,plan.strafeTask,plan.side,forward,!!plan.back)?plan.side:0;
    for(const [control,wanted] of [['forward',forward],['back',!!plan.back],['left',side>0],['right',side<0],['jump',!!plan.jump],['sneak',!!plan.sneak]])if(!!bot.getControlState(control)!==wanted)bot.setControlState(control,wanted);
-   const sprint=!!plan.sprint&&forward&&!lookLocked&&now<=expires-750&&basicSprintSafe(bot);
+   if(plan.sprint&&now-lastSprintSafetyAt>=100){sprintSafe=flatSprintPath(bot,plan.sprintTask)&&(!bot.blockAt||proximity(bot,{recovery:false}).canWalk(bot.entity.yaw,3,1.79));lastSprintSafetyAt=now;}
+   const travelSafe=!plan.sprintTask?.travel_sprint||bot.food>=12&&routeRunway(bot,plan.sprintTask)>=4;
+   const sprint=!!plan.sprint&&sprintSafe&&travelSafe&&forward&&!lookLocked&&now<=expires-750&&basicSprintSafe(bot);
    if(!!bot.getControlState('sprint')!==sprint)bot.setControlState('sprint',sprint);
    applyPose(bot,!!plan.sneak);
    if((targetYaw!==null||plan.levelLook&&Math.abs(bot.entity.pitch)>.01)&&!lookLocked&&permissions.turn){
