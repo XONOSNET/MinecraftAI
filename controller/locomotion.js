@@ -8,6 +8,7 @@ const {proximity}=require('./perception');
 const space=require('./resource_space');
 const {forBot}=require('./behavior');
 const {corridorDistance}=require('./world_navigation');
+const {createStrafe,safe:strafeSafe}=require('./strafe');
 function applyPose(bot,wantsCrouch){
  if(!bot.physics||!bot.entity?.position||!bot.blockAt)return;
  const p=bot.entity.position;let ceiling=false;
@@ -47,9 +48,9 @@ function motorPlan(action,permissions,task,sensed,angle,traveling=false){
   label:door?'Opening door while walking':walkingTurn?(action===1?'Steering left while walking':'Steering right while walking'):turning?'Turning to align':null};
 }
 function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
- const recovery=createRecovery(()=>forBot(bot)),doorway=createDoorway();
+ const recovery=createRecovery(()=>forBot(bot)),doorway=createDoorway(),strafe=createStrafe(bot);
  let plan=null,targetYaw=null,expires=0,last=clock(),paused=true,lookLocked=false,stalled=false,lastSafetyAt=-Infinity,groundSafe=true;
- function clear(){recovery.reset();doorway.reset();bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
+ function clear(){recovery.reset();doorway.reset();strafe.reset();bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
  return {
   command(action,task,sensed,angle){
    if(!Number.isFinite(angle)||!Number.isFinite(bot.entity?.yaw)){clear();return 'Waiting for valid orientation';}
@@ -64,14 +65,18 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    // A verified ascending waypoint is a step, even when the longer wall probe
    // also sees the next terrace. Execute a chosen jump without backing away.
    if(action===3&&permissions.jump&&rise>.6&&rise<1.2&&Math.abs(angle)<.35){recovery.reset();sensed={...sensed,wallAhead:false};}
+   const lateral=permissions.move?strafe.choose(action,task,sensed,angle,plan,clock()):null;
+   if(lateral?.pure){plan.forward=false;plan.yaw=0;recovery.reset();}
    const passage=doorway.update(plan,sensed||{},bot.entity.position,bot.entity.yaw,clock(),permissions);
    if(passage){recovery.reset();plan=passage;}
    else{
    plan=recovery.update(plan,{...sensed,inWater:!!bot.entity.isInWater,inLava:!!bot.entity.isInLava},bot.entity.position,bot.entity.yaw,clock(),permissions,angle,task?.bounds);
    }
    bot.labRecovering=recovery.active();bot.labAvoiding=recovery.remembering();
+   if(lateral&&!passage&&!recovery.active()){plan.side=lateral.side;plan.label=lateral.label;plan.strafeTask=task;}
    if(focus&&!passage&&!recovery.active()){
     plan.focusPoint=focus;plan.label=Math.abs(angle)>.35?'Acquiring locked route heading':'Following locked route';
+    if(lateral)plan.label=lateral.label;
    }
    if(task?.safe_walk){
     plan.safeWalk=true;plan.strictGround=!!task.strict_ground;plan.corridor=task.route_corridor||null;
@@ -87,14 +92,14 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    plan.avoidPlayers=!!task?.avoid_players;plan.levelLook=!!task?.quick_look;
    plan.yawRate=task?.quick_look?forBot(bot).walk_yaw_deg_per_sec*Math.PI/180:Math.PI;
    if(plan.forward&&sensed?.crouchClearance){plan.sneak=true;plan.jump=false;plan.label='Crouching under low clearance';}
-   plan.sprint=!plan.descent&&sprintIntent(bot,permissions,task,plan,sensed,angle,!!bot.getControlState('sprint'));
+   plan.sprint=!plan.side&&!plan.descent&&sprintIntent(bot,permissions,task,plan,sensed,angle,!!bot.getControlState('sprint'));
    if(plan.sprint)plan.label='Sprinting on clear ground';
    targetYaw=Number.isFinite(plan.targetYaw)?plan.targetYaw:plan.yaw?bot.entity.yaw+plan.yaw:null;expires=clock()+1000;paused=false;
    return plan.label;
   },
   pause:clear,
   passageActive:()=>doorway.active(),
-  status(){return stalled?'Waiting for policy response':doorway.active()?doorway.label():recovery.active()?recovery.label():plan?.sprint&&bot.getControlState('sprint')?'Sprinting on clear ground':null;},
+  status(){return stalled?'Waiting for policy response':doorway.active()?doorway.label():recovery.active()?recovery.label():plan?.side&&(bot.getControlState('left')||bot.getControlState('right'))?plan.label:plan?.sprint&&bot.getControlState('sprint')?'Sprinting on clear ground':null;},
   lockLook(value){lookLocked=value;},
   tick(){
    if(legacy||!bot.entity)return;
@@ -127,7 +132,8 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     if(forward&&!clear(1)){forward=false;plan.label='Waiting for nearby player to clear the route';}
     if(plan.back&&!clear(-1))plan.back=false;
    }
-   for(const control of ['forward','back','jump','sneak'])if(!!bot.getControlState(control)!==(control==='forward'?forward:!!plan[control]))bot.setControlState(control,control==='forward'?forward:!!plan[control]);
+   const side=!lookLocked&&plan.side&&strafeSafe(bot,plan.strafeTask,plan.side,forward,!!plan.back)?plan.side:0;
+   for(const [control,wanted] of [['forward',forward],['back',!!plan.back],['left',side>0],['right',side<0],['jump',!!plan.jump],['sneak',!!plan.sneak]])if(!!bot.getControlState(control)!==wanted)bot.setControlState(control,wanted);
    const sprint=!!plan.sprint&&forward&&!lookLocked&&now<=expires-750&&basicSprintSafe(bot);
    if(!!bot.getControlState('sprint')!==sprint)bot.setControlState('sprint',sprint);
    applyPose(bot,!!plan.sneak);

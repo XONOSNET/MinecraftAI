@@ -1,0 +1,15 @@
+{
+  "fixture": "Native survival strafing on existing flat lab floor; no terrain edits, model calls or grants.",
+  "sidestep": {
+    "x": 1.0727513186292406,
+    "z": -8.881784197001252e-14,
+    "yaw": 1.9539925233402755e-13,
+    "lateral_frames": 5
+  },
+  "diagonal": {
+    "x": -1.4112594266559348,
+    "z": -0.17119416272316812
+  },
+  "keys_released": true,
+  "success": true
+}
