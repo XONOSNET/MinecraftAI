@@ -195,6 +195,21 @@ def test_trial_reset_estimate_in_personal_hud_and_roster(tmp_path):
     assert not any('~18s' in c and 'scoreboard players display name' in c for c in commands)
 
 
+def test_world_stall_countdown_is_visible_and_not_shown_for_finished_bots(tmp_path):
+    commands=[];now=[100];o=Observers(tmp_path/'hud',commands.append,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    result={'state':'working','message':'Holding at unsafe drop','phase':'gather','stall_seconds_left':42}
+    world={'phase':'running','round':1,'name':'Camp','message':'Testing','bots':['LabAI0'],'results':{'LabAI0':result}}
+    a={'connected':True,'last_seen':100,'entity_id':1}
+    o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':a},True,'evaluate',progress_context={'world':world})
+    assert any('No progress: attempt ends in 42s' in c for c in commands)
+    assert 'bossbar set lab:observer_xonosnet_state visible true' in commands
+    commands.clear();now[0]+=2;result['state']='complete';a['last_seen']=now[0]
+    o.update_hud(o.sessions['Xonosnet'],a,'evaluate')
+    assert not any('attempt ends in' in c for c in commands)
+    assert 'bossbar set lab:observer_xonosnet_state visible false' in commands
+
+
 def test_camera_cycle_uses_interval_and_skips_offline_bots(tmp_path):
     now=[100.];commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:now[0],settle_delay=0)
     o.start({'player':'Xonosnet','target':'LabAI0','view':'cycle','cycle_seconds':30},['Xonosnet'])

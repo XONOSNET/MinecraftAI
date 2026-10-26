@@ -55,6 +55,15 @@ test('a new world batch clears the previous hut and progress before reporting su
  assert.equal(teacher.secureAt,null);assert.equal(teacher.settle,0);assert.deepEqual(teacher.resources,[]);assert.equal(teacher.destination,null);
  assert.equal(reports[0].blocks,0);assert.equal(reports[0].plot,null);assert.equal(reports[0].logs,0);assert.equal(reports[0].timings.first_log_seconds,null);
 });
+
+test('a motionless world attempt reports failure and releases the batch instead of freezing',async()=>{
+ const {HutTeacher}=require('../controller/hut_teacher'),teacher=new HutTeacher(),bot=fixture();
+ Object.assign(bot,{username:'LabAI0',health:20,food:20,game:{gameMode:'survival'},inventory:{items:()=>[]}});
+ const reports=[],state={run:'stall-test',world:{bounds:[-64,64,-64,64]}},api=async(path,data)=>reports.push(data),tasks={createRuntime:()=>({})},motor={pause(){}};
+ await teacher.tick(bot,motor,state,api,null,tasks);teacher.phase='gather';teacher.stall.update(bot.entity.position,'gather|0|0|',Date.now()-91000);
+ await teacher.tick(bot,motor,state,api,null,tasks);
+ assert.equal(teacher.phase,'stopped');assert.equal(reports.at(-1).state,'stopped');assert.match(reports.at(-1).message,/Stationary for 90 seconds/);assert.equal(reports.at(-1).stall_seconds_left,null);
+});
 test('field routing avoids water, walls and unloaded blocks while finding a detour',()=>{
  const blocks={};for(let z=-3;z<=3;z++){blocks[`3,64,${z}`]='stone';blocks[`3,65,${z}`]='stone';blocks[`3,66,${z}`]='stone';}
  const bot=fixture(blocks),result=route(bot,[10.5,64,.5]);assert.ok(result.path.length>10);assert.ok(result.path.some(p=>Math.abs(p[2])>3));assert.ok(result.expanded<=4096);

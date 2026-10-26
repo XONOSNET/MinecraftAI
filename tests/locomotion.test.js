@@ -2,6 +2,23 @@ const {test}=require('node:test');const assert=require('node:assert/strict');
 const {motorPlan,createMotor}=require('../controller/locomotion');
 const permissions={move:true,turn:true,jump:true},safe={frontBlocked:false,headBlocked:false,frontHazard:false};
 
+test('world policy forward and jump cannot carry a bot over unsupported ground',()=>{
+ const {Vec3}=require('vec3');let now=0,supported=false;const controls={},bot={entity:{yaw:0,onGround:true,position:new Vec3(0,70,0)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v};
+ const motor=createMotor(bot,permissions,{clock:()=>now}),task={kind:'expedition',safe_walk:true,waypoints:[[0,70,-2]]},sensed={...safe,canStepDown:()=>supported};
+ assert.match(motor.command(0,task,sensed,0),/unsafe drop/);now+=50;motor.tick();assert.equal(!!controls.forward,false);
+ motor.command(3,task,sensed,0);now+=50;motor.tick();assert.equal(!!controls.jump,false);assert.equal(!!controls.forward,false);
+ supported=true;motor.command(0,task,sensed,0);now+=50;motor.tick();assert.equal(controls.forward,true);
+ supported=false;motor.command(3,{...task,waypoints:[[0,71.1,-1]]},sensed,0);now+=50;motor.tick();assert.equal(controls.jump,true);assert.equal(controls.forward,true);
+ motor.command(3,{kind:'expedition'},sensed,0);now+=50;motor.tick();assert.equal(controls.jump,true,'ordinary expedition jump courses retain their controls');
+});
+
+test('world ground safety updates while the previous policy intention is still held',()=>{
+ const {Vec3}=require('vec3');let now=0,ground=true;const controls={},bot={entity:{yaw:0,onGround:true,position:new Vec3(0,70,0)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,
+  blockAt(p){const q=p.floored(),solid=ground&&q.y<70;return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty',shapes:solid?[[0,0,0,1,1,1]]:[]};}};
+ const motor=createMotor(bot,permissions,{clock:()=>now});motor.command(0,{kind:'expedition',safe_walk:true},safe,0);now=50;motor.tick();assert.equal(controls.forward,true);
+ ground=false;bot.entity.position=new Vec3(0,70,-.2);now=150;motor.tick();assert.equal(controls.forward,false);
+});
+
 test('locked world heading turns quickly without backing toward the old facing wall',()=>{
  const {Vec3}=require('vec3');let now=0;const state={},bot={entity:{yaw:0,position:new Vec3(0,70,0)},getControlState:k=>state[k],setControlState:(k,v)=>state[k]=v,look(yaw){this.entity.yaw=yaw;return Promise.resolve();}};
  const motor=createMotor(bot,permissions,{clock:()=>now});

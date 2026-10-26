@@ -68,8 +68,10 @@ class WorldLearning:
         self.phase('stopping','Stopping learning; finishing any save and restoring unvalidated specialists before switching modes.')
         return self.snapshot()
 
-    def suspend(self):
-        if self.state.get('enabled'):self.phase('recovering','Minecraft is restarting. Protected models will be restored before learning resumes.')
+    def suspend(self,cause='server'):
+        if self.state.get('enabled'):
+            self.state['recovery_cause']=cause
+            self.phase('recovering','Waiting for system memory to fall below 84%; protected models will be restored before learning resumes.' if cause=='memory' else 'Minecraft is restarting. Protected models will be restored before learning resumes.')
 
     def begin(self,driver,phase,layout):
         options=dict(self.state['options'],driver=driver,loop=False,layout=layout)

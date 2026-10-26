@@ -4,6 +4,7 @@ const {Vec3}=require('vec3');
 const {sprintIntent,basicSprintSafe}=require('./sprint');
 const {createRecovery}=require('./recovery');
 const {createDoorway}=require('./doorway');
+const {proximity}=require('./perception');
 function applyPose(bot,wantsCrouch){
  if(!bot.physics||!bot.entity?.position||!bot.blockAt)return;
  const p=bot.entity.position;let ceiling=false;
@@ -44,7 +45,7 @@ function motorPlan(action,permissions,task,sensed,angle,traveling=false){
 }
 function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
  const recovery=createRecovery(),doorway=createDoorway();
- let plan=null,targetYaw=null,expires=0,last=clock(),paused=true,lookLocked=false,stalled=false;
+ let plan=null,targetYaw=null,expires=0,last=clock(),paused=true,lookLocked=false,stalled=false,lastSafetyAt=-Infinity,groundSafe=true;
  function clear(){recovery.reset();doorway.reset();bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
  return {
   command(action,task,sensed,angle){
@@ -65,6 +66,16 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    if(focus&&!passage&&!recovery.active()){
     plan.focusPoint=focus;plan.label=Math.abs(angle)>.35?'Acquiring locked route heading':'Following locked route';
    }
+   if(task?.safe_walk){
+    plan.safeWalk=true;
+    const rise=(task.waypoints?.[0]?.[1]??bot.entity.position.y)-bot.entity.position.y;
+    const plannedStep=rise>.6&&rise<1.2&&Math.abs(angle)<.35;
+    if(!plannedStep)plan.jump=false;
+    if(plannedStep&&plan.jump)plan.stepLevel=task.waypoints[0][1];
+    if(plan.forward&&bot.entity.onGround!==false&&typeof sensed?.canStepDown==='function'&&!sensed.canStepDown(bot.entity.yaw,.75)&&!(plan.jump&&plannedStep)){
+     plan.forward=false;plan.label='Holding: blocked ground or unsafe drop ahead';
+    }
+   }
    plan.yawRate=task?.quick_look?Math.PI*3:Math.PI;
    if(plan.forward&&sensed?.crouchClearance){plan.sneak=true;plan.jump=false;plan.label='Crouching under low clearance';}
    plan.sprint=sprintIntent(bot,permissions,task,plan,sensed,angle,!!bot.getControlState('sprint'));
@@ -81,6 +92,11 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    const now=clock(),dt=Math.max(.01,Math.min(.1,(now-last)/1000));last=now;
    if(paused||now>expires){if(!paused){clear();stalled=true;}else pauseMotion(bot,permissions);applyPose(bot,!!bot.getControlState('sneak'));return;}
    let forward=!!plan.forward;
+   // Policy replies can arrive late; recheck support while holding an intention.
+   if(forward&&plan.safeWalk&&bot.blockAt&&bot.entity.onGround!==false&&!(plan.stepLevel&&bot.entity.position.y<plan.stepLevel-.3)){
+    if(now-lastSafetyAt>=100){groundSafe=proximity(bot,{recovery:false}).canStepDown(bot.entity.yaw,.75);lastSafetyAt=now;}
+    if(!groundSafe){forward=false;plan.label='Holding: blocked ground or unsafe drop ahead';}
+   }
    if(plan.focusPoint){
     const dx=plan.focusPoint[0]-bot.entity.position.x,dz=plan.focusPoint[2]-bot.entity.position.z,d=Math.hypot(dx,dz);
     targetYaw=d>.18?Math.atan2(-dx,-dz):null;

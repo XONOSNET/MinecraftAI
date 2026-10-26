@@ -1,6 +1,6 @@
 const {Vec3}=require('vec3');
 const HAZARDS=new Set(['lava','water','magma_block','fire','campfire','sweet_berry_bush']);
-function proximity(bot,{goalYaw=null}={}){
+function proximity(bot,{goalYaw=null,recovery=true}={}){
  const blockAt=bot.blockAt?point=>bot.blockAt(point):bot.world?.getBlock?point=>bot.world.getBlock(point):()=>null;
  const p=bot.entity.position,yaw=bot.entity.yaw,f=new Vec3(-Math.sin(yaw),0,-Math.cos(yaw));
  // Collision boxes distinguish a crouch-sized opening from an ordinary solid wall.
@@ -55,8 +55,8 @@ function proximity(bot,{goalYaw=null}={}){
   }
   return clear;
  }
- const forwardClearance=wallAhead||bot.labRecovering||bot.labAvoiding?clearance(0):null;
- const escapeRoutes=wallAhead||bot.labRecovering||bot.labAvoiding?[-7,-6,-5,-4,-3,-2,2,3,4,5,6,7,8].map(i=>i*Math.PI/8).map(offset=>({yaw:yaw+offset,offset,clearance:clearance(offset)})):[];
+ const forwardClearance=recovery&&(wallAhead||bot.labRecovering||bot.labAvoiding)?clearance(0):null;
+ const escapeRoutes=recovery&&(wallAhead||bot.labRecovering||bot.labAvoiding)?[-7,-6,-5,-4,-3,-2,2,3,4,5,6,7,8].map(i=>i*Math.PI/8).map(offset=>({yaw:yaw+offset,offset,clearance:clearance(offset)})):[];
  return {wallAhead,crouchClearance:standing&&!crouched,rearSafe:rearSafe&&!bot.entity.isInWater&&!bot.entity.isInLava,
   canWalk:(heading,minimum=.35,height=1.79)=>clearance(heading-yaw,.2,minimum,height)>=minimum,canStepDown:(heading,minimum=.35)=>clearance(heading-yaw,1,minimum)>=minimum,escapeRoutes,forwardClearance,goalClearance:Number.isFinite(goalYaw)&&(wallAhead||bot.labRecovering||bot.labAvoiding)?clearance(goalYaw-yaw):null,escapeForwardSafe:forwardClearance!==null&&forwardClearance>=.65};
 }

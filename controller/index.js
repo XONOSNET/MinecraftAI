@@ -11,7 +11,7 @@ const {createMotor}=require('./locomotion');
 const motorConfig=JSON.parse(fs.readFileSync('config/controller.json','utf8'));
 const {randomUUID}=require('crypto');
 const bots=[];let quitting=false;
-async function api(path,data){const r=await fetch('http://127.0.0.1:8000'+path,{method:'POST',headers:{'Content-Type':'application/json','X-Lab-Token':token},body:JSON.stringify(data)});if(!r.ok)throw Error(await r.text());return r.json();}
+async function api(path,data){const r=await fetch('http://127.0.0.1:8000'+path,{method:'POST',headers:{'Content-Type':'application/json','X-Lab-Token':token},body:JSON.stringify(data),signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error(await r.text());return r.json();}
 async function spawn(i){if(quitting)return;try{const status=await(await fetch('http://127.0.0.1:8000/status',{signal:AbortSignal.timeout(2000)})).json();if(status.server&&!status.server.ready){setTimeout(()=>spawn(i),2000);return;}}catch{setTimeout(()=>spawn(i),2000);return;}if(quitting)return;const name='LabAI'+i;const b=mineflayer.createBot({host:'127.0.0.1',port:25565,username:name,auth:'offline',version:'1.21.4',respawn:true});bots[i]=b;let tick=0,busy=false,goal=null,lastDistance=null,steps=0,phase='',episode=0,task=null,runtime=tasks.createRuntime(),readyAt=0,lastMetrics=null,activity='Connecting',decisionMs=250,lastDecisionAt=0,trialStarted=null;
  inventorySync.attach(b);
  const hutTeacher=new HutTeacher();
@@ -32,7 +32,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  let state=await api('/assignment',heartbeat());
  if(phase!==state.run){episode=0;state=await api('/assignment',heartbeat());}
  if(state.world){if(phase!==state.run){motor.pause();phase=state.run;}goal=null;task=null;trialStarted=null;activity=await hutTeacher.tick(b,motor,state,api,scan,tasks);return;}
- if(state.mode==='paused'){b.deactivateItem();trialStarted=null;activity='Waiting for next learning phase';motor.pause();goal=null;return;}
+ if(state.mode==='paused'){b.deactivateItem();trialStarted=null;activity=state.message||'Waiting for next learning phase';motor.pause();goal=null;return;}
  if(Date.now()<readyAt){activity='Loading arena / settling after teleport';motor.pause();b.clearControlStates();return;}
  const finishedTask=task&&lastMetrics&&tasks.reached(task,lastMetrics);
  const failedTask=task&&lastMetrics&&tasks.failed(task,lastMetrics);
@@ -41,7 +41,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
   if(goal&&phase===state.run){
    await api('/episode',{agent:name,run:phase,success:lastDistance!==null&&lastDistance<1.25&&b.health>0&&Math.abs(b.entity.position.y-goal[1])<1.5,steps,elapsed_seconds:trialStarted===null?null:(performance.now()-trialStarted)/1000,distance:lastDistance,task:task?.kind,metrics:lastMetrics||{health:0}});
    state=await api('/assignment',heartbeat());
-   if(state.mode==='paused'){b.deactivateItem();trialStarted=null;activity='Waiting for next learning phase';motor.pause();goal=null;return;}
+   if(state.mode==='paused'){b.deactivateItem();trialStarted=null;activity=state.message||'Waiting for next learning phase';motor.pause();goal=null;return;}
   }
   phase=state.run;episode++;steps=0;trialStarted=null;lastDecisionAt=0;decisionMs=250;goal=state.goal;lastDistance=null;task=state.task?{...state.task,stall_scale:motorConfig.smooth_movement&&state.task.kind!=='expedition'?2.5:1,max_steps:state.task.max_steps*(motorConfig.smooth_movement&&state.task.kind!=='expedition'?2.5:1)}:null;runtime=tasks.createRuntime();lastMetrics=null;
   activity='Resetting task / teleporting';motor.pause();b.clearControlStates();
@@ -73,6 +73,5 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
 for(let i=0;i<agentConfig.count;i++)setTimeout(()=>spawn(i),i*1200);
 function stop(){quitting=true;for(const b of bots)if(b)b.quit('Laboratory shutdown');setTimeout(()=>process.exit(0),1000);}
 process.on('SIGINT',stop);process.on('SIGTERM',stop);
-
 
 

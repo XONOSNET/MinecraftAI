@@ -17,6 +17,8 @@ test('world timing separates phase duration, alignment and first pickup',()=>{
  const format=vm.runInNewContext(html.slice(start,end)+';worldTimingText');
  assert.match(format({seconds:90,timings:{phase_seconds:{gather:80},activity_seconds:{aligning:12},first_log_seconds:8,turn_reversals:4,target_switches:2}}),/Total 90 s.*Gathering 80 s.*Aligning 12 s.*First log 8 s.*Turn reversals 4/);
  assert.match(format({seconds:2}),/First log —/);
+ assert.match(format({state:'working',stall_seconds_left:45}),/attempt ends in 45 s/);
+ assert.doesNotMatch(format({state:'stopped',stall_seconds_left:45}),/attempt ends in/);
 });
 const status=(extra={})=>({mode:'evaluate',run:'current',server:{ready:true},evaluation:{expected_episodes:24},episodes:[{run:'old',episodes:24,successes:24},{run:'current',episodes:6,successes:5}],curriculum:{enabled:true,stage:0,stages:[{name:'Course'}],round:2,phase:'baseline',streak:1,run:'current'},...extra});
 test('review explains teacher-free retest, current batch progress and round',()=>{const v=describe(status());assert.equal(v.title,'Reviewing learned skills');assert.match(v.copy,/without teacher control/);assert.match(v.context,/Review 2.*Stage 1 \/ 1/);assert.equal(v.progress,25);assert.match(v.detail,/6 \/ 24.*5 passed.*1 \/ 2/)});

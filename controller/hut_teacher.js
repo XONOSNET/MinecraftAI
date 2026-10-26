@@ -10,6 +10,7 @@ const settlement=require('./settlement');
 const {scanTrees,visibleBlock}=require('./target_scan');
 const {doorwayDescriptor}=require('./doorway');
 const furnace=require('./furnace');
+const {WorldStall}=require('./world_stall');
 const LOG=/^(oak|birch|spruce|jungle|acacia|dark_oak|mangrove|cherry)_log$/;
 const planks=name=>name.endsWith('_planks');
 const count=(bot,match)=>bot.inventory.items().filter(i=>match(i.name)).reduce((n,i)=>n+i.count,0);
@@ -58,6 +59,7 @@ class HutTeacher{
  constructor(){this.run=null;}
  async tick(bot,motor,state,api,scan,tasks){
   const now=Date.now(),p=bot.entity.position,w=state.world;
+  if(this.run!==state.run)this.stall=new WorldStall();
   if(this.run!==state.run){this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;this.scanCount=0;this.observedTrees=0;this.quarry=null;this.lastRecoveryReset=0;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
   this.timing.mark(this.phase,'waiting',now);
   const moved=Math.hypot(p.x-this.last.x,p.z-this.last.z);if(moved<4&&this.phase!=='survey')this.travelled+=moved;this.last=p.clone();
@@ -66,6 +68,8 @@ class HutTeacher{
   if(this.phase!=='survey'&&!this.inside(p,w.bounds)){this.error='Reached the simulation boundary; stopped.';this.phase='stopped';}
   if(this.phase!=='survey'&&now>this.settle&&(bot.health<10||bot.food<5)){this.error='Health or food too low to continue safely.';this.phase='stopped';}
   if(now-this.started>1150000){this.error='Trial time limit reached.';this.phase='stopped';}
+  const stock=bot.inventory.items().map(i=>i.name+':'+i.count).sort().join(','),stall=this.stall.update(p,[this.phase,this.built,this.milestones.length,stock].join('|'),now);
+  if(stall.expired&&!['survey','complete','stopped'].includes(this.phase)){this.error='Stationary for 90 seconds without material or lesson progress; ending this attempt so learning can continue.';this.phase='stopped';}
   try{
    if(this.phase==='survey'&&now-this.started<4000){motor.pause();this.message='Waiting for natural terrain chunks';}
    else if(this.phase==='survey'){
@@ -104,6 +108,7 @@ class HutTeacher{
       if(destination){const moved=await this.walk(bot,motor,destination,state,api,scan,tasks);if(moved===false&&chosenTree&&bot.entity.onGround){this.ignoredTrees.set(chosenTree.x+','+chosenTree.z,now+5000);this.treeApproach=null;}this.message=this.message||'Approaching selected tree';}else{motor.pause();this.message='Tree has no safe approach';this.resourceAt=0;
        const leaf=bot.findBlocks({matching:b=>b.name.endsWith('_leaves'),maxDistance:4,count:24}).filter(v=>this.inside(v,w.bounds)&&v.y>=p.y&&v.y<p.y+2.5).map(v=>bot.blockAt(v)).find(block=>block&&visibleBlock(bot,block)&&bot.canDigBlock(block));
        if(leaf){this.message='Clearing foliage to reach a tree';await bot.dig(leaf);this.ignoredTrees.clear();this.lastProgress=Date.now();}
+       else if(chosenTree){this.ignoredTrees.set(chosenTree.x+','+chosenTree.z,now+15000);this.tree=null;this.treeApproach=null;this.message='Skipping a tree with no safe approach; checking other resources';}
       }}
      else{motor.pause();this.message='Retrying reachable resources after a blocked approach';this.resourceAt=0;}
      this.message=this.message||`Harvesting logs ${count(bot,n=>LOG.test(n))} / 16`;
@@ -241,7 +246,7 @@ class HutTeacher{
   if(now-this.lastReport>1000||['complete','stopped'].includes(this.phase)){
    const reportLogs=this.phase==='survey'||Date.now()<this.settle?0:count(bot,n=>LOG.test(n));
    const resourceProgress=this.phase==='quarry'?`Cobblestone ${count(bot,n=>n==='cobblestone')} / 16 · `:this.phase==='fuel_log'?`Fuel logs ${reportLogs} / 2 · `:'';
-   await api('/world/report',{agent:bot.username,run:state.run,state:this.phase==='complete'?'complete':this.phase==='stopped'?'stopped':'working',phase:this.phase,message:this.error||(resourceProgress+(this.message||this.phase)),logs:reportLogs,blocks:this.built||0,target_blocks:55,travelled:this.travelled,health:bot.health,plot:this.plot,milestones:this.milestones,lesson:Math.min(w.lessons?.length||(w.mission==='hut'?1:6),this.milestones.length+1),lesson_total:w.lessons?.length||(w.mission==='hut'?1:6),seconds:(Date.now()-this.started)/1000,timings:{...this.timing.snapshot(reportLogs),acquisition_scans:this.scanCount,observed_trees:this.observedTrees,locked_tree:this.tree}});this.lastReport=now;
+   await api('/world/report',{agent:bot.username,run:state.run,state:this.phase==='complete'?'complete':this.phase==='stopped'?'stopped':'working',phase:this.phase,message:this.error||(resourceProgress+(this.message||this.phase)),logs:reportLogs,blocks:this.built||0,target_blocks:55,travelled:this.travelled,health:bot.health,plot:this.plot,milestones:this.milestones,lesson:Math.min(w.lessons?.length||(w.mission==='hut'?1:6),this.milestones.length+1),lesson_total:w.lessons?.length||(w.mission==='hut'?1:6),idle_seconds:stall.idle_seconds,stall_seconds_left:['complete','stopped'].includes(this.phase)?null:stall.stall_seconds_left,seconds:(Date.now()-this.started)/1000,timings:{...this.timing.snapshot(reportLogs),acquisition_scans:this.scanCount,observed_trees:this.observedTrees,locked_tree:this.tree}});this.lastReport=now;
   }
   return this.error||this.message||this.phase;
  }
@@ -269,7 +274,7 @@ class HutTeacher{
  async harvest(bot,motor,target,state,api,scan,tasks,tool=null){
   this.timing.mark(this.phase,'harvesting');
   const p=bot.entity.position,goal=[target.x+.5,p.y,target.z+.5],desired=Math.atan2(-(goal[0]-p.x),-(goal[2]-p.z)),angle=Math.atan2(Math.sin(desired-bot.entity.yaw),Math.cos(desired-bot.entity.yaw));
-  const task={kind:'gather',goal,bounds:state.world.bounds,coverage_target:100,actual_doors:[],wood_target:16},rays=scan(bot,{goalYaw:desired}),sensed=tasks.observeTask(bot,task,rays,this.runtime);
+  const task={kind:'gather',goal,bounds:state.world.bounds,coverage_target:100,actual_doors:[],wood_target:16,safe_walk:true},rays=scan(bot,{goalYaw:desired}),sensed=tasks.observeTask(bot,task,rays,this.runtime);
   sensed.extra[5]=Math.min(1,count(bot,n=>LOG.test(n))/3);
   const obs=[...rays.pooled,Math.sin(angle),Math.cos(angle),Math.min(p.distanceTo(new Vec3(...goal))/32,1),bot.health/20,bot.food/20,bot.entity.onGround?1:0,...sensed.extra];
   const result=await api('/step',{agent:bot.username,run:state.run,world_skill:'gathering',obs,teacher:5,reward:0,position:[p.x,p.y,p.z],health:bot.health,food:bot.food,hits:rays.hits,perception_ms:0,steps:0,goal,task:'gather',metrics:sensed.metrics});
@@ -288,7 +293,7 @@ class HutTeacher{
   const dest=goal.join(',');if(!this.path.length||this.destination!==dest||now-this.lastPlan>2500){const planned=route(bot,goal);this.timing.replans++;this.path=planned.path;this.destination=dest;this.lastPlan=now;if(!this.path.length){if(passage||motor.passageActive?.())this.path=[goal];else{motor.pause();this.message=planned.message;return false;}}}
   const cue=this.path[0];if(!this.inside(new Vec3(...cue),state.world.bounds)){motor.pause();throw Error('Planned route reached the trial boundary.');}
   const skill=this.phase==='enter'?'shelter':'expedition';
-  const task={kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],bounds:state.world.bounds,actual_doors:[],allow_water:false,coverage_target:100,quick_look:true,navigation_lock:state.world.driver==='teacher'};
+  const task={kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],bounds:state.world.bounds,actual_doors:[],allow_water:false,coverage_target:100,quick_look:true,safe_walk:true,navigation_lock:state.world.driver==='teacher'};
   const desired=Math.atan2(-(cue[0]-p.x),-(cue[2]-p.z)),angle=Math.atan2(Math.sin(desired-bot.entity.yaw),Math.cos(desired-bot.entity.yaw));
   const sensedScan=scan(bot,{goalYaw:desired}),sensed=tasks.observeTask(bot,task,sensedScan,this.runtime);
   const obs=[...sensedScan.pooled,Math.sin(angle),Math.cos(angle),Math.min(p.distanceTo(new Vec3(...goal))/32,1),bot.health/20,bot.food/20,bot.entity.onGround?1:0,...sensed.extra];

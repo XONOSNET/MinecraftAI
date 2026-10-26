@@ -1,0 +1,29 @@
+{
+  "scope": "Isolated native world-movement safety fixture; no production trial reports.",
+  "edge": {
+    "position": {
+      "x": -8.345155395758587,
+      "y": 186,
+      "z": 14.49999999999961
+    },
+    "label": "Holding: blocked ground or unsafe drop ahead",
+    "held": true
+  },
+  "control": {
+    "position": {
+      "x": 6.989568925880984,
+      "y": 181,
+      "z": 14.499999999994095
+    },
+    "fell": true
+  },
+  "step": {
+    "position": {
+      "x": -7.2327984457662895,
+      "y": 187,
+      "z": 14.499999999998984
+    },
+    "climbed": true
+  },
+  "success": true
+}

@@ -52,6 +52,8 @@ def test_restart_restores_unvalidated_bundle_before_starting_another_test(tmp_pa
     m,lab,clock=fixture(tmp_path);reach_candidate(m,lab)
     recovered=WorldLearning(m.path,lab.hooks(),lambda:clock[0]);assert recovered.state['phase']=='recovering'
     recovered.tick();assert lab.restores==1 and recovered.state['phase']=='waiting'
+    recovered.suspend('memory');assert recovered.state['recovery_cause']=='memory' and '84%' in recovered.state['message']
+    recovered.suspend();assert recovered.state['recovery_cause']=='server' and 'Minecraft' in recovered.state['message']
 
 
 def test_failed_training_and_absent_fresh_examples_never_replace_champion(tmp_path):

@@ -355,7 +355,7 @@ def watchdog():
         with lock:
             if psutil.virtual_memory().percent>90 and not curriculum.state['enabled']:
                 if world_learning.state.get('enabled') and world_learning.state.get('phase')!='recovering':
-                    world_learning.suspend();world_training.stop('Waiting for system memory to recover.');training_jobs.cancel()
+                    world_learning.suspend('memory');world_training.stop('Waiting for system memory to recover.');training_jobs.cancel()
                 globals()['mode']='paused';event('memory_pause',{})
             lifecycle=server_control.snapshot()
             if lifecycle['ready'] and not lifecycle['busy']:practice_protection.tick(server.pid,time.time())
@@ -431,7 +431,8 @@ def assignment(d:dict):
             agents[d['agent']].update(trial_completed=1 if result.get('state') in ('complete','stopped') else 0,trial=1,reset_seconds=None,reset_steps_left=None)
             agents[d['agent']]['simulation']='Real world: '+world_training.session['name']
             if assignment:return assignment
-            return {'mode':'paused','run':run}
+            message='Sequence complete; waiting for the other bots.' if result.get('state')=='complete' else 'Attempt stopped; waiting for the next learning phase.' if result.get('state')=='stopped' else 'Preparing terrain or training models.'
+            return {'mode':'paused','run':run,'message':message}
         # Repeated calls during a lifetime return the same assignment; next episode changes it.
         rng=random.Random(8000+d['index']*1000+d['episode'])
         finished=db.execute('SELECT count(*) FROM episodes WHERE run=? AND agent=?',(run,d['agent'])).fetchone()[0]
@@ -975,7 +976,7 @@ world_learning=WorldLearning('data/world-learning.json',{
     'world':lambda:world_training.session,'begin':_begin_world,'train':world_train_skill,
     'protect':protect_world_models,'restore':restore_world_models,'review':review_world_models,
     'switch':world_learning_switch,
-    'ready':lambda:auto_health(recovering=world_learning.state.get('phase')=='recovering') is None,
+    'ready':lambda:auto_health(recovering=world_learning.state.get('phase')=='recovering' and world_learning.state.get('recovery_cause')=='memory') is None,
     'counts':lambda:{skill:skill_bank.get(skill,model)['count'] for skill in WORLD_SKILLS}})
 
 @app.post('/world-learning/start',dependencies=[Depends(auth)])

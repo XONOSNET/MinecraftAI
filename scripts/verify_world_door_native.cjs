@@ -14,7 +14,7 @@ b.once('spawn',async()=>{const result={runs:[]};
     const goal=[-7.5,181,direction===1?15:10],started=Date.now();let crossed=0,lastSide=direction===1?-1:1,done=false;
     while(Date.now()-started<14000){
      const p=b.entity.position,door=b.blockAt(new Vec3(-8,181,12)),descriptor=doorwayDescriptor(b,door,goal),desired=Math.atan2(-(goal[0]-p.x),-(goal[2]-p.z)),angle=Math.atan2(Math.sin(desired-b.entity.yaw),Math.cos(desired-b.entity.yaw));
-     const sensed=scan(b,{rays:64,goalYaw:desired});motor.command(0,{kind:'expedition',quick_look:true},{...sensed.proximity,doorway:descriptor,cueDistance:Math.hypot(goal[0]-p.x,goal[2]-p.z)},angle);
+     const sensed=scan(b,{rays:64,goalYaw:desired});motor.command(0,{kind:'expedition',quick_look:true,safe_walk:true},{...sensed.proximity,doorway:descriptor,cueDistance:Math.hypot(goal[0]-p.x,goal[2]-p.z)},angle);
      const side=p.z<12.45?-1:p.z>12.55?1:lastSide;if(side!==lastSide){crossed++;lastSide=side;}
      if(direction===1?p.z>=14:p.z<=11){done=true;break;}await wait(100);
     }

@@ -239,6 +239,9 @@ class Observers:
                 lines['task']=f"{display_name} | Lesson {result.get('lesson',1)}/{result['lesson_total']} | {result.get('phase',world['phase']).replace('_',' ').title()}"
             lines['state']=str(result.get('message',world['message']))[:110]
             route_visible=False
+            if result.get('stall_seconds_left') is not None and result.get('state') not in ('complete','stopped'):
+                lines['state']=f"No progress: attempt ends in {result['stall_seconds_left']}s | "+lines['state'][:65]
+                route_visible=True;route_progress=round(100*(90-result['stall_seconds_left'])/90)
         if context.get('stage'):
             lines={'stage':((context.get('label')+' | ') if context.get('label') else (f"Review {context['round']} | " if context.get('round') else ''))+f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
         if world:
@@ -255,8 +258,8 @@ class Observers:
                 self.command(f'bossbar set {key} color '+('yellow' if suffix=='stage' else 'blue' if suffix=='task' else 'green'))
                 self.command(f'bossbar set {key} max 100')
             self.command(f'bossbar set {key} name {name}')
-            value=round(100*(context['stage']-1)/context['stages']) if suffix=='stage' else route_progress if suffix=='state' else progress
             if suffix=='stage' and world:value=round(world['progress']) if world['phase'] in ('snapshotting','restoring') else round(100*complete/max(1,len(world['bots'])))
+            else:value=round(100*(context['stage']-1)/context['stages']) if suffix=='stage' else route_progress if suffix=='state' else progress
             self.command(f'bossbar set {key} value {value}')
             self.command(f'bossbar set {key} players {owner}')
             if suffix=='state':self.command(f'bossbar set {key} visible '+str(route_visible and job.get('status') not in ('running','cancelling')).lower())
