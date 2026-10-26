@@ -1,5 +1,14 @@
 const test=require('node:test'),assert=require('node:assert/strict'),{EventEmitter}=require('events'),{Vec3}=require('vec3');
 const space=require('../controller/resource_space'),{chooseTree}=require('../controller/tree_target'),{route}=require('../controller/field_navigation'),{aim,harvest}=require('../controller/harvest');
+test('live harvest intent follows the current block and clears immediately when mined or changing tasks',()=>{
+ const {HutTeacher}=require('../controller/hut_teacher'),t=new HutTeacher(),p=new Vec3(3,70,4);let name='oak_log';
+ Object.assign(t,{run:'live-run',phase:'gather',harvestTarget:p,harvestKind:'mining'});
+ const b={health:20,blockAt:()=>({name,position:p})};
+ assert.deepEqual(t.target(b),{run:'live-run',position:[3,70,4],kind:'mining',block:'oak_log'});
+ name='air';assert.equal(t.target(b),null);
+ name='oak_log';t.phase='craft';assert.equal(t.target(b),null);
+ t.phase='gather';b.health=0;assert.equal(t.target(b),null);
+});
 function bot(name='miner'){
  const b=new EventEmitter();Object.assign(b,{username:name,players:{},entity:{id:name,position:new Vec3(.5,64,.5),onGround:true,yaw:0,pitch:0},
  blockAt(p){return {name:p.y<64?'grass_block':'air',boundingBox:p.y<64?'block':'empty',position:p.floored()};}});return b;

@@ -12,6 +12,7 @@ const {chooseTree}=require('./tree_target');
 const settlement=require('./settlement');
 const {scanTrees,visibleBlock}=require('./target_scan');
 const {doorwayDescriptor}=require('./doorway');
+const {closeDoor}=require('./door_care');
 const furnace=require('./furnace');
 const {WorldStall}=require('./world_stall');
 const LOG=/^(oak|birch|spruce|jungle|acacia|dark_oak|mangrove|cherry)_log$/;
@@ -67,7 +68,7 @@ class HutTeacher{
   this.timing.mark(this.phase,'waiting',now);
   const moved=Math.hypot(p.x-this.last.x,p.z-this.last.z);if(moved<4&&this.phase!=='survey')this.travelled+=moved;this.last=p.clone();
   if(Math.hypot(p.x-this.anchor.x,p.z-this.anchor.z)>1){this.anchor=p.clone();this.lastProgress=now;}
-  this.message='';this.harvestTarget=null;
+  this.message='';this.harvestTarget=null;this.harvestKind='approach';
   if(!['gather','quarry','fuel_log'].includes(this.phase))space.release(bot.username);
   if(this.phase!=='survey'&&!this.inside(p,w.bounds)){this.error='Reached the simulation boundary; stopped.';this.phase='stopped';}
   if(this.phase!=='survey'&&now>this.settle&&(bot.health<10||bot.food<5)){this.error='Health or food too low to continue safely.';this.phase='stopped';}
@@ -158,15 +159,15 @@ class HutTeacher{
    }else if(this.phase==='enter'){
     const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-2));
     if(!door?.name.endsWith('_door'))throw Error('Door placement did not create a usable entrance.');
-    if(Math.hypot(p.x-this.plot.x-.5,p.z-this.plot.z-.5)<.8){motor.pause();if(door.getProperties().open)await bot.activateBlock(door);this.secureAt=now;this.phase='shelter';}
-    else{if(!door.getProperties().open&&door.position.distanceTo(p)<3.5){motor.pause();await bot.activateBlock(door);}else await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5],state,api,scan,tasks);}
+    if(Math.hypot(p.x-this.plot.x-.5,p.z-this.plot.z-.5)<.8){motor.pause();if(door.getProperties().open&&!await closeDoor(bot,door)){this.message='Waiting for the doorway to clear before closing';return this.message;}this.secureAt=now;this.phase='shelter';}
+    else{if(!door.getProperties().open&&p.z<door.position.z+.5&&door.position.distanceTo(p)<3.5){motor.pause();await bot.activateBlock(door);}else await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5],state,api,scan,tasks);}
    }else if(this.phase==='shelter'){
     motor.pause();const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-2));
     if(!intact(bot,this.plot)||!door?.name.endsWith('_door')||door.getProperties().open)throw Error('Hut enclosure failed final verification.');
     if(now-this.secureAt>=3000){this.milestone('hut');this.phase=w.mission!=='hut'?'leave_hut':'complete';this.message='Hut verified. '+(w.mission!=='hut'?'Next: gather supplies for a chest and tools.':'Built an intact enclosed hut, closed the door and sheltered for 3 seconds.');}
    }else if(this.phase==='leave_hut'){
     const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-2));
-    if(door?.name.endsWith('_door')&&!door.getProperties().open){motor.pause();await bot.activateBlock(door);}
+    if(door?.name.endsWith('_door')&&!door.getProperties().open&&p.z>door.position.z+.5){motor.pause();await bot.activateBlock(door);}
     else if(Math.hypot(p.x-this.plot.x-.5,p.z-this.plot.z+3.5)>.6)await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z-3.5],state,api,scan,tasks);
     else{motor.pause();this.supplyRun=true;this.grove=w.prepared?(await api('/world/resources',{agent:bot.username})).trees:null;this.resources=[];this.resourceAt=0;this.tree=null;this.treeApproach=null;this.pickup=null;this.ignoredTrees.clear();this.ignoredDrops.clear();this.phase='gather';this.lastProgress=now;this.message='Lesson resources ready: harvest extra wood for chest, tools and stored supplies';}
    }else if(this.phase==='supply_craft'){
@@ -175,7 +176,7 @@ class HutTeacher{
     this.phase='return_home';this.lastProgress=Date.now();
    }else if(this.phase==='return_home'){
     const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-2));
-    if(door?.name.endsWith('_door')&&!door.getProperties().open&&door.position.distanceTo(p)<3.5){motor.pause();await bot.activateBlock(door);}
+    if(door?.name.endsWith('_door')&&!door.getProperties().open&&p.z<door.position.z+.5&&door.position.distanceTo(p)<3.5){motor.pause();await bot.activateBlock(door);}
     else if(Math.hypot(p.x-this.plot.x-.5,p.z-this.plot.z-.5)>.45)await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5],state,api,scan,tasks);
     else{motor.pause();this.phase='chest';this.lastProgress=now;}
    }else if(this.phase==='chest'){
@@ -191,14 +192,14 @@ class HutTeacher{
    }else if(this.phase==='stock_chest'){
     this.timing.mark(this.phase,'stocking');motor.pause();const stored=await settlement.stockChest(bot,bot.blockAt(settlement.chestPosition(this.plot)),8);
     await inventorySync.equip(bot,'wooden_axe');
-    const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-2));if(door?.getProperties().open)await bot.activateBlock(door);
+    const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-2));if(door?.getProperties().open&&!await closeDoor(bot,door))return 'Waiting for the doorway to clear before closing';
     if(!intact(bot,this.plot)||!settlement.TOOLS.every(name=>count(bot,n=>n===name)>0)||stored<8)throw Error('Settlement final verification failed');
     this.milestone('stocked');this.phase=w.mission==='stone_age'?'quarry_setup':'complete';this.message=w.mission==='stone_age'?'Settlement verified. Next: mine stone, upgrade tools, build a furnace and make lighting.':'Settlement complete: enclosed hut, chest with 8 planks, pickaxe, axe and shovel; axe equipped.';
    }else if(this.phase==='quarry_setup'){
     motor.pause();this.quarry=await api('/world/quarry',{agent:bot.username});this.phase='quarry_exit';this.lastProgress=now;
    }else if(this.phase==='quarry_exit'||this.phase==='light_exit'){
     const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-2));
-    if(door&&!door.getProperties().open){motor.pause();await bot.activateBlock(door);}
+    if(door&&!door.getProperties().open&&p.z>door.position.z+.5){motor.pause();await bot.activateBlock(door);}
     else if(Math.hypot(p.x-this.plot.x-.5,p.z-this.plot.z+3.5)>.6)await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z-3.5],state,api,scan,tasks);
     else{motor.pause();this.phase=this.phase==='quarry_exit'?'quarry':'light_place';this.lastProgress=now;}
    }else if(this.phase==='quarry'){
@@ -227,9 +228,9 @@ class HutTeacher{
     }
    }else if(this.phase==='stone_return'||this.phase==='light_return'){
     const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-2));
-    if(door&&!door.getProperties().open&&door.position.distanceTo(p)<3.5){motor.pause();await bot.activateBlock(door);}
+    if(door&&!door.getProperties().open&&p.z<door.position.z+.5&&door.position.distanceTo(p)<3.5){motor.pause();await bot.activateBlock(door);}
     else if(Math.hypot(p.x-this.plot.x-.5,p.z-this.plot.z-.5)>.45)await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5],state,api,scan,tasks);
-    else{motor.pause();if(this.phase==='stone_return')this.phase='stone_tools';else{if(door.getProperties().open)await bot.activateBlock(door);this.phase='complete';this.message='Stone-age base complete: stocked hut, wooden and stone tools, working furnace, charcoal and exterior torch.';}this.lastProgress=now;}
+    else{motor.pause();if(this.phase==='stone_return')this.phase='stone_tools';else{if(door.getProperties().open&&!await closeDoor(bot,door))return 'Waiting for the doorway to clear before closing';this.phase='complete';this.message='Stone-age base complete: stocked hut, wooden and stone tools, working furnace, charcoal and exterior torch.';}this.lastProgress=now;}
    }else if(this.phase==='stone_tools'){
     this.timing.mark(this.phase,'crafting');motor.pause();const table=bot.blockAt(new Vec3(this.table.x,this.table.y,this.table.z));
     const tool=['stone_pickaxe','stone_axe'].find(name=>!count(bot,n=>n===name));
@@ -261,6 +262,12 @@ class HutTeacher{
   }
   return this.error||this.message||this.phase;
  }
+ target(bot){
+  if(!['gather','quarry','fuel_log'].includes(this.phase)||!this.harvestTarget||bot.health<=0)return null;
+  const block=bot.blockAt(this.harvestTarget);
+  if(!block||!LOG.test(block.name)&&block.name!=='stone')return null;
+  return {run:this.run,position:[this.harvestTarget.x,this.harvestTarget.y,this.harvestTarget.z],kind:this.harvestKind||'approach',block:block.name};
+ }
  milestone(name){if(!this.milestones.includes(name))this.milestones.push(name);}
  requiredWood(bot){
   if(!this.plot)return 64;
@@ -288,17 +295,18 @@ class HutTeacher{
   const task={kind:'gather',goal,bounds:state.world.bounds,coverage_target:100,actual_doors:[],wood_target:16,safe_walk:true,avoid_players:true},rays=scan(bot,{goalYaw:desired}),sensed=tasks.observeTask(bot,task,rays,this.runtime);
   sensed.extra[5]=Math.min(1,count(bot,n=>LOG.test(n))/3);
   const obs=[...rays.pooled,Math.sin(angle),Math.cos(angle),Math.min(p.distanceTo(new Vec3(...goal))/32,1),bot.health/20,bot.food/20,bot.entity.onGround?1:0,...sensed.extra];
+  this.harvestTarget=target;
   const result=await api('/step',{agent:bot.username,run:state.run,world_skill:'gathering',obs,teacher:5,reward:0,position:[p.x,p.y,p.z],health:bot.health,food:bot.food,hits:rays.hits,perception_ms:0,steps:0,goal,task:'gather',metrics:sensed.metrics});
   this.harvestTarget=target;
   if(result.action===5){
    motor.pause();
    if(space.busy(bot,state.run,target)){this.message='Waiting for another miner to clear the resource';return;}
-   space.reserve(bot,state.run,target);motor.lockLook(true);
+   space.reserve(bot,state.run,target);this.harvestKind='mining';motor.lockLook(true);
    try{
     const axes=['netherite_axe','diamond_axe','iron_axe','stone_axe','wooden_axe','golden_axe'];
     const chosen=tool||axes.find(n=>bot.inventory.items().some(i=>i.name===n));
     if(chosen&&bot.heldItem?.name!==chosen)await inventorySync.equip(bot,chosen);
-    const success=await harvest(bot,bot.blockAt(target));if(success)this.lastProgress=Date.now();this.path=[];
+    const success=await harvest(bot,bot.blockAt(target));if(success){this.lastProgress=Date.now();this.harvestTarget=null;}this.path=[];
    }finally{motor.lockLook(false);}
   }
   else motor.command(result.action,task,{...sensed,...rays.proximity,cueDistance:p.distanceTo(new Vec3(...goal))},angle);

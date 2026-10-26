@@ -1,0 +1,57 @@
+{
+  "runs": [
+    {
+      "hinge": "left",
+      "direction": 1,
+      "complete": true,
+      "closed": true,
+      "planeCrossings": 1,
+      "seconds": 1.664,
+      "position": {
+        "x": -7.404562989423846,
+        "y": 181,
+        "z": 14.108306175958038
+      }
+    },
+    {
+      "hinge": "left",
+      "direction": -1,
+      "complete": true,
+      "closed": true,
+      "planeCrossings": 1,
+      "seconds": 2.798,
+      "position": {
+        "x": -7.406807352435228,
+        "y": 181,
+        "z": 10.503511667846924
+      }
+    },
+    {
+      "hinge": "right",
+      "direction": 1,
+      "complete": true,
+      "closed": true,
+      "planeCrossings": 1,
+      "seconds": 1.517,
+      "position": {
+        "x": -7.59546027561796,
+        "y": 181,
+        "z": 14.10827560080585
+      }
+    },
+    {
+      "hinge": "right",
+      "direction": -1,
+      "complete": true,
+      "closed": true,
+      "planeCrossings": 1,
+      "seconds": 2.827,
+      "position": {
+        "x": -7.593192647565891,
+        "y": 181,
+        "z": 10.700186704105517
+      }
+    }
+  ],
+  "success": true
+}

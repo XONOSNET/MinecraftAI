@@ -1,0 +1,9 @@
+{
+  "fixture": "Spectator observes live world target blocks and marker entity locations; no resources or rewards granted.",
+  "matched": 238,
+  "compared": 251,
+  "highlight_pairs": 224,
+  "removed_blocks": 13,
+  "stale_marker_pairs": 0,
+  "success": true
+}

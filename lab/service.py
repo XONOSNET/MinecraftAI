@@ -201,7 +201,7 @@ def console(command):
     server.stdin.write(command+'\n');server.stdin.flush()
 from .vision import VisionLines
 vision_lines=VisionLines('data/vision.json',console)
-from .harvest_markers import HarvestMarkers
+from .harvest_markers import HarvestMarkers,validate_intent
 harvest_markers=HarvestMarkers('data/harvest-markers.json',console)
 observers=Observers('data/observers.json',console)
 camera_input=CameraInput('logs/minecraft-console.log',console,'server/world/datapacks/lab_camera_controls')
@@ -434,6 +434,7 @@ def _assignment(d:dict):
             state=agents.setdefault(d['agent'],{'goal':None,'steps':0,'reward':0,'action':4,'inference_ms':0,'perception_ms':0,'rays':[]})
             state.update(position=d['position'],health=d['health'],food=d['food'],last_seen=time.time(),run=run)
             state.update(identities.get(d['agent']))
+            state['harvest_intent']=validate_intent(d.get('harvest_intent'),world_training.session,d['agent'],time.time())
             state.update(trial_seconds=d.get('trial_seconds'),activity=str(d.get('activity','Waiting'))[:160],speed=d.get('speed',0),reset_seconds=d.get('reset_seconds'),reset_steps_left=d.get('reset_steps_left'))
             state.update(connected=True,entity_id=d.get('entity_id'),dimension=d.get('dimension'),simulation=STAGES[practice['stage'] if practice else curriculum.state['stage']]['name'] if practice or curriculum.state['enabled'] else 'Manual navigation')
         if world_training.session:
