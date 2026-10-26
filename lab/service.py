@@ -208,6 +208,8 @@ camera_input=CameraInput('logs/minecraft-console.log',console,'server/world/data
 practice_protection=PracticeProtection(console)
 world_training=WorldTraining('data/world-training.json',console,'logs/minecraft-console.log')
 bot_lights=BotLights(console)
+from .behavior import BehaviorRules
+behavior_rules=BehaviorRules('config/behavior.json',[f'LabAI{i}' for i in range(AGENT_COUNT)])
 
 def checkpoint():
     stamp=str(time.time_ns());p=Path('checkpoints')/(stamp+'.pt')
@@ -406,7 +408,7 @@ def status():
         metrics=episode_metrics()
         run_sizes={r[0]:r[1]*r[2] for r in db.execute('SELECT * FROM run_config')}
         activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error','world_learning_cycle') ORDER BY id DESC LIMIT 20")]
-        return {'world_learning':world_learning.snapshot(),'world_training':world_training.snapshot(),'model_evolution':evolution.snapshot(active_skill()),'vision':dict(vision_lines.settings),'harvest_markers':dict(harvest_markers.settings),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
+        return {'world_learning':world_learning.snapshot(),'world_training':world_training.snapshot(),'model_evolution':evolution.snapshot(active_skill()),'vision':dict(vision_lines.settings),'harvest_markers':dict(harvest_markers.settings),'behavior':behavior_rules.snapshot(),'behavior_active_revision':(world_training.session or {}).get('behavior_snapshot',{}).get('revision'),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:
@@ -416,6 +418,13 @@ def nearby_memory(agent:str):
         return {'agent':agent,'source':'previously observed; may be stale','blocks':[dict(zip(('x','y','z','block','last_observed'),r)) for r in rows]}
 @app.post('/assignment',dependencies=[Depends(auth)])
 def assignment(d:dict):
+    with lock:
+        response=_assignment(d)
+        frozen=(world_training.session or {}).get('behavior_snapshot') if world_training.session else None
+        response['behavior']=behavior_rules.effective(d['agent'],frozen)
+        return response
+
+def _assignment(d:dict):
     with lock:
         if not is_agent(d.get('agent')) or d.get('agent')!=f"LabAI{d.get('index')}":raise HTTPException(400,'Unknown agent')
         for player in d.get('players',[]):
@@ -831,7 +840,11 @@ def _begin_world(d:dict):
         if curriculum.state.get('restore_pending'):raise HTTPException(409,'Wait for champion model restoration.')
         names=[n for n,a in agents.items() if is_agent(n) and a.get('connected') and time.time()-a.get('last_seen',0)<8]
         if not names:raise HTTPException(409,'No connected bots.')
-        try:result=world_training.start(d,sorted(names)[:8])
+        try:
+            frozen=behavior_rules.frozen(d['behavior_snapshot']['config']) if d.get('behavior_snapshot') else behavior_rules.frozen()
+            result=world_training.start(d,sorted(names)[:8])
+            world_training.session['behavior_snapshot']=frozen
+            result['session']['behavior_snapshot']=frozen
         except ValueError as error:raise HTTPException(400,str(error))
         curriculum.pause('Basics saved while real-world hut training is selected.');practice=None
         mode='teacher' if d.get('driver','teacher')=='teacher' else 'evaluate';run=world_training.session['run']
@@ -898,6 +911,12 @@ def world_menu(d:dict={}):
         allowed=[p['name'] for p in online_players() if not p['is_bot']]
         if player not in allowed:raise HTTPException(400,'Choose an online human player.')
         console('scoreboard objectives add lab_world trigger');console(f'scoreboard players enable {player} lab_world');world_training.menu(player);return {'ok':True}
+
+@app.post('/behavior',dependencies=[Depends(auth)])
+def configure_behavior(d:dict):
+    with lock:
+        try:return behavior_rules.update(d)
+        except ValueError as error:raise HTTPException(400,str(error))
 
 @app.post('/harvest-markers',dependencies=[Depends(auth)])
 def configure_harvest_markers(d:dict):
@@ -984,7 +1003,7 @@ world_learning=WorldLearning('data/world-learning.json',{
     'stop_world':world_training.stop,'cancel':training_jobs.cancel,'job':training_jobs.snapshot,
     'world':lambda:world_training.session,'begin':_begin_world,'train':world_train_skill,
     'protect':protect_world_models,'restore':restore_world_models,'review':review_world_models,
-    'switch':world_learning_switch,
+    'switch':world_learning_switch,'behavior':behavior_rules.frozen,
     'ready':lambda:auto_health(recovering=world_learning.state.get('phase')=='recovering' and world_learning.state.get('recovery_cause')=='memory') is None,
     'counts':lambda:{skill:skill_bank.get(skill,model)['count'] for skill in WORLD_SKILLS}})
 

@@ -1,20 +1,21 @@
 // Bounded local obstacle recovery, shared by teacher and policy. No route/goal oracle.
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
 const distance=(a,b)=>a&&b?Math.hypot(a.x-b.x,a.z-b.z):Infinity;
-function createRecovery(){
+function createRecovery(settings=()=>require('./behavior').defaults){
  let state=null,blockedAt=null,memory=[],preferredSign=1,label=null;
  const hold=text=>({forward:false,back:false,jump:false,sneak:false,yaw:0,label:text});
  function reset(){state=null;blockedAt=null;memory=[];preferredSign=1;label=null;}
  function update(base,sensed,position,yaw,now,permissions,angle=0,bounds=null){
+  const rules=settings();
   memory=memory.filter(m=>now-m.at<12000);let result=base;
   if(sensed.inWater||sensed.inLava||sensed.climbing){state=null;blockedAt=null;label=base.label;return base;}
   const remembered=memory.find(m=>distance(position,m.position)<2.5&&Math.abs(wrap(yaw-m.yaw))<.65);
   if(!state){
    if(base.forward&&sensed.wallAhead&&!sensed.door&&!remembered){
     blockedAt??=now;result=hold('Wall ahead: checking escape');
-    if(now-blockedAt>=900){state={stage:sensed.rearSafe&&permissions.move?'back':'choose',until:now+400,deadline:now+5000,origin:{...position},wallYaw:yaw,attempts:0};blockedAt=null;}
+    if(now-blockedAt>=rules.recovery_wait_ms){state={stage:sensed.rearSafe&&permissions.move?'back':'choose',until:now+400,deadline:now+rules.recovery_timeout_ms,origin:{...position},wallYaw:yaw,attempts:0};blockedAt=null;}
    }else if(base.forward&&remembered&&sensed.forwardClearance!==null&&sensed.forwardClearance<1.25&&!sensed.door){
-    state={stage:'choose',deadline:now+5000,origin:{...position},wallYaw:remembered.yaw,attempts:0};blockedAt=null;
+    state={stage:'choose',deadline:now+rules.recovery_timeout_ms,origin:{...position},wallYaw:remembered.yaw,attempts:0};blockedAt=null;
    }else blockedAt=null;
   }
   if(state){

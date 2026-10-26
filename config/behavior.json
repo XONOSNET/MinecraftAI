@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "global": {},
+  "bots": {
+    "LabAI1": {
+      "walk_yaw_deg_per_sec": 510,
+      "aim_pitch_deg_per_sec": 165
+    },
+    "LabAI2": {
+      "aim_pitch_deg_per_sec": 195,
+      "walk_yaw_deg_per_sec": 570
+    },
+    "LabAI5": {
+      "aim_pitch_deg_per_sec": 165,
+      "walk_yaw_deg_per_sec": 510
+    },
+    "LabAI6": {
+      "aim_pitch_deg_per_sec": 195,
+      "walk_yaw_deg_per_sec": 570
+    }
+  }
+}

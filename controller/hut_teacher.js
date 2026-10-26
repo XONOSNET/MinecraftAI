@@ -7,6 +7,7 @@ const {harvest}=require('./harvest');
 const {route,standable}=require('./field_navigation');
 const {WorldTiming}=require('./world_timing');
 const space=require('./resource_space');
+const {forBot}=require('./behavior');
 const {chooseTree}=require('./tree_target');
 const settlement=require('./settlement');
 const {scanTrees,visibleBlock}=require('./target_scan');
@@ -60,8 +61,8 @@ function reference(bot,p){for(const [dx,dy,dz] of [[0,-1,0],[1,0,0],[-1,0,0],[0,
 class HutTeacher{
  constructor(){this.run=null;}
  async tick(bot,motor,state,api,scan,tasks){
-  const now=Date.now(),p=bot.entity.position,w=state.world;
-  if(this.run!==state.run)this.stall=new WorldStall();
+  const now=Date.now(),p=bot.entity.position,w=state.world,rules=forBot(bot);
+  if(this.run!==state.run)this.stall=new WorldStall(rules.stationary_timeout_seconds);
   if(this.run!==state.run){space.release(bot.username);this.treeRetry=0;this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;this.scanCount=0;this.observedTrees=0;this.quarry=null;this.lastRecoveryReset=0;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
   this.timing.mark(this.phase,'waiting',now);
   const moved=Math.hypot(p.x-this.last.x,p.z-this.last.z);if(moved<4&&this.phase!=='survey')this.travelled+=moved;this.last=p.clone();
@@ -72,7 +73,7 @@ class HutTeacher{
   if(this.phase!=='survey'&&now>this.settle&&(bot.health<10||bot.food<5)){this.error='Health or food too low to continue safely.';this.phase='stopped';}
   if(now-this.started>1150000){this.error='Trial time limit reached.';this.phase='stopped';}
   const stock=bot.inventory.items().map(i=>i.name+':'+i.count).sort().join(','),stall=this.stall.update(p,[this.phase,this.built,this.milestones.length,stock].join('|'),now);
-  if(stall.expired&&!['survey','complete','stopped'].includes(this.phase)){this.error='Stationary for 90 seconds without material or lesson progress; ending this attempt so learning can continue.';this.phase='stopped';}
+  if(stall.expired&&!['survey','complete','stopped'].includes(this.phase)){this.error=`Stationary for ${rules.stationary_timeout_seconds} seconds without material or lesson progress; ending this attempt so learning can continue.`;this.phase='stopped';}
   try{
    if(this.phase==='survey'&&now-this.started<4000){motor.pause();this.message='Waiting for natural terrain chunks';}
    else if(this.phase==='survey'){
@@ -87,7 +88,7 @@ class HutTeacher{
     if(now-this.inventoryAt>1500){await inventorySync.sync(bot);this.inventoryAt=now;}
     if(count(bot,n=>LOG.test(n))*4+count(bot,planks)>=(this.supplyRun?28:this.requiredWood(bot))){motor.pause();this.phase=this.supplyRun?'supply_craft':'craft';}
     else{
-     if(!this.resourceAt||now-this.resourceAt>1500){this.resources=this.grove?this.grove.flatMap(([x,y,z])=>[0,1,2,3].map(dy=>new Vec3(x,y+dy,z))):bot.findBlocks({matching:b=>LOG.test(b.name),useExtraInfo:b=>Math.abs(b.position.y-p.y)<5,maxDistance:64,count:256}).filter(v=>this.inside(v,w.bounds)&&safeResource(bot,v));this.resourceAt=now;}
+     if(!this.resourceAt||now-this.resourceAt>rules.resource_scan_ms){this.resources=this.grove?this.grove.flatMap(([x,y,z])=>[0,1,2,3].map(dy=>new Vec3(x,y+dy,z))):bot.findBlocks({matching:b=>LOG.test(b.name),useExtraInfo:b=>Math.abs(b.position.y-p.y)<5,maxDistance:64,count:256}).filter(v=>this.inside(v,w.bounds)&&safeResource(bot,v));this.resourceAt=now;}
      if(this.grove&&!this.resources.some(v=>LOG.test(bot.blockAt(v)?.name||''))){this.grove=null;this.resourceAt=0;}
      let targets=this.resources.filter(v=>!this.ignoredTrees.has(v.x+','+v.z)&&LOG.test(bot.blockAt(v)?.name||'')).sort((a,b)=>a.distanceTo(p)-b.distanceTo(p));
      let focused={key:null,targets:[]};
@@ -95,7 +96,7 @@ class HutTeacher{
      if(!pendingDrops&&(this.tree||now>this.treeRetry)){
       if(!this.tree||!targets.some(v=>v.x+','+v.z===this.tree)){this.scanCount++;this.observedTrees=scanTrees(bot).length;}
       focused=chooseTree(bot,targets,this.tree,surface,state.run);
-      if(!focused.key)this.treeRetry=now+1500;
+      if(!focused.key)this.treeRetry=now+rules.tree_retry_ms;
      }
      if(!pendingDrops&&focused.key!==this.tree){if(this.tree)this.timing.targets++;this.tree=pendingDrops?this.tree:focused.key;this.treeApproach=focused.approach||null;this.path=[];}
      targets=focused.targets;
@@ -311,7 +312,7 @@ class HutTeacher{
   }
   const passage=this.plot?doorwayDescriptor(bot,bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-2)),goal):null;
   while(this.path.length&&Math.hypot(this.path[0][0]-p.x,this.path[0][2]-p.z)<.55&&Math.abs(this.path[0][1]-p.y)<.8)this.path.shift();
-  const dest=goal.join(',');if(!this.path.length||this.destination!==dest||now-this.lastPlan>2500){const planned=route(bot,goal,48,4096,true);this.timing.replans++;this.path=planned.path;this.destination=dest;this.lastPlan=now;if(!this.path.length){if(passage||motor.passageActive?.())this.path=[goal];else{motor.pause();this.message=planned.message;return false;}}}
+  const dest=goal.join(',');if(!this.path.length||this.destination!==dest||now-this.lastPlan>forBot(bot).route_replan_ms){const planned=route(bot,goal,48,4096,true);this.timing.replans++;this.path=planned.path;this.destination=dest;this.lastPlan=now;if(!this.path.length){if(passage||motor.passageActive?.())this.path=[goal];else{motor.pause();this.message=planned.message;return false;}}}
   const cue=this.path[0];if(!this.inside(new Vec3(...cue),state.world.bounds)){motor.pause();throw Error('Planned route reached the trial boundary.');}
   const skill=this.phase==='enter'?'shelter':'expedition';
   const task={kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],bounds:state.world.bounds,actual_doors:[],allow_water:false,coverage_target:100,quick_look:true,safe_walk:true,avoid_players:true,navigation_lock:state.world.driver==='teacher'};

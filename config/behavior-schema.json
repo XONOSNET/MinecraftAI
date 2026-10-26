@@ -1,0 +1,90 @@
+{
+  "player_clearance": {
+    "label": "Player clearance",
+    "unit": "blocks",
+    "default": 2,
+    "min": 2,
+    "max": 4,
+    "floor": true
+  },
+  "mining_clearance": {
+    "label": "Mining area clearance",
+    "unit": "blocks",
+    "default": 2,
+    "min": 2,
+    "max": 4,
+    "floor": true
+  },
+  "reservation_seconds": {
+    "label": "Mining reservation expiry",
+    "unit": "seconds",
+    "default": 30,
+    "min": 10,
+    "max": 60,
+    "global_only": true
+  },
+  "resource_scan_ms": {
+    "label": "Resource refresh interval",
+    "unit": "ms",
+    "default": 1500,
+    "min": 750,
+    "max": 4000
+  },
+  "tree_retry_ms": {
+    "label": "Blocked tree retry interval",
+    "unit": "ms",
+    "default": 1500,
+    "min": 750,
+    "max": 5000
+  },
+  "route_replan_ms": {
+    "label": "Route refresh interval",
+    "unit": "ms",
+    "default": 2500,
+    "min": 1000,
+    "max": 6000
+  },
+  "aim_yaw_deg_per_sec": {
+    "label": "Harvest horizontal turn speed",
+    "unit": "degrees/s",
+    "default": 300,
+    "min": 180,
+    "max": 540
+  },
+  "aim_pitch_deg_per_sec": {
+    "label": "Harvest vertical turn speed",
+    "unit": "degrees/s",
+    "default": 180,
+    "min": 90,
+    "max": 270
+  },
+  "walk_yaw_deg_per_sec": {
+    "label": "World navigation turn speed",
+    "unit": "degrees/s",
+    "default": 540,
+    "min": 180,
+    "max": 720
+  },
+  "recovery_wait_ms": {
+    "label": "Wall check before recovery",
+    "unit": "ms",
+    "default": 900,
+    "min": 500,
+    "max": 2000
+  },
+  "recovery_timeout_ms": {
+    "label": "Local recovery deadline",
+    "unit": "ms",
+    "default": 5000,
+    "min": 3000,
+    "max": 8000
+  },
+  "stationary_timeout_seconds": {
+    "label": "Stationary attempt deadline",
+    "unit": "seconds",
+    "default": 90,
+    "min": 60,
+    "max": 120,
+    "global_only": true
+  }
+}

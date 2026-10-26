@@ -26,6 +26,23 @@ def reach_candidate(m,lab):
     lab.job['status']='completed';m.tick();lab.job['status']='completed';m.tick();assert m.state['phase']=='evaluating'
 
 
+def test_behavior_changes_wait_until_next_cycle_and_revision_guards_selection(tmp_path):
+    m,lab,clock=fixture(tmp_path);revision={'revision':'first','config':{'global':{},'bots':{},'version':1}}
+    m.h['behavior']=lambda:revision
+    m.tick();assert lab.runs[0]['behavior_snapshot']['revision']=='first'
+    revision['revision']='second';lab.finish(0);m.tick()
+    assert lab.runs[1]['behavior_snapshot']['revision']=='first'
+    lab.counts.update(expedition=100,gathering=80);lab.finish(2);m.tick()
+    lab.job['status']='completed';m.tick();lab.job['status']='completed';m.tick()
+    assert lab.runs[2]['behavior_snapshot']['revision']=='first'
+    lab.finish(2);m.tick();clock[0]+=11;m.tick();m.tick()
+    assert lab.runs[-1]['behavior_snapshot']['revision']=='second'
+    before=measured_trial(dict(bots=['LabAI0'],results={},behavior_snapshot={'revision':'first'}))
+    after={**before,'behavior_revision':'second'}
+    accepted,reason=select_world(before,after)
+    assert not accepted and 'Behavior settings changed' in reason
+
+
 def test_full_loop_uses_distinct_teacher_layout_and_paired_student_layout_and_accepts(tmp_path):
     m,lab,clock=fixture(tmp_path);reach_candidate(m,lab)
     assert [r['driver'] for r in lab.runs]==['student','teacher','student']

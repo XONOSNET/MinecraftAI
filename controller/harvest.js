@@ -1,13 +1,15 @@
+const {forBot}=require('./behavior');
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
 async function aim(bot,point){
  const p=bot.entity.position,dx=point.x-p.x,dz=point.z-p.z,dy=point.y-p.y-(bot.entity.eyeHeight||1.62);
+ const rules=forBot(bot),yawStep=rules.aim_yaw_deg_per_sec*Math.PI/180*.05,pitchStep=rules.aim_pitch_deg_per_sec*Math.PI/180*.05;
  const yaw=Math.atan2(-dx,-dz),pitch=Math.atan2(dy,Math.hypot(dx,dz));
- for(let i=0;i<40;i++){
+ for(let i=0;i<80;i++){
   const dyaw=wrap(yaw-bot.entity.yaw),dp=pitch-bot.entity.pitch;
   if(Math.abs(dyaw)<.01&&Math.abs(dp)<.01)return;
   const limit=(v,n)=>Math.sign(v)*Math.min(Math.abs(v),n);
-  await Promise.all([bot.look(bot.entity.yaw+limit(dyaw,Math.PI/12),bot.entity.pitch+limit(dp,Math.PI/20),true),wait(50)]);
+  await Promise.all([bot.look(bot.entity.yaw+limit(dyaw,yawStep),bot.entity.pitch+limit(dp,pitchStep),true),wait(50)]);
  }
 }
 // Confirm real server block removal; use the equipped tool's native break time.

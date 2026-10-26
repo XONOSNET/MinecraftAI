@@ -1,0 +1,11 @@
+Behavior settings are software controls, separate from learned policy weights.
+
+`config/behavior-schema.json` defines units, defaults and bounds shared by Python and Node. `config/behavior.json` stores global overrides and stable overrides keyed by the bot's internal account (`LabAI0` etc.); generated display names can change without losing settings. The dashboard's Behavior rules editor shows inherited values and their source. Blank fields inherit; clearing a scope removes only its overrides. Save each edited scope separately. Changes persist atomically and stale edits are rejected.
+
+Resolution is schema default → global override → bot override. Player and mining clearances also enforce the global value as a minimum. Reservation expiry and stationary-attempt deadlines are global only. Lava, ground support, doorway checks and native tool break times cannot be disabled by these settings. Clearance against reserved mining areas uses the larger of both miners' radii. Spectators remain excluded from player avoidance, and crowded spawns can disperse.
+
+Initial variation is deliberately small: four bots retain standard 300°/s horizontal harvest aiming, 180°/s vertical aiming and 540°/s navigation turning; two use 165°/s vertical and 510°/s navigation turning, and two use 195°/s vertical and 570°/s navigation turning. Resource reservations, recovery rules and safety limits start equal. These settings are not claimed to be optimal and are not automatically evolved.
+
+World learning pins a revision and the full per-bot configuration at the beginning of each baseline/teacher/candidate cycle. Dashboard edits wait until the next cycle; manual world trials take settings when they start. Comparisons record the revision and reject mismatches. Global and individual variation therefore stays identical between paired evaluations. Basics assignments receive the saved configuration; each setting affects only the routine that uses it (for example, the world harvesting helper).
+
+Production can load the same schema and effective configuration per bot without the dashboard. Keep the policy weights, behavior revision and measured outcomes together when comparing deployments. Persistent clearance and recovery settings provide controlled variation; resource targets and reservations remain temporary runtime state.

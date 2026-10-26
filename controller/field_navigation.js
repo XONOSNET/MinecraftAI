@@ -34,7 +34,7 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false){
   for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])for(const dy of [0,1,-1]){
    const next=[n[0]+dx,n[1]+dy,n[2]+dz];
    if(Math.abs(next[0]-start[0])>radius||Math.abs(next[2]-start[2])>radius||!standable(bot,...next))continue;
-   if(others.length&&!space.stepClear({x:n[0]+.5,y:n[1],z:n[2]+.5},{x:next[0]+.5,y:next[1],z:next[2]+.5},others))continue;
+   if(others.length&&!space.stepClear({x:n[0]+.5,y:n[1],z:n[2]+.5},{x:next[0]+.5,y:next[1],z:next[2]+.5},others,require('./behavior').forBot(bot).player_clearance))continue;
    // An ascending jump also needs clearance above the departure block.
    if(dy===1){const over=bot.blockAt(new Vec3(n[0],n[1]+2,n[2]));if(!safe(over)||over.boundingBox!=='empty')continue;}
    const k=key(next),ng=g+1+(dy!==0?.4:0);

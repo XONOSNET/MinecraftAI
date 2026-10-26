@@ -6,6 +6,7 @@ const {createRecovery}=require('./recovery');
 const {createDoorway}=require('./doorway');
 const {proximity}=require('./perception');
 const space=require('./resource_space');
+const {forBot}=require('./behavior');
 function applyPose(bot,wantsCrouch){
  if(!bot.physics||!bot.entity?.position||!bot.blockAt)return;
  const p=bot.entity.position;let ceiling=false;
@@ -45,7 +46,7 @@ function motorPlan(action,permissions,task,sensed,angle,traveling=false){
   label:door?'Opening door while walking':walkingTurn?(action===1?'Steering left while walking':'Steering right while walking'):turning?'Turning to align':null};
 }
 function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
- const recovery=createRecovery(),doorway=createDoorway();
+ const recovery=createRecovery(()=>forBot(bot)),doorway=createDoorway();
  let plan=null,targetYaw=null,expires=0,last=clock(),paused=true,lookLocked=false,stalled=false,lastSafetyAt=-Infinity,groundSafe=true;
  function clear(){recovery.reset();doorway.reset();bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
  return {
@@ -78,7 +79,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     }
    }
    plan.avoidPlayers=!!task?.avoid_players;plan.levelLook=!!task?.quick_look;
-   plan.yawRate=task?.quick_look?Math.PI*3:Math.PI;
+   plan.yawRate=task?.quick_look?forBot(bot).walk_yaw_deg_per_sec*Math.PI/180:Math.PI;
    if(plan.forward&&sensed?.crouchClearance){plan.sneak=true;plan.jump=false;plan.label='Crouching under low clearance';}
    plan.sprint=sprintIntent(bot,permissions,task,plan,sensed,angle,!!bot.getControlState('sprint'));
    if(plan.sprint)plan.label='Sprinting on clear ground';
@@ -111,7 +112,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     if(d<.035||d<approaching*2.4+.04)forward=false;
    }
    if(plan.avoidPlayers){
-    const p=bot.entity.position,others=space.players(bot),clear=sign=>space.stepClear(p,{x:p.x-sign*Math.sin(bot.entity.yaw)*.7,y:p.y,z:p.z-sign*Math.cos(bot.entity.yaw)*.7},others);
+    const p=bot.entity.position,others=space.players(bot),clear=sign=>space.stepClear(p,{x:p.x-sign*Math.sin(bot.entity.yaw)*.7,y:p.y,z:p.z-sign*Math.cos(bot.entity.yaw)*.7},others,forBot(bot).player_clearance);
     if(forward&&!clear(1)){forward=false;plan.label='Waiting for nearby player to clear the route';}
     if(plan.back&&!clear(-1))plan.back=false;
    }

@@ -1,6 +1,7 @@
 const mineflayer=require('mineflayer');const {scan}=require('./perception');
 const {HutTeacher}=require('./hut_teacher');
 const inventorySync=require('./inventory_sync');
+const behavior=require('./behavior');
 const combat=require('./combat');const tasks=require('./tasks');const {ownOxygen}=require('./air');
 const fs=require('fs');const token=fs.readFileSync('data/api-token','utf8').trim();
 const permissions=JSON.parse(fs.readFileSync('config/permissions.json','utf8'));
@@ -31,6 +32,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
 
  let state=await api('/assignment',heartbeat());
  if(phase!==state.run){episode=0;state=await api('/assignment',heartbeat());}
+ if(b.labBehavior?.revision!==state.behavior?.revision)behavior.apply(b,state.behavior);
  if(state.world){if(phase!==state.run){motor.pause();phase=state.run;}goal=null;task=null;trialStarted=null;activity=await hutTeacher.tick(b,motor,state,api,scan,tasks);return;}
  if(state.mode==='paused'){require('./resource_space').release(name);b.deactivateItem();trialStarted=null;activity=state.message||'Waiting for next learning phase';motor.pause();goal=null;return;}
  if(Date.now()<readyAt){activity='Loading arena / settling after teleport';motor.pause();b.clearControlStates();return;}

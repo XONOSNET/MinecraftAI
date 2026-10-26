@@ -19,10 +19,11 @@ def measured_trial(session):
         progress.append(min(1,(len(r.get('milestones',[]))+partial)/total))
         if r.get('state')=='complete' and isinstance(r.get('seconds'),(float,int)):seconds.append(r['seconds'])
     return dict(bots=len(names),roster=sorted(names),completed=completed,unsafe=unsafe,progress=sum(progress)/n,
-                median_seconds=statistics.median(seconds) if seconds else None,run=session.get('run'))
+                median_seconds=statistics.median(seconds) if seconds else None,run=session.get('run'),behavior_revision=session.get('behavior_snapshot',{}).get('revision'))
 
 
 def select_world(baseline,candidate):
+    if baseline.get('behavior_revision')!=candidate.get('behavior_revision'):return False,'Behavior settings changed; comparison discarded.'
     if baseline['bots']!=candidate['bots'] or baseline.get('roster')!=candidate.get('roster'):return False,'Bot roster changed; comparison discarded.'
     if candidate['unsafe']>baseline['unsafe']:return False,'More low-health failures; restored protected specialists.'
     if candidate['completed']<baseline['completed']:return False,'Fewer completed sequences; restored protected specialists.'
@@ -75,6 +76,7 @@ class WorldLearning:
 
     def begin(self,driver,phase,layout):
         options=dict(self.state['options'],driver=driver,loop=False,layout=layout)
+        if self.state.get('behavior_snapshot'):options['behavior_snapshot']=copy.deepcopy(self.state['behavior_snapshot'])
         session=self.h['begin'](options)['session'];self.state['run']=session['run']
         self.phase(phase,{'baseline':'Testing the saved specialists without teacher movement or harvesting control.',
                          'demonstrating':'Teacher practice: collecting fresh navigation and harvesting examples on a separate resource layout.',
@@ -95,6 +97,7 @@ class WorldLearning:
             if s.get('restore_pending'):self.h['restore']();s['restore_pending']=False
             self.phase('waiting','Recovery complete. Beginning a fresh saved-model evaluation.');return
         if s['phase']=='waiting':
+            if 'behavior' in self.h:s['behavior_snapshot']=copy.deepcopy(self.h['behavior']())
             s['round']=s.get('round',0)+1;s['trained']=[];s['training_results']=[];s['eval_layout']=1+(s['round']-1)%3
             self.begin('student','baseline',s['eval_layout']);return
         if s['phase'] in ('baseline','demonstrating','evaluating'):
