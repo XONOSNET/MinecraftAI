@@ -10,7 +10,7 @@ from .protection import HOSTILES
 
 LESSONS=['Enclose a hut','Craft and place a chest','Craft a wooden pickaxe','Craft a wooden axe','Craft a wooden shovel','Store eight planks and equip the axe']
 HOUSE=json.loads((Path(__file__).resolve().parent.parent/'config/house.json').read_text(encoding='utf-8'))
-STONE_LESSONS=LESSONS+['Mine stone with the wooden pickaxe','Craft a stone pickaxe','Craft a stone axe','Craft and place a furnace','Smelt a log into charcoal','Craft and place an exterior torch']
+STONE_LESSONS=LESSONS+['Mine stone with the wooden pickaxe','Craft a stone pickaxe','Craft a stone axe','Craft and place a furnace','Smelt a log into charcoal','Mount indoor and outdoor wall torches']
 
 SCENARIOS=[dict(id=i,name=name,description=description,spread=spread) for i,(name,description,spread) in enumerate([
  ('Natural settlement','A shared natural spawn and independent hut plots.',9),

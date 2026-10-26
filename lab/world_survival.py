@@ -4,7 +4,7 @@ import json
 import math
 
 ADVANCED=('iron_age','homestead','home_defense')
-BASE=['Enclose a hut','Craft and place a chest','Craft a wooden pickaxe','Craft a wooden axe','Craft a wooden shovel','Store eight planks and equip the axe','Mine stone with the wooden pickaxe','Craft a stone pickaxe','Craft a stone axe','Craft and place a furnace','Smelt a log into charcoal','Craft and place an exterior torch']
+BASE=['Enclose a hut','Craft and place a chest','Craft a wooden pickaxe','Craft a wooden axe','Craft a wooden shovel','Store eight planks and equip the axe','Mine stone with the wooden pickaxe','Craft a stone pickaxe','Craft a stone axe','Craft and place a furnace','Smelt a log into charcoal','Mount indoor and outdoor wall torches']
 IRON=['Descend a reversible mine staircase','Mine coal for furnace fuel','Mine iron with a stone pickaxe','Climb back to the surface and return home','Smelt raw iron','Craft an iron pickaxe','Craft shears','Craft an iron sword']
 HOME=['Shear sheep and collect three wool','Craft and place a bed; register home','Obtain food from livestock','Cook food in the furnace','Craft and equip a full iron armor set','Store cooked food and spare iron']
 MISSION_LESSONS={'iron_age':BASE+IRON,'homestead':BASE+IRON+HOME,'home_defense':BASE+IRON+HOME+['Retreat from a controlled monster and close the home door','Defend home with armor and a sword','Return safely to the bed home']}

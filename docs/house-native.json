@@ -7,34 +7,56 @@
     },
     {
       "phase": "table",
-      "seconds": 35
+      "seconds": 40
     },
     {
       "phase": "door_craft",
-      "seconds": 36
+      "seconds": 41
     },
     {
       "phase": "build",
-      "seconds": 36
+      "seconds": 41
     },
     {
       "phase": "door",
-      "seconds": 92
+      "seconds": 100
     },
     {
       "phase": "enter",
-      "seconds": 93
+      "seconds": 101
     },
     {
       "phase": "shelter",
-      "seconds": 93
+      "seconds": 101
     }
   ],
-  "pulse": 1793040201353,
+  "pulse": 1793055923776,
   "blocks": 144,
   "floor_tiles": 25,
+  "wall_torches": [
+    {
+      "side": "indoor",
+      "position": {
+        "x": -222,
+        "y": 182,
+        "z": -220
+      },
+      "name": "wall_torch",
+      "facing": "east"
+    },
+    {
+      "side": "outdoor",
+      "position": {
+        "x": -221,
+        "y": 181,
+        "z": -224
+      },
+      "name": "wall_torch",
+      "facing": "north"
+    }
+  ],
   "bed": true,
   "door_closed": true,
-  "seconds": 98,
+  "seconds": 113,
   "success": true
 }

@@ -30,7 +30,7 @@ Two consecutive champion cycles with at least 75% full student completion advanc
 9. Craft a stone axe.
 10. Craft and place a furnace.
 11. Smelt a real log into charcoal, using planks as fuel.
-12. Craft and place an exterior torch, return inside and close the door.
+12. Craft torches, mount one high on the interior wall and one beside the entrance outside, then return inside and close the door. Both wall attachments must verify.
 
 Quarries and fuel stumps appear once per bot after the settlement is verified. No production inventory grants bypass harvesting or crafting. Stone tools and the furnace require fourteen cobblestone in total; sixteen stone blocks provide a small collection margin.
 

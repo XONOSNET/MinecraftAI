@@ -7,4 +7,8 @@ function blueprint(plot){
  for(let dx=-r;dx<=r;dx++)for(let dz=-r;dz<=r;dz++)blocks.push({x:x+dx,y:y+h,z:z+dz});
  return blocks;
 }
-module.exports={config,point,blueprint,total:blueprint({x:0,y:0,z:0}).length};
+function torchMount(plot,side){
+ const position=point(plot,side+'_torch'),face=side==='indoor'?new Vec3(1,0,0):new Vec3(0,0,-1);
+ return {position,face,support:position.minus(face),facing:side==='indoor'?'east':'north'};
+}
+module.exports={config,point,blueprint,torchMount,total:blueprint({x:0,y:0,z:0}).length};

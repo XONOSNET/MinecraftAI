@@ -19,6 +19,7 @@ const {WorldStall}=require('./world_stall');
 const {WorldNavigation}=require('./world_navigation');
 const survival=require('./survival');
 const house=require('./house');
+const houseLighting=require('./house_lighting');
 const LOG=/^(oak|birch|spruce|jungle|acacia|dark_oak|mangrove|cherry)_log$/;
 const planks=name=>name.endsWith('_planks');
 const count=(bot,match)=>bot.inventory.items().filter(i=>match(i.name)).reduce((n,i)=>n+i.count,0);
@@ -231,7 +232,7 @@ class HutTeacher{
     const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-3));
     if(door&&!door.getProperties().open&&p.z<door.position.z+.5&&door.position.distanceTo(p)<3.5){motor.pause();await bot.activateBlock(door);}
     else if((Math.hypot(p.x-this.plot.x-.5,p.z-this.plot.z-.5)>.45||Math.abs(p.y-this.plot.y)>.4))await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5],state,api,scan,tasks);
-    else{motor.pause();if(this.phase==='stone_return')this.phase='stone_tools';else{if(door.getProperties().open&&!await closeDoor(bot,door))return 'Waiting for the doorway to clear before closing';this.phase=survival.advanced(w.mission)?'survival_setup':'complete';this.message='Stone-age base complete: stocked hut, wooden and stone tools, working furnace, charcoal and exterior torch.';}this.lastProgress=now;}
+    else{motor.pause();if(this.phase==='stone_return')this.phase='stone_tools';else{if(door.getProperties().open&&!await closeDoor(bot,door))return 'Waiting for the doorway to clear before closing';this.phase=survival.advanced(w.mission)?'survival_setup':'complete';this.message='Stone-age base complete: stocked hut, wooden and stone tools, working furnace, charcoal and indoor/outdoor wall torches.';}this.lastProgress=now;}
    }else if(this.phase==='stone_tools'){
     this.timing.mark(this.phase,'crafting');motor.pause();const table=bot.blockAt(new Vec3(this.table.x,this.table.y,this.table.z));
     const tool=['stone_pickaxe','stone_axe'].find(name=>!count(bot,n=>n===name));
@@ -247,11 +248,12 @@ class HutTeacher{
     this.timing.mark(this.phase,'smelting');motor.pause();if(!count(bot,n=>n==='charcoal'))await furnace.charcoal(bot,bot.blockAt(house.point(this.plot,'furnace')));
     await inventorySync.sync(bot);if(!count(bot,n=>n==='charcoal'))throw Error('Charcoal was not received from the furnace');this.milestone('charcoal');this.phase='torch_craft';this.lastProgress=Date.now();
    }else if(this.phase==='torch_craft'){
-    this.timing.mark(this.phase,'crafting');motor.pause();if(!count(bot,n=>n==='torch')){if(count(bot,n=>n==='stick')<1)await this.craft(bot,'stick',1,null);await this.craft(bot,'torch',1,null);}this.phase='light_exit';
+    this.timing.mark(this.phase,'crafting');motor.pause();if(count(bot,n=>n==='torch')<houseLighting.missing(bot,this.plot)){if(count(bot,n=>n==='stick')<1)await this.craft(bot,'stick',1,null);await this.craft(bot,'torch',1,null);}this.phase='light_inside';
+   }else if(this.phase==='light_inside'){
+    motor.pause();await houseLighting.place(bot,this.plot,'indoor');this.phase='light_exit';this.lastProgress=Date.now();this.message='Indoor wall torch installed; heading outside to light the entrance';
    }else if(this.phase==='light_place'){
-    motor.pause();const pos=new Vec3(this.plot.x-1,this.plot.y,this.plot.z-4);
-    if(bot.blockAt(pos)?.name!=='torch')await this.place(bot,pos,'torch');
-    if(bot.blockAt(pos)?.name!=='torch')throw Error('Exterior torch placement did not verify');this.milestone('torch');await inventorySync.equip(bot,'stone_axe');this.phase='light_return';this.lastProgress=Date.now();
+    motor.pause();await houseLighting.place(bot,this.plot,'outdoor');
+    if(houseLighting.missing(bot,this.plot))throw Error('Both indoor and outdoor wall torches must verify');this.milestone('torch');await inventorySync.equip(bot,'stone_axe');this.phase='light_return';this.lastProgress=Date.now();this.message='Both wall torches verified; returning inside';
    }else if(survival.handles(this.phase)){await survival.tick(this,bot,motor,state,api,scan,tasks);}
    else motor.pause();
    if(!survival.handles(this.phase)&&!['survey','gather','craft','door_craft','supply_craft','chest','tools','stock_chest','quarry','fuel_log','stone_tools','furnace','smelt','torch_craft','shelter','complete','stopped'].includes(this.phase)&&now-this.lastProgress>60000)throw Error('No construction or movement progress for 60 seconds.');
