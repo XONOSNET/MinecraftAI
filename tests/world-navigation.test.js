@@ -36,7 +36,7 @@ test('elevated blocks remain visible when the near-corner distance truncates a r
 test('settlement chest fits inside the hut and teaching milestones are idempotent',()=>{
  const {chestPosition,TOOLS}=require('../controller/settlement'),{HutTeacher}=require('../controller/hut_teacher');
  const plot={x:20,y:70,z:30},chest=chestPosition(plot);
- assert.ok(Math.abs(chest.x-plot.x)<2&&Math.abs(chest.z-plot.z)<2);
+ assert.ok(Math.abs(chest.x-plot.x)<=2&&Math.abs(chest.z-plot.z)<=2);
  assert.equal(blueprint(plot).some(p=>p.x===chest.x&&p.y===chest.y&&p.z===chest.z),false);
  assert.deepEqual(TOOLS,['wooden_pickaxe','wooden_axe','wooden_shovel']);
  const teacher=new HutTeacher();teacher.milestones=[];teacher.milestone('hut');teacher.milestone('hut');assert.deepEqual(teacher.milestones,['hut']);
@@ -76,12 +76,39 @@ test('field routing avoids water, walls and unloaded blocks while finding a deto
  blocks['0,63,0']='unloaded';assert.equal(standable(bot,0,64,0),false);
 });
 test('hut has real walls, roof and a two-block doorway; completion requires every block',()=>{
- const plot={x:0,y:64,z:0},blocks=blueprint(plot);assert.equal(blocks.length,55);assert.equal(new Set(blocks.map(p=>JSON.stringify(p))).size,55);
- assert.equal(blocks.some(p=>p.x===0&&p.z===-2&&p.y<66),false);
- const map=Object.fromEntries(blocks.map(p=>[`${p.x},${p.y},${p.z}`,p.table?'crafting_table':'oak_planks'])),bot=fixture(map);assert.equal(intact(bot,plot),true);delete map['2,64,0'];assert.equal(intact(bot,plot),false);
+ const plot={x:0,y:64,z:0},blocks=blueprint(plot);assert.equal(blocks.length,144);assert.equal(new Set(blocks.map(p=>JSON.stringify(p))).size,144);
+ assert.equal(blocks.some(p=>p.x===0&&p.z===-3&&p.y<66),false);
+ const map=Object.fromEntries(blocks.map(p=>[`${p.x},${p.y},${p.z}`,p.table?'crafting_table':'oak_planks'])),bot=fixture(map);assert.equal(intact(bot,plot),true);delete map['3,64,0'];assert.equal(intact(bot,plot),false);
 });
 test('natural plots are flat, separated by sectors and never created by filling terrain',()=>{
  const bot=fixture();const a=findPlot(bot,[-64,64,-64,64],0,9),b=findPlot(bot,[-64,64,-64,64],1,9);assert.ok(a&&b);assert.ok(Math.abs(a.x-b.x)>=7);assert.equal(a.y,64);
+});
+
+test('larger house has a complete floor, clear headroom and separate furniture cells',()=>{
+ const house=require('../controller/house'),plot={x:0,y:64,z:0},blocks=blueprint(plot),floor=blocks.filter(q=>q.floor);
+ assert.equal(floor.length,25);assert.equal(blocks.filter(q=>q.y===67).length,49);
+ const occupied=['chest','furnace','bed'].map(key=>house.point(plot,key));occupied.push(house.point(plot,'bed').offset(0,0,1));
+ assert.equal(new Set(occupied.map(p=>p.toString())).size,4);
+ for(const p of occupied){assert.ok(floor.some(q=>q.x===p.x&&q.z===p.z));assert.ok(!blocks.some(q=>q.x===p.x&&q.y===p.y&&q.z===p.z));}
+ for(let y=64;y<67;y++)assert.ok(!blocks.some(q=>q.x===0&&q.z===0&&q.y===y));
+});
+
+test('floor laying never digs the block supporting the bot and moves aside for the last tile',async()=>{
+ const {HutTeacher}=require('../controller/hut_teacher'),t=new HutTeacher(),bot=fixture(),dug=[];t.plot={x:0,y:64,z:0};
+ bot.dig=async block=>dug.push(block.position);t.place=async()=>{};
+ await t.buildFloor(bot,{pause(){}},{},null,null,null);assert.equal(dug.length,1);assert.ok(dug.every(q=>q.x!==0||q.z!==0));
+ const blocks=Object.fromEntries(blueprint(t.plot).filter(q=>q.floor&&(q.x!==0||q.z!==0)).map(q=>[`${q.x},${q.y},${q.z}`,'oak_planks']));
+ const last=fixture(blocks);let goal;t.walk=async(b,m,g)=>{goal=g;};last.dig=async()=>assert.fail('Must move off the remaining tile first');
+ await t.buildFloor(last,{pause(){}},{},null,null,null);assert.ok(goal);assert.ok(goal[0]!==.5||goal[2]!==.5);
+});
+
+test('a bot in the enlarged room center can place the door without repeatedly returning to center',async()=>{
+ const {HutTeacher}=require('../controller/hut_teacher'),t=new HutTeacher(),bot=fixture();
+ Object.assign(bot,{username:'LabAI0',health:20,food:20,game:{gameMode:'survival'},inventory:{items:()=>[{name:'oak_door',count:3}]},look:async()=>{}});
+ const state={run:'door-reach',world:{bounds:[-64,64,-64,64]}},motor={pause(){}},api=async()=>{},tasks={createRuntime:()=>({})};
+ await t.tick(bot,motor,state,api,null,tasks);Object.assign(t,{phase:'door',plot:{x:0,y:64,z:0},settle:0});let placed=false;
+ t.place=async()=>{placed=true;};t.walk=async()=>assert.fail('Door is within native placement reach from the room center');
+ await t.tick(bot,motor,state,api,null,tasks);assert.equal(placed,true);assert.equal(t.phase,'enter');
 });
 
 test('shared natural spawn avoids nearby lava and exposed cave pockets',()=>{
@@ -112,9 +139,9 @@ test('resource pickup routes reach the actual goal instead of stopping a block a
 
 test('construction budget accounts for existing walls, workbench and crafted doors on resume',()=>{
  const {HutTeacher,blueprint}=require('../controller/hut_teacher'),teacher=new HutTeacher(),plot={x:0,y:64,z:0};teacher.plot=plot;
- const bot=fixture();bot.inventory={items:()=>[]};assert.equal(teacher.requiredWood(bot),64);
- const pieces=blueprint(plot).filter(q=>!q.table).slice(0,6),map=Object.fromEntries(pieces.map(q=>[`${q.x},${q.y},${q.z}`,'oak_planks']));map['-2,64,1']='crafting_table';
- const resumed=fixture(map);resumed.inventory={items:()=>[{name:'oak_door',count:3}]};assert.equal(teacher.requiredWood(resumed),48);
+ const bot=fixture();bot.inventory={items:()=>[]};assert.equal(teacher.requiredWood(bot),153);
+ const pieces=blueprint(plot).filter(q=>!q.table).slice(0,6),map=Object.fromEntries(pieces.map(q=>[`${q.x},${q.y},${q.z}`,'oak_planks']));map['-3,64,1']='crafting_table';
+ const resumed=fixture(map);resumed.inventory={items:()=>[{name:'oak_door',count:3}]};assert.equal(teacher.requiredWood(resumed),137);
 });
 
 test('world navigation replans after a blocked local recovery without extending its progress deadline',async()=>{

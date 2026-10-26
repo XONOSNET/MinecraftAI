@@ -25,5 +25,5 @@ async function stockChest(bot,block,amount=8,match=n=>n.endsWith('_planks')){
   return stored();
  }finally{if(window&&bot.currentWindow)await bot.closeWindow(window);}
 }
-function chestPosition(plot){return new Vec3(plot.x+1,plot.y,plot.z+1);}
+function chestPosition(plot){return require('./house').point(plot,'chest');}
 module.exports={TOOLS,supplied,stockChest,chestPosition};

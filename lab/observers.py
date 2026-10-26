@@ -232,8 +232,8 @@ class Observers:
         if not fresh:lines['state']='Waiting for bot telemetry';progress=0
         world=context.get('world')
         if world and job.get('status') not in ('running','cancelling'):
-            result=world['results'].get(s['target'],{});progress=round(100*result.get('blocks',0)/55)
-            lines['task']=f"{display_name} | {result.get('phase',world['phase']).title()} | Hut {result.get('blocks',0)}/55"
+            result=world['results'].get(s['target'],{});target=result.get('target_blocks',144);progress=round(100*result.get('blocks',0)/max(1,target))
+            lines['task']=f"{display_name} | {result.get('phase',world['phase']).title()} | Hut {result.get('blocks',0)}/{target}"
             if result.get('lesson_total',1)>1:
                 progress=round(100*len(result.get('milestones',[]))/result['lesson_total'])
                 lines['task']=f"{display_name} | Lesson {result.get('lesson',1)}/{result['lesson_total']} | {result.get('phase',world['phase']).replace('_',' ').title()}"

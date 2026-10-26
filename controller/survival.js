@@ -3,8 +3,8 @@ const {Vec3}=require('vec3'),inventory=require('./inventory_sync'),furnace=requi
 const advanced=m=>['iron_age','homestead','home_defense'].includes(m),handles=p=>p.startsWith('survival_');
 const count=(b,name)=>b.inventory.items().filter(i=>i.name===name).reduce((n,i)=>n+i.count,0);
 const table=(t,b)=>b.blockAt(new Vec3(t.table.x,t.table.y,t.table.z));
-const hearth=(t,b)=>b.blockAt(new Vec3(t.plot.x-1,t.plot.y,t.plot.z+1));
-const homeGoal=t=>t.home?[t.home.position[0]-.5,t.home.position[1]+.1,t.home.position[2]+1.5]:[t.plot.x+.5,t.plot.y+.1,t.plot.z+.5];
+const hearth=(t,b)=>b.blockAt(require('./house').point(t.plot,'furnace'));
+const homeGoal=t=>[t.plot.x+.5,t.plot.y+.1,t.plot.z+.5];
 const near=(b,g,r=.55)=>Math.hypot(b.entity.position.x-g[0],b.entity.position.z-g[2])<r&&Math.abs(b.entity.position.y-g[1])<.5;
 const defenseTask=(t,w,s)=>({kind:'combat',bounds:w.bounds,min_y:t.plot.y-2,max_y:t.plot.y+4,mobs:['husk'],mob_label:s.threat.label,weapon:'iron_sword',armor:'iron',kill_target:1,stationary:false,min_health:10});
 const MESSAGES={setup:'Preparing the iron expedition',wood_trip:'Heading to reserved wood',wood_craft:'Crafting supplies for tools and a bed',mine_enter:'Heading to the mine entrance',mine_down:'Descending the mine staircase',mine_up:'Climbing back to the surface',mine_return:'Returning home with ore',iron_tools:'Crafting iron tools, shears and sword',sheep_trip:'Heading to the lesson sheep',bed_return:'Returning home with wool',bed:'Crafting and verifying the bed home',food_trip:'Heading to the lesson livestock',food_return:'Bringing food home',armor:'Crafting and equipping iron armor',store:'Storing cooked food and spare iron',patrol:'Leaving home for defense practice',threat:'Preparing the controlled monster encounter',shelter:'Retreating inside the hut',secure:'Closing and verifying the home door',defend_exit:'Meeting the threat at the doorway',defense_return:'Returning safely to the bed home',finish:'Verifying the finished homestead'};
@@ -15,7 +15,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
  t.message=MESSAGES[t.phase.replace('survival_','')]||'Survival lesson';
  const next=phase=>{t.phase='survival_'+phase;t.lastProgress=Date.now();};
  const move=async(goal,phase)=>{
-  const door=b.blockAt(new Vec3(t.plot.x,t.plot.y,t.plot.z-2)),p=b.entity.position;
+  const door=b.blockAt(new Vec3(t.plot.x,t.plot.y,t.plot.z-3)),p=b.entity.position;
   if(door?.name.endsWith('_door')&&!door.getProperties().open&&p.distanceTo(door.position)<3.5&&((p.z>door.position.z+.5)!==(goal[2]>door.position.z+.5))){motor.pause();await b.activateBlock(door);return;}
   if(near(b,goal)||await t.walk(b,motor,goal,state,api,scan,tasks)===true){motor.pause();next(phase);}
  };
@@ -72,7 +72,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
  }else if(t.phase==='survival_bed_return')await move(homeGoal(t),'bed');
  else if(t.phase==='survival_bed'){
   motor.pause();await inventory.sync(b);if(!count(b,'white_bed'))await t.craft(b,'white_bed',1,table(t,b));
-  const foot=new Vec3(t.plot.x+1,t.plot.y,t.plot.z-1),head=foot.offset(0,0,1);
+  const foot=require('./house').point(t.plot,'bed'),head=foot.offset(0,0,1);
   if(b.blockAt(foot)?.name!=='white_bed'){
    if(b.blockAt(head)?.name!=='air')throw Error('Bed head space is obstructed');
    await inventory.equip(b,'white_bed');await b.look(Math.PI,0,true);await new Promise(r=>setTimeout(r,100));await b._placeBlockWithOptions(b.blockAt(foot.offset(0,-1,0)),new Vec3(0,1,0),{forceLook:'ignore',swingArm:'right'});
@@ -104,21 +104,21 @@ async function tick(t,b,motor,state,api,scan,tasks){
   await settlement.stockChest(b,chest,1,n=>n==='cooked_beef');await settlement.stockChest(b,chest,1,n=>n==='iron_ingot');t.milestone('provisions');
   if(b.food<18&&count(b,'cooked_beef')){await inventory.equip(b,'cooked_beef');await b.consume();}
   await inventory.equip(b,'iron_sword');next(w.mission==='home_defense'?'patrol':'finish');
- }else if(t.phase==='survival_patrol')await move([t.plot.x+.5,t.plot.y+.1,t.plot.z-3.5],'threat');
+ }else if(t.phase==='survival_patrol')await move([t.plot.x+.5,t.plot.y+.1,t.plot.z-4.5],'threat');
  else if(t.phase==='survival_threat'){
   motor.pause();s.threat=await request('threat');s.threatAt=now;next('shelter');t.message='Controlled home defense: retreat inside and close the door';
  }else if(t.phase==='survival_retreat'){
   // First leave the threshold, then return while the tagged threat is present.
-  const goal=[t.plot.x+.5,t.plot.y+.1,t.plot.z-3.5];await move(goal,'shelter');
+  const goal=[t.plot.x+.5,t.plot.y+.1,t.plot.z-4.5];await move(goal,'shelter');
  }else if(t.phase==='survival_shelter'){
   await move(homeGoal(t),'secure');
  }else if(t.phase==='survival_secure'){
-  motor.pause();const door=b.blockAt(new Vec3(t.plot.x,t.plot.y,t.plot.z-2));if(door?.getProperties().open&&!await closeDoor(b,door))return;
+  motor.pause();const door=b.blockAt(new Vec3(t.plot.x,t.plot.y,t.plot.z-3));if(door?.getProperties().open&&!await closeDoor(b,door))return;
   if(!door||b.blockAt(door.position)?.getProperties().open!==false)throw Error('Home door failed to secure');t.milestone('retreat');s.secureAt=now;next('defend_exit');
  }else if(t.phase==='survival_defend_exit'){
   const sensed=combat.observe(b,defenseTask(t,w,s),s.combat||{});
   if(sensed.enemy&&sensed.distance<3&&sensed.sight){motor.pause();next('defend');}
-  else await move([t.plot.x+.5,t.plot.y+.1,t.plot.z-3.5],'defend');
+  else await move([t.plot.x+.5,t.plot.y+.1,t.plot.z-4.5],'defend');
  }
  else if(t.phase==='survival_defend'){
   const task=defenseTask(t,w,s),runtime=s.combat;
@@ -134,7 +134,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
   }
  }else if(t.phase==='survival_defense_return'){await move(homeGoal(t),'finish');if(t.phase==='survival_finish')t.milestone('home_safe');}
  else if(t.phase==='survival_finish'){
-  motor.pause();const door=b.blockAt(new Vec3(t.plot.x,t.plot.y,t.plot.z-2));if(door?.getProperties().open&&!await closeDoor(b,door))return;
+  motor.pause();const door=b.blockAt(new Vec3(t.plot.x,t.plot.y,t.plot.z-3));if(door?.getProperties().open&&!await closeDoor(b,door))return;
   if(!t.home||b.blockAt(new Vec3(...t.home.position))?.name!=='white_bed')throw Error('Registered bed home is missing');
   await request('cleanup');t.phase='complete';t.message='Survival homestead verified: bed home, iron equipment, cooked food and stocked storage'+(w.mission==='home_defense'?'; threat defeated and returned home':'');
  }

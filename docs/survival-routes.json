@@ -6,32 +6,32 @@
       "descend": true,
       "climb_home": true,
       "animal_station": true,
-      "down_waypoints": 39,
-      "up_waypoints": 39
+      "down_waypoints": 35,
+      "up_waypoints": 35
     },
     {
       "bot": "LabAI1",
       "descend": true,
       "climb_home": true,
       "animal_station": true,
-      "down_waypoints": 35,
-      "up_waypoints": 35
+      "down_waypoints": 33,
+      "up_waypoints": 33
     },
     {
       "bot": "LabAI2",
       "descend": true,
       "climb_home": true,
       "animal_station": true,
-      "down_waypoints": 35,
-      "up_waypoints": 35
+      "down_waypoints": 33,
+      "up_waypoints": 33
     },
     {
       "bot": "LabAI3",
       "descend": true,
       "climb_home": true,
       "animal_station": true,
-      "down_waypoints": 39,
-      "up_waypoints": 39
+      "down_waypoints": 35,
+      "up_waypoints": 35
     },
     {
       "bot": "LabAI4",
@@ -46,16 +46,16 @@
       "descend": true,
       "climb_home": true,
       "animal_station": true,
-      "down_waypoints": 42,
-      "up_waypoints": 42
+      "down_waypoints": 48,
+      "up_waypoints": 48
     },
     {
       "bot": "LabAI6",
       "descend": true,
       "climb_home": true,
       "animal_station": true,
-      "down_waypoints": 42,
-      "up_waypoints": 42
+      "down_waypoints": 48,
+      "up_waypoints": 48
     },
     {
       "bot": "LabAI7",

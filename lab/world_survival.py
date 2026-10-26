@@ -72,11 +72,11 @@ class SurvivalLessons:
             p=data.get('position')
             if not isinstance(p,list) or len(p)!=3 or any(type(v) is not int for v in p):raise ValueError('Invalid bed position.')
             x,y,z=p
-            if y!=plot['y'] or not plot['x']-1<=x<=plot['x']+1 or not plot['z']-1<=z<=plot['z']+1:raise ValueError('The bed must be inside this bot’s hut.')
+            if y!=plot['y'] or not plot['x']-2<=x<=plot['x']+2 or not plot['z']-2<=z<=plot['z']+2:raise ValueError('The bed must be inside this bot’s hut.')
             self.command(f'kill @e[tag=lab_home_{name}]')
             condition=f'execute if block {x} {y} {z} minecraft:white_bed'
             self.command(f'{condition} run spawnpoint {name} {x} {y} {z}')
-            for entity,height,payload in [('item_display',3.25,'item:{id:"minecraft:white_bed",count:1},transformation:{scale:[0.45f,0.45f,0.45f]},billboard:"center"'),('text_display',3.9,'text:'+json.dumps(json.dumps({'text':display_name+' · HOME','color':'aqua'}))+',billboard:"center",background:0,shadow:1b,transformation:{scale:[0.55f,0.55f,0.55f]}')]:
+            for entity,height,payload in [('item_display',4.25,'item:{id:"minecraft:white_bed",count:1},transformation:{scale:[0.45f,0.45f,0.45f]},billboard:"center"'),('text_display',4.9,'text:'+json.dumps(json.dumps({'text':display_name+' · HOME','color':'aqua'}))+',billboard:"center",background:0,shadow:1b,transformation:{scale:[0.55f,0.55f,0.55f]}')]:
                 self.command(f'{condition} run summon minecraft:{entity} {x+.5} {y+height} {z+.5} '+f'{{Tags:["lab_world_home","lab_home_{name}"],brightness:{{block:15,sky:15}},'+payload+'}')
             home=dict(position=p,owner=display_name,run=s['run']);self.saved.setdefault('homes',{})[name]=home;self.save();return home
         if action=='threat':
@@ -86,7 +86,7 @@ class SurvivalLessons:
                 # The second row's north approach faces the first row's huts.
                 # Spawn in the open aisle, offset from the retreating bot.
                 second_row=s['bots'].index(name)>=4
-                label='WorldThreat'+name;x=plot['x']+(3 if second_row else 0);y=plot['y'];z=plot['z']-(4 if second_row else 8)
+                label='WorldThreat'+name;x=plot['x']+(3 if second_row else 0);y=plot['y'];z=plot['z']-(5 if second_row else 9)
                 self.command(f'summon minecraft:husk {x+.5} {y} {z+.5} '+f'{{Tags:["lab_combat","lab_world_survival","{tag}"],CustomName:'+json.dumps(json.dumps({'text':label}))+',PersistenceRequired:1b,CanPickUpLoot:0b,Health:12f,attributes:[{id:"minecraft:max_health",base:12d},{id:"minecraft:attack_damage",base:1d},{id:"minecraft:movement_speed",base:0.12d}],DeathLootTable:"minecraft:empty"}')
                 threats[name]=dict(label=label,spawn=[x+.5,y,z+.5])
             return copy.deepcopy(threats[name])

@@ -22,8 +22,8 @@ test('a lower cell directly beneath home is never counted as reaching the upper 
  assert.equal(plan.blocked,true);assert.deepEqual(plan.path,[],'partial routes are not executable world routes');
 });
 test('a closed home entrance is approached from outside before planning through its door',()=>{
- const b=landscape(),plot={x:8,y:69,z:0};b.blockAt=p=>({name:p.x===8&&p.y===69&&p.z===-2?'oak_door':'air',getProperties:()=>({open:false})});
- assert.deepEqual(approachGoal(b,[8.5,69.1,.5],plot),[8.5,69.1,-3.5]);
+ const b=landscape(),plot={x:8,y:69,z:0};b.blockAt=p=>({name:p.x===8&&p.y===69&&p.z===-3?'oak_door':'air',getProperties:()=>({open:false})});
+ assert.deepEqual(approachGoal(b,[8.5,69.1,.5],plot),[8.5,69.1,-4.5]);
  b.entity.position=new Vec3(8.5,69,.5);assert.deepEqual(approachGoal(b,[8.5,69.1,.5],plot),[8.5,69.1,.5]);
 });
 test('failed home searches are throttled and terminate an oscillating attempt without claiming a route',()=>{
@@ -36,10 +36,10 @@ test('failed home searches are throttled and terminate an oscillating attempt wi
 test('home navigation reaches the entrance of a closed hut instead of chasing its unreachable interior',()=>{
  const b=landscape(),original=b.blockAt,plot={x:8,y:69,z:0};
  b.blockAt=p=>{
-  const q=p.floored(),wall=q.y>=69&&q.y<=70&&(q.x===6||q.x===10)&&q.z>=-2&&q.z<=2||q.y>=69&&q.y<=70&&(q.z===-2||q.z===2)&&q.x>=6&&q.x<=10;
-  return wall?{name:q.x===8&&q.z===-2?'oak_door':'oak_planks',boundingBox:'block',position:q,getProperties:()=>({open:false})}:original(p);
+  const q=p.floored(),wall=q.y>=69&&q.y<=70&&(q.x===5||q.x===11)&&q.z>=-3&&q.z<=3||q.y>=69&&q.y<=70&&(q.z===-3||q.z===3)&&q.x>=5&&q.x<=11;
+  return wall?{name:q.x===8&&q.z===-3?'oak_door':'oak_planks',boundingBox:'block',position:q,getProperties:()=>({open:false})}:original(p);
  };
  const goal=[8.5,69.1,.5];assert.equal(route(b,goal,24,8192).reached,false);
  const nav=new WorldNavigation(),r=nav.plan(b,goal,{plot,bounds:[-30,30,-30,30],now:1000});
- assert.equal(r.blocked,false);assert.deepEqual(nav.status.target,[8.5,69.1,-3.5]);
+ assert.equal(r.blocked,false);assert.deepEqual(nav.status.target,[8.5,69.1,-4.5]);
 });

@@ -94,10 +94,16 @@ def test_reset_uses_template_and_spawn_validation_rejects_out_of_bounds(tmp_path
 
 def test_prepared_camp_generates_harvestable_resources_once_without_inventory_grants(tmp_path):
     world,commands,clock,log=fixture(tmp_path);world.start({},[f'LabAI{i}' for i in range(8)]);world.session['phase']='running'
-    camp=world.camp('LabAI0',[16448.5,71.1,16448.5]);assert len(camp['plots'])==8 and all(len(trees)==6 for trees in camp['groves'])
-    assert sum('minecraft:oak_log' in c for c in commands)==48
+    camp=world.camp('LabAI0',[16448.5,71.1,16448.5]);assert len(camp['plots'])==8 and all(len(trees)==8 for trees in camp['groves'])
+    assert sum('minecraft:oak_log' in c for c in commands)==64
     assert not any(c.startswith('give ') for c in commands)
     before=len(commands);assert world.camp('LabAI1',[16448.5,71.1,16448.5])==camp;assert len(commands)==before
+    for i,plot in enumerate(camp['plots']):
+        assert len(camp['groves'][i])*6*4>=153  # Floor, shell, workbench and doors.
+        for other in camp['plots'][i+1:]:
+            assert max(abs(plot['x']-other['x']),abs(plot['z']-other['z']))>=10
+        for trees in camp['groves']:
+            assert all(abs(x-plot['x'])>3 or abs(z-plot['z'])>3 for x,y,z in trees)
 
 
 def test_settlement_lessons_supply_real_trees_once_and_keep_doors_clear(tmp_path):

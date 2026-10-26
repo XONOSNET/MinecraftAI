@@ -6,8 +6,10 @@ for(const command of input.commands){const p=command.split(' ');if(!['fill','set
 // Load adjacent air columns too; unloaded terrain must not hide missing routes.
 for(let x=Math.floor(input.bounds[0]/16);x<=Math.floor(input.bounds[1]/16);x++)for(let z=Math.floor(input.bounds[2]/16);z<=Math.floor(input.bounds[3]/16);z++)if(!columns.has(x+','+z))world.setColumn(x,z,new Chunk());
 const rows=[];
+// Include completed enlarged houses; routes must not depend on empty plots.
+for(const p of input.camp.plots){for(const q of require('../controller/house').blueprint(p))set(q.x,q.y,q.z,q.table?'crafting_table':'oak_planks');set(p.x,p.y,p.z-3,'oak_door');set(p.x,p.y+1,p.z-3,'oak_door');}
 for(let i=0;i<8;i++){
- const p=input.camp.plots[i],s=input.stations[i],home=[p.x+.5,p.y,p.z-3.5],bot={players:{},entity:{position:new Vec3(...home),onGround:true},blockAt:q=>world.getBlock(q)};
+ const p=input.camp.plots[i],s=input.stations[i],home=[p.x+.5,p.y,p.z-4.5],bot={players:{},entity:{position:new Vec3(...home),onGround:true},blockAt:q=>world.getBlock(q)};
  const down=route(bot,s.bottom,96,8192,false,{bounds:input.bounds,reversible:true});
  bot.entity.position=new Vec3(...s.bottom);const up=route(bot,home,96,8192,false,{bounds:input.bounds,reversible:true});
  bot.entity.position=new Vec3(...home);const animals=route(bot,s.animals,96,8192,false,{bounds:input.bounds,reversible:true});

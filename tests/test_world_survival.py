@@ -35,7 +35,7 @@ def test_survival_requires_prepared_camp_and_current_run(tmp_path):
 def test_bed_home_uses_server_block_guard_and_own_hut_then_allows_owned_threat(tmp_path):
     world,commands=setup(tmp_path,'home_defense');plot=world.session['camp']['plots'][0]
     with pytest.raises(ValueError):call(world,action='home',position=[plot['x']+8,70,plot['z']])
-    position=[plot['x']+1,70,plot['z']-1];home=call(world,action='home',position=position)
+    position=[plot['x']+2,70,plot['z']-1];home=call(world,action='home',position=position)
     assert home['position']==position and world.saved['homes']['LabAI0']['owner']=='Named bot'
     spawn=[c for c in commands if 'run spawnpoint' in c]
     assert len(spawn)==1 and 'if block' in spawn[0] and 'minecraft:white_bed' in spawn[0]
@@ -71,4 +71,4 @@ def test_every_defense_threat_spawns_outside_all_eight_huts(tmp_path):
     for i,p in enumerate(plots):
         name=f'LabAI{i}';call(world,name,'home',position=[p['x']+1,p['y'],p['z']-1])
         threat=call(world,name,'threat');x,y,z=threat['spawn']
-        assert not any(abs(x-(q['x']+.5))<=2 and abs(z-(q['z']+.5))<=2 for q in plots)
+        assert not any(abs(x-(q['x']+.5))<=3 and abs(z-(q['z']+.5))<=3 for q in plots)

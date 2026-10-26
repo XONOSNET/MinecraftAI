@@ -1,0 +1,40 @@
+{
+  "fixture": "Actual survival placement of enlarged house, wooden floor, door, furniture and bed; supplied construction materials only.",
+  "phases": [
+    {
+      "phase": "floor",
+      "seconds": 0
+    },
+    {
+      "phase": "table",
+      "seconds": 35
+    },
+    {
+      "phase": "door_craft",
+      "seconds": 36
+    },
+    {
+      "phase": "build",
+      "seconds": 36
+    },
+    {
+      "phase": "door",
+      "seconds": 92
+    },
+    {
+      "phase": "enter",
+      "seconds": 93
+    },
+    {
+      "phase": "shelter",
+      "seconds": 93
+    }
+  ],
+  "pulse": 1793040201353,
+  "blocks": 144,
+  "floor_tiles": 25,
+  "bed": true,
+  "door_closed": true,
+  "seconds": 98,
+  "success": true
+}

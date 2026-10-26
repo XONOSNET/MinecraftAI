@@ -15,7 +15,7 @@ def measured_trial(session):
         r=results.get(name,{});total=max(1,r.get('lesson_total',len(session.get('lessons',[])) or 1))
         # Small harvest/placement credit lets early navigation improvements be
         # measured before a policy can complete a whole settlement sequence.
-        partial=min(1,r.get('peak_logs',r.get('logs',0))/16)*.05+min(1,r.get('peak_blocks',r.get('blocks',0))/55)*.05
+        partial=min(1,r.get('peak_logs',r.get('logs',0))/16)*.05+min(1,r.get('peak_blocks',r.get('blocks',0))/max(1,r.get('target_blocks',55)))*.05
         progress.append(min(1,(len(r.get('milestones',[]))+partial)/total))
         if r.get('state')=='complete' and isinstance(r.get('seconds'),(float,int)):seconds.append(r['seconds'])
     return dict(bots=len(names),roster=sorted(names),completed=completed,unsafe=unsafe,progress=sum(progress)/n,

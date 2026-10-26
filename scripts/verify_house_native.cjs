@@ -1,0 +1,24 @@
+// Real survival construction in verified empty sky. No live policy/reward writes.
+const fs=require('fs'),mineflayer=require('mineflayer'),{Vec3}=require('vec3'),house=require('../controller/house'),inventory=require('../controller/inventory_sync'),{HutTeacher,intact}=require('../controller/hut_teacher'),survival=require('../controller/survival'),{createMotor}=require('../controller/locomotion'),{scan}=require('../controller/perception'),tasks=require('../controller/tasks');
+const token=fs.readFileSync('data/api-token','utf8').trim(),wait=ms=>new Promise(r=>setTimeout(r,ms)),plot={x:-220,y:180,z:-220},result={fixture:'Actual survival placement of enlarged house, wooden floor, door, furniture and bed; supplied construction materials only.',phases:[]};
+const b=mineflayer.createBot({host:'127.0.0.1',port:25565,username:'LabHouseChk',version:'1.21.4'});inventory.attach(b);let changed=false,finished=false,motor;
+async function post(data){for(let n=0;n<8;n++){const r=await fetch('http://127.0.0.1:8000/admin/action',{method:'POST',headers:{'X-Lab-Token':token,'Content-Type':'application/json'},body:JSON.stringify(data)});if(r.ok)return r.json();const error=await r.text();if(!error.includes('not online')||n===7)throw Error(error);await wait(500);}}
+async function commands(list){await post({action:'op',player:b.username});await wait(1000);for(const c of list){b.chat('/'+c);await wait(90);}await post({action:'deop',player:b.username});await wait(400);}
+async function finish(){if(finished)return;finished=true;motor?.pause();if(changed)await commands(['kill @e[type=item,x=-228,y=177,z=-228,dx=16,dy=10,dz=16]','fill -228 178 -228 -212 186 -212 air']).catch(()=>{});await post({action:'deop',player:b.username}).catch(()=>{});fs.writeFileSync('docs/house-native.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));b.quit();setTimeout(()=>process.exit(result.success?0:1),300);}
+b.once('spawn',async()=>{try{
+ await wait(2500);await post({action:'gamemode',player:b.username,gamemode:'spectator'});await post({action:'teleport-coordinates',player:b.username,x:-220,y:188,z:-220});await wait(2500);
+ for(let x=-228;x<=-212;x++)for(let z=-228;z<=-212;z++)for(let y=178;y<=186;y++)if(b.blockAt(new Vec3(x,y,z))?.name!=='air')throw Error('Sky fixture is not empty: '+[x,y,z]);
+ changed=true;await commands(['fill -228 178 -228 -212 178 -212 stone','fill -228 179 -228 -212 179 -212 grass_block','clear @s','give @s oak_planks 192','give @s crafting_table','give @s oak_door 3','give @s white_bed','give @s chest','give @s furnace','effect give @s night_vision 600 0 true','effect give @s saturation 600 5 true','tp @s -219.5 180 -219.5','gamemode survival @s']);await wait(800);
+ const t=new HutTeacher(),state={run:'house-native',world:{bounds:[-230,-210,-230,-210],driver:'teacher',mission:'hut',time_budget_seconds:1200}},api=async(path,d)=>{if(path==='/step')return {action:d.teacher};if(path==='/world/report')return {};if(path==='/world/survival'&&d.action==='home')return {position:d.position};throw Error(path);};
+ motor=createMotor(b,{move:true,turn:true,jump:true,sprint:true});b.on('physicsTick',()=>motor.tick());await t.tick(b,motor,state,api,scan,tasks);Object.assign(t,{phase:'floor',plot,table:house.point(plot,'table'),settle:0});
+ const start=Date.now();while(t.phase!=='complete'){
+  if(Date.now()-start>300000||t.phase==='stopped')throw Error(t.error||'Construction timeout: '+t.phase);
+  if(result.phases.at(-1)?.phase!==t.phase){result.phases.push({phase:t.phase,seconds:Math.round((Date.now()-start)/1000)});console.log(t.phase);}
+  await t.tick(b,motor,state,api,scan,tasks);if(Date.now()-(result.pulse||0)>15000){result.pulse=Date.now();console.log(JSON.stringify({phase:t.phase,blocks:t.built,p:b.entity.position,message:t.message}));}await wait(100);
+ }
+ if(!intact(b,plot))throw Error('Enclosure incomplete');result.blocks=house.total;result.floor_tiles=house.blueprint(plot).filter(q=>q.floor&&b.blockAt(new Vec3(q.x,q.y,q.z)).name==='oak_planks').length;
+ for(const key of ['chest','furnace'])await t.place(b,house.point(plot,key),key);
+ t.phase='survival_bed';t.survival={};await survival.tick(t,b,motor,state,api,scan,tasks);const foot=house.point(plot,'bed');
+ result.bed=b.blockAt(foot).name==='white_bed'&&b.blockAt(foot.offset(0,0,1)).name==='white_bed';result.door_closed=b.blockAt(new Vec3(plot.x,plot.y,plot.z-3)).getProperties().open===false;result.seconds=Math.round((Date.now()-start)/1000);result.success=result.floor_tiles===25&&result.bed&&result.door_closed;
+}catch(e){result.error=e.stack;result.position=b.entity?.position;}finally{await finish();}});
+setTimeout(async()=>{result.error='Native verification deadline';await finish();},360000).unref();

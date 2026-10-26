@@ -1,0 +1,12 @@
+{
+  "radius": 3,
+  "wall_height": 3,
+  "floor_radius": 2,
+  "plot_spacing": 10,
+  "camp_radius": 22,
+  "starter_log_height": 6,
+  "table": [-3, 0, 1],
+  "chest": [2, 0, 2],
+  "furnace": [-2, 0, 2],
+  "bed": [2, 0, -1]
+}

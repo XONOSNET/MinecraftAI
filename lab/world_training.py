@@ -8,6 +8,7 @@ from .world_survival import SurvivalLessons, MISSION_LESSONS, ADVANCED
 from pathlib import Path
 
 LESSONS=['Enclose a hut','Craft and place a chest','Craft a wooden pickaxe','Craft a wooden axe','Craft a wooden shovel','Store eight planks and equip the axe']
+HOUSE=json.loads((Path(__file__).resolve().parent.parent/'config/house.json').read_text(encoding='utf-8'))
 STONE_LESSONS=LESSONS+['Mine stone with the wooden pickaxe','Craft a stone pickaxe','Craft a stone axe','Craft and place a furnace','Smelt a log into charcoal','Craft and place an exterior torch']
 
 SCENARIOS=[dict(id=i,name=name,description=description,spread=spread) for i,(name,description,spread) in enumerate([
@@ -63,8 +64,10 @@ class WorldTraining(SurvivalLessons):
         area=[x,x+size,z,z+size];ys=[-64,192]
         if fast:
             cx,cy,cz=anchor
-            area=[max(x,(cx-18)//16*16-16),min(x+size,(cx+18)//16*16+32),max(z,(cz-18)//16*16-16),min(z+size,(cz+18)//16*16+32)]
-            if mission in ADVANCED:area=[max(x,(cx-32)//16*16),min(x+size,(cx+32)//16*16+16),max(z,(cz-48)//16*16),min(z+size,(cz+48)//16*16+16)]
+            area=[max(x,(cx-HOUSE['camp_radius'])//16*16-16),min(x+size,(cx+HOUSE['camp_radius'])//16*16+32),max(z,(cz-HOUSE['camp_radius'])//16*16-16),min(z+size,(cz+HOUSE['camp_radius'])//16*16+32)]
+            if mission in ADVANCED:
+                # Keep the camp's surrounding ring while extending to the mine.
+                area=[min(area[0],max(x,(cx-32)//16*16)),max(area[1],min(x+size,(cx+32)//16*16+16)),min(area[2],max(z,(cz-48)//16*16)),max(area[3],min(z+size,(cz+48)//16*16+16))]
             low=max(-64,min(128,cy-8));ys=[low,low+64]
         self.session=dict(active=True,phase='restoring' if restore else 'snapshotting',run='world-'+str(time.time_ns()),
             scenario=scenario,name=SCENARIOS[scenario]['name'],size=size,bounds=[x,x+size,z,z+size],driver=driver,
@@ -186,20 +189,20 @@ class WorldTraining(SurvivalLessons):
         if not s or not s['active'] or s['phase']!='running' or name not in s['bots'] or not s['prepared']:raise ValueError('No prepared camp assignment.')
         if s.get('camp'):return copy.deepcopy(s['camp'])
         if not isinstance(position,list) or len(position)!=3 or any(type(v) not in (int,float) or not math.isfinite(v) for v in position):raise ValueError('Invalid camp position.')
-        x,y,z=[math.floor(v) for v in position];x0,x1,z0,z1=s['bounds']
+        x,y,z=[math.floor(v) for v in position];x0,x1,z0,z1=s['bounds'];radius=HOUSE['camp_radius'];spacing=HOUSE['plot_spacing'];height=HOUSE['starter_log_height']
         if s.get('camp_anchor'):[x,y,z]=s['camp_anchor']
-        if not x0+19<x<x1-19 or not z0+19<z<z1-19 or not 0<y<180:raise ValueError('Camp must fit safely inside the reserved terrain.')
-        self.command(f'fill {x-18} {y-1} {z-18} {x+18} {y-1} {z+18} minecraft:grass_block')
-        self.command(f'fill {x-18} {y} {z-18} {x+18} {y+9} {z+18} minecraft:air')
+        if not x0+radius+1<x<x1-radius-1 or not z0+radius+1<z<z1-radius-1 or not 0<y<180:raise ValueError('Camp must fit safely inside the reserved terrain.')
+        self.command(f'fill {x-radius} {y-1} {z-radius} {x+radius} {y-1} {z+radius} minecraft:grass_block')
+        self.command(f'fill {x-radius} {y} {z-radius} {x+radius} {y+9} {z+radius} minecraft:air')
         plots=[];groves=[]
         for index in range(len(s['bots'])):
-            px=x+(index%4)*8-12;pz=z+(index//4)*8-4;direction=-1 if index<4 else 1
+            px=x+(index%4)*spacing-spacing*3//2;pz=z+(index//4)*spacing-spacing//2;direction=-1 if index<4 else 1
             plots.append(dict(x=px,y=y,z=pz,tableY=y));trees=[]
             for dx in ((-1,1) if s['layout'] in (1,3) else (-2,2)):
-                for distance in ((6,10,13) if s['layout']==1 else (4,8,12) if s['layout']==2 else (5,9,13)):
+                for distance in ((5,8,11,13) if s['layout']==1 else (5,7,10,13) if s['layout']==2 else (5,8,10,13)):
                     tx=px+dx;tz=pz+direction*distance;trees.append([tx,y,tz])
-                    self.command(f'fill {tx} {y} {tz} {tx} {y+3} {tz} minecraft:oak_log')
-                    self.command(f'fill {tx-1} {y+4} {tz-1} {tx+1} {y+5} {tz+1} minecraft:oak_leaves[persistent=true]')
+                    self.command(f'fill {tx} {y} {tz} {tx} {y+height-1} {tz} minecraft:oak_log')
+                    self.command(f'fill {tx-1} {y+height} {tz-1} {tx+1} {y+height+1} {tz+1} minecraft:oak_leaves[persistent=true]')
             groves.append(trees)
         s['camp']=dict(spawn=[x+.5,y+.1,z+.5],plots=plots,groves=groves)
         self.saved['templates'].setdefault(s['template'],{})['camp_anchor']=[x,y,z];self.save()

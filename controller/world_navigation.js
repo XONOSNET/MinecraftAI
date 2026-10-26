@@ -7,11 +7,11 @@ function segmentDistance(p,a,b){
  return Math.hypot(p.x-a[0]-dx*t,p.z-a[2]-dz*t);
 }
 function corridorDistance(p,points){let best=Infinity;for(let i=1;i<points.length;i++)best=Math.min(best,segmentDistance(p,points[i-1],points[i]));return best;}
-function homeApproach(plot){return plot?[plot.x+.5,plot.y+.1,plot.z-3.5]:null;}
+function homeApproach(plot){return plot?[plot.x+.5,plot.y+.1,plot.z-4.5]:null;}
 function approachGoal(bot,goal,plot){
  if(!plot||Math.hypot(goal[0]-plot.x-.5,goal[2]-plot.z-.5)>1.5)return goal;
- const p=bot.entity.position,inside=Math.abs(p.x-plot.x-.5)<1.45&&Math.abs(p.z-plot.z-.5)<1.45&&Math.abs(p.y-plot.y)<.6;
- const door=bot.blockAt(new Vec3(plot.x,plot.y,plot.z-2));
+ const p=bot.entity.position,inside=Math.abs(p.x-plot.x-.5)<2.45&&Math.abs(p.z-plot.z-.5)<2.45&&Math.abs(p.y-plot.y)<.6;
+ const door=bot.blockAt(new Vec3(plot.x,plot.y,plot.z-3));
  return !inside&&door?.name.endsWith('_door')&&!door.getProperties().open?homeApproach(plot):goal;
 }
 class WorldNavigation{
