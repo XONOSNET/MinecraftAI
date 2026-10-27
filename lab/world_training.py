@@ -69,7 +69,7 @@ class WorldTraining(SurvivalLessons):
             area=[max(x,(cx-HOUSE['camp_radius'])//16*16-16),min(x+size,(cx+HOUSE['camp_radius'])//16*16+32),max(z,(cz-HOUSE['camp_radius'])//16*16-16),min(z+size,(cz+HOUSE['camp_radius'])//16*16+32)]
             if mission in ADVANCED:
                 # Keep the camp's surrounding ring while extending to the mine.
-                area=[min(area[0],max(x,(cx-32)//16*16)),max(area[1],min(x+size,(cx+32)//16*16+16)),min(area[2],max(z,(cz-48)//16*16)),max(area[3],min(z+size,(cz+48)//16*16+16))]
+                area=[min(area[0],max(x,(cx-32)//16*16)),max(area[1],min(x+size,(cx+32)//16*16+16)),min(area[2],max(z,(cz-54)//16*16)),max(area[3],min(z+size,(cz+54)//16*16+16))]
             low=max(-64,min(128,cy-8));ys=[low,low+64]
         self.session=dict(active=True,phase='restoring' if restore else 'snapshotting',run='world-'+str(time.time_ns()),
             scenario=scenario,name=SCENARIOS[scenario]['name'],size=size,bounds=[x,x+size,z,z+size],driver=driver,

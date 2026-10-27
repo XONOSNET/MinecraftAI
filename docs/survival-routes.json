@@ -7,8 +7,8 @@
       "climb_home": true,
       "animal_station": true,
       "reserved_wood": true,
-      "down_waypoints": 35,
-      "up_waypoints": 35
+      "down_waypoints": 40,
+      "up_waypoints": 40
     },
     {
       "bot": "LabAI1",
@@ -16,8 +16,8 @@
       "climb_home": true,
       "animal_station": true,
       "reserved_wood": true,
-      "down_waypoints": 33,
-      "up_waypoints": 33
+      "down_waypoints": 38,
+      "up_waypoints": 38
     },
     {
       "bot": "LabAI2",
@@ -25,8 +25,8 @@
       "climb_home": true,
       "animal_station": true,
       "reserved_wood": true,
-      "down_waypoints": 33,
-      "up_waypoints": 33
+      "down_waypoints": 38,
+      "up_waypoints": 38
     },
     {
       "bot": "LabAI3",
@@ -34,8 +34,8 @@
       "climb_home": true,
       "animal_station": true,
       "reserved_wood": true,
-      "down_waypoints": 35,
-      "up_waypoints": 35
+      "down_waypoints": 40,
+      "up_waypoints": 40
     },
     {
       "bot": "LabAI4",
@@ -43,8 +43,8 @@
       "climb_home": true,
       "animal_station": true,
       "reserved_wood": true,
-      "down_waypoints": 46,
-      "up_waypoints": 46
+      "down_waypoints": 51,
+      "up_waypoints": 51
     },
     {
       "bot": "LabAI5",
@@ -52,8 +52,8 @@
       "climb_home": true,
       "animal_station": true,
       "reserved_wood": true,
-      "down_waypoints": 48,
-      "up_waypoints": 48
+      "down_waypoints": 53,
+      "up_waypoints": 53
     },
     {
       "bot": "LabAI6",
@@ -61,8 +61,8 @@
       "climb_home": true,
       "animal_station": true,
       "reserved_wood": true,
-      "down_waypoints": 48,
-      "up_waypoints": 48
+      "down_waypoints": 53,
+      "up_waypoints": 53
     },
     {
       "bot": "LabAI7",
@@ -70,8 +70,8 @@
       "climb_home": true,
       "animal_station": true,
       "reserved_wood": true,
-      "down_waypoints": 46,
-      "up_waypoints": 46
+      "down_waypoints": 51,
+      "up_waypoints": 51
     }
   ],
   "success": true

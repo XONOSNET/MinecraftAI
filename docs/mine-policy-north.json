@@ -1,0 +1,63 @@
+{
+  "fixture": "Actual saved expedition policy on the prepared mine; no policy or demonstration writes.",
+  "grants": [
+    "Starting stone base, stone tools and furnace",
+    "24 additional iron ingots for armor to shorten fixture smelting; production must mine/smelt all 32"
+  ],
+  "phases": [],
+  "routes": [
+    {
+      "phase": "survival_wood_trip",
+      "seconds": 7.9,
+      "position": {
+        "x": -97.49290210621947,
+        "y": 170,
+        "z": -95.53476159114692
+      }
+    },
+    {
+      "phase": "survival_wood_trip",
+      "seconds": 11.9,
+      "position": {
+        "x": -106.51390241282141,
+        "y": 170,
+        "z": -127.48490998147665
+      }
+    },
+    {
+      "phase": "survival_wood",
+      "seconds": 11,
+      "position": {
+        "x": -104.860234812277,
+        "y": 170,
+        "z": -127.50696866272483
+      }
+    },
+    {
+      "phase": "survival_mine_up",
+      "seconds": 6.5,
+      "position": {
+        "x": -100.50232076619027,
+        "y": 170,
+        "z": -130.6687646610037
+      }
+    },
+    {
+      "phase": "survival_mine_down",
+      "seconds": 8.4,
+      "position": {
+        "x": -100.58891807757061,
+        "y": 165,
+        "z": -142.32351171097167
+      }
+    }
+  ],
+  "saved_policy": true,
+  "orientation": "north",
+  "routePulse": 1793104221290,
+  "stress_replans": false,
+  "success": true,
+  "health": 20,
+  "policy_sha256": "93466e8676dff2001d8926a9f353bfd081f77a8c558daa23a3853e32c2535e8c",
+  "tread_length": 2
+}

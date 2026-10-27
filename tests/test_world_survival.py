@@ -29,7 +29,9 @@ def test_all_survival_stations_have_separate_real_resources_and_reversible_depth
     positions=set()
     for s in stations:
         assert len(s['ores'])==40 and len(s['coal'])==8 and len(s['logs'])==4
-        assert all(abs(a[1]-b[1])==1 for a,b in zip(s['stairs'],s['stairs'][1:]))
+        assert len(s['stairs'])==12
+        assert all(abs(a[1]-b[1])==int(i%2==1) for i,(a,b) in enumerate(zip(s['stairs'],s['stairs'][1:])))
+        assert all(abs(a[2]-b[2])==1 for a,b in zip(s['stairs'],s['stairs'][1:]))
         assert s['stairs'][0][1]-s['stairs'][-1][1]==5
         for p in s['ores']+s['coal']+s['logs']:
             assert tuple(p) not in positions;positions.add(tuple(p))
@@ -62,7 +64,7 @@ def test_bed_home_uses_server_block_guard_and_own_hut_then_allows_owned_threat(t
 def test_advanced_resets_cover_outer_mine_and_increase_time_budget(tmp_path):
     world,commands=setup(tmp_path);world.stop();world.saved['templates']['0-128']['camp_anchor']=[16452,70,16452]
     world.start({'mission':'homestead'},['LabAI0']);s=world.session
-    assert s['reset_area'][2]<=16452-44 and s['reset_area'][3]>=16452+44
+    assert s['reset_area'][2]<=16452-54 and s['reset_area'][3]>=16452+54
     assert s['copy_y'][0]<=64 and s['time_budget_seconds']==2400
     assert len(MISSION_LESSONS['iron_age'])==20 and len(MISSION_LESSONS['homestead'])==26 and len(MISSION_LESSONS['home_defense'])==29
 

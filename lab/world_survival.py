@@ -25,15 +25,17 @@ class SurvivalLessons:
             index=s['bots'].index(name);direction=-1 if index<4 else 1
             x=math.floor(s['camp']['spawn'][0])+(index%4)*12-18;y=plot['y'];z=plot['z']+direction*29
             x0,x1,z0,z1=s['bounds']
-            if y<8 or not x0+6<x<x1-6 or not z0+14<z<z1-14:raise ValueError('Insufficient safe mine margin.')
-            # Five one-block terraces, fixed return floor, no drops or lava.
+            if y<8 or not x0+6<x<x1-6 or not z0+19<z<z1-19:raise ValueError('Insufficient safe mine margin.')
+            # Two-block treads leave a full landing between one-block rises.
             stairs=[]
             for step in range(6):
-                zz=z+direction*step;yy=y-step;stairs.append([x+.5,yy+.1,zz+.5])
-                self.command(f'fill {x-1} {yy-1} {zz} {x+1} {yy-1} {zz} minecraft:stone')
-                self.command(f'fill {x-1} {yy} {zz} {x+1} {y+3} {zz} minecraft:air')
-                for wall in (x-2,x+2):self.command(f'fill {wall} {yy} {zz} {wall} {y+1} {zz} minecraft:stone')
-            bottom=y-5;face=z+direction*8
+                yy=y-step
+                for tread in range(2):
+                    zz=z+direction*(step*2+tread);stairs.append([x+.5,yy+.1,zz+.5])
+                    self.command(f'fill {x-1} {yy-1} {zz} {x+1} {yy-1} {zz} minecraft:stone')
+                    self.command(f'fill {x-1} {yy} {zz} {x+1} {y+3} {zz} minecraft:air')
+                    for wall in (x-2,x+2):self.command(f'fill {wall} {yy} {zz} {wall} {y+1} {zz} minecraft:stone')
+            bottom=y-5;face=z+direction*13
             self.command(f'fill {x-6} {bottom-1} {face-5} {x+5} {bottom-1} {face+5} minecraft:stone')
             self.command(f'fill {x-4} {bottom} {face-3} {x+4} {y+3} {face+3} minecraft:air')
             self.command(f'fill {x-5} {bottom} {face-5} {x-2} {y+3} {face+5} minecraft:air')
