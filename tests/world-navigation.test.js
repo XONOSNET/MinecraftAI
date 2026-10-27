@@ -3,6 +3,13 @@ const {route,standable}=require('../controller/field_navigation');
 const {blueprint,intact,findPlot}=require('../controller/hut_teacher');
 function fixture(blocks={}){return {entity:{position:new Vec3(.5,64,.5)},blockAt(p){const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z);const name=blocks[`${x},${y},${z}`]||(y<64?'grass_block':'air');return name==='unloaded'?null:{name,boundingBox:['air','water','lava'].includes(name)?'empty':'block',position:new Vec3(x,y,z)};}};}
 
+test('off-center movement beside a diagonal workbench aligns inside its clear cell first',()=>{
+ const b=fixture({'-3,64,1':'crafting_table'});b.entity.position=new Vec3(-1.8514,64,2.6204);b.entity.onGround=true;
+ const planned=route(b,[-1.5,64.1,-.5],16,512,true,{reversible:true});
+ assert.equal(planned.reached,true);assert.equal(planned.path[0].centering,true);
+ assert.deepEqual([...planned.path[0]],[-1.5,64.1,2.5]);
+});
+
 test('a body partly across a terrace edge continues to the lower landing instead of reversing uphill',()=>{
  const bot={players:{},entity:{position:new Vec3(.5,64,-.265),onGround:true},blockAt(p){const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z),floor=64+Math.min(0,z);return {name:y<floor?'stone':'air',position:new Vec3(x,y,z),boundingBox:y<floor?'block':'empty'};}};
  const planned=route(bot,[.5,62.1,-1.5],8,128,true,{reversible:true});assert.equal(planned.reached,true);assert.deepEqual(planned.path[0],[.5,63.1,-.5]);

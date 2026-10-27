@@ -196,7 +196,7 @@ class HutTeacher{
     this.timing.mark(this.phase,'crafting');motor.pause();const table=bot.blockAt(new Vec3(this.table.x,this.table.y,this.table.z));
     const tool=settlement.TOOLS.find(name=>!count(bot,n=>n===name));
     if(tool){if(count(bot,n=>n==='stick')<2)await this.craft(bot,'stick',1,null);await this.craft(bot,tool,1,table);await inventorySync.sync(bot);if(!count(bot,n=>n===tool))throw Error('Tool was not received from the server');this.milestone(tool);this.lastProgress=Date.now();this.message='Crafted '+tool.replaceAll('_',' ');}
-    else this.phase='stock_chest';
+    else{for(const name of settlement.TOOLS)this.milestone(name);this.phase='stock_chest';}
    }else if(this.phase==='stock_chest'){
     this.timing.mark(this.phase,'stocking');motor.pause();const stored=await settlement.stockChest(bot,bot.blockAt(settlement.chestPosition(this.plot)),8);
     await inventorySync.equip(bot,'wooden_axe');
@@ -367,7 +367,7 @@ class HutTeacher{
   const cue=planned.cue;if(!this.inside(new Vec3(...cue),state.world.bounds)){motor.pause();throw Error('Planned route reached the trial boundary.');}
   const passage=routeDoorway(bot,this.plot,planned.path,goal);
   const skill=this.phase==='enter'?'shelter':'expedition';
-  const task={kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],bounds:state.world.bounds,actual_doors:[],allow_water:false,coverage_target:100,quick_look:true,safe_walk:true,strict_ground:true,auto_step:true,route_corridor:planned.corridor,avoid_players:true,navigation_lock:state.world.driver==='teacher',travel_sprint:!['floor','table','build','door','enter'].includes(this.phase),sprint_path:planned.path};
+  const task={kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],bounds:state.world.bounds,actual_doors:[],allow_water:false,coverage_target:100,quick_look:true,safe_walk:true,strict_ground:true,auto_step:true,route_corridor:planned.corridor,avoid_players:true,navigation_lock:state.world.driver==='teacher',center_route:!!cue.centering,travel_sprint:!['floor','table','build','door','enter'].includes(this.phase),sprint_path:planned.path};
   const desired=Math.atan2(-(cue[0]-p.x),-(cue[2]-p.z)),angle=Math.atan2(Math.sin(desired-bot.entity.yaw),Math.cos(desired-bot.entity.yaw));
   const sensedScan=scan(bot,{goalYaw:desired}),sensed=tasks.observeTask(bot,task,sensedScan,this.runtime);
   const obs=[...sensedScan.pooled,Math.sin(angle),Math.cos(angle),Math.min(p.distanceTo(new Vec3(...goal))/32,1),bot.health/20,bot.food/20,bot.entity.onGround?1:0,...sensed.extra];

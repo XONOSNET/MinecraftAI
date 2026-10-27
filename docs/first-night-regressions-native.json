@@ -1,0 +1,33 @@
+{
+  "fixture": "Regression checks: real early workbench placement, the reported workbench-corner route, and cooking with short-burning stick fuel.",
+  "grants": [
+    "Isolated completed house except missing workbench",
+    "Four logs and wooden pickaxe",
+    "One raw beef and four sticks for fuel"
+  ],
+  "checks": [
+    {
+      "phase": "night_bootstrap",
+      "seconds": 8.2
+    }
+  ],
+  "pulse": 1793126502845,
+  "early_workbench": true,
+  "cornerPulse": 1793126515817,
+  "corner": {
+    "arrived": true,
+    "seconds": 1.8,
+    "position": {
+      "x": -249.4917212738843,
+      "y": 180,
+      "z": -124.37845597697222
+    }
+  },
+  "door_return": {
+    "arrived": true,
+    "seconds": 2.5
+  },
+  "stick_fuel_cooked": true,
+  "success": true,
+  "health": 20
+}

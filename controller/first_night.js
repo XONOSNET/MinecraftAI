@@ -73,10 +73,11 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
  }
  if(t.phase==='night_bootstrap'){
   const pos=house.point(t.plot,'table');t.message='Making an axe early to speed up shelter harvesting';
-  if(p.distanceTo(new Vec3(pos.x+1.5,pos.y+.1,pos.z+.5))>2){await t.walk(b,motor,[pos.x+1.5,pos.y+.1,pos.z+.5],state,api,scan,tasks);return;}
+  if(p.distanceTo(new Vec3(pos.x+1.5,pos.y+.1,pos.z+.5))>.65){await t.walk(b,motor,[pos.x+1.5,pos.y+.1,pos.z+.5],state,api,scan,tasks);return;}
   motor.pause();for(const item of [...b.inventory.items()].filter(i=>i.name.endsWith('_log')))await t.craft(b,item.name.replace('_log','_planks'),item.count,null);
   if(b.blockAt(new Vec3(pos.x,pos.y,pos.z))?.name!=='crafting_table'){
-   if(!count(b,'crafting_table'))await t.craft(b,'crafting_table',1,null);await t.place(b,pos,'crafting_table');
+   if(!count(b,'crafting_table'))await t.craft(b,'crafting_table',1,null);
+   try{await t.place(b,pos,'crafting_table');}catch(error){if(!String(error.message).includes('Server refused')||(n.bootstrapRetries=(n.bootstrapRetries||0)+1)>=3)throw error;t.path=[];t.navigator.lastPlan=-Infinity;t.message='Workbench placement was obstructed; checking the close approach again';return;}
   }
   const table=b.blockAt(new Vec3(pos.x,pos.y,pos.z));if(count(b,'stick')<2)await t.craft(b,'stick',1,null);
   if(!count(b,'wooden_axe'))await t.craft(b,'wooden_axe',1,table);await inventory.equip(b,'wooden_axe');t.table=pos;n.bootstrap=true;t.phase='gather';t.lastProgress=Date.now();

@@ -32,7 +32,7 @@ class WorldNavigation{
   if(key!==this.destination){this.destination=key;this.path=[];this.best=Infinity;this.progressAt=now;this.lastPlan=-Infinity;this.blocked=false;}
   // A waypoint crossed in midair is still the landing target. Advancing or
   // replanning before touchdown can replace it with an unsupported start cell.
-  while(bot.entity.onGround!==false&&this.path.length&&Math.hypot(this.path[0][0]-p.x,this.path[0][2]-p.z)<.4&&Math.abs(this.path[0][1]-p.y)<.4)this.anchor=this.path.shift();
+  while(bot.entity.onGround!==false&&this.path.length&&Math.hypot(this.path[0][0]-p.x,this.path[0][2]-p.z)<(this.path[0].centering ? .15 : .4)&&Math.abs(this.path[0][1]-p.y)<.4)this.anchor=this.path.shift();
   const corridor=[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,3)];
   const offRoute=this.path.length&&corridorDistance(p,corridor)>.85;
   const invalid=this.path.slice(0,3).some(q=>!standable(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])));

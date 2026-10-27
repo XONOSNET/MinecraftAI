@@ -65,7 +65,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    stalled=false;
    if(legacy){applyMotion(bot,action,permissions,task);return null;}
    plan=motorPlan(action,permissions,task,{...sensed,inWater:!!bot.entity?.isInWater},angle,!!bot.getControlState('forward'));
-   const focus=task?.navigation_lock&&sensed?.focusPoint&&[0,1,2,3].includes(action)?sensed.focusPoint:null;
+   const focus=(task?.navigation_lock||task?.center_route)&&sensed?.focusPoint&&[0,1,2,3].includes(action)?sensed.focusPoint:null;
    // Face the planned corridor before trying to move. A wall in the old
    // viewing direction is not evidence that the new corridor requires backing.
    if(focus&&Math.abs(angle)>.35){plan.forward=false;plan.jump=false;}
@@ -85,11 +85,13 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    bot.labRecovering=recovery.active();bot.labAvoiding=recovery.remembering();
    if(lateral&&!passage&&!recovery.active()){plan.side=lateral.side;plan.label=lateral.label;plan.strafeTask=task;}
    if(focus&&!passage&&!recovery.active()){
-    plan.focusPoint=focus;plan.label=Math.abs(angle)>.35?'Acquiring locked route heading':'Following locked route';
+    plan.focusPoint=focus;plan.arrivalDistance=task?.center_route ? .08 : .22;plan.label=Math.abs(angle)>.35?'Acquiring locked route heading':'Following locked route';
     if(lateral)plan.label=lateral.label;
    }
    if(task?.safe_walk){
-    plan.safeWalk=true;plan.strictGround=!!task.strict_ground;plan.corridor=task.route_corridor||null;
+    // A committed doorway may need a short back-off to its alignment point.
+    // Its own probes still enforce clearance; the route corridor points inward.
+    plan.safeWalk=true;plan.strictGround=!!task.strict_ground;plan.corridor=passage?null:task.route_corridor||null;
     const rise=(task.waypoints?.[0]?.[1]??bot.entity.position.y)-bot.entity.position.y;
     const plannedStep=rise>.6&&rise<1.2&&Math.abs(angle)<.35;
     plan.descent=plan.strictGround&&rise<-.6&&rise> -1.2&&Math.abs(angle)<.35;
@@ -131,7 +133,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    if(plan.focusPoint){
     const dx=plan.focusPoint[0]-bot.entity.position.x,dz=plan.focusPoint[2]-bot.entity.position.z,d=Math.hypot(dx,dz);
     targetYaw=d>.18?Math.atan2(-dx,-dz):null;
-    if(d<=.22||targetYaw!==null&&Math.abs(wrap(targetYaw-bot.entity.yaw))>.35)forward=false;
+    if(d<=(plan.arrivalDistance||.22)||targetYaw!==null&&Math.abs(wrap(targetYaw-bot.entity.yaw))>.35)forward=false;
    }
    if(forward&&plan.moveTarget&&bot.entity.position){
     const dx=plan.moveTarget.x-bot.entity.position.x,dz=plan.moveTarget.z-bot.entity.position.z,d=Math.hypot(dx,dz),v=bot.entity.velocity;

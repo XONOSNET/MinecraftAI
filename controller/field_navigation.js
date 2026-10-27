@@ -53,6 +53,13 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
  }
  const path=[];let n=best;while(key(n)!==key(start)){path.push([n[0]+.5,n[1]+.1,n[2]+.5]);n=parent.get(key(n));if(!n)break;}
  const reached=best[0]===Math.floor(goal[0])&&best[2]===Math.floor(goal[2])&&Math.abs(best[1]-goal[1])<.6&&stand(...best);
- path.reverse();if(reached&&Math.hypot(goal[0]-p.x,goal[2]-p.z)>.3)path.push([goal[0],best[1]+.1,goal[2]]);if(escape)path.unshift(escape);return {path,expanded,reached,budget_exhausted:expanded>=maxNodes,message:path.length?'Following a safe route through loaded terrain':'No safe route in loaded terrain; holding position'};
+ path.reverse();if(reached&&Math.hypot(goal[0]-p.x,goal[2]-p.z)>.3)path.push([goal[0],best[1]+.1,goal[2]]);
+ // The cell center is clear, but an off-center body can clip an adjacent table
+ // or wall when it starts the next leg. Center before taking that corner.
+ if(!escape&&path.length&&Math.hypot(start[0]+.5-p.x,start[2]+.5-p.z)>.2){
+  const adjacentWall=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]].some(([dx,dz])=>{const b=terrain.blockAt(new Vec3(start[0]+dx,start[1],start[2]+dz));return b?.boundingBox==='block'&&!b.name.endsWith('_door');});
+  if(adjacentWall){const center=[start[0]+.5,start[1]+.1,start[2]+.5];center.centering=true;path.unshift(center);}
+ }
+ if(escape)path.unshift(escape);return {path,expanded,reached,budget_exhausted:expanded>=maxNodes,message:path.length?'Following a safe route through loaded terrain':'No safe route in loaded terrain; holding position'};
 }
 module.exports={standable,route};

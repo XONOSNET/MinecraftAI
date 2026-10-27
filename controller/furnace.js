@@ -19,6 +19,9 @@ async function smelt(bot,block,input='oak_log',output='charcoal',fuel=n=>n.endsW
   const deadline=Date.now()+30000;
   while(window.slots[2]?.name!==output){
    if(Date.now()>deadline)throw Error('Furnace did not produce '+output);
+   // A stick burns for only five seconds; one cooking operation takes ten.
+   // Queue more fuel when the previous item has entered the burn timer.
+   if(!window.slots[1]&&window.slots.slice(window.inventoryStart,window.inventoryEnd).some(i=>i&&fuel(i.name)))await one(fuel,1);
    await new Promise(r=>setTimeout(r,500));await click(-999,2,5);
   }
   await click(2);const empty=window.slots.slice(window.inventoryStart,window.inventoryEnd).findIndex(i=>!i);

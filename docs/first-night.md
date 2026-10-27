@@ -38,3 +38,10 @@ The dashboard separates completion counts by support level. History records supp
 ## Verification
 
 Automated tests cover support removal, natural-resource API restrictions, hostile sweeping, reserved-site isolation, frozen comparison memory, landmark validation, route memory, threat/food priorities, doorway exits and shelter validation. The isolated native fixture records real early-axe crafting, exposed-stone harvesting/pickup, animal combat, cooking, wool, bed placement and a resource round trip. It grants a completed base and a few fixture ingredients to isolate these mechanics; it does not train production models or certify autonomous wilderness success. See first-night-native.json for the actual latest outcome; first-night-fauna-native.json verifies passive-animal restoration separately.
+
+
+## First group-run corrections
+
+Production failures exposed a fuel assumption that the original fixture missed: cooking was allowed to select sticks, but the furnace helper supplied just one. The inspected failed furnaces contained raw beef, no remaining fuel and a 100-tick burn duration against a 200-tick cooking recipe. The helper now queues replacement fuel as it burns, including several sticks when needed. A native regression cooks real beef using sticks only.
+
+The early workbench now uses a close placement stance and retries a rejected interaction. Already-owned tools receive their verification milestones, including the early axe. Local routes center the body beside adjacent tables/walls before taking a corner; centering waypoints retain a tighter arrival radius. A committed doorway's safe back-off is allowed outside the inward route corridor, while obstacle, support and player checks remain active. Native regressions reconstruct the reported floor-corner and doorway-start positions. See first-night-regressions-native.json. These are controller repairs, not evidence that the previous failures were all deficiencies in the neural policy.
