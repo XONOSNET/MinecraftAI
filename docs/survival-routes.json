@@ -6,6 +6,7 @@
       "descend": true,
       "climb_home": true,
       "animal_station": true,
+      "reserved_wood": true,
       "down_waypoints": 35,
       "up_waypoints": 35
     },
@@ -14,6 +15,7 @@
       "descend": true,
       "climb_home": true,
       "animal_station": true,
+      "reserved_wood": true,
       "down_waypoints": 33,
       "up_waypoints": 33
     },
@@ -22,6 +24,7 @@
       "descend": true,
       "climb_home": true,
       "animal_station": true,
+      "reserved_wood": true,
       "down_waypoints": 33,
       "up_waypoints": 33
     },
@@ -30,6 +33,7 @@
       "descend": true,
       "climb_home": true,
       "animal_station": true,
+      "reserved_wood": true,
       "down_waypoints": 35,
       "up_waypoints": 35
     },
@@ -38,6 +42,7 @@
       "descend": true,
       "climb_home": true,
       "animal_station": true,
+      "reserved_wood": true,
       "down_waypoints": 46,
       "up_waypoints": 46
     },
@@ -46,6 +51,7 @@
       "descend": true,
       "climb_home": true,
       "animal_station": true,
+      "reserved_wood": true,
       "down_waypoints": 48,
       "up_waypoints": 48
     },
@@ -54,6 +60,7 @@
       "descend": true,
       "climb_home": true,
       "animal_station": true,
+      "reserved_wood": true,
       "down_waypoints": 48,
       "up_waypoints": 48
     },
@@ -62,6 +69,7 @@
       "descend": true,
       "climb_home": true,
       "animal_station": true,
+      "reserved_wood": true,
       "down_waypoints": 46,
       "up_waypoints": 46
     }

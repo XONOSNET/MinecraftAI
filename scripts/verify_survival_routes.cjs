@@ -13,7 +13,8 @@ for(let i=0;i<8;i++){
  const down=route(bot,s.bottom,96,8192,false,{bounds:input.bounds,reversible:true});
  bot.entity.position=new Vec3(...s.bottom);const up=route(bot,home,96,8192,false,{bounds:input.bounds,reversible:true});
  bot.entity.position=new Vec3(...home);const animals=route(bot,s.animals,96,8192,false,{bounds:input.bounds,reversible:true});
- rows.push({bot:'LabAI'+i,descend:down.reached,climb_home:up.reached,animal_station:animals.reached,down_waypoints:down.path.length,up_waypoints:up.path.length});
+ const wood=route(bot,[s.logs[0][0]-1.5,p.y+.1,s.logs[0][2]+.5],96,8192,false,{bounds:input.bounds,reversible:true});
+ rows.push({bot:'LabAI'+i,descend:down.reached,climb_home:up.reached,animal_station:animals.reached,reserved_wood:wood.reached,down_waypoints:down.path.length,up_waypoints:up.path.length});
 }
-const result={fixture:'All eight real prepared stations, Minecraft block shapes, complete reversible routes without natural-terrain shortcuts.',rows,success:rows.every(r=>r.descend&&r.climb_home&&r.animal_station)};
+const result={fixture:'All eight real prepared stations, Minecraft block shapes, complete reversible routes without natural-terrain shortcuts.',rows,success:rows.every(r=>r.descend&&r.climb_home&&r.animal_station&&r.reserved_wood)};
 fs.writeFileSync('docs/survival-routes.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));process.exitCode=result.success?0:1;

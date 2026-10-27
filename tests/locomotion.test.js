@@ -32,6 +32,15 @@ test('world policy forward and jump cannot carry a bot over unsupported ground',
  motor.command(3,{kind:'expedition'},sensed,0);now+=50;motor.tick();assert.equal(controls.jump,true,'ordinary expedition jump courses retain their controls');
 });
 
+test('world auto-step lifts a forward intention onto a checked adjacent block but respects wait and unsafe landings',()=>{
+ const {Vec3}=require('vec3'),{proximity}=require('../controller/perception');let now=0;const controls={};let landing=true;
+ const bot={players:{},entity:{position:new Vec3(.5,64,.5),yaw:0,pitch:0,onGround:true},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,blockAt(p){const q=p.floored(),floor=q.z<0?65:64,solid=landing&&q.y<floor;return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+ const task={kind:'expedition',auto_step:true,safe_walk:true,strict_ground:true,waypoints:[[.5,65.1,-.5]]},motor=createMotor(bot,permissions,{clock:()=>now});
+ motor.command(0,task,{...safe,...proximity(bot)},0);now+=50;motor.tick();assert.equal(controls.forward,true);assert.equal(controls.jump,true);
+ motor.command(4,task,{...safe,...proximity(bot)},0);now+=50;motor.tick();assert.equal(controls.forward,false);assert.equal(controls.jump,false);
+ landing=false;motor.command(0,task,{...safe,...proximity(bot)},0);now+=50;motor.tick();assert.equal(controls.jump,false);assert.equal(controls.forward,false);
+});
+
 test('world ground safety updates while the previous policy intention is still held',()=>{
  const {Vec3}=require('vec3');let now=0,ground=true;const controls={},bot={entity:{yaw:0,onGround:true,position:new Vec3(0,70,0)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,
   blockAt(p){const q=p.floored(),solid=ground&&q.y<70;return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty',shapes:solid?[[0,0,0,1,1,1]]:[]};}};

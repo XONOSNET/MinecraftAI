@@ -2,17 +2,28 @@
 const {Vec3}=require('vec3');
 const {route,standable}=require('./field_navigation');
 const {forBot}=require('./behavior');
+const {doorwayDescriptor}=require('./doorway');
 function segmentDistance(p,a,b){
  const dx=b[0]-a[0],dz=b[2]-a[2],t=Math.max(0,Math.min(1,((p.x-a[0])*dx+(p.z-a[2])*dz)/(dx*dx+dz*dz||1)));
  return Math.hypot(p.x-a[0]-dx*t,p.z-a[2]-dz*t);
 }
 function corridorDistance(p,points){let best=Infinity;for(let i=1;i<points.length;i++)best=Math.min(best,segmentDistance(p,points[i-1],points[i]));return best;}
 function homeApproach(plot){return plot?[plot.x+.5,plot.y+.1,plot.z-4.5]:null;}
+function insideHome(p,plot){return !!plot&&Math.abs(p.x-plot.x-.5)<2.5&&Math.abs(p.z-plot.z-.5)<2.5&&Math.abs(p.y-plot.y)<.6;}
+function crossingHome(bot,goal,plot){return insideHome(bot.entity.position,plot)!==insideHome(new Vec3(...goal),plot);}
+function routeDoorway(bot,plot,path,goal){
+ if(!plot)return null;
+ const index=path.findIndex(q=>Math.floor(q[0])===plot.x&&Math.floor(q[2])===plot.z-3);
+ if(index<0)return null;
+ // Use the actual crossing direction; the ultimate destination may be behind
+ // the house, on the same side of the door plane as the starting room.
+ return doorwayDescriptor(bot,bot.blockAt(new Vec3(plot.x,plot.y,plot.z-3)),path[index+1]||goal);
+}
 function approachGoal(bot,goal,plot){
- if(!plot||Math.hypot(goal[0]-plot.x-.5,goal[2]-plot.z-.5)>1.5)return goal;
- const p=bot.entity.position,inside=Math.abs(p.x-plot.x-.5)<2.45&&Math.abs(p.z-plot.z-.5)<2.45&&Math.abs(p.y-plot.y)<.6;
+ if(!plot||!crossingHome(bot,goal,plot))return goal;
+ const inside=insideHome(bot.entity.position,plot);
  const door=bot.blockAt(new Vec3(plot.x,plot.y,plot.z-3));
- return !inside&&door?.name.endsWith('_door')&&!door.getProperties().open?homeApproach(plot):goal;
+ return door?.name.endsWith('_door')&&!door.getProperties().open?(inside?[plot.x+.5,plot.y+.1,plot.z-1.5]:homeApproach(plot)):goal;
 }
 class WorldNavigation{
  constructor(){this.path=[];this.destination=null;this.lastPlan=-Infinity;this.anchor=null;this.best=Infinity;this.progressAt=0;this.status={};}
@@ -41,4 +52,4 @@ class WorldNavigation{
   return {path:this.path,cue:this.path[0]||target,corridor:[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,3)],blocked:this.blocked,arrived,message:this.reason};
  }
 }
-module.exports={WorldNavigation,homeApproach,approachGoal,corridorDistance};
+module.exports={WorldNavigation,homeApproach,approachGoal,corridorDistance,insideHome,crossingHome,routeDoorway};

@@ -9,6 +9,14 @@ const space=require('./resource_space');
 const {forBot}=require('./behavior');
 const {corridorDistance}=require('./world_navigation');
 const {createStrafe,safe:strafeSafe}=require('./strafe');
+const {standable}=require('./field_navigation');
+function safeAutoStep(bot,task,plan,angle){
+ if(!task?.auto_step||!task.strict_ground||!plan.forward||plan.back||plan.sneak||bot.entity.onGround!==true||Math.abs(angle)>.2)return false;
+ const q=task.waypoints?.[0],p=bot.entity.position;if(!q)return false;
+ const rise=q[1]-p.y,adjacent=Math.abs(Math.floor(q[0])-Math.floor(p.x))+Math.abs(Math.floor(q[2])-Math.floor(p.z))===1;
+ if(rise<.6||rise>1.2||!adjacent||Math.hypot(q[0]-p.x,q[2]-p.z)>1.5||!standable(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])))return false;
+ const over=bot.blockAt(p.floored().offset(0,2,0));return !!over&&over.boundingBox==='empty';
+}
 function applyPose(bot,wantsCrouch){
  if(!bot.physics||!bot.entity?.position||!bot.blockAt)return;
  const p=bot.entity.position;let ceiling=false;
@@ -62,9 +70,11 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    // viewing direction is not evidence that the new corridor requires backing.
    if(focus&&Math.abs(angle)>.35){plan.forward=false;plan.jump=false;}
    const rise=task?.strict_ground&&task.waypoints?.length?task.waypoints[0][1]-bot.entity.position.y:0;
+   const autoStep=permissions.jump&&safeAutoStep(bot,task,plan,angle);
+   if(autoStep){plan.jump=true;plan.label='Stepping up the verified route';}
    // A verified ascending waypoint is a step, even when the longer wall probe
    // also sees the next terrace. Execute a chosen jump without backing away.
-   if(action===3&&permissions.jump&&rise>.6&&rise<1.2&&Math.abs(angle)<.35){recovery.reset();sensed={...sensed,wallAhead:false};}
+   if((action===3||autoStep)&&permissions.jump&&rise>.6&&rise<1.2&&Math.abs(angle)<.35){recovery.reset();sensed={...sensed,wallAhead:false};}
    const lateral=permissions.move?strafe.choose(action,task,sensed,angle,plan,clock()):null;
    if(lateral?.pure){plan.forward=false;plan.yaw=0;recovery.reset();}
    const passage=doorway.update(plan,sensed||{},bot.entity.position,bot.entity.yaw,clock(),permissions);
@@ -92,6 +102,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    plan.avoidPlayers=!!task?.avoid_players;plan.levelLook=!!task?.quick_look;
    plan.yawRate=task?.quick_look?forBot(bot).walk_yaw_deg_per_sec*Math.PI/180:Math.PI;
    if(plan.forward&&sensed?.crouchClearance){plan.sneak=true;plan.jump=false;plan.label='Crouching under low clearance';}
+   if(autoStep&&plan.jump&&plan.forward)plan.label='Stepping up the verified route';
    plan.sprint=!plan.side&&!plan.descent&&sprintIntent(bot,permissions,task,plan,sensed,angle,!!bot.getControlState('sprint'));
    plan.sprintTask=task;lastSprintSafetyAt=-Infinity;
    if(plan.sprint)plan.label='Sprinting on clear ground';
@@ -150,4 +161,4 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
   }
  };
 }
-module.exports={motorPlan,createMotor,applyPose};
+module.exports={motorPlan,createMotor,applyPose,safeAutoStep};

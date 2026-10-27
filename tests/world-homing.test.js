@@ -26,6 +26,25 @@ test('a closed home entrance is approached from outside before planning through 
  assert.deepEqual(approachGoal(b,[8.5,69.1,.5],plot),[8.5,69.1,-4.5]);
  b.entity.position=new Vec3(8.5,69,.5);assert.deepEqual(approachGoal(b,[8.5,69.1,.5],plot),[8.5,69.1,.5]);
 });
+
+test('a trip behind the house still needs the front door and approaches it from inside',()=>{
+ const {crossingHome}=require('../controller/world_navigation'),plot={x:8,y:69,z:0},b=landscape();b.entity.position=new Vec3(8.5,69,.5);
+ b.blockAt=p=>({name:p.x===8&&p.y===69&&p.z===-3?'oak_door':'air',getProperties:()=>({open:false})});
+ const goal=[12.5,69.1,30.5];assert.equal(crossingHome(b,goal,plot),true);assert.deepEqual(approachGoal(b,goal,plot),[8.5,69.1,-1.5]);
+ assert.equal(crossingHome(b,[9.5,69.1,.5],plot),false);
+});
+
+test('door alignment follows the route out of the front door before turning toward a destination behind home',()=>{
+ const {routeDoorway}=require('../controller/world_navigation'),plot={x:0,y:64,z:0},b={entity:{position:new Vec3(.5,64,-1.5)},blockAt:()=>({name:'oak_door',position:new Vec3(0,64,-3),getProperties:()=>({open:true,facing:'north'})})};
+ assert.ok(routeDoorway(b,plot,[[.5,64.1,-2.5],[.5,64.1,-3.5],[1.5,64.1,-3.5]],[.5,64.1,8.5]));
+});
+
+test('survival wood trip opens the enlarged house door from the room center even for resources behind home',async()=>{
+ const survival=require('../controller/survival'),{HutTeacher}=require('../controller/hut_teacher'),t=new HutTeacher(),plot={x:0,y:64,z:0};
+ let opened=false,walked=false;const b={entity:{position:new Vec3(.5,64,.5)},blockAt:p=>({name:'oak_door',position:p,getProperties:()=>({open:false})}),activateBlock:async()=>{opened=true;}};
+ Object.assign(t,{plot,phase:'survival_wood_trip',survival:{station:{logs:[[5,64,30]]}},walk:async()=>{walked=true;}});
+ await survival.tick(t,b,{pause(){}},{world:{}},null,null,null);assert.equal(opened,true);assert.equal(walked,false);assert.equal(t.phase,'survival_wood_trip');
+});
 test('failed home searches are throttled and terminate an oscillating attempt without claiming a route',()=>{
  const b=landscape(false),nav=new WorldNavigation(),goal=[7.5,69.1,.5],options={bounds:[-30,30,-30,30],now:1000};
  nav.plan(b,goal,options);assert.equal(nav.replanned,true);

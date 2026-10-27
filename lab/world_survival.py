@@ -63,9 +63,13 @@ class SurvivalLessons:
             for i,mob in enumerate(['sheep']*3+['cow']*2):
                 extra=',Color:0b,Sheared:0b' if mob=='sheep' else ''
                 self.command(f'summon minecraft:{mob} {x+3.5} {y} {z-2+i+.5} '+f'{{Tags:["lab_world_survival","{tag}"],CustomName:'+json.dumps(json.dumps({'text':name+' lesson '+mob}))+',NoAI:1b,PersistenceRequired:1b'+extra+'}')
-            logs=[[x+5,y+dy,z-direction*3] for dy in range(4)]
-            self.command(f'fill {x+5} {y-1} {z-direction*3} {x+5} {y-1} {z-direction*3} minecraft:grass_block')
-            self.command(f'fill {x+5} {y} {z-direction*3} {x+5} {y+3} {z-direction*3} minecraft:oak_log')
+            # A separate wood apron keeps logs out of the animal fence and
+            # catches drops on both sides, including on uneven natural ground.
+            wood_z=z-direction*3;near=z-direction;far=z-direction*6
+            self.command(f'fill {x-7} {y-1} {min(near,far)} {x+1} {y-1} {max(near,far)} minecraft:grass_block')
+            self.command(f'fill {x-7} {y} {min(near,far)} {x+1} {y+3} {max(near,far)} minecraft:air')
+            logs=[[x-4,y+dy,wood_z] for dy in range(4)]
+            self.command(f'fill {x-4} {y} {wood_z} {x-4} {y+3} {wood_z} minecraft:oak_log')
             stations[name]=dict(stairs=stairs,entrance=stairs[0],bottom=[x+.5,bottom+.1,face-direction*1.5],ores=ores,coal=coal,logs=logs,animals=animals,animal_label=name+' lesson ',iron_target=8 if s['mission']=='iron_age' else 32)
             return copy.deepcopy(stations[name])
         if action=='home':

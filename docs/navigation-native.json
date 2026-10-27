@@ -1,0 +1,58 @@
+{
+  "fixture": "Real door exit to resources behind home and mine staircase ascent/descent; simulated forward intentions replace jump choices to test shared auto-step.",
+  "grants": [
+    "Starting stone base, stone tools and furnace",
+    "24 additional iron ingots for armor to shorten fixture smelting; production must mine/smelt all 32"
+  ],
+  "phases": [],
+  "routes": [
+    {
+      "phase": "survival_wood_trip",
+      "seconds": 7.7,
+      "position": {
+        "x": -97.49977444330665,
+        "y": 170,
+        "z": -95.65492417526433
+      }
+    },
+    {
+      "phase": "survival_wood_trip",
+      "seconds": 11.5,
+      "position": {
+        "x": -106.50315566124495,
+        "y": 170,
+        "z": -127.41259221642017
+      }
+    },
+    {
+      "phase": "survival_wood",
+      "seconds": 10.7,
+      "position": {
+        "x": -105.49872684364752,
+        "y": 170,
+        "z": -127.51438398864556
+      }
+    },
+    {
+      "phase": "survival_mine_up",
+      "seconds": 3.6,
+      "position": {
+        "x": -100.4848526000337,
+        "y": 170,
+        "z": -130.89728125216186
+      }
+    },
+    {
+      "phase": "survival_mine_down",
+      "seconds": 12.6,
+      "position": {
+        "x": -100.27361489085033,
+        "y": 165,
+        "z": -137.35428965154628
+      }
+    }
+  ],
+  "routePulse": 1793064457328,
+  "success": true,
+  "health": 20
+}

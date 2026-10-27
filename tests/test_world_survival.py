@@ -11,6 +11,19 @@ def setup(tmp_path,mission='homestead',count=8):
 def call(world,name='LabAI0',action='station',**kw):
     return world.survival(dict(agent=name,run=world.session['run'],action=action,**kw),'Named bot')
 
+
+def test_reserved_wood_has_its_own_drop_apron_outside_the_animal_fence(tmp_path):
+    world,commands=setup(tmp_path)
+    for name in world.session['bots']:
+        s=call(world,name);x,y,z=s['logs'][0]
+        assert x==int(s['entrance'][0]-.5)-4
+        floors=[]
+        for command in commands:
+            parts=command.split()
+            if parts[0]=='fill' and parts[-1]=='minecraft:grass_block':floors.append([int(v) for v in parts[1:7]])
+        for dx in (-2,0,2):
+            for dz in (-2,0,2):assert any(a<=x+dx<=d and b==y-1==e and c<=z+dz<=f for a,b,c,d,e,f in floors)
+
 def test_all_survival_stations_have_separate_real_resources_and_reversible_depth(tmp_path):
     world,commands=setup(tmp_path);stations=[call(world,f'LabAI{i}') for i in range(8)]
     positions=set()

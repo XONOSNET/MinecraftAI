@@ -5,6 +5,7 @@ const count=(b,name)=>b.inventory.items().filter(i=>i.name===name).reduce((n,i)=
 const table=(t,b)=>b.blockAt(new Vec3(t.table.x,t.table.y,t.table.z));
 const hearth=(t,b)=>b.blockAt(require('./house').point(t.plot,'furnace'));
 const homeGoal=t=>[t.plot.x+.5,t.plot.y+.1,t.plot.z+.5];
+const {crossingHome}=require('./world_navigation');
 const near=(b,g,r=.55)=>Math.hypot(b.entity.position.x-g[0],b.entity.position.z-g[2])<r&&Math.abs(b.entity.position.y-g[1])<.5;
 const defenseTask=(t,w,s)=>({kind:'combat',bounds:w.bounds,min_y:t.plot.y-2,max_y:t.plot.y+4,mobs:['husk'],mob_label:s.threat.label,weapon:'iron_sword',armor:'iron',kill_target:1,stationary:false,min_health:10});
 const MESSAGES={setup:'Preparing the iron expedition',wood_trip:'Heading to reserved wood',wood_craft:'Crafting supplies for tools and a bed',mine_enter:'Heading to the mine entrance',mine_down:'Descending the mine staircase',mine_up:'Climbing back to the surface',mine_return:'Returning home with ore',iron_tools:'Crafting iron tools, shears and sword',sheep_trip:'Heading to the lesson sheep',bed_return:'Returning home with wool',bed:'Crafting and verifying the bed home',food_trip:'Heading to the lesson livestock',food_return:'Bringing food home',armor:'Crafting and equipping iron armor',store:'Storing cooked food and spare iron',patrol:'Leaving home for defense practice',threat:'Preparing the controlled monster encounter',shelter:'Retreating inside the hut',secure:'Closing and verifying the home door',defend_exit:'Meeting the threat at the doorway',defense_return:'Returning safely to the bed home',finish:'Verifying the finished homestead'};
@@ -16,7 +17,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
  const next=phase=>{t.phase='survival_'+phase;t.lastProgress=Date.now();};
  const move=async(goal,phase)=>{
   const door=b.blockAt(new Vec3(t.plot.x,t.plot.y,t.plot.z-3)),p=b.entity.position;
-  if(door?.name.endsWith('_door')&&!door.getProperties().open&&p.distanceTo(door.position)<3.5&&((p.z>door.position.z+.5)!==(goal[2]>door.position.z+.5))){motor.pause();await b.activateBlock(door);return;}
+  if(door?.name.endsWith('_door')&&!door.getProperties().open&&crossingHome(b,goal,t.plot)&&p.offset(0,1.62,0).distanceTo(door.position.offset(.5,.5,.5))<4.2){motor.pause();await b.activateBlock(door);t.path=[];t.navigator.lastPlan=-Infinity;t.message='Opening home door for the trip';return;}
   if(near(b,goal)||await t.walk(b,motor,goal,state,api,scan,tasks)===true){motor.pause();next(phase);}
  };
  const gather=async(blocks,item,amount,tool,phase)=>{
