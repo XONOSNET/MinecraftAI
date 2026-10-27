@@ -1,0 +1,19 @@
+{
+  "fixture": "Permanent sky lounge built only after checking empty sky; actual floor, rail, lighting and survival landing verification.",
+  "floor_blocks": 613,
+  "rail_blocks": 84,
+  "light_tiles": 65,
+  "slots": 8,
+  "landing": {
+    "x": -153.5,
+    "y": 225.0625,
+    "z": 160.5
+  },
+  "health": 20,
+  "success": true,
+  "center": [
+    -160,
+    224,
+    160
+  ]
+}

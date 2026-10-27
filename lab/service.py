@@ -206,7 +206,9 @@ harvest_markers=HarvestMarkers('data/harvest-markers.json',console)
 observers=Observers('data/observers.json',console)
 camera_input=CameraInput('logs/minecraft-console.log',console,'server/world/datapacks/lab_camera_controls')
 practice_protection=PracticeProtection(console)
-world_training=WorldTraining('data/world-training.json',console,'logs/minecraft-console.log')
+from .staging import StagingPad
+staging_pad=StagingPad(console)
+world_training=WorldTraining('data/world-training.json',console,'logs/minecraft-console.log',staging=staging_pad)
 bot_lights=BotLights(console)
 from .behavior import BehaviorRules
 behavior_rules=BehaviorRules('config/behavior.json',[f'LabAI{i}' for i in range(AGENT_COUNT)])
@@ -801,6 +803,7 @@ def observer_worker():
                 harvest_markers.tick(world_training.session,agents,server_ready() and not server_control.snapshot()['busy'])
                 vision_lines.tick(agents,observers.sessions,server_ready() and not server_control.snapshot()['busy'])
                 if server_ready() and not server_control.snapshot()['busy']:
+                    staging_pad.tick(server.pid,time.time())
                     bot_lights.tick(agents,True)
                     camera_input.tick(observers,[p['name'] for p in online_players()],agents)
                     world_training.tick()
@@ -851,7 +854,7 @@ def _begin_world(d:dict):
         curriculum.pause('Basics saved while real-world hut training is selected.');practice=None
         mode='teacher' if d.get('driver','teacher')=='teacher' else 'evaluate';run=world_training.session['run']
         record_run();console('scoreboard objectives add lab_world trigger')
-        for name in names:console(f'tp {name} 0 181 0')
+        world_training.park(names)
         event('world_started',{'run':run,**d});return result
 
 @app.post('/world/stop',dependencies=[Depends(auth)])

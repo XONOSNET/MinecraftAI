@@ -28,8 +28,9 @@ SCENARIOS=[dict(id=i,name=name,description=description,spread=spread) for i,(nam
 
 
 class WorldTraining(SurvivalLessons):
-    def __init__(self,path,command,logpath,clock=time.time):
+    def __init__(self,path,command,logpath,clock=time.time,staging=None):
         self.path=Path(path);self.command=command;self.logpath=Path(logpath);self.clock=clock
+        self.staging=staging
         self.saved=json.loads(self.path.read_text(encoding='utf-8')) if self.path.exists() else {'templates':{},'history':[]}
         self.session=None;self.jobs=[];self.job=None;self.offset=0;self.serial=0;self.ui_at=0;self.ui_offset=self.logpath.stat().st_size if self.logpath.exists() else 0
 
@@ -85,6 +86,11 @@ class WorldTraining(SurvivalLessons):
                 source=xx+1024 if restore else xx;dest=xx if restore else xx+1024
                 self.jobs.append((source,dest,zz,min(32 if fast else 16,area[1]-xx)))
         self.total=len(self.jobs);return self.snapshot()
+
+    def park(self,names):
+        if self.staging:self.staging.park(names)
+        else:
+            for name in names:self.command(f'tp {name} 0 181 0')
 
     def next_batch(self,connected):
         s=self.session
@@ -260,7 +266,7 @@ class WorldTraining(SurvivalLessons):
         if s['results'].get(name,{}).get('state') in ('complete','stopped'):return
         if data.get('state') in ('complete','stopped') and s.get('mission') in ADVANCED:self.command(f'kill @e[tag=lab_world_{name}]')
         if data.get('state')=='stopped' and s['results'].get(name,{}).get('state')!='stopped':
-            self.command(f'effect give {name} minecraft:fire_resistance 20 0 true');self.command(f'tp {name} 0 181 0')
+            self.command(f'effect give {name} minecraft:fire_resistance 20 0 true');self.park([name])
         allowed=('navigation','harvest_target','state','phase','message','logs','blocks','target_blocks','distance','travelled','health','plot','seconds','timings','milestones','lesson','lesson_total','idle_seconds','stall_seconds_left','home','survival')
         previous=s['results'].get(name,{})
         s['results'][name]={k:copy.deepcopy(data[k]) for k in allowed if k in data}
@@ -279,7 +285,7 @@ class WorldTraining(SurvivalLessons):
         if self.session:
             if self.session['active']:
                 for name in self.session['bots']:
-                    try:self.command(f'tp {name} 0 181 0')
+                    try:self.park([name])
                     except RuntimeError:pass
             self.session.update(active=False,loop=False,phase='paused',message=reason)
 
