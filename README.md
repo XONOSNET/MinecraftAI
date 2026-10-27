@@ -161,6 +161,8 @@ The in-game activity sidebar uses independent scoreboard rows so team prefixes c
 
 ## Automatic world learning and stone-age bases
 
+Configured AI bots have a permanent vanilla glowing outline, visible through walls. A small server datapack reapplies it on the next tick after effect resets or respawns, without changing human players or requiring a client mod. Existing effects are left alone while the outline is present.
+
 While real-world terrain restores, bots wait on the circular **Sky Lounge** at X=-160, Z=160, with its floor at Y=224. The quartz/calcite and cyan deck has a glass railing, eight illuminated waiting spots, lamp posts and a central light sculpture. Failed or paused world attempts use the same lounge. The four deck chunks stay loaded; world trials still deploy bots through the normal shared-spawn checks once restoration is ready.
 
 World-trial houses have a 7×7 exterior, a 5×5 wooden interior floor and three blocks of headroom. The workbench sits in the west wall; the chest, furnace and two-block bed have separate positions around the interior edges. Bots replace floor tiles from adjacent safe stances and move inside the house to reach roof corners. Prepared camps space plots ten blocks apart and supply eight six-log trees per bot. The first house needs 39 logs for its floor, shell, workbench and doors. Shared layout settings live in `config/house.json`; dashboard and observer progress use the reported 144-block blueprint size.

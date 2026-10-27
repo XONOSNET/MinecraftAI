@@ -1,0 +1,8 @@
+{
+  "fixture": "Native glowing metadata and automatic recovery after effect clearing; no model, movement or inventory changes to lab bots.",
+  "initial_outline": true,
+  "restored_after_clear": true,
+  "effect_condition_verified": true,
+  "non_bot_unchanged": true,
+  "success": true
+}

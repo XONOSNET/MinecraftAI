@@ -205,6 +205,8 @@ from .harvest_markers import HarvestMarkers,validate_intent
 harvest_markers=HarvestMarkers('data/harvest-markers.json',console)
 observers=Observers('data/observers.json',console)
 camera_input=CameraInput('logs/minecraft-console.log',console,'server/world/datapacks/lab_camera_controls')
+from .bot_outlines import install_outline_pack
+install_outline_pack('server/world/datapacks/lab_bot_outlines')
 practice_protection=PracticeProtection(console)
 from .staging import StagingPad
 staging_pad=StagingPad(console)
