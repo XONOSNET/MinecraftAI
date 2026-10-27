@@ -16,7 +16,7 @@ async function craft(bot,name,times=1,table=null){
  const click=async(slot,button=0)=>{const window=bot.currentWindow||bot.inventory;await response(window,()=>bot._client.write('window_click',{windowId:window.id,stateId:-1,slot,mouseButton:button,mode:0,changedSlots:[],cursorItem:Item.toNotch(window.selectedItem)}));await new Promise(r=>setTimeout(r,100));await sync();};
  const sync=async()=>{const window=bot.currentWindow||bot.inventory;await response(window,()=>bot._client.write('window_click',{windowId:window.id,stateId:-1,slot:-999,mouseButton:2,mode:5,changedSlots:[],cursorItem:Item.toNotch(window.selectedItem)}));};
  const stow=async()=>{const window=bot.currentWindow||bot.inventory,item=window.selectedItem;if(!item)return;
-  let slot=null;for(let i=window.inventoryStart;i<window.inventoryEnd;i++)if(!window.slots[i]){slot=i;break;}if(slot===null)for(let i=window.inventoryStart;i<window.inventoryEnd;i++){const other=window.slots[i];if(other?.type===item.type&&other.count+item.count<=other.stackSize){slot=i;break;}}
+  let slot=null;for(let i=window.inventoryStart;i<window.inventoryEnd;i++){const other=window.slots[i];if(other?.type===item.type&&other.count+item.count<=other.stackSize){slot=i;break;}}if(slot===null)for(let i=window.inventoryStart;i<window.inventoryEnd;i++)if(!window.slots[i]){slot=i;break;}
   if(slot===null)throw Error('Inventory full while crafting');await click(slot);
   if(window.selectedItem)throw Error('Server did not return crafted item to inventory');
  };

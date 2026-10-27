@@ -1,0 +1,237 @@
+{
+  "run": "world-1793131616751047800",
+  "round": 363,
+  "driver": "teacher",
+  "mission": "first_night",
+  "level": 0,
+  "phase": "running",
+  "bots": [
+    "LabAI0",
+    "LabAI1",
+    "LabAI2",
+    "LabAI3",
+    "LabAI4",
+    "LabAI5",
+    "LabAI6",
+    "LabAI7"
+  ],
+  "results": {
+    "LabAI0": {
+      "state": "working",
+      "phase": "gather",
+      "message": "Following locked route",
+      "milestones": [],
+      "seconds": 260.958,
+      "plot": {
+        "x": 20529,
+        "y": 63,
+        "z": 16443,
+        "tableY": 63
+      },
+      "failure_category": null,
+      "health": 20,
+      "position": [
+        20530.681301006545,
+        63,
+        16434.49908684411
+      ]
+    },
+    "LabAI4": {
+      "state": "working",
+      "phase": "gather",
+      "message": "Collecting harvested drops",
+      "milestones": [],
+      "seconds": 266.725,
+      "plot": {
+        "x": 20529,
+        "y": 63,
+        "z": 16453,
+        "tableY": 63
+      },
+      "failure_category": null,
+      "health": 20,
+      "position": [
+        20527.461909927682,
+        63,
+        16461.62221524494
+      ]
+    },
+    "LabAI6": {
+      "state": "working",
+      "phase": "gather",
+      "message": "Harvesting logs 21 / 38",
+      "milestones": [],
+      "seconds": 263.549,
+      "plot": {
+        "x": 20549,
+        "y": 63,
+        "z": 16453,
+        "tableY": 63
+      },
+      "failure_category": null,
+      "health": 20,
+      "position": [
+        20547.4989238998,
+        63,
+        16464.60225811733
+      ]
+    },
+    "LabAI3": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "gather: No reachable wood found after surveying loaded terrain",
+      "milestones": [],
+      "seconds": 135.87,
+      "plot": {
+        "x": 20559,
+        "y": 63,
+        "z": 16443,
+        "tableY": 63
+      },
+      "navigation": {
+        "home": [
+          20559.5,
+          63.1,
+          16438.5
+        ],
+        "target": [
+          20557.5,
+          63.1,
+          16444.5
+        ],
+        "route_intent": "Return to own house",
+        "state": "following",
+        "height_delta": 0.1,
+        "route_complete": true,
+        "remaining_blocks": 1,
+        "waypoints": 2,
+        "no_progress_seconds": 0,
+        "reset_seconds": 90,
+        "expanded": 6,
+        "phase": "night_bootstrap",
+        "position": [
+          20557.498840480595,
+          63,
+          16443.53817651807
+        ],
+        "yaw": 15.713199255704204,
+        "on_ground": true,
+        "cue": [
+          20557.5,
+          63.1,
+          16444.5
+        ],
+        "sampled_at": 1793131987492,
+        "decision": {
+          "selected": 0,
+          "teacher": 0,
+          "angle": -0.004030445506926814
+        }
+      },
+      "failure_category": "resource_unavailable",
+      "health": 20,
+      "position": [
+        -163.5,
+        225.0625,
+        164.5
+      ]
+    },
+    "LabAI2": {
+      "state": "working",
+      "phase": "gather",
+      "message": "Following locked route",
+      "milestones": [],
+      "seconds": 260.926,
+      "plot": {
+        "x": 20549,
+        "y": 63,
+        "z": 16443,
+        "tableY": 63
+      },
+      "failure_category": null,
+      "health": 20,
+      "position": [
+        20547.49937011347,
+        63,
+        16431.413167301045
+      ]
+    },
+    "LabAI5": {
+      "state": "working",
+      "phase": "gather",
+      "message": "Acquiring locked route heading",
+      "milestones": [],
+      "seconds": 264.863,
+      "plot": {
+        "x": 20539,
+        "y": 63,
+        "z": 16453,
+        "tableY": 63
+      },
+      "failure_category": null,
+      "health": 20,
+      "position": [
+        20538.3611919293,
+        63,
+        16467.50061169405
+      ]
+    },
+    "LabAI1": {
+      "state": "working",
+      "phase": "gather",
+      "message": "Harvesting logs 19 / 38",
+      "milestones": [],
+      "seconds": 264.486,
+      "plot": {
+        "x": 20539,
+        "y": 63,
+        "z": 16443,
+        "tableY": 63
+      },
+      "failure_category": null,
+      "health": 20,
+      "position": [
+        20537.15174537039,
+        63,
+        16433.65650146624
+      ]
+    },
+    "LabAI7": {
+      "state": "working",
+      "phase": "gather",
+      "message": "Following locked route",
+      "milestones": [],
+      "seconds": 265.474,
+      "plot": {
+        "x": 20559,
+        "y": 63,
+        "z": 16453,
+        "tableY": 63
+      },
+      "failure_category": null,
+      "health": 20,
+      "position": [
+        20560.209559965893,
+        63,
+        16466.49939002416
+      ]
+    }
+  },
+  "events": [
+    {
+      "at": 1793132027.46163,
+      "bot": "LabAI3",
+      "phase": "stopped",
+      "message": "gather: No reachable wood found after surveying loaded terrain",
+      "position": [
+        -163.5,
+        225.0625,
+        164.5
+      ]
+    }
+  ],
+  "complete": 0,
+  "stopped": 1,
+  "checked_at": 1793132152.2421572,
+  "recorded_phase_changes": 26
+}

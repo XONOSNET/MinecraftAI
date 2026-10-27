@@ -1,0 +1,59 @@
+{
+  "fixture": "Real-server reproduction of the stalled food-pickup route beside a log column",
+  "grants": [
+    "Completed illuminated shelter, chest and furnace",
+    "Four logs for early axe crafting",
+    "Wooden pickaxe for exposed-stone test",
+    "Four fixture cows, three sheep and furnace fuel"
+  ],
+  "checks": [],
+  "start_position": {
+    "x": -244.274,
+    "y": 180,
+    "z": -109.359
+  },
+  "arrived_home": true,
+  "left_neighbor_through_exit": false,
+  "seconds": 4.4,
+  "position": {
+    "x": -247.74564697915375,
+    "y": 180,
+    "z": -106.13135601383611
+  },
+  "navigation": {
+    "home": [
+      -247.5,
+      180.1,
+      -128.5
+    ],
+    "target": [
+      -247.7085,
+      180.1,
+      -106.0623
+    ],
+    "route_intent": "Travel outside private houses",
+    "state": "arrived",
+    "height_delta": 0.1,
+    "route_complete": true,
+    "remaining_blocks": 0,
+    "waypoints": 0,
+    "no_progress_seconds": 0,
+    "reset_seconds": 90,
+    "expanded": 1,
+    "phase": "night_food",
+    "position": [
+      -247.67459475466103,
+      180,
+      -106.2531828946272
+    ],
+    "yaw": 2.966187063764374,
+    "on_ground": true,
+    "cue": [
+      -247.7085,
+      180.1,
+      -106.0623
+    ],
+    "sampled_at": 1793134191722
+  },
+  "success": true
+}

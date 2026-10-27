@@ -1,0 +1,59 @@
+{
+  "fixture": "Real-server reproduction of the reported outside-house corner, starting off-center beside the front wall.",
+  "grants": [
+    "Completed illuminated shelter, chest and furnace",
+    "Four logs for early axe crafting",
+    "Wooden pickaxe for exposed-stone test",
+    "Four fixture cows, three sheep and furnace fuel"
+  ],
+  "checks": [],
+  "start_position": {
+    "x": -244.935,
+    "y": 180,
+    "z": -127.471
+  },
+  "arrived_home": true,
+  "left_neighbor_through_exit": false,
+  "seconds": 4.4,
+  "position": {
+    "x": -247.5157311061629,
+    "y": 180,
+    "z": -123.44089219056053
+  },
+  "navigation": {
+    "home": [
+      -247.5,
+      180.1,
+      -128.5
+    ],
+    "target": [
+      -247.5,
+      180.1,
+      -123.5
+    ],
+    "route_intent": "Return to own house",
+    "state": "arrived",
+    "height_delta": 0.1,
+    "route_complete": true,
+    "remaining_blocks": 0,
+    "waypoints": 0,
+    "no_progress_seconds": 0,
+    "reset_seconds": 90,
+    "expanded": 1,
+    "phase": "stone_return",
+    "position": [
+      -247.5702491389694,
+      180,
+      -123.60575414735371
+    ],
+    "yaw": 9.846275188178582,
+    "on_ground": true,
+    "cue": [
+      -247.5,
+      180.1,
+      -123.5
+    ],
+    "sampled_at": 1793133677682
+  },
+  "success": true
+}

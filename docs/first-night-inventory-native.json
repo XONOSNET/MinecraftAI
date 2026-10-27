@@ -1,0 +1,12 @@
+{
+  "fixture": "Real-server inventory regression: forty log conversions must merge stacks and leave room to craft a door.",
+  "grants": [
+    "Isolated completed house and workbench",
+    "Forty oak logs"
+  ],
+  "checks": [],
+  "planks": 160,
+  "plank_stacks": 3,
+  "doors": 3,
+  "success": true
+}

@@ -1,0 +1,54 @@
+{
+  "fixture": "Real-server shared-house route: leave a neighboring closed room through its door, then enter the owned closed house.",
+  "grants": [
+    "Completed illuminated shelter, chest and furnace",
+    "Four logs for early axe crafting",
+    "Wooden pickaxe for exposed-stone test",
+    "Four fixture cows, three sheep and furnace fuel"
+  ],
+  "checks": [],
+  "arrived_home": true,
+  "left_neighbor_through_exit": true,
+  "seconds": 8.2,
+  "position": {
+    "x": -247.50837163011468,
+    "y": 180,
+    "z": -123.31522481522617
+  },
+  "navigation": {
+    "home": [
+      -247.5,
+      180.1,
+      -128.5
+    ],
+    "target": [
+      -247.5,
+      180.1,
+      -123.5
+    ],
+    "route_intent": "Return to own house",
+    "state": "arrived",
+    "height_delta": 0.1,
+    "route_complete": true,
+    "remaining_blocks": 0,
+    "waypoints": 0,
+    "no_progress_seconds": 0,
+    "reset_seconds": 90,
+    "expanded": 4,
+    "phase": "stone_return",
+    "position": [
+      -247.50837163011468,
+      180,
+      -123.41419760763125
+    ],
+    "yaw": 3.196570525027611,
+    "on_ground": true,
+    "cue": [
+      -247.5,
+      180.1,
+      -123.5
+    ],
+    "sampled_at": 1793132263839
+  },
+  "success": true
+}

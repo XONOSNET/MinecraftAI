@@ -1,0 +1,469 @@
+{
+  "run": "world-1793132278332583200",
+  "round": 363,
+  "driver": "teacher",
+  "mission": "first_night",
+  "level": 0,
+  "phase": "running",
+  "bots": [
+    "LabAI0",
+    "LabAI1",
+    "LabAI2",
+    "LabAI3",
+    "LabAI4",
+    "LabAI5",
+    "LabAI6",
+    "LabAI7"
+  ],
+  "results": {
+    "LabAI3": {
+      "state": "working",
+      "phase": "night_wool",
+      "message": "Holding: blocked ground or unsafe drop ahead",
+      "milestones": [
+        "hut",
+        "chest",
+        "wooden_pickaxe",
+        "wooden_shovel",
+        "wooden_axe",
+        "stocked",
+        "quarry",
+        "stone_pickaxe",
+        "stone_axe",
+        "furnace",
+        "charcoal",
+        "torch",
+        "food_found",
+        "cooked_meals",
+        "provisioned"
+      ],
+      "seconds": 1784.671,
+      "plot": {
+        "x": 20559,
+        "y": 63,
+        "z": 16443,
+        "tableY": 63
+      },
+      "failure_category": null,
+      "health": 20,
+      "position": [
+        20512.30892268193,
+        63,
+        16452.577401940925
+      ]
+    },
+    "LabAI4": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "return_home: No construction or movement progress for 60 seconds.",
+      "milestones": [
+        "hut"
+      ],
+      "seconds": 895.963,
+      "plot": {
+        "x": 20529,
+        "y": 63,
+        "z": 16453,
+        "tableY": 63
+      },
+      "navigation": {
+        "home": [
+          20529.5,
+          63.1,
+          16448.5
+        ],
+        "target": [
+          20529.5,
+          63.1,
+          16453.5
+        ],
+        "route_intent": "Return to own house",
+        "state": "following",
+        "height_delta": 0.1,
+        "route_complete": true,
+        "remaining_blocks": 7.5,
+        "waypoints": 9,
+        "no_progress_seconds": 68,
+        "reset_seconds": 22,
+        "expanded": 8,
+        "phase": "return_home",
+        "position": [
+          20532.917103128526,
+          63,
+          16449.500164242072
+        ],
+        "yaw": -6.14704962552335,
+        "on_ground": true,
+        "cue": [
+          20532.5,
+          63.1,
+          16449.5
+        ],
+        "sampled_at": 1793133446463,
+        "decision": {
+          "selected": 1,
+          "teacher": 1,
+          "angle": 1.4342668766619011
+        }
+      },
+      "failure_category": "stalled",
+      "health": 20,
+      "position": [
+        -165.5,
+        225.0625,
+        160.5
+      ]
+    },
+    "LabAI0": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "Stationary for 90 seconds without material or lesson progress; ending this attempt so learning can continue.",
+      "milestones": [
+        "hut",
+        "chest",
+        "wooden_pickaxe",
+        "wooden_shovel",
+        "wooden_axe",
+        "stocked",
+        "quarry",
+        "stone_pickaxe",
+        "stone_axe",
+        "furnace",
+        "charcoal",
+        "torch",
+        "food_found",
+        "cooked_meals",
+        "provisioned"
+      ],
+      "seconds": 1677.104,
+      "plot": {
+        "x": 20529,
+        "y": 63,
+        "z": 16443,
+        "tableY": 63
+      },
+      "navigation": {
+        "home": [
+          20529.5,
+          63.1,
+          16438.5
+        ],
+        "target": [
+          20552.5,
+          63.1,
+          16419.5
+        ],
+        "route_intent": "Travel outside private houses",
+        "state": "following",
+        "height_delta": 1.1,
+        "route_complete": true,
+        "remaining_blocks": 8.6,
+        "waypoints": 10,
+        "no_progress_seconds": 88,
+        "reset_seconds": 2,
+        "expanded": 9,
+        "phase": "night_wool",
+        "position": [
+          20544.7,
+          62,
+          16419.500719718402
+        ],
+        "yaw": 14.134548947275306,
+        "on_ground": true,
+        "cue": [
+          20544.5,
+          62.1,
+          16419.5
+        ],
+        "sampled_at": 1793134226786,
+        "decision": {
+          "selected": 3,
+          "teacher": 3,
+          "angle": -0.0009805825988417713
+        }
+      },
+      "failure_category": "stalled",
+      "health": 20,
+      "position": [
+        -153.5,
+        225.0625,
+        160.5
+      ]
+    },
+    "LabAI7": {
+      "state": "working",
+      "phase": "night_scout",
+      "message": "Following locked route",
+      "milestones": [
+        "hut",
+        "chest",
+        "wooden_pickaxe",
+        "wooden_shovel",
+        "wooden_axe",
+        "stocked",
+        "quarry",
+        "stone_pickaxe",
+        "stone_axe",
+        "furnace",
+        "charcoal",
+        "torch",
+        "food_found",
+        "cooked_meals",
+        "provisioned",
+        "wool",
+        "bed_home"
+      ],
+      "seconds": 1783.511,
+      "plot": {
+        "x": 20559,
+        "y": 63,
+        "z": 16453,
+        "tableY": 63
+      },
+      "failure_category": null,
+      "health": 20,
+      "position": [
+        20555.318916522265,
+        63,
+        16449.50035194982
+      ]
+    },
+    "LabAI6": {
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "Stationary for 90 seconds without material or lesson progress; ending this attempt so learning can continue.",
+      "milestones": [
+        "hut",
+        "chest",
+        "wooden_pickaxe",
+        "wooden_shovel",
+        "wooden_axe",
+        "stocked",
+        "quarry",
+        "stone_pickaxe",
+        "stone_axe",
+        "furnace",
+        "charcoal",
+        "torch"
+      ],
+      "seconds": 1521.683,
+      "plot": {
+        "x": 20549,
+        "y": 63,
+        "z": 16453,
+        "tableY": 63
+      },
+      "navigation": {
+        "home": [
+          20549.5,
+          63.1,
+          16448.5
+        ],
+        "target": [
+          20549.29150390625,
+          63.1,
+          16470.937744140625
+        ],
+        "route_intent": "Travel outside private houses",
+        "state": "following",
+        "height_delta": 0.1,
+        "route_complete": true,
+        "remaining_blocks": 6.8,
+        "waypoints": 8,
+        "no_progress_seconds": 2,
+        "reset_seconds": 88,
+        "expanded": 7,
+        "phase": "night_food",
+        "position": [
+          20552.726141516843,
+          63,
+          16467.64133811737
+        ],
+        "yaw": 7.2963489379618585,
+        "on_ground": true,
+        "cue": [
+          20552.5,
+          63.1,
+          16467.5
+        ],
+        "sampled_at": 1793134071816,
+        "decision": {
+          "selected": 3,
+          "teacher": 3,
+          "angle": -0.0009655678824225015
+        }
+      },
+      "failure_category": "stalled",
+      "health": 20,
+      "position": [
+        -159.5,
+        225.0625,
+        154.5
+      ]
+    },
+    "LabAI5": {
+      "state": "working",
+      "phase": "night_wool",
+      "message": "Following locked route",
+      "milestones": [
+        "hut",
+        "chest",
+        "wooden_pickaxe",
+        "wooden_shovel",
+        "wooden_axe",
+        "stocked",
+        "quarry",
+        "stone_pickaxe",
+        "stone_axe",
+        "furnace",
+        "charcoal",
+        "torch",
+        "food_found",
+        "cooked_meals",
+        "provisioned"
+      ],
+      "seconds": 1783.627,
+      "plot": {
+        "x": 20539,
+        "y": 63,
+        "z": 16453,
+        "tableY": 63
+      },
+      "failure_category": null,
+      "health": 20,
+      "position": [
+        20495.49972442076,
+        62,
+        16429.20465278014
+      ]
+    },
+    "LabAI1": {
+      "state": "working",
+      "phase": "night_hold",
+      "message": "Shelter watch \u00b7 89 s left \u00b7 health 20 \u00b7 food 20 \u00b7 4 meals",
+      "milestones": [
+        "hut",
+        "chest",
+        "wooden_pickaxe",
+        "wooden_shovel",
+        "wooden_axe",
+        "stocked",
+        "quarry",
+        "stone_pickaxe",
+        "stone_axe",
+        "furnace",
+        "charcoal",
+        "torch",
+        "food_found",
+        "cooked_meals",
+        "provisioned",
+        "wool",
+        "bed_home",
+        "round_trip"
+      ],
+      "seconds": 1784.099,
+      "plot": {
+        "x": 20539,
+        "y": 63,
+        "z": 16443,
+        "tableY": 63
+      },
+      "failure_category": null,
+      "health": 20,
+      "position": [
+        20539.481895146953,
+        63,
+        16443.570327898553
+      ]
+    },
+    "LabAI2": {
+      "state": "working",
+      "phase": "night_wool",
+      "message": "Following locked route",
+      "milestones": [
+        "hut",
+        "chest",
+        "wooden_pickaxe",
+        "wooden_shovel",
+        "wooden_axe",
+        "stocked",
+        "quarry",
+        "stone_pickaxe",
+        "stone_axe",
+        "furnace",
+        "charcoal",
+        "torch",
+        "food_found",
+        "cooked_meals",
+        "provisioned"
+      ],
+      "seconds": 1781.663,
+      "plot": {
+        "x": 20549,
+        "y": 63,
+        "z": 16443,
+        "tableY": 63
+      },
+      "failure_category": null,
+      "health": 20,
+      "position": [
+        20544.33170175298,
+        63,
+        16432.50127816518
+      ]
+    }
+  },
+  "events": [
+    {
+      "at": 1793133448.076,
+      "bot": "LabAI4",
+      "phase": "stopped",
+      "message": "return_home: No construction or movement progress for 60 seconds.",
+      "position": [
+        20532.917103128526,
+        63,
+        16449.500164242072
+      ]
+    },
+    {
+      "at": 1793134076.3723073,
+      "bot": "LabAI6",
+      "phase": "stopped",
+      "message": "Stationary for 90 seconds without material or lesson progress; ending this attempt so learning can continue.",
+      "position": [
+        -159.5,
+        225.0625,
+        154.5
+      ]
+    },
+    {
+      "at": 1793134235.1740625,
+      "bot": "LabAI0",
+      "phase": "stopped",
+      "message": "Stationary for 90 seconds without material or lesson progress; ending this attempt so learning can continue.",
+      "position": [
+        -153.5,
+        225.0625,
+        160.5
+      ]
+    },
+    {
+      "at": 1793134257.3070445,
+      "bot": "LabAI1",
+      "phase": "night_hold",
+      "message": "Shelter watch \u00b7 169 s left \u00b7 health 20 \u00b7 food 20 \u00b7 4 meals",
+      "position": [
+        20539.481895146953,
+        63,
+        16443.570327898553
+      ]
+    }
+  ],
+  "complete": 0,
+  "stopped": 3,
+  "checked_at": 1793134338.6340334,
+  "verification_status": "Interrupted to deploy final precision movement and depleted-tree fixes; not an eight-bot qualification",
+  "completed_run": false,
+  "recorded_at": 1793134346.4973714,
+  "recorded_phase_changes": 183
+}

@@ -1,0 +1,59 @@
+{
+  "fixture": "Native precision alignment: stop before the wall beyond a clear short waypoint, then turn onto the next leg",
+  "grants": [
+    "Completed illuminated shelter, chest and furnace",
+    "Four logs for early axe crafting",
+    "Wooden pickaxe for exposed-stone test",
+    "Four fixture cows, three sheep and furnace fuel"
+  ],
+  "checks": [],
+  "start_position": {
+    "x": -237.3,
+    "y": 180,
+    "z": -111.5
+  },
+  "arrived_home": true,
+  "left_neighbor_through_exit": false,
+  "seconds": 1.2,
+  "position": {
+    "x": -237.50400576436684,
+    "y": 180,
+    "z": -108.72901236130348
+  },
+  "navigation": {
+    "home": [
+      -247.5,
+      180.1,
+      -128.5
+    ],
+    "target": [
+      -237.5,
+      180.1,
+      -108.5
+    ],
+    "route_intent": "Travel outside private houses",
+    "state": "arrived",
+    "height_delta": 0.1,
+    "route_complete": true,
+    "remaining_blocks": 0,
+    "waypoints": 0,
+    "no_progress_seconds": 0,
+    "reset_seconds": 90,
+    "expanded": 4,
+    "phase": "stone_return",
+    "position": [
+      -237.50400576436684,
+      180,
+      -108.89007054689525
+    ],
+    "yaw": 3.152064625772796,
+    "on_ground": true,
+    "cue": [
+      -237.5,
+      180.1,
+      -108.5
+    ],
+    "sampled_at": 1793134323570
+  },
+  "success": true
+}

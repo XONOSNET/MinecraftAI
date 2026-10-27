@@ -48,13 +48,16 @@ async function explore(t,b,motor,state,api,scan,tasks,surface,kind='wood'){
  if(n.searchGoal&&Math.hypot(n.searchGoal[0]-p.x,n.searchGoal[2]-p.z)<1){n.memory.visited.add(n.searchGoal.map(Math.floor).join(','));n.searchGoal=null;t.lastProgress=now;}
  if(!n.searchGoal){
   if(now<(n.searchPlanAt||0)){motor.pause();t.message='Checking the last survey before choosing another safe route';return;}n.searchPlanAt=now+2500;
-  const known=n.memory.resources.filter(r=>r.kind===kind&&n.memory.available(r.position)&&!n.memory.visited.has(r.position.map(Math.floor).join(','))).map(r=>r.position);
+  // A remembered landmark is often a solid trunk or ore block, not a walk
+  // destination. Use its clear approach cells and leave search budget for new
+  // ground; stale landmarks must not crowd every frontier out of the search.
+  const known=n.memory.resources.filter(r=>r.kind===kind&&n.memory.available(r.position)&&!n.memory.visited.has(r.position.map(Math.floor).join(','))).sort((a,c)=>new Vec3(...a.position).distanceTo(p)-new Vec3(...c.position).distanceTo(p)).flatMap(r=>approaches(b,{position:new Vec3(...r.position).floored()},bounds)).filter(g=>n.memory.available(g)&&!n.memory.visited.has(g.map(Math.floor).join(','))).slice(0,6);
   const candidates=[...known];const offset=(state.world.index||0)*Math.PI/4;
   for(const radius of [8,16,24,32])for(let i=0;i<8;i++){
    const a=offset+i*Math.PI/4,x=Math.floor(p.x+Math.cos(a)*radius),z=Math.floor(p.z+Math.sin(a)*radius),y=surface(b,x,z);if(y===null)continue;
    const goal=[x+.5,y+.1,z+.5];if(!inside(new Vec3(...goal),bounds)||!n.memory.available(goal)||n.memory.visited.has(goal.map(Math.floor).join(',')))continue;candidates.push(goal);
   }
-  n.searchGoal=candidates.slice(0,12).find(goal=>route(b,goal,48,1024,true,{bounds,reversible:true}).reached);
+  n.searchGoal=candidates.slice(0,18).find(goal=>route(b,goal,48,1024,true,{bounds,reversible:true}).reached);
   if(!n.searchGoal){motor.pause();t.message='No safe unexplored approach to '+kind+' in loaded terrain';n.noResourceAt??=now;if(now-n.noResourceAt>20000){t.failureCategory='resource_unavailable';throw Error('No reachable '+kind+' found after surveying loaded terrain');}return;}
   n.searches++;delete n.noResourceAt;
  }
@@ -107,13 +110,13 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(await pickup(t,b,motor,state,api,scan,tasks,wool?['white_wool']:Object.keys(RAW).concat(FOOD)))return;
   const foods=Object.values(b.entities).filter(e=>e.isValid!==false&&(!w.first_night.stations||JSON.stringify(e.metadata?.[2]||'').includes('FirstNight'+b.username))&&(wool?e.name==='sheep'&&((e.metadata?.[b.registry.entitiesByName.sheep.metadataKeys.indexOf('wool')]||0)&31)===0:ANIMALS.includes(e.name)&&(t.phase!=='night_forage'||e.name!=='chicken'))&&inside(e.position,w.bounds)&&e.position.distanceTo(p)<40&&!require('./resource_space').busy(b,state.run,e.position)&&n.memory.available([e.position.x,e.position.y,e.position.z]));
   let animal=foods.find(e=>e.id===n.animal)||foods.filter(e=>combat.visible(b,e)).sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p))[0];
-  if(animal){n.animal=animal.id;n.memory.remember('food',animal.position);const distance=animal.position.distanceTo(p);
+  if(animal){delete n.noResourceAt;if(n.animal!==animal.id){n.animalGoal=null;n.animalPlanAt=0;}n.animal=animal.id;n.memory.remember('food',animal.position);const distance=animal.position.distanceTo(p);
    if(distance>2.7||!combat.visible(b,animal)){
     if(!n.animalGoal||now>=(n.animalPlanAt||0)){n.animalPlanAt=now+1000;n.animalGoal=approaches(b,{position:animal.position.floored()},w.bounds).sort((a,c)=>new Vec3(...a).distanceTo(p)-new Vec3(...c).distanceTo(p)).slice(0,3).find(g=>route(b,g,48,1024,true,{bounds:w.bounds,reversible:true}).reached);}
     const goal=n.animalGoal;
     if(goal){if(await t.walk(b,motor,goal,state,api,scan,tasks)===false)n.memory.reject([animal.position.x,animal.position.y,animal.position.z]);}else{n.memory.reject([animal.position.x,animal.position.y,animal.position.z]);n.animal=null;}
    }else{
-    const task={kind:'combat',mobs:[animal.name],mob_label:'',bounds:w.bounds,min_y:-60,max_y:190,weapon:count(b,'stone_axe')?'stone_axe':'wooden_axe',kill_target:1,stationary:false,attack_delay_ms:1000,safe_walk:true,strict_ground:true};
+    const task={kind:'combat',mobs:[animal.name],mob_label:w.first_night.stations?'FirstNight'+b.username:'',target_id:animal.id,bounds:w.bounds,min_y:-60,max_y:190,weapon:count(b,'stone_axe')?'stone_axe':'wooden_axe',kill_target:1,stationary:false,attack_delay_ms:1000,safe_walk:true,strict_ground:true};
     const runtime=n.combat||=( {} ),sensed=combat.observe(b,task,runtime),rays=scan(b),obs=[...rays.pooled,Math.sin(sensed.angle),Math.cos(sensed.angle),Math.min(sensed.distance/32,1),b.health/20,b.food/20,b.entity.onGround?1:0,...sensed.extra];
     const result=await api('/step',{agent:b.username,run:state.run,world_skill:'combat',obs,teacher:combat.teacher(sensed,task),reward:0,position:[p.x,p.y,p.z],health:b.health,food:b.food,hits:rays.hits,perception_ms:0,steps:0,goal:[animal.position.x,animal.position.y,animal.position.z],task:'combat',metrics:sensed.metrics});
     motor.command(result.action,task,{...sensed,...rays.proximity},sensed.angle);

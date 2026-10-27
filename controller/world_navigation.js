@@ -9,6 +9,8 @@ function segmentDistance(p,a,b){
 }
 function corridorDistance(p,points){let best=Infinity;for(let i=1;i<points.length;i++)best=Math.min(best,segmentDistance(p,points[i-1],points[i]));return best;}
 function homeApproach(plot){return plot?[plot.x+.5,plot.y+.1,plot.z-4.5]:null;}
+function samePlot(a,b){return !!a&&!!b&&a.x===b.x&&a.y===b.y&&a.z===b.z;}
+function privatePlotCell(q,h){return q[0]>=h.x-3&&q[0]<=h.x+3&&q[2]>=h.z-3&&q[2]<=h.z+3&&q[1]>=h.y-1&&q[1]<=h.y+4;}
 function insideHome(p,plot){return !!plot&&Math.abs(p.x-plot.x-.5)<2.5&&Math.abs(p.z-plot.z-.5)<2.5&&Math.abs(p.y-plot.y)<.6;}
 function crossingHome(bot,goal,plot){return insideHome(bot.entity.position,plot)!==insideHome(new Vec3(...goal),plot);}
 function routeDoorway(bot,plot,path,goal){
@@ -27,21 +29,33 @@ function approachGoal(bot,goal,plot){
 }
 class WorldNavigation{
  constructor(){this.path=[];this.destination=null;this.lastPlan=-Infinity;this.anchor=null;this.best=Infinity;this.progressAt=0;this.status={};}
- plan(bot,goal,{plot=null,bounds,now=Date.now(),memory=null}={}){
-  const p=bot.entity.position,target=approachGoal(bot,goal,plot),key=target.join(','),home=homeApproach(plot);
+ portalFor(bot,goal,plot,plots=[]){
+  const p=bot.entity.position;
+  if(this.exitPlot){const h=this.exitPlot,a=homeApproach(h);if(Math.hypot(p.x-a[0],p.z-a[2])<.6||p.x<h.x-3.5||p.x>h.x+4.5||p.z<h.z-4||p.z>h.z+4.5)this.exitPlot=null;}
+  if(!this.exitPlot){const h=plots.find(h=>!samePlot(h,plot)&&insideHome(p,h));if(h)this.exitPlot=h;}
+  return this.exitPlot||plot;
+ }
+ plan(bot,goal,{plot=null,plots=[],bounds,now=Date.now(),memory=null}={}){
+  const p=bot.entity.position,portal=this.portalFor(bot,goal,plot,plots),foreign=!!this.exitPlot;
+  const target=foreign?(bot.blockAt(new Vec3(portal.x,portal.y,portal.z-3))?.getProperties().open?homeApproach(portal):[portal.x+.5,portal.y+.1,portal.z-1.5]):approachGoal(bot,goal,portal),key=target.join(','),home=homeApproach(plot);
+  const permitted=plots.filter(h=>samePlot(h,this.exitPlot)||insideHome(p,h)||samePlot(h,plot)&&insideHome(new Vec3(...goal),h));
+  const forbidden=q=>plots.some(h=>!permitted.some(a=>samePlot(a,h))&&privatePlotCell(q,h));
   if(key!==this.destination){this.destination=key;this.path=[];this.best=Infinity;this.progressAt=now;this.lastPlan=-Infinity;this.blocked=false;}
+  const previous=this.lastPosition;this.lastPosition=[p.x,p.y,p.z];
   // A waypoint crossed in midair is still the landing target. Advancing or
   // replanning before touchdown can replace it with an unsupported start cell.
-  while(bot.entity.onGround!==false&&this.path.length&&Math.hypot(this.path[0][0]-p.x,this.path[0][2]-p.z)<(this.path[0].centering ? .15 : .4)&&Math.abs(this.path[0][1]-p.y)<.4)this.anchor=this.path.shift();
+  while(bot.entity.onGround!==false&&this.path.length&&(Math.hypot(this.path[0][0]-p.x,this.path[0][2]-p.z)<(this.path[0].centering ? .15 : .4)||this.path[0].centering&&previous&&Math.abs(previous[1]-p.y)<.4&&Math.hypot(this.path[0][0]-p.x,this.path[0][2]-p.z)<.35&&segmentDistance({x:this.path[0][0],z:this.path[0][2]},previous,[p.x,p.y,p.z])<.12)&&Math.abs(this.path[0][1]-p.y)<.4)this.anchor=this.path.shift();
   const corridor=[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,3)];
   const offRoute=this.path.length&&corridorDistance(p,corridor)>.85;
-  const invalid=this.path.slice(0,3).some(q=>!standable(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])));
-  const due=now-this.lastPlan>=forBot(bot).route_replan_ms;
+  const invalid=this.path.slice(0,3).some(q=>forbidden([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])])||!standable(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])));
+  // Keep a valid route while making progress. Periodic shortest-path swaps
+  // around moving neighbors were sending bots between opposite house aisles.
+  const due=now-this.lastPlan>=forBot(bot).route_replan_ms&&(!this.path.length||this.blocked||now-this.progressAt>2500);
   const landing=bot.entity.onGround===false&&this.path.length&&!invalid&&!offRoute;
   if(!landing&&(this.lastPlan===-Infinity||due||offRoute||invalid||this.waiting&&bot.entity.onGround===true)){
    const radius=Math.min(96,Math.max(48,Math.ceil(Math.hypot(target[0]-p.x,target[2]-p.z))+16));
-   let planned=route(bot,target,radius,8192,true,{bounds,reversible:true});this.lastPlan=now;this.anchor=[p.x,p.y,p.z];
-   if(!planned.reached&&!planned.waiting_for_ground&&memory){const remembered=memory.detour(bot,target,bounds);if(remembered){planned={...planned,reached:true,path:remembered};memory.replans++;}}
+   let planned=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden});this.lastPlan=now;this.anchor=[p.x,p.y,p.z];
+   if(!planned.reached&&!planned.waiting_for_ground&&memory){const remembered=memory.detour(bot,target,bounds);if(remembered&&!remembered.some(q=>forbidden([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])]))){planned={...planned,reached:true,path:remembered};memory.replans++;}}
    this.path=planned.reached?planned.path:[];this.blocked=!planned.reached;
    this.waiting=!!planned.waiting_for_ground;
    this.reason=this.waiting?'Waiting to land safely before replanning':planned.budget_exhausted?'Return-route search reached its limit; checking again':'No complete safe route in loaded terrain; checking for another way';
@@ -51,10 +65,10 @@ class WorldNavigation{
   const arrived=!this.blocked&&!this.path.length&&Math.hypot(target[0]-p.x,target[2]-p.z)<.4&&Math.abs(target[1]-p.y)<.4;
   if(!this.blocked&&(remaining<this.best-.75||arrived)){this.best=remaining;this.progressAt=now;}
   const idle=Math.max(0,(now-this.progressAt)/1000),timeout=forBot(bot).stationary_timeout_seconds;
-  this.status={home,target:[...target],state:this.waiting&&this.blocked?'landing':this.blocked?'blocked':arrived?'arrived':'following',height_delta:Math.round(((home||target)[1]-p.y)*10)/10,
+  this.status={home,target:[...target],route_intent:foreign?'Exit neighboring house':plot&&insideHome(new Vec3(...goal),plot)?'Return to own house':'Travel outside private houses',state:this.waiting&&this.blocked?'landing':this.blocked?'blocked':arrived?'arrived':'following',height_delta:Math.round(((home||target)[1]-p.y)*10)/10,
    route_complete:!this.blocked,remaining_blocks:Math.round(remaining*10)/10,waypoints:this.path.length,no_progress_seconds:Math.floor(idle),reset_seconds:Math.max(0,Math.ceil(timeout-idle)),expanded:this.expanded||0};
   if(idle>=timeout)throw Error('No route progress for '+timeout+' seconds; ended this attempt instead of circling.');
-  return {path:this.path,cue:this.path[0]||target,corridor:[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,3)],blocked:this.blocked,arrived,message:this.reason};
+  return {path:this.path,cue:this.path[0]||target,corridor:[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,3)],blocked:this.blocked,arrived,message:this.reason,portal};
  }
 }
-module.exports={WorldNavigation,homeApproach,approachGoal,corridorDistance,insideHome,crossingHome,routeDoorway};
+module.exports={WorldNavigation,homeApproach,approachGoal,corridorDistance,insideHome,crossingHome,routeDoorway,privatePlotCell};

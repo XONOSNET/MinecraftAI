@@ -10,6 +10,7 @@ function equipment(bot,task){
 }
 function ownedTarget(entity,task){
  if(!entity?.position||!task.mobs.includes(entity.name)||entity.isValid===false)return false;
+ if(task.target_id!==undefined&&entity.id!==task.target_id)return false;
  const p=entity.position,b=task.bounds;
  return p.x>b[0]&&p.x<b[1]&&p.z>b[2]&&p.z<b[3]&&p.y>=(task.min_y??179)&&p.y<=(task.max_y??186)&&JSON.stringify(entity.metadata?.[2]||'').includes(task.mob_label);
 }

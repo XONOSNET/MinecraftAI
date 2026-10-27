@@ -10,6 +10,7 @@ const {forBot}=require('./behavior');
 const {corridorDistance}=require('./world_navigation');
 const {createStrafe,safe:strafeSafe}=require('./strafe');
 const {standable}=require('./field_navigation');
+function routeProbe(position,focus,fallback){return focus?Math.min(fallback,Math.max(.1,Math.hypot(focus[0]-position.x,focus[2]-position.z))):fallback;}
 function safeAutoStep(bot,task,plan,angle){
  if(!task?.auto_step||!task.strict_ground||!plan.forward||plan.back||plan.sneak||bot.entity.onGround!==true||Math.abs(angle)>.2)return false;
  const q=task.waypoints?.[0],p=bot.entity.position;if(!q)return false;
@@ -69,6 +70,9 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    // Face the planned corridor before trying to move. A wall in the old
    // viewing direction is not evidence that the new corridor requires backing.
    if(focus&&Math.abs(angle)>.35){plan.forward=false;plan.jump=false;}
+   // At an alignment point the next leg may turn or climb. Probe the body
+   // corridor to that point, not through the wall beyond the upcoming turn.
+   if(focus&&task.center_route&&Math.hypot(focus[0]-bot.entity.position.x,focus[2]-bot.entity.position.z)<.8&&Math.abs(focus[1]-bot.entity.position.y)<.4&&Math.abs(angle)<.35&&sensed?.canWalk?.(bot.entity.yaw+angle,routeProbe(bot.entity.position,focus,.75))){recovery.reset();sensed={...sensed,wallAhead:false};}
    const rise=task?.strict_ground&&task.waypoints?.length?task.waypoints[0][1]-bot.entity.position.y:0;
    const autoStep=permissions.jump&&safeAutoStep(bot,task,plan,angle);
    if(autoStep){plan.jump=true;plan.label='Stepping up the verified route';}
@@ -85,7 +89,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    bot.labRecovering=recovery.active();bot.labAvoiding=recovery.remembering();
    if(lateral&&!passage&&!recovery.active()){plan.side=lateral.side;plan.label=lateral.label;plan.strafeTask=task;}
    if(focus&&!passage&&!recovery.active()){
-    plan.focusPoint=focus;plan.arrivalDistance=task?.center_route ? .08 : .22;plan.label=Math.abs(angle)>.35?'Acquiring locked route heading':'Following locked route';
+    plan.focusPoint=focus;plan.preciseFocus=!!task?.center_route;plan.arrivalDistance=task?.center_route ? .08 : .22;plan.label=Math.abs(angle)>.35?'Acquiring locked route heading':'Following locked route';
     if(lateral)plan.label=lateral.label;
    }
    if(task?.safe_walk){
@@ -97,7 +101,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     plan.descent=plan.strictGround&&rise<-.6&&rise> -1.2&&Math.abs(angle)<.35;
     if(!plannedStep)plan.jump=false;
     if(plannedStep&&plan.jump)plan.stepLevel=task.waypoints[0][1];
-    if(plan.forward&&bot.entity.onGround!==false&&typeof sensed?.canStepDown==='function'&&!(plan.strictGround&&!plan.descent&&sensed.canWalk?sensed.canWalk(bot.entity.yaw,.75):sensed.canStepDown(bot.entity.yaw,plan.descent ? .35 : .75))&&!(plan.jump&&plannedStep)){
+    if(plan.forward&&bot.entity.onGround!==false&&typeof sensed?.canStepDown==='function'&&!(plan.strictGround&&!plan.descent&&sensed.canWalk?sensed.canWalk(bot.entity.yaw,routeProbe(bot.entity.position,task?.center_route?focus:null,.75)):sensed.canStepDown(bot.entity.yaw,plan.descent ? .35 : .75))&&!(plan.jump&&plannedStep)){
      plan.forward=false;plan.label='Holding: blocked ground or unsafe drop ahead';
     }
    }
@@ -122,7 +126,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    let forward=!!plan.forward;
    // Policy replies can arrive late; recheck support while holding an intention.
    if(forward&&plan.safeWalk&&bot.blockAt&&bot.entity.onGround!==false&&!(plan.stepLevel&&bot.entity.position.y<plan.stepLevel-.3)){
-    if(now-lastSafetyAt>=100){const local=proximity(bot,{recovery:false}),distance=plan.descent ? .35 : Math.max(.75,Math.hypot(bot.entity.velocity?.x||0,bot.entity.velocity?.z||0)*3+.35);groundSafe=plan.strictGround&&!plan.descent?local.canWalk(bot.entity.yaw,distance):local.canStepDown(bot.entity.yaw,distance);lastSafetyAt=now;}
+    if(now-lastSafetyAt>=100){const local=proximity(bot,{recovery:false}),distance=plan.descent ? .35 : routeProbe(bot.entity.position,plan.preciseFocus?plan.focusPoint:null,Math.max(.75,Math.hypot(bot.entity.velocity?.x||0,bot.entity.velocity?.z||0)*3+.35));groundSafe=plan.strictGround&&!plan.descent?local.canWalk(bot.entity.yaw,distance):local.canStepDown(bot.entity.yaw,distance);lastSafetyAt=now;}
     if(!groundSafe){forward=false;plan.label='Holding: blocked ground or unsafe drop ahead';}
    }
    if(plan.strictGround&&plan.back&&bot.blockAt&&bot.entity.onGround!==false&&!proximity(bot,{recovery:false}).canWalk(bot.entity.yaw+Math.PI,.75)){plan.back=false;plan.label='Holding: unsafe ground behind me';}
@@ -133,7 +137,10 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    if(plan.focusPoint){
     const dx=plan.focusPoint[0]-bot.entity.position.x,dz=plan.focusPoint[2]-bot.entity.position.z,d=Math.hypot(dx,dz);
     targetYaw=d>.18?Math.atan2(-dx,-dz):null;
-    if(d<=(plan.arrivalDistance||.22)||targetYaw!==null&&Math.abs(wrap(targetYaw-bot.entity.yaw))>.35)forward=false;
+    const v=bot.entity.velocity,approaching=v?Math.max(0,(v.x*dx+v.z*dz)/Math.max(.001,d)):0;
+    // Brake before a precise cell center. Residual velocity otherwise carries
+    // the body past it between policy replies and starts a turn-back loop.
+    if(d<=(plan.arrivalDistance||.22)||plan.preciseFocus&&d<approaching*2.4+.04||targetYaw!==null&&Math.abs(wrap(targetYaw-bot.entity.yaw))>.35)forward=false;
    }
    if(forward&&plan.moveTarget&&bot.entity.position){
     const dx=plan.moveTarget.x-bot.entity.position.x,dz=plan.moveTarget.z-bot.entity.position.z,d=Math.hypot(dx,dz),v=bot.entity.velocity;

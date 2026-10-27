@@ -136,3 +136,17 @@ test('standing doorway movement brakes near its target without forcing sneak',()
  motor.command(0,null,{...safe,doorway,canWalk:()=>true},0);now=50;motor.tick();assert.equal(!!state.forward,false);assert.equal(!!state.sneak,false);
  bot.entity.velocity=new Vec3(0,0,0);now=100;motor.tick();assert.equal(state.forward,true);assert.equal(!!state.sneak,false);
 });
+
+test('precise route alignment brakes residual velocity before overshooting the center',()=>{
+ const {Vec3}=require('vec3');let now=0;const controls={},bot={entity:{yaw:0,pitch:0,onGround:true,position:new Vec3(.5,64,-.16),velocity:new Vec3(0,0,-.15)},players:{},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,look:()=>Promise.resolve(),blockAt(p){const q=p.floored();return {name:q.y<64?'stone':'air',position:q,boundingBox:q.y<64?'block':'empty'};}};
+ const motor=createMotor(bot,permissions,{clock:()=>now}),task={kind:'expedition',navigation_lock:true,center_route:true,safe_walk:true,strict_ground:true,waypoints:[[.5,64.1,-.5]]},sensed={...safe,focusPoint:[.5,64.1,-.5],canWalk:()=>true};
+ motor.command(0,task,sensed,0);now=50;motor.tick();assert.equal(!!controls.forward,false,'coast into the center instead of accelerating through it');
+ bot.entity.velocity.z=0;motor.command(0,task,sensed,0);now=100;motor.tick();assert.equal(controls.forward,true,'a stopped bot can still finish the precise approach');
+});
+
+test('a safe near center can be reached before turning beside a wall',()=>{
+ const {Vec3}=require('vec3'),{proximity}=require('../controller/perception');let now=0;const controls={},bot={entity:{yaw:Math.PI/2,pitch:0,onGround:true,position:new Vec3(.7,64,.5),velocity:new Vec3(0,0,0)},players:{},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,look:()=>Promise.resolve(),blockAt(p){const q=p.floored(),solid=q.y<64||q.x===-1&&q.y<67;return {name:solid?'stone':'air',position:q,boundingBox:solid?'block':'empty'};}};
+ const sensed={...safe,...proximity(bot),focusPoint:[.5,64.1,.5],cueDistance:.2};assert.equal(sensed.canWalk(Math.PI/2,.75),false);assert.equal(sensed.canWalk(Math.PI/2,.2),true);
+ const motor=createMotor(bot,permissions,{clock:()=>now}),task={kind:'expedition',navigation_lock:true,center_route:true,safe_walk:true,strict_ground:true,waypoints:[[.5,64.1,.5]]};motor.command(0,task,sensed,0);now=50;motor.tick();assert.equal(controls.forward,true);
+ motor.command(0,task,{...sensed,focusPoint:[-.1,64.1,.5],cueDistance:.8},0);now=100;motor.tick();assert.equal(!!controls.forward,false,'the same probe still refuses an obstructed destination');
+});
