@@ -42,3 +42,9 @@ test('a precise waypoint crossed between decisions advances instead of turning b
  const nav=new WorldNavigation();let planned=nav.plan(b,[6.5,64.1,.5],{bounds:[-20,20,-20,20],now:1000});assert.equal(planned.cue.centering,true);
  b.entity.position.x=.7;planned=nav.plan(b,[6.5,64.1,.5],{bounds:[-20,20,-20,20],now:1200});assert.equal(planned.cue[0],1.5);
 });
+
+test('an unfinished neighboring plot exits through its empty doorway instead of waiting inside',()=>{
+ const b=flat(),own={x:0,y:64,z:10},other={x:0,y:64,z:0},nav=new WorldNavigation();b.entity.position=new Vec3(.75,64,-1.4);
+ let plan=nav.plan(b,[.5,64.1,5.5],{plot:own,plots:[other,own],bounds:[-30,30,-30,30],now:1000});assert.deepEqual(nav.status.target,[.5,64.1,-4.5]);assert.equal(plan.arrived,false);assert.equal(plan.blocked,false);
+ b.entity.position=new Vec3(.5,64,-4.5);plan=nav.plan(b,[.5,64.1,5.5],{plot:own,plots:[other,own],bounds:[-30,30,-30,30],now:2000});assert.equal(nav.exitPlot,null);assert.deepEqual(nav.status.target,[.5,64.1,5.5]);
+});

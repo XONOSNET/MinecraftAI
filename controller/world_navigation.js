@@ -37,7 +37,11 @@ class WorldNavigation{
  }
  plan(bot,goal,{plot=null,plots=[],bounds,now=Date.now(),memory=null}={}){
   const p=bot.entity.position,portal=this.portalFor(bot,goal,plot,plots),foreign=!!this.exitPlot;
-  const target=foreign?(bot.blockAt(new Vec3(portal.x,portal.y,portal.z-3))?.getProperties().open?homeApproach(portal):[portal.x+.5,portal.y+.1,portal.z-1.5]):approachGoal(bot,goal,portal),key=target.join(','),home=homeApproach(plot);
+  const exitDoor=foreign?bot.blockAt(new Vec3(portal.x,portal.y,portal.z-3)):null;
+  const exitClosed=exitDoor?.name.endsWith('_door')&&!exitDoor.getProperties().open;
+  // An unfinished plot has no door to open. Continue outside instead of
+  // waiting forever at the interior approach for a nonexistent interaction.
+  const target=foreign?(exitClosed?[portal.x+.5,portal.y+.1,portal.z-1.5]:homeApproach(portal)):approachGoal(bot,goal,portal),key=target.join(','),home=homeApproach(plot);
   const permitted=plots.filter(h=>samePlot(h,this.exitPlot)||insideHome(p,h)||samePlot(h,plot)&&insideHome(new Vec3(...goal),h));
   const forbidden=q=>plots.some(h=>!permitted.some(a=>samePlot(a,h))&&privatePlotCell(q,h));
   if(key!==this.destination){this.destination=key;this.path=[];this.best=Infinity;this.progressAt=now;this.lastPlan=-Infinity;this.blocked=false;}

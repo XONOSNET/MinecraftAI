@@ -76,8 +76,14 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
  }
  if(t.phase==='night_bootstrap'){
   const pos=house.point(t.plot,'table');t.message='Making an axe early to speed up shelter harvesting';
-  if(p.distanceTo(new Vec3(pos.x+1.5,pos.y+.1,pos.z+.5))>.65){await t.walk(b,motor,[pos.x+1.5,pos.y+.1,pos.z+.5],state,api,scan,tasks);return;}
-  motor.pause();for(const item of [...b.inventory.items()].filter(i=>i.name.endsWith('_log')))await t.craft(b,item.name.replace('_log','_planks'),item.count,null);
+  // Leave a body-width margin from the new table, even at the accepted
+  // edge of the approach radius. The old radius allowed self-collision.
+  const stance=new Vec3(pos.x+1.8,pos.y+.1,pos.z+.5),ready=()=>b.entity.position.distanceTo(stance)<=.42;
+  if(!ready()){await t.walk(b,motor,[stance.x,stance.y,stance.z],state,api,scan,tasks);return;}
+  motor.pause();
+  if(b.entity.onGround===false||Math.hypot(b.entity.velocity?.x||0,b.entity.velocity?.z||0)>.025){t.message='Stopping at a clear workbench-building stance';return;}
+  for(const item of [...b.inventory.items()].filter(i=>i.name.endsWith('_log')))await t.craft(b,item.name.replace('_log','_planks'),item.count,null);
+  if(!ready()){t.navigator.lastPlan=-Infinity;t.message='Rechecking the workbench stance after crafting';return;}
   if(b.blockAt(new Vec3(pos.x,pos.y,pos.z))?.name!=='crafting_table'){
    if(!count(b,'crafting_table'))await t.craft(b,'crafting_table',1,null);
    try{await t.place(b,pos,'crafting_table');}catch(error){if(!String(error.message).includes('Server refused')||(n.bootstrapRetries=(n.bootstrapRetries||0)+1)>=3)throw error;t.path=[];t.navigator.lastPlan=-Infinity;t.message='Workbench placement was obstructed; checking the close approach again';return;}

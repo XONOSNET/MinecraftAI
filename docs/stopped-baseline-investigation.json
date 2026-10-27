@@ -1,0 +1,297 @@
+{
+  "learning": {
+    "enabled": true,
+    "phase": "baseline",
+    "message": "Testing the saved specialists without teacher movement or harvesting control."
+  },
+  "world": {
+    "run": "world-1793134362275407500",
+    "driver": "student",
+    "phase": "running",
+    "round": 363,
+    "night_level": 0
+  },
+  "results": {
+    "LabAI5": {
+      "navigation": {
+        "home": [
+          20539.5,
+          63.1,
+          16448.5
+        ],
+        "target": [
+          20539.5,
+          63.1,
+          16441.5
+        ],
+        "route_intent": "Exit neighboring house",
+        "state": "arrived",
+        "height_delta": 0.1,
+        "route_complete": true,
+        "remaining_blocks": 0,
+        "waypoints": 0,
+        "no_progress_seconds": 0,
+        "reset_seconds": 90,
+        "expanded": 1,
+        "phase": "leave_hut",
+        "position": [
+          20539.75878472594,
+          63,
+          16441.61517546803
+        ],
+        "yaw": 4.2882739721501535,
+        "on_ground": true,
+        "cue": [
+          20539.5,
+          63.1,
+          16441.5
+        ],
+        "sampled_at": 1793135337443
+      },
+      "harvest_target": null,
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "leave_hut: No construction or movement progress for 60 seconds.",
+      "logs": 0,
+      "blocks": 144,
+      "target_blocks": 144,
+      "travelled": 132.2440659466268,
+      "health": 20,
+      "plot": {
+        "x": 20539,
+        "y": 63,
+        "z": 16453,
+        "tableY": 63
+      },
+      "seconds": 712.438,
+      "milestones": [
+        "hut"
+      ],
+      "lesson": 2,
+      "lesson_total": 19,
+      "idle_seconds": 60,
+      "stall_seconds_left": null,
+      "home": null,
+      "survival": null,
+      "failure_category": "stalled",
+      "peak_logs": 35,
+      "peak_blocks": 144
+    },
+    "LabAI0": {
+      "navigation": {
+        "home": [
+          20529.5,
+          63.1,
+          16438.5
+        ],
+        "target": [
+          20527.5,
+          63.1,
+          16444.5
+        ],
+        "route_intent": "Return to own house",
+        "state": "following",
+        "height_delta": 0.1,
+        "route_complete": true,
+        "remaining_blocks": 0.9,
+        "waypoints": 2,
+        "no_progress_seconds": 0,
+        "reset_seconds": 90,
+        "expanded": 3,
+        "phase": "night_bootstrap",
+        "position": [
+          20527.281964409776,
+          63,
+          16443.681171838758
+        ],
+        "yaw": 9.736319232249862,
+        "on_ground": true,
+        "cue": [
+          20527.5,
+          63.1,
+          16444.5
+        ],
+        "sampled_at": 1793134730727,
+        "decision": {
+          "selected": 0,
+          "teacher": 2,
+          "angle": -0.051302159817413664
+        }
+      },
+      "harvest_target": null,
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "night_bootstrap: Server refused to place crafting_table at (20526, 63, 16444): the block is still air",
+      "logs": 0,
+      "blocks": 0,
+      "target_blocks": 144,
+      "travelled": 34.36812292226077,
+      "health": 20,
+      "plot": {
+        "x": 20529,
+        "y": 63,
+        "z": 16443,
+        "tableY": 63
+      },
+      "seconds": 112.755,
+      "milestones": [],
+      "lesson": 1,
+      "lesson_total": 19,
+      "idle_seconds": 1,
+      "stall_seconds_left": null,
+      "home": null,
+      "survival": null,
+      "failure_category": "stalled",
+      "peak_logs": 5,
+      "peak_blocks": 0
+    },
+    "LabAI1": {
+      "navigation": {
+        "home": [
+          20539.5,
+          63.1,
+          16438.5
+        ],
+        "target": [
+          20540.5,
+          63.1,
+          16439.5
+        ],
+        "route_intent": "Travel outside private houses",
+        "state": "following",
+        "height_delta": 0.1,
+        "route_complete": true,
+        "remaining_blocks": 17,
+        "waypoints": 18,
+        "no_progress_seconds": 88,
+        "reset_seconds": 2,
+        "expanded": 33,
+        "phase": "gather",
+        "position": [
+          20535.78200707612,
+          63,
+          16451.368470503076
+        ],
+        "yaw": -6.047565858159827,
+        "on_ground": true,
+        "cue": [
+          20535.5,
+          63.1,
+          16450.5
+        ],
+        "sampled_at": 1793134719632,
+        "decision": {
+          "selected": 1,
+          "teacher": 1,
+          "angle": 0.07835640221902704
+        }
+      },
+      "harvest_target": null,
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "gather: No route progress for 90 seconds; ended this attempt instead of circling.",
+      "logs": 0,
+      "blocks": 0,
+      "target_blocks": 144,
+      "travelled": 40.290404310556255,
+      "health": 20,
+      "plot": {
+        "x": 20539,
+        "y": 63,
+        "z": 16443,
+        "tableY": 63
+      },
+      "seconds": 97.543,
+      "milestones": [],
+      "lesson": 1,
+      "lesson_total": 19,
+      "idle_seconds": 0,
+      "stall_seconds_left": null,
+      "home": null,
+      "survival": null,
+      "failure_category": "stalled",
+      "peak_logs": 0,
+      "peak_blocks": 0
+    },
+    "LabAI3": {
+      "navigation": {
+        "home": [
+          20559.5,
+          63.1,
+          16438.5
+        ],
+        "target": [
+          20557.5,
+          63.1,
+          16444.5
+        ],
+        "route_intent": "Return to own house",
+        "state": "following",
+        "height_delta": 0.1,
+        "route_complete": true,
+        "remaining_blocks": 1.6,
+        "waypoints": 3,
+        "no_progress_seconds": 0,
+        "reset_seconds": 90,
+        "expanded": 4,
+        "phase": "night_bootstrap",
+        "position": [
+          20557.40059787404,
+          63,
+          16442.953979650112
+        ],
+        "yaw": 9.267698328089562,
+        "on_ground": true,
+        "cue": [
+          20557.5,
+          63.1,
+          16443.5
+        ],
+        "sampled_at": 1793134730785,
+        "decision": {
+          "selected": 1,
+          "teacher": 1,
+          "angle": 0.337155965592832
+        }
+      },
+      "harvest_target": null,
+      "state": "stopped",
+      "phase": "stopped",
+      "message": "night_bootstrap: Server refused to place crafting_table at (20556, 63, 16444): the block is still air",
+      "logs": 0,
+      "blocks": 0,
+      "target_blocks": 144,
+      "travelled": 40.862632715103985,
+      "health": 20,
+      "plot": {
+        "x": 20559,
+        "y": 63,
+        "z": 16443,
+        "tableY": 63
+      },
+      "seconds": 115.647,
+      "milestones": [],
+      "lesson": 1,
+      "lesson_total": 19,
+      "idle_seconds": 1,
+      "stall_seconds_left": null,
+      "home": null,
+      "survival": null,
+      "failure_category": "stalled",
+      "peak_logs": 6,
+      "peak_blocks": 0
+    }
+  },
+  "findings": {
+    "LabAI0": "Early workbench placement refused; old approach tolerance admitted a self-overlapping stance. Safer stance, rest and post-craft position checks added.",
+    "LabAI3": "Same early workbench placement failure.",
+    "LabAI5": "Foreign-plot recovery treated an absent door as closed and stayed at the inner approach forever. Air doorways now exit directly.",
+    "LabAI1": "No route progress for 90 seconds during student baseline. Root cause not established from old telemetry; added motor controls, ground-clearance and nearby-player diagnostics."
+  },
+  "validation": {
+    "javascript_tests": 198,
+    "unfinished_plot_native_seconds": 6.8,
+    "workbench_native_seconds": 7.8,
+    "full_eight_bot_completion_verified": false
+  }
+}

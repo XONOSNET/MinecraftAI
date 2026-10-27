@@ -118,6 +118,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
   pause:clear,
   passageActive:()=>doorway.active(),
   status(){return stalled?'Waiting for policy response':doorway.active()?doorway.label():recovery.active()?recovery.label():plan?.side&&(bot.getControlState('left')||bot.getControlState('right'))?plan.label:plan?.sprint&&bot.getControlState('sprint')?'Sprinting on clear ground':null;},
+  diagnostic(){return {label:plan?.label||null,paused,expired:!paused&&clock()>expires,ground_safe:groundSafe,precise_focus:!!plan?.preciseFocus,recovering:recovery.active(),doorway:doorway.active(),controls:Object.fromEntries(['forward','back','left','right','jump','sneak','sprint'].map(k=>[k,!!bot.getControlState(k)]))};},
   lockLook(value){lookLocked=value;},
   tick(){
    if(legacy||!bot.entity)return;

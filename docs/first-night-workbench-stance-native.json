@@ -1,0 +1,24 @@
+{
+  "fixture": "Native workbench self-overlap regression: move from the old unsafe accepted stance, settle, then craft and place the early table and axe",
+  "grants": [
+    "Completed illuminated shelter, chest and furnace",
+    "Four logs for early axe crafting",
+    "Wooden pickaxe for exposed-stone test",
+    "Four fixture cows, three sheep and furnace fuel"
+  ],
+  "checks": [
+    {
+      "phase": "night_bootstrap",
+      "seconds": 7.8
+    }
+  ],
+  "start_position": {
+    "x": -249.72,
+    "y": 180,
+    "z": -122.7
+  },
+  "pulse": 1793135781779,
+  "workbench": true,
+  "axe": true,
+  "success": true
+}

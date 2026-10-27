@@ -23,3 +23,14 @@ Live inventory verification passed: 40 logs produced 160 planks in three invento
 A native server route regression also passed: starting inside a neighboring closed house, the teacher opened and exited that room, routed to its owned house, opened its closed door and arrived inside in 8.2 seconds. Fixture grants are documented in `first-night-camp-route-native.json`; this is a geometry/controller check, separate from the production group run. Controller reconnect readiness now tolerates a busy dashboard response instead of abandoning connection attempts after two seconds.
 
 The second eight-bot diagnostic was interrupted to deploy the final precision-movement and depleted-tree fixes. Its exact intermediate outcomes are saved in `first-night-camp-native.json`, explicitly marked as an incomplete qualification. Three bots stopped before those final fixes were loaded; one reached the final shelter watch, and the others were still working. No full eight-bot pass is claimed. Native reproductions subsequently passed for the house corner (4.4 s), the stalled pickup geometry (4.4 s), and the short alignment beside a wall (1.2 s). Automatic protected First Night learning is resumed with the complete controller patch.
+
+
+## Follow-up: four stopped student baseline bots
+
+`world-1793134362275407500` was a student baseline. LabAI0 and LabAI3 stopped on early workbench placement refusals; the accepted approach radius could overlap the new block, and residual movement was not checked. The approach is now farther from the table with a narrower radius, waits for horizontal motion to settle, and rechecks position after log crafting. Grounded Mineflayer players still report gravity in vertical velocity, so the rest check uses horizontal velocity and grounded state. Native recovery from the unsafe old stance successfully crafted the table and axe in 7.8 seconds.
+
+LabAI5 waited inside an unfinished neighboring plot. An absent door was incorrectly treated as closed, so it kept reaching the inner approach without an interaction that could release it. Empty doorways now proceed outside; native recovery reached its owned home in 6.8 seconds.
+
+LabAI1 had a 90-second route-progress timeout. The original report cannot distinguish policy failure, player avoidance or a safety hold conclusively. New navigation reports preserve motor state and held controls, nearby player positions and clearance, raw obstacle flags and short/long ground probes. This timeout is not claimed fixed or forced into a passing result.
+
+All 198 JavaScript tests pass. Exact stop reports and validation limits are in `stopped-baseline-investigation.json`. The automatic comparison restarts with unchanged protected model weights and identical new controller code on both sides; an evaluation begun under older controller code is not used to promote weights.
