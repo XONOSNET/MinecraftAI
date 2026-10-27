@@ -140,4 +140,4 @@ async function tick(t,b,motor,state,api,scan,tasks){
   await request('cleanup');t.phase='complete';t.message='Survival homestead verified: bed home, iron equipment, cooked food and stocked storage'+(w.mission==='home_defense'?'; threat defeated and returned home':'');
  }
 }
-module.exports={advanced,handles,tick,near,lessonAnimal};
+module.exports={advanced,handles,tick,near,lessonAnimal,itemName};

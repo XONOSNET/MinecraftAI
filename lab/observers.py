@@ -238,6 +238,8 @@ class Observers:
                 progress=round(100*len(result.get('milestones',[]))/result['lesson_total'])
                 lines['task']=f"{display_name} | Lesson {result.get('lesson',1)}/{result['lesson_total']} | {result.get('phase',world['phase']).replace('_',' ').title()}"
             lines['state']=str(result.get('message',world['message']))[:110]
+            if result.get('wilderness'):
+                lines['state']=(result['wilderness'].get('priority','Survival').title()+' | '+str(result.get('message','')))[:110]
             route_visible=False
             if result.get('stall_seconds_left') is not None and result.get('state') not in ('complete','stopped'):
                 lines['state']=f"No progress: attempt ends in {result['stall_seconds_left']}s | "+lines['state'][:65]
@@ -250,6 +252,7 @@ class Observers:
             lines['stage']=f"World trial {world['round']} | {world['name']} | {label} {complete}/{len(world['bots'])}"
             if world.get('learning_cycle'):
                 lines['stage']=f"Learning {world['learning_cycle']} | {world.get('learning_phase','').title()} | {label} {complete}/{len(world['bots'])}"
+            if world.get('first_night'):lines['stage']='First Night '+str(world['night_level'])+' | '+world['first_night']['name']+' | '+str(complete)+'/'+str(len(world['bots']))+' complete'
         for suffix,value in lines.items():
             key=prefix+'_'+suffix;name=json.dumps({'text':value,'color':'aqua' if suffix=='task' else 'white'})
             if not s.get('hud_ready'):

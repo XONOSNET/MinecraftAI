@@ -7,6 +7,8 @@ import time
 from .world_survival import SurvivalLessons, MISSION_LESSONS, ADVANCED
 from pathlib import Path
 from .protection import HOSTILES
+from .first_night import profile as night_profile, LESSONS as NIGHT_LESSONS, clean_memory, readiness, LEVELS
+from .world_fauna import fauna_commands
 
 LESSONS=['Enclose a hut','Craft and place a chest','Craft a wooden pickaxe','Craft a wooden axe','Craft a wooden shovel','Store eight planks and equip the axe']
 HOUSE=json.loads((Path(__file__).resolve().parent.parent/'config/house.json').read_text(encoding='utf-8'))
@@ -51,7 +53,15 @@ class WorldTraining(SurvivalLessons):
         loop=data.get('loop',True)
         if type(loop) is not bool:raise ValueError('Repeat trials must be enabled or disabled.')
         mission=data.get('mission','settlement')
-        if mission not in ('hut','settlement','stone_age',*ADVANCED):raise ValueError('Choose a supported world lesson sequence.')
+        if mission not in ('hut','settlement','stone_age','first_night',*ADVANCED):raise ValueError('Choose a supported world lesson sequence.')
+        night=night_profile(data.get('night_level',0)) if mission=='first_night' else None
+        assessment=data.get('assessment',False)
+        if type(assessment) is not bool:raise ValueError('Assessment must be enabled or disabled.')
+        if night:
+            if size!=128:raise ValueError('First Night currently uses 128 × 128 sites so natural animal resets can keep the whole site loaded safely.')
+            prepared=night['prepared']
+            if assessment and (scenario<9 or driver!='student'):raise ValueError('First Night assessment requires a held-out site (10–12) and student control.')
+            if not assessment and scenario>=9:raise ValueError('Sites 10–12 are reserved for First Night assessment; choose a training site from 1–9.')
         if mission in ('stone_age',*ADVANCED) and not prepared:raise ValueError('Stone-age lessons require a prepared camp and its verified resource stations.')
         layout=data.get('layout',0)
         if type(layout) is not int or not 0<=layout<=3:raise ValueError('Unknown resource layout.')
@@ -61,7 +71,7 @@ class WorldTraining(SurvivalLessons):
         if not anchor:
             previous=next((r for r in reversed(self.saved['history']) if r.get('template')==key and r.get('prepared') and r.get('camp')),None)
             if previous:anchor=[math.floor(v) for v in previous['camp']['spawn']]
-        fast=bool(restore and prepared and anchor)
+        fast=bool(restore and prepared and anchor and not night)
         # Include every camp chunk plus a complete one-chunk ring around it.
         area=[x,x+size,z,z+size];ys=[-64,192]
         if fast:
@@ -76,7 +86,10 @@ class WorldTraining(SurvivalLessons):
             bots=list(names),prepared=prepared,loop=loop,results={},started_at=self.clock(),round=self.saved.get('round',max((r.get('round',0) for r in self.saved['history']),default=0))+1,
             progress=0,message='Restoring the saved natural terrain.' if restore else 'Saving pristine natural terrain before the first trial.',template=key)
         self.session.update(reset_area=area,copy_y=ys,fast_reset=fast,camp_anchor=anchor if prepared else None)
-        self.session.update(time_budget_seconds=2400 if mission in ADVANCED else 1200,mission=mission,layout=layout,lessons=MISSION_LESSONS.get(mission,STONE_LESSONS if mission=='stone_age' else LESSONS if mission=='settlement' else LESSONS[:1]))
+        self.session.update(time_budget_seconds=3600 if night else 2400 if mission in ADVANCED else 1200,mission=mission,layout=layout,lessons=NIGHT_LESSONS if night else MISSION_LESSONS.get(mission,STONE_LESSONS if mission=='stone_age' else LESSONS if mission=='settlement' else LESSONS[:1]))
+        if night:
+            self.session.update(first_night=night,night_level=night['id'],assessment=assessment,
+                                memory_snapshot=copy.deepcopy(data.get('memory_snapshot',self.saved.get('first_night_memory',{}))))
         self.cleanup_survival()
         if fast:self.session['message']='Restoring the camp and surrounding chunks; deep underground terrain is preserved.'
         self.jobs=[];self.job=None
@@ -97,7 +110,9 @@ class WorldTraining(SurvivalLessons):
         if not s or not s.get('loop') or s['phase']!='finished' or self.clock()<s['restart_at']:return None
         if not set(s['bots']).issubset(connected):
             s['message']='Waiting for all trial bots to reconnect before restoring terrain.';return None
-        return {key:s[key] for key in ('scenario','size','driver','prepared','loop','mission','layout')}
+        result={key:s[key] for key in ('scenario','size','driver','prepared','loop','mission','layout')}
+        if s.get('first_night'):result.update(night_level=s['night_level'],assessment=s['assessment'])
+        return result
 
     def finish(self):
         s=self.session
@@ -121,7 +136,7 @@ class WorldTraining(SurvivalLessons):
     def tick(self):
         s=self.session
         if not s:return
-        if s['phase'] not in ('snapshotting','restoring') and self.clock()-s.get('sweep_at',0)>1:
+        if s['phase'] not in ('snapshotting','restoring') and not s.get('first_night',{}).get('hostiles') and self.clock()-s.get('sweep_at',0)>1:
             x0,x1,z0,z1=s['bounds']
             for mob in ('phantom',*HOSTILES):
                 self.command(f'kill @e[type=minecraft:{mob},tag=!lab_combat,x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}]')
@@ -130,9 +145,11 @@ class WorldTraining(SurvivalLessons):
         if s['phase'] in ('snapshotting','restoring'):
             if not self.job:
                 if not self.jobs:
+                    if s.get('first_night') and not self.prepare_fauna():return
                     template=self.saved['templates'].setdefault(s['template'],{})
                     template.update(bounds=s['bounds'],saved_at=self.clock());self.save()
                     s.update(phase='running',message=(('Survival progression: '+s['mission']+'. ') if s['mission'] in ADVANCED else '')+('Stone-age lessons running: settlement, mining, stone tools, furnace, charcoal and lighting.' if s['mission']=='stone_age' else 'Settlement lessons running: hut, chest, tools and stored supplies.' if s['mission']=='settlement' else 'Survival lessons running: '+s['mission']+'.' if s['mission'] in ADVANCED else 'Hut trial running.')+' Movement and harvesting follow the selected driver. Recipes and building use scripted helpers.',progress=100,trial_at=self.clock(),reset_seconds=round(self.clock()-s['started_at'],1))
+                    if s.get('first_night'):s['message']='First Night · '+s['first_night']['name']+'. '+s['first_night']['description']+' Recipes, construction, route planning and carried lights remain assisted.'
                     x0,x1,z0,z1=s['bounds']
                     self.command(f'kill @e[type=minecraft:item,x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}]')
                     for name in s['bots']:
@@ -182,14 +199,42 @@ class WorldTraining(SurvivalLessons):
                 for name in s['bots']:
                     if s['results'].get(name,{}).get('state') not in ('complete','stopped'):
                         result=copy.deepcopy(s['results'].get(name,{}))
-                        result.update(run=s['run'],state='stopped',phase='stopped',message=f'Trial time budget reached ({budget} s). Returned to the lab; eligible next batch.',seconds=self.clock()-s['trial_at'])
+                        result.update(run=s['run'],state='stopped',phase='stopped',failure_category='deadline',message=f'Trial time budget reached ({budget} s). Returned to the lab; eligible next batch.',seconds=self.clock()-s['trial_at'])
                         self.report(name,result)
 
     def assignment(self,name):
         s=self.session
         if not s or not s['active'] or s['phase']!='running' or name not in s['bots']:return None
         if s['results'].get(name,{}).get('state') in ('complete','stopped'):return None
-        return dict(mode='teacher' if s['driver']=='teacher' else 'evaluate',run=s['run'],world=dict(bounds=s['bounds'],index=s['bots'].index(name),count=len(s['bots']),spread=SCENARIOS[s['scenario']]['spread'],driver=s['driver'],prepared=s['prepared'],camp_anchor=s.get('camp_anchor'),mission=s['mission'],lessons=s['lessons'],time_budget_seconds=s['time_budget_seconds']))
+        world=dict(bounds=s['bounds'],index=s['bots'].index(name),count=len(s['bots']),spread=SCENARIOS[s['scenario']]['spread'],driver=s['driver'],prepared=s['prepared'],camp_anchor=s.get('camp_anchor'),mission=s['mission'],lessons=s['lessons'],time_budget_seconds=s['time_budget_seconds'])
+        if s.get('first_night'):
+            world.update(first_night=s['first_night'],assessment=s['assessment'],memory={} if s['assessment'] else s['memory_snapshot'].get(s['template'],{}).get(name,{}))
+        return dict(mode='teacher' if s['driver']=='teacher' else 'evaluate',run=s['run'],world=world)
+
+    def prepare_fauna(self):
+        s=self.session
+        if s.get('fauna_ready'):return True
+        if 'fauna_queue' not in s:
+            x0,x1,z0,z1=s['bounds'];self.command(f'forceload add {x0} {z0} {x1-1} {z1-1}')
+            snapshot=not self.saved['templates'].get(s['template'],{}).get('fauna_snapshot')
+            s.update(fauna_queue=fauna_commands(s['bounds'],s['template'],snapshot),fauna_snapshot=snapshot,fauna_at=self.clock(),message='Restoring natural livestock as well as terrain, so student comparisons start with the same resources.')
+            return False
+        if self.clock()-s['fauna_at']<2:return False
+        if s['fauna_queue']:
+            for command in s['fauna_queue'][:8]:self.command(command)
+            del s['fauna_queue'][:8];return False
+        if not s.get('fauna_ack'):
+            self.offset=self.logpath.stat().st_size if self.logpath.exists() else 0
+            self.serial+=1;s.update(fauna_ack=self.serial,fauna_wait=self.clock(),fauna_log='')
+            path='sites.s'+s['template'].replace('-','_')
+            self.command(f'execute if data storage lab:first_night {path} run scoreboard players set #world_ack lab_world {self.serial}');return False
+        text,self.offset=self._read(self.offset);s['fauna_log']+=text
+        if f'to {s["fauna_ack"]}' in s['fauna_log'] and '#world_ack' in s['fauna_log']:
+            x0,x1,z0,z1=s['bounds'];self.command(f'forceload remove {x0} {z0} {x1-1} {z1-1}')
+            self.saved['templates'].setdefault(s['template'],{})['fauna_snapshot']=True;self.save();s['fauna_ready']=True
+            s.pop('fauna_queue',None);return True
+        if self.clock()-s['fauna_wait']>20:self.stop('Natural animal reset acknowledgement failed; stopped before deployment.')
+        return False
 
     def camp(self,name,position):
         s=self.session
@@ -205,19 +250,32 @@ class WorldTraining(SurvivalLessons):
         for index in range(len(s['bots'])):
             px=x+(index%4)*spacing-spacing*3//2;pz=z+(index//4)*spacing-spacing//2;direction=-1 if index<4 else 1
             plots.append(dict(x=px,y=y,z=pz,tableY=y));trees=[]
-            for dx in ((-1,1) if s['layout'] in (1,3) else (-2,2)):
+            for dx in (() if s.get('first_night') and not s['first_night']['trees'] else (-1,1) if s['layout'] in (1,3) else (-2,2)):
                 for distance in ((5,8,11,13) if s['layout']==1 else (5,7,10,13) if s['layout']==2 else (5,8,10,13)):
                     tx=px+dx;tz=pz+direction*distance;trees.append([tx,y,tz])
                     self.command(f'fill {tx} {y} {tz} {tx} {y+height-1} {tz} minecraft:oak_log')
                     self.command(f'fill {tx-1} {y+height} {tz-1} {tx+1} {y+height+1} {tz+1} minecraft:oak_leaves[persistent=true]')
             groves.append(trees)
         s['camp']=dict(spawn=[x+.5,y+.1,z+.5],plots=plots,groves=groves)
+        if s.get('first_night',{}).get('stations'):
+            for index,plot in enumerate(plots):
+                direction=-1 if index<4 else 1
+                # Explicit lesson support on level zero only; later levels never spawn food.
+                near,far=sorted((plot['z']+direction*16,plot['z']+direction*21))
+                self.command(f'fill {plot["x"]-3} {y-1} {near} {plot["x"]+3} {y-1} {far} minecraft:grass_block')
+                self.command(f'fill {plot["x"]-3} {y} {near} {plot["x"]+3} {y+3} {far} minecraft:air')
+                label=json.dumps(json.dumps({'text':'FirstNight'+s['bots'][index]}))
+                for offset in (-1,1):
+                    self.command(f'summon minecraft:cow {plot["x"]+offset+.5} {y} {plot["z"]+direction*17+.5} {{Tags:["lab_world_survival"],PersistenceRequired:1b,NoAI:1b,CustomName:{label}}}')
+                for offset in (-1,0,1):
+                    self.command(f'summon minecraft:sheep {plot["x"]+offset+.5} {y} {plot["z"]+direction*19+.5} {{Tags:["lab_world_survival"],PersistenceRequired:1b,NoAI:1b,CustomName:{label},Color:0b}}')
         self.saved['templates'].setdefault(s['template'],{})['camp_anchor']=[x,y,z];self.save()
         return copy.deepcopy(s['camp'])
 
     def lesson_resources(self,name):
         s=self.session
         if not s or not s['active'] or s['phase']!='running' or name not in s['bots'] or not s.get('camp'):raise ValueError('No active prepared camp lesson.')
+        if s.get('first_night') and not s['first_night']['trees']:return []
         supplied=s.setdefault('lesson_resources',{})
         if name in supplied:return copy.deepcopy(supplied[name])
         index=s['bots'].index(name);plot=s['camp']['plots'][index];direction=-1 if index<4 else 1;trees=[]
@@ -231,7 +289,8 @@ class WorldTraining(SurvivalLessons):
 
     def quarry(self,name):
         s=self.session
-        if not s or not s['active'] or s['phase']!='running' or s.get('mission') not in ('stone_age',*ADVANCED) or name not in s['bots'] or not s.get('camp'):raise ValueError('No active prepared stone-age lesson.')
+        if not s or not s['active'] or s['phase']!='running' or s.get('mission') not in ('stone_age','first_night',*ADVANCED) or name not in s['bots'] or not s.get('camp'):raise ValueError('No active prepared stone-age lesson.')
+        if s.get('first_night') and not s['first_night']['stations']:raise ValueError('Natural-resource First Night trials cannot create resource stations.')
         quarries=s.setdefault('quarries',{})
         if name in quarries:return copy.deepcopy(quarries[name])
         index=s['bots'].index(name);plot=s['camp']['plots'][index];direction=-1 if index<4 else 1
@@ -267,14 +326,22 @@ class WorldTraining(SurvivalLessons):
         if data.get('state') in ('complete','stopped') and s.get('mission') in ADVANCED:self.command(f'kill @e[tag=lab_world_{name}]')
         if data.get('state')=='stopped' and s['results'].get(name,{}).get('state')!='stopped':
             self.command(f'effect give {name} minecraft:fire_resistance 20 0 true');self.park([name])
-        allowed=('navigation','harvest_target','state','phase','message','logs','blocks','target_blocks','distance','travelled','health','plot','seconds','timings','milestones','lesson','lesson_total','idle_seconds','stall_seconds_left','home','survival')
+        allowed=('navigation','harvest_target','state','phase','message','logs','blocks','target_blocks','distance','travelled','health','plot','seconds','timings','milestones','lesson','lesson_total','idle_seconds','stall_seconds_left','home','survival','wilderness','failure_category')
         previous=s['results'].get(name,{})
         s['results'][name]={k:copy.deepcopy(data[k]) for k in allowed if k in data}
         s['results'][name].update(peak_logs=max(previous.get('peak_logs',0),data.get('logs',0)),peak_blocks=max(previous.get('peak_blocks',0),data.get('blocks',0)))
+        if s.get('first_night') and isinstance(data.get('wilderness'),dict):
+            memory=clean_memory(data['wilderness'].get('memory'),s['bounds'])
+            if not s.get('assessment'):self.saved.setdefault('first_night_memory',{}).setdefault(s['template'],{})[name]=memory
+            if data.get('state') in ('complete','stopped'):self.save()
         if len(s['results'])==len(s['bots']) and all(r.get('state') in ('complete','stopped') for r in s['results'].values()):
             self.finish()
 
     def stop(self,reason='World trial paused by you.'):
+        if self.session and 'fauna_queue' in self.session:
+            x0,x1,z0,z1=self.session['bounds']
+            try:self.command(f'forceload remove {x0} {z0} {x1-1} {z1-1}')
+            except RuntimeError:pass
         if self.job:
             j=self.job
             for xx in (j['source'],j['dest']):
@@ -289,11 +356,11 @@ class WorldTraining(SurvivalLessons):
                     except RuntimeError:pass
             self.session.update(active=False,loop=False,phase='paused',message=reason)
 
-    def snapshot(self):return dict(session=copy.deepcopy(self.session),scenarios=SCENARIOS,history=copy.deepcopy(self.saved['history'][-10:]))
+    def snapshot(self):return dict(session=copy.deepcopy(self.session),scenarios=SCENARIOS,history=copy.deepcopy(self.saved['history'][-10:]),first_night_levels=LEVELS,readiness=readiness(self.saved['history']))
 
     def menu(self,player):
         parts=[{'text':'AI Laboratory\n','color':'gold','bold':True}]
-        for label,choice in [('Automatic world learning',8),('Iron tools lessons',9),('Beds, food and armor lessons',10),('Home defense lessons',11),('Basics training',1),('Real world: repeat teacher settlement lessons',2),('Real world: repeat policy navigation + settlement teacher',3),('Stop current mode',4),('Train gathering from examples',5),('Train navigation from examples',6)]:
+        for label,choice in [('First Night: graduated wilderness learning',12),('Automatic world learning',8),('Iron tools lessons',9),('Beds, food and armor lessons',10),('Home defense lessons',11),('Basics training',1),('Real world: repeat teacher settlement lessons',2),('Real world: repeat policy navigation + settlement teacher',3),('Stop current mode',4),('Train gathering from examples',5),('Train navigation from examples',6)]:
             parts.extend([{'text':'['+label+']\n','color':'aqua','clickEvent':{'action':'run_command','value':f'/trigger lab_world set {choice}'}}])
         parts.append({'text':'Camera while following: Ctrl = view; W/S = distance; A/D = height.\n','color':'gray'})
         for label,value in [('Next view',1),('Farther',2),('Closer',3),('Lower',4),('Higher',5)]:

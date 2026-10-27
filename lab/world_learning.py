@@ -77,10 +77,13 @@ class WorldLearning:
     def begin(self,driver,phase,layout):
         options=dict(self.state['options'],driver=driver,loop=False,layout=layout)
         if self.state.get('behavior_snapshot'):options['behavior_snapshot']=copy.deepcopy(self.state['behavior_snapshot'])
+        if self.state.get('memory_snapshot') is not None:options['memory_snapshot']=copy.deepcopy(self.state['memory_snapshot'])
         session=self.h['begin'](options)['session'];self.state['run']=session['run']
         self.phase(phase,{'baseline':'Testing the saved specialists without teacher movement or harvesting control.',
                          'demonstrating':'Teacher practice: collecting fresh navigation and harvesting examples on a separate resource layout.',
                          'evaluating':'Testing the trained specialists on the same evaluation layout as the saved models.'}[phase])
+        if phase=='demonstrating' and options.get('mission')=='first_night' and options.get('night_level',0)>0:
+            self.phase(phase,'Teacher practice: collecting navigation, harvesting and hunting examples on the restored natural training site. Reserved assessment sites are separate.')
 
     def tick(self):
         s=self.state;job=self.h['job']()
@@ -98,6 +101,8 @@ class WorldLearning:
             self.phase('waiting','Recovery complete. Beginning a fresh saved-model evaluation.');return
         if s['phase']=='waiting':
             if 'behavior' in self.h:s['behavior_snapshot']=copy.deepcopy(self.h['behavior']())
+            if s['options'].get('mission')=='first_night' and 'memory' in self.h:s['memory_snapshot']=copy.deepcopy(self.h['memory']())
+            else:s.pop('memory_snapshot',None)
             s['round']=s.get('round',0)+1;s['trained']=[];s['training_results']=[];s['eval_layout']=1+(s['round']-1)%3
             self.begin('student','baseline',s['eval_layout']);return
         if s['phase'] in ('baseline','demonstrating','evaluating'):
@@ -121,13 +126,17 @@ class WorldLearning:
             result=dict(round=s['round'],baseline=s['baseline'],candidate=candidate,accepted=accepted,reason=reason,
                         skills=s['trained'],mission=s['options']['mission'],scenario=s['options']['scenario'],new_examples=s.get('new_examples',{}),time=self.clock())
             result['training_results']=s.get('training_results',[])
+            if s['options']['mission']=='first_night':result['night_level']=s['options'].get('night_level',0)
             self.h['review'](result)
             if not accepted:self.h['restore']()
             s['restore_pending']=False;s['history'].append(result);s['history']=s['history'][-40:]
             champion=candidate if accepted else s['baseline'];s['streak']=s.get('streak',0)+1 if champion['completed']/max(1,champion['bots'])>=.75 else 0
             if s.get('streak',0)>=2 and s['options'].get('auto_progress',True):
                 tiers=['settlement','stone_age','iron_age','homestead','home_defense']
-                if s['options']['mission'] in tiers[:-1]:s['options']['mission']=tiers[tiers.index(s['options']['mission'])+1]
+                if s['options']['mission']=='first_night':
+                    s['options']['night_level']=min(3,s['options'].get('night_level',0)+1)
+                    s['options']['scenario']=(s['options']['scenario']+1)%9
+                elif s['options']['mission'] in tiers[:-1]:s['options']['mission']=tiers[tiers.index(s['options']['mission'])+1]
                 else:s['options']['scenario']=(s['options']['scenario']+1)%12
                 s['streak']=0;reason+=' Next cycle advances the curriculum.'
             self.phase('cooldown',reason+' New teacher examples remain available either way.');return

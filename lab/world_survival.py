@@ -17,8 +17,12 @@ class SurvivalLessons:
 
     def survival(self,data,display_name):
         s=self.session;name=data.get('agent')
-        if not s or not s['active'] or s['phase']!='running' or s['mission'] not in ADVANCED or name not in s['bots'] or data.get('run')!=s['run'] or not s.get('camp'):raise ValueError('No matching active survival lesson.')
-        plot=s['camp']['plots'][s['bots'].index(name)];action=data.get('action');tag='lab_world_'+name
+        if not s or not s['active'] or s['phase']!='running' or s['mission'] not in (*ADVANCED,'first_night') or name not in s['bots'] or data.get('run')!=s['run']:raise ValueError('No matching active survival lesson.')
+        action=data.get('action')
+        if s['mission']=='first_night' and action not in ('home','cleanup'):raise ValueError('First Night cannot create advanced resource stations or threats.')
+        plot=s['camp']['plots'][s['bots'].index(name)] if s.get('camp') else s['results'].get(name,{}).get('plot')
+        if not plot:raise ValueError('No surveyed home plot.')
+        tag='lab_world_'+name
         if action=='station':
             stations=s.setdefault('survival_stations',{})
             if name in stations:return copy.deepcopy(stations[name])

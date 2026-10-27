@@ -822,6 +822,7 @@ def observer_worker():
                             elif choice==4:stop_world();curriculum.pause()
                             elif choice==8:start_world_learning({})
                             elif choice in (9,10,11):start_world_learning({'mission':{9:'iron_age',10:'homestead',11:'home_defense'}[choice]})
+                            elif choice==12:start_world_learning({'mission':'first_night','night_level':0})
                             elif choice in (5,6,7):train_world({'skill':{5:'gathering',6:'expedition',7:'shelter'}[choice]})
                             else:world_training.menu(player)
                         except (ValueError,HTTPException) as error:console('tellraw '+player+' '+json.dumps({'text':str(getattr(error,'detail',error)),'color':'red'}))
@@ -1017,6 +1018,7 @@ world_learning=WorldLearning('data/world-learning.json',{
     'world':lambda:world_training.session,'begin':_begin_world,'train':world_train_skill,
     'protect':protect_world_models,'restore':restore_world_models,'review':review_world_models,
     'switch':world_learning_switch,'behavior':behavior_rules.frozen,
+    'memory':lambda:copy.deepcopy(world_training.saved.get('first_night_memory',{})),
     'ready':lambda:auto_health(recovering=world_learning.state.get('phase')=='recovering' and world_learning.state.get('recovery_cause')=='memory') is None,
     'counts':lambda:{skill:skill_bank.get(skill,model)['count'] for skill in WORLD_SKILLS}})
 
@@ -1025,9 +1027,17 @@ def start_world_learning(d:dict={}):
     with lock:
         if training_jobs.running or curriculum.state.get('restore_pending'):raise HTTPException(409,'Wait for the current model operation to finish.')
         scenario=d.get('scenario',0);size=d.get('size',128);mission=d.get('mission','settlement');progress=d.get('auto_progress',True)
-        if type(scenario) is not int or not 0<=scenario<12 or type(size) is not int or size not in (128,256) or mission not in ('settlement','stone_age','iron_age','homestead','home_defense') or type(progress) is not bool:raise HTTPException(400,'Choose a valid world learning curriculum.')
+        if type(scenario) is not int or not 0<=scenario<12 or type(size) is not int or size not in (128,256) or mission not in ('settlement','stone_age','iron_age','homestead','home_defense','first_night') or type(progress) is not bool:raise HTTPException(400,'Choose a valid world learning curriculum.')
+        extra={}
+        if mission=='first_night':
+            from .first_night import profile
+            try:profile(d.get('night_level',0))
+            except ValueError as error:raise HTTPException(400,str(error))
+            if size!=128:raise HTTPException(400,'First Night uses 128 by 128 sites for complete natural animal resets.')
+            if scenario>=9:raise HTTPException(400,'Sites 10–12 are held out from First Night training. Use policy assessment instead.')
+            extra['night_level']=d.get('night_level',0)
         curriculum.pause('Basics saved while automatic world learning is selected.')
-        try:return world_learning.start(dict(scenario=scenario,size=size,mission=mission,prepared=True,auto_progress=progress))
+        try:return world_learning.start(dict(scenario=scenario,size=size,mission=mission,prepared=True,auto_progress=progress,**extra))
         except ValueError as error:raise HTTPException(409,str(error))
 
 @app.post('/world-learning/stop',dependencies=[Depends(auth)])

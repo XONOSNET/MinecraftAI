@@ -25,7 +25,7 @@ function observe(bot,task,runtime,now=Date.now()){
  const distance=enemy?p.distanceTo(enemy.position):16;
  const bearing=enemy?Math.atan2(-(enemy.position.x-p.x),-(enemy.position.z-p.z)):bot.entity.yaw;
  const angle=Math.atan2(Math.sin(bearing-bot.entity.yaw),Math.cos(bearing-bot.entity.yaw));
- const sight=visible(bot,enemy),cooldown=Math.max(0,650-(now-(runtime.lastAttack||0)))/650;
+ const attackDelay=task.attack_delay_ms||650,sight=visible(bot,enemy),cooldown=Math.max(0,attackDelay-(now-(runtime.lastAttack||0)))/attackDelay;
  const remaining=Math.max(0,task.kill_target-(runtime.kills||0));
  const extra=[Number(!!enemy),Math.min(1,distance/16),Math.sin(angle),Math.cos(angle),Number(gear.weapon),gear.armor,cooldown,Number(sight),Number(distance<1.4),remaining/Math.max(1,task.kill_target),bot.health/20,Number(gear.shield)];
  return {enemy,gear,distance,angle,sight,cooldown,extra,metrics:{weapon_equipped:gear.weapon,armor_equipped:gear.armor===1,shield_equipped:gear.shield,kills:runtime.kills||0,hits:runtime.hits||0,kill_target:task.kill_target,enemy:enemy?.name||null,attack_cooldown:cooldown}};
@@ -59,10 +59,10 @@ async function interact(bot,task,sensed,runtime,action,permissions,now=Date.now(
  const enemy=sensed.enemy;
  if(!ownedTarget(enemy,task))return false;
  if(action===4&&equipment(bot,task).shield){await bot.lookAt(enemy.position.offset(0,.9,0),true);bot.activateItem(true);return true;}
- if(action!==6||bot.heldItem?.name!==task.weapon||bot.entity.position.distanceTo(enemy.position)>3||!visible(bot,enemy)||now-(runtime.lastAttack||0)<650)return false;
+ if(action!==6||bot.heldItem?.name!==task.weapon||bot.entity.position.distanceTo(enemy.position)>3||!visible(bot,enemy)||now-(runtime.lastAttack||0)<(task.attack_delay_ms||650))return false;
  await bot.lookAt(enemy.position.offset(0,.9,0),true);
  (runtime.attacked??=new Set()).add(enemy.id);runtime.lastAttack=now;runtime.hits=(runtime.hits||0)+1;
  bot.attack(enemy);return true;
 }
 function reached(task,m){return m.health>=task.min_health&&m.inside&&Math.abs(m.y-181)<1.5&&m.weapon_equipped&&m.armor_equipped&&(!task.shield||m.shield_equipped)&&m.kills>=task.kill_target&&(!task.kill_target||m.hits>=task.kill_target);}
-module.exports={LABELS,equipment,ownedTarget,target,observe,teacher,death,interact,reached};
+module.exports={LABELS,equipment,ownedTarget,target,visible,observe,teacher,death,interact,reached};

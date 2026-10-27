@@ -1,0 +1,50 @@
+{
+  "fixture": "Isolated First Night mechanics using teacher decisions; not an autonomous wilderness qualification.",
+  "grants": [
+    "Completed illuminated shelter, chest and furnace",
+    "Four logs for early axe crafting",
+    "Wooden pickaxe for exposed-stone test",
+    "Four fixture cows, three sheep and furnace fuel"
+  ],
+  "checks": [
+    {
+      "phase": "night_bootstrap",
+      "seconds": 5.5
+    },
+    {
+      "phase": "night_stone",
+      "seconds": 64.3
+    },
+    {
+      "phase": "night_food",
+      "seconds": 83.6
+    },
+    {
+      "phase": "night_scout",
+      "seconds": 16.4
+    },
+    {
+      "phase": "night_hold",
+      "seconds": 2
+    }
+  ],
+  "pulse": 1793121965321,
+  "memory": {
+    "landmarks": 21,
+    "road_nodes": 116,
+    "road_edges": 123
+  },
+  "milestones": [
+    "hut",
+    "quarry",
+    "food_found",
+    "cooked_meals",
+    "provisioned",
+    "wool",
+    "bed_home",
+    "round_trip",
+    "survived"
+  ],
+  "health": 20,
+  "success": true
+}

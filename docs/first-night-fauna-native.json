@@ -1,0 +1,19 @@
+{
+  "fixture": "Native passive-animal snapshot/reset; fresh UUIDs, restored species and white wool, no production worlds changed.",
+  "grants": [
+    "Completed illuminated shelter, chest and furnace",
+    "Four logs for early axe crafting",
+    "Wooden pickaxe for exposed-stone test",
+    "Four fixture cows, three sheep and furnace fuel"
+  ],
+  "checks": [],
+  "counts": {
+    "before": 7,
+    "after": 7,
+    "cows": 4,
+    "sheep": 3
+  },
+  "fresh_uuids": true,
+  "white_sheep": true,
+  "success": true
+}

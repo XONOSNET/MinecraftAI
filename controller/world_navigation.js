@@ -27,7 +27,7 @@ function approachGoal(bot,goal,plot){
 }
 class WorldNavigation{
  constructor(){this.path=[];this.destination=null;this.lastPlan=-Infinity;this.anchor=null;this.best=Infinity;this.progressAt=0;this.status={};}
- plan(bot,goal,{plot=null,bounds,now=Date.now()}={}){
+ plan(bot,goal,{plot=null,bounds,now=Date.now(),memory=null}={}){
   const p=bot.entity.position,target=approachGoal(bot,goal,plot),key=target.join(','),home=homeApproach(plot);
   if(key!==this.destination){this.destination=key;this.path=[];this.best=Infinity;this.progressAt=now;this.lastPlan=-Infinity;this.blocked=false;}
   // A waypoint crossed in midair is still the landing target. Advancing or
@@ -40,7 +40,8 @@ class WorldNavigation{
   const landing=bot.entity.onGround===false&&this.path.length&&!invalid&&!offRoute;
   if(!landing&&(this.lastPlan===-Infinity||due||offRoute||invalid||this.waiting&&bot.entity.onGround===true)){
    const radius=Math.min(96,Math.max(48,Math.ceil(Math.hypot(target[0]-p.x,target[2]-p.z))+16));
-   const planned=route(bot,target,radius,8192,true,{bounds,reversible:true});this.lastPlan=now;this.anchor=[p.x,p.y,p.z];
+   let planned=route(bot,target,radius,8192,true,{bounds,reversible:true});this.lastPlan=now;this.anchor=[p.x,p.y,p.z];
+   if(!planned.reached&&!planned.waiting_for_ground&&memory){const remembered=memory.detour(bot,target,bounds);if(remembered){planned={...planned,reached:true,path:remembered};memory.replans++;}}
    this.path=planned.reached?planned.path:[];this.blocked=!planned.reached;
    this.waiting=!!planned.waiting_for_ground;
    this.reason=this.waiting?'Waiting to land safely before replanning':planned.budget_exhausted?'Return-route search reached its limit; checking again':'No complete safe route in loaded terrain; checking for another way';
