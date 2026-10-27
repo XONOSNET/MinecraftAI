@@ -30,23 +30,27 @@ class WorldNavigation{
  plan(bot,goal,{plot=null,bounds,now=Date.now()}={}){
   const p=bot.entity.position,target=approachGoal(bot,goal,plot),key=target.join(','),home=homeApproach(plot);
   if(key!==this.destination){this.destination=key;this.path=[];this.best=Infinity;this.progressAt=now;this.lastPlan=-Infinity;this.blocked=false;}
-  while(this.path.length&&Math.hypot(this.path[0][0]-p.x,this.path[0][2]-p.z)<.4&&Math.abs(this.path[0][1]-p.y)<.4)this.anchor=this.path.shift();
+  // A waypoint crossed in midair is still the landing target. Advancing or
+  // replanning before touchdown can replace it with an unsupported start cell.
+  while(bot.entity.onGround!==false&&this.path.length&&Math.hypot(this.path[0][0]-p.x,this.path[0][2]-p.z)<.4&&Math.abs(this.path[0][1]-p.y)<.4)this.anchor=this.path.shift();
   const corridor=[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,3)];
   const offRoute=this.path.length&&corridorDistance(p,corridor)>.85;
   const invalid=this.path.slice(0,3).some(q=>!standable(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])));
   const due=now-this.lastPlan>=forBot(bot).route_replan_ms;
-  if(this.lastPlan===-Infinity||due||offRoute||invalid){
+  const landing=bot.entity.onGround===false&&this.path.length&&!invalid&&!offRoute;
+  if(!landing&&(this.lastPlan===-Infinity||due||offRoute||invalid||this.waiting&&bot.entity.onGround===true)){
    const radius=Math.min(96,Math.max(48,Math.ceil(Math.hypot(target[0]-p.x,target[2]-p.z))+16));
    const planned=route(bot,target,radius,8192,true,{bounds,reversible:true});this.lastPlan=now;this.anchor=[p.x,p.y,p.z];
    this.path=planned.reached?planned.path:[];this.blocked=!planned.reached;
-   this.reason=planned.budget_exhausted?'Return-route search reached its limit; checking again':'No complete safe route in loaded terrain; checking for another way';
+   this.waiting=!!planned.waiting_for_ground;
+   this.reason=this.waiting?'Waiting to land safely before replanning':planned.budget_exhausted?'Return-route search reached its limit; checking again':'No complete safe route in loaded terrain; checking for another way';
    this.expanded=planned.expanded;this.replanned=true;
   }else this.replanned=false;
   let remaining=0,from=[p.x,p.y,p.z];for(const point of this.path){remaining+=Math.hypot(point[0]-from[0],point[2]-from[2])+Math.abs(point[1]-from[1])*.4;from=point;}
   const arrived=!this.blocked&&!this.path.length&&Math.hypot(target[0]-p.x,target[2]-p.z)<.4&&Math.abs(target[1]-p.y)<.4;
   if(!this.blocked&&(remaining<this.best-.75||arrived)){this.best=remaining;this.progressAt=now;}
   const idle=Math.max(0,(now-this.progressAt)/1000),timeout=forBot(bot).stationary_timeout_seconds;
-  this.status={home,target:[...target],state:this.blocked?'blocked':arrived?'arrived':'following',height_delta:Math.round(((home||target)[1]-p.y)*10)/10,
+  this.status={home,target:[...target],state:this.waiting&&this.blocked?'landing':this.blocked?'blocked':arrived?'arrived':'following',height_delta:Math.round(((home||target)[1]-p.y)*10)/10,
    route_complete:!this.blocked,remaining_blocks:Math.round(remaining*10)/10,waypoints:this.path.length,no_progress_seconds:Math.floor(idle),reset_seconds:Math.max(0,Math.ceil(timeout-idle)),expanded:this.expanded||0};
   if(idle>=timeout)throw Error('No route progress for '+timeout+' seconds; ended this attempt instead of circling.');
   return {path:this.path,cue:this.path[0]||target,corridor:[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,3)],blocked:this.blocked,arrived,message:this.reason};

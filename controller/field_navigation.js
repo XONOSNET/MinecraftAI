@@ -19,7 +19,7 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
  const others=avoidPlayers?space.players(bot):[];
  const p=bot.entity.position;let start=[Math.floor(p.x),Math.round(p.y),Math.floor(p.z)];const key=n=>n.join(',');let escape=null;
  if(!stand(...start)){
-  if(bot.entity.onGround!==true)return {path:[],expanded:0,message:'Waiting to settle on safe ground'};
+  if(bot.entity.onGround!==true)return {path:[],expanded:0,waiting_for_ground:true,message:'Waiting to settle on safe ground'};
   const occupied=bot.blockAt(new Vec3(...start));if(!occupied||BAD.has(occupied.name))return {path:[],expanded:0,message:'Hazard or unloaded ground under the bot; holding position'};
   // The body's trailing edge can still stand on the upper terrace after its
   // center crosses into the next stair cell. Continue the verified one-block

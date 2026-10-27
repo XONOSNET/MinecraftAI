@@ -39,7 +39,9 @@ function proximity(bot,{goalYaw=null,recovery=true}={}){
   const direction=new Vec3(-Math.sin(yaw+offset),0,-Math.cos(yaw+offset));let clear=0;
   for(const d of [...[.35,.65,.95,1.25,1.6,2].filter(d=>d<limit),limit]){
    const c=p.plus(direction.scaled(d)),supports=[];let supported=true;
-   for(const x of [-.25,.25])for(const z of [-.25,.25]){
+   // Match blocked()'s body footprint. A narrower support sample can miss
+   // the trailing edge still on an upper step and misclassify it as a wall.
+   for(const x of [-.29,.29])for(const z of [-.29,.29]){
     const top=supportAt(c.x+x,c.z+z,maxDrop);
     if(top===null){supported=false;break;}supports.push(top);
    }
@@ -47,7 +49,7 @@ function proximity(bot,{goalYaw=null,recovery=true}={}){
    const floor=Math.max(...supports);
    if(blocked(d,height,.05,direction,floor))break;
    // Check the whole landing/fall corridor for contact hazards.
-   for(const x of [-.25,.25])for(const z of [-.25,.25])for(let y=Math.floor(Math.min(floor,p.y));y<=Math.floor(Math.max(floor,p.y)+height);y++){
+   for(const x of [-.29,.29])for(const z of [-.29,.29])for(let y=Math.floor(Math.min(floor,p.y));y<=Math.floor(Math.max(floor,p.y)+height);y++){
     const block=blockAt(new Vec3(Math.floor(c.x+x),y,Math.floor(c.z+z)));
     if(!block||HAZARDS.has(block.name))supported=false;
    }

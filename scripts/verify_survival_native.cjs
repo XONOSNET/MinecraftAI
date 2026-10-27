@@ -37,12 +37,12 @@ b.once('spawn',async()=>{let motor;
    const {WorldNavigation}=require('../controller/world_navigation');
    async function leg(phase,until,position){
     motor.pause();if(position){await post({action:'teleport-coordinates',player:b.username,x:position[0],y:position[1],z:position[2]});await wait(700);}
-    t.navigator=new WorldNavigation();t.phase=phase;t.path=[];const start=Date.now();while(t.phase!==until){if(Date.now()-start>45000)throw Error('Navigation fixture stalled: '+phase+' '+t.message);await survival.tick(t,b,motor,state,api,scan,tasks);if(Date.now()-(result.routePulse||0)>3000){result.routePulse=Date.now();console.log(JSON.stringify({phase:t.phase,p:b.entity.position,cue:t.path?.[0],message:t.message}));}await wait(100);}motor.pause();result.routes.push({phase,seconds:Math.round((Date.now()-start)/100)/10,position:b.entity.position.clone()});
+    t.navigator=new WorldNavigation();t.phase=phase;t.path=[];const start=Date.now();while(t.phase!==until){if(Date.now()-start>45000)throw Error('Navigation fixture stalled: '+phase+' '+t.message);if(process.argv.includes('--stress-replans'))t.navigator.lastPlan=-Infinity;await survival.tick(t,b,motor,state,api,scan,tasks);if(Date.now()-(result.routePulse||0)>3000){result.routePulse=Date.now();console.log(JSON.stringify({phase:t.phase,p:b.entity.position,cue:t.path?.[0],message:t.message}));}await wait(100);}motor.pause();result.routes.push({phase,seconds:Math.round((Date.now()-start)/100)/10,position:b.entity.position.clone()});
    }
    t.survival={station:{...fixture.station,logs:[[p.x+2,p.y,p.z+6]]},combat:{},sheared:new Set()};
    await leg('survival_wood_trip','survival_wood',[p.x+.5,p.y,p.z+.5]);t.survival.station=fixture.station;await leg('survival_wood_trip','survival_wood');await leg('survival_wood','survival_wood_craft');
    state.world.driver='student';await leg('survival_mine_up','survival_mine_return',fixture.station.bottom);
-   await leg('survival_mine_down','survival_coal');result.success=result.routes.length===5;result.health=b.health;return;
+   await leg('survival_mine_down','survival_coal');result.stress_replans=process.argv.includes('--stress-replans');if(result.stress_replans)for(let repeat=0;repeat<2;repeat++){await leg('survival_mine_up','survival_mine_return');await leg('survival_mine_down','survival_coal');}result.success=result.routes.length===(result.stress_replans?9:5);result.health=b.health;return;
   }
   const deadline=Date.now()+540000;
   while(t.phase!=='complete'){

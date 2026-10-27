@@ -288,7 +288,7 @@ $('harvest-markers').addEventListener('change',async()=>{try{const r=await fetch
 $('vision-enabled').addEventListener('change',saveVision);$('vision-scope').addEventListener('change',saveVision);
 function worldTimingText(r){
  if(!r)return 'Waiting for trial';
- const nav=r.navigation,navigation=nav?.home?`Home: ${nav.height_delta>0?'+':''}${nav.height_delta} blocks vertically · ${nav.state==='blocked'?'Searching for a complete safe route':nav.remaining_blocks+' blocks along planned route'} · `:'';
+ const nav=r.navigation,navigation=nav?.home?`Home: ${nav.height_delta>0?'+':''}${nav.height_delta} blocks vertically · ${nav.state==='landing'?'Waiting to land before replanning':nav.state==='blocked'?'Searching for a complete safe route':nav.remaining_blocks+' blocks along planned route'} · `:'';
  const t=r.timings||{},p=t.phase_seconds||{},a=t.activity_seconds||{},seconds=v=>Number.isFinite(v)?Math.round(v)+' s':'—';
  return `${navigation}${r.stall_seconds_left!=null&&!['complete','stopped'].includes(r.state)?"No progress: attempt ends in "+r.stall_seconds_left+" s · ":""}${r.completion_rank?"Finish rank #"+r.completion_rank+" · ":""}Total ${seconds(r.seconds)} · Gathering ${seconds(p.gather)} · Aligning ${seconds(a.aligning)} · First log ${seconds(t.first_log_seconds)} · Turn reversals ${t.turn_reversals??'—'} · Target switches ${t.target_switches??'—'} · Scans ${t.acquisition_scans??'—'} · Tree lock ${t.locked_tree?'held':'searching'}`;
 }

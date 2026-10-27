@@ -9,6 +9,13 @@ test('a verified descending terrace checks the immediate landing rather than the
  const motor=createMotor(bot,permissions,{clock:()=>now});motor.command(0,{kind:'expedition',safe_walk:true,strict_ground:true,waypoints:[[.5,63.1,-.5]]},sensed,0);now=50;motor.tick();assert.equal(controls.forward,true);assert.equal(!!controls.sprint,false);
  motor.command(0,{kind:'expedition',safe_walk:true,strict_ground:true,waypoints:[[.5,64.1,-.5]]},sensed,0);now=100;motor.tick();assert.equal(controls.forward,false);
 });
+
+test('descent support uses the same footprint as collision while the trailing edge overlaps the upper step',()=>{
+ const {Vec3}=require('vec3'),{proximity}=require('../controller/perception');let now=0;const controls={};
+ const bot={players:{},entity:{position:new Vec3(.5,64,.0905),yaw:0,pitch:0,onGround:true},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,blockAt(p){const q=p.floored(),solid=q.y<64+Math.min(0,q.z);return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+ const sensed={...safe,...proximity(bot,{recovery:false})};assert.equal(sensed.canStepDown(0,.35),true);
+ const motor=createMotor(bot,permissions,{clock:()=>now});motor.command(0,{kind:'expedition',safe_walk:true,strict_ground:true,waypoints:[[.5,63.1,-.5]]},sensed,0);now=50;motor.tick();assert.equal(controls.forward,true);
+});
 test('strict world routes disallow an unplanned one-block drop but permit a checked descent',()=>{
  const {Vec3}=require('vec3');let now=0;const controls={},bot={entity:{yaw:0,pitch:0,onGround:true,position:new Vec3(0,70,0)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v};
  const motor=createMotor(bot,permissions,{clock:()=>now}),sensed={...safe,canWalk:()=>false,canStepDown:()=>true};

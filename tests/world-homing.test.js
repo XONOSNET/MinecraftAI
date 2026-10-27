@@ -52,6 +52,29 @@ test('failed home searches are throttled and terminate an oscillating attempt wi
  b.entity.position=new Vec3(-.5,64,.5);
  assert.throws(()=>nav.plan(b,goal,{...options,now:92000}),/No route progress/);
 });
+
+test('a route refresh during a stair fall retains the checked landing instead of declaring no safe route',()=>{
+ const b={username:'stairs',players:{},entity:{position:new Vec3(.5,64,.5),onGround:true},blockAt(p){const q=p.floored(),height=64+Math.min(0,q.z),solid=q.y<height;return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+ const nav=new WorldNavigation(),goal=[.5,61.1,-2.5],options={bounds:[-20,20,-20,20],now:1000};
+ assert.equal(nav.plan(b,goal,options).blocked,false);const landing=[...nav.path[0]];
+ b.entity.position=new Vec3(.5,63.5,-.4);b.entity.onGround=false;
+ const falling=nav.plan(b,goal,{...options,now:5000});assert.equal(falling.blocked,false);assert.deepEqual(falling.cue,landing);
+});
+
+test('a new route requested in midair retries immediately after landing, without waiting for the replan timer',()=>{
+ const b={username:'stairs',players:{},entity:{position:new Vec3(.5,63.5,-.4),onGround:false},blockAt(p){const q=p.floored(),solid=q.y<64+Math.min(0,q.z);return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+ const nav=new WorldNavigation(),goal=[.5,61.1,-2.5],bounds=[-20,20,-20,20];
+ assert.match(nav.plan(b,goal,{bounds,now:1000}).message,/Waiting to land/);
+ b.entity.position=new Vec3(.5,63,-.5);b.entity.onGround=true;
+ assert.equal(nav.plan(b,goal,{bounds,now:1050}).blocked,false);
+});
+
+test('airborne route retention never keeps a landing whose support disappeared',()=>{
+ let removed=false;const b={username:'stairs',players:{},entity:{position:new Vec3(.5,64,.5),onGround:true},blockAt(p){const q=p.floored(),solid=q.y<64+Math.min(0,q.z)&&!(removed&&q.z===-1&&q.y===62);return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+ const nav=new WorldNavigation(),goal=[.5,61.1,-2.5],bounds=[-20,20,-20,20];nav.plan(b,goal,{bounds,now:1000});
+ removed=true;b.entity.position=new Vec3(.5,63.5,-.4);b.entity.onGround=false;
+ assert.equal(nav.plan(b,goal,{bounds,now:5000}).blocked,true);
+});
 test('home navigation reaches the entrance of a closed hut instead of chasing its unreachable interior',()=>{
  const b=landscape(),original=b.blockAt,plot={x:8,y:69,z:0};
  b.blockAt=p=>{
