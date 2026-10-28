@@ -1,0 +1,103 @@
+{
+  "read_only": true,
+  "run": "world-1793193170527719600",
+  "bounds": [
+    24576,
+    24704,
+    16384,
+    16512
+  ],
+  "height_range": [
+    32,
+    127
+  ],
+  "live": {
+    "loaded_columns": 64,
+    "missing_columns": [],
+    "log_blocks": 112,
+    "trunk_columns": 59,
+    "safe_water_filter": 92,
+    "ground_reach_geometry": 34,
+    "additional_height_budget_geometry": 21
+  },
+  "surrounding_one_chunk_ring": {
+    "loaded_columns": 98,
+    "missing_columns": [
+      [
+        1535,
+        1023
+      ],
+      [
+        1536,
+        1023
+      ]
+    ],
+    "log_blocks": 356
+  },
+  "current_bot_sensor_candidates": {
+    "LabAI1": {
+      "in_height_and_distance": 0,
+      "eligible_after_safety_and_visibility": 0,
+      "wood_logs": 0,
+      "house_blocks": 144
+    },
+    "LabAI2": {
+      "in_height_and_distance": 0,
+      "eligible_after_safety_and_visibility": 0,
+      "wood_logs": 19,
+      "house_blocks": 0
+    },
+    "LabAI0": {
+      "in_height_and_distance": 0,
+      "eligible_after_safety_and_visibility": 0,
+      "wood_logs": 0,
+      "house_blocks": 144
+    },
+    "LabAI3": {
+      "in_height_and_distance": 0,
+      "eligible_after_safety_and_visibility": 0,
+      "wood_logs": 0,
+      "house_blocks": 144
+    },
+    "LabAI4": {
+      "in_height_and_distance": 0,
+      "eligible_after_safety_and_visibility": 0,
+      "wood_logs": 5,
+      "house_blocks": 144
+    },
+    "LabAI5": {
+      "in_height_and_distance": 0,
+      "eligible_after_safety_and_visibility": 0,
+      "wood_logs": 23,
+      "house_blocks": 0
+    },
+    "LabAI6": {
+      "in_height_and_distance": 0,
+      "eligible_after_safety_and_visibility": 0,
+      "wood_logs": 18,
+      "house_blocks": 0
+    },
+    "LabAI7": {
+      "in_height_and_distance": 0,
+      "eligible_after_safety_and_visibility": 0,
+      "wood_logs": 15,
+      "house_blocks": 0
+    }
+  },
+  "saved_template": {
+    "loaded_columns": 64,
+    "expected_columns": 64,
+    "log_blocks": 655,
+    "trunk_columns": 189
+  },
+  "camp_setup": {
+    "logs_replaced_by_clearing": 206,
+    "starting_logs_after_camp": 449
+  },
+  "proposed_camp": {
+    "logs_replaced_by_clearing": 56,
+    "starting_core_logs_after_camp": 599,
+    "preserved_extra_logs": 150
+  },
+  "success": true
+}

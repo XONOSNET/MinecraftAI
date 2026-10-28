@@ -1,0 +1,7 @@
+{
+  "expedition_margin": 16,
+  "frontier_cell_size": 12,
+  "frontier_route_budget": 8,
+  "frontier_retry_seconds": 90,
+  "empty_search_seconds": 90
+}

@@ -9,10 +9,12 @@ from .world_survival import SurvivalLessons, MISSION_LESSONS, ADVANCED
 from pathlib import Path
 from .protection import HOSTILES
 from .first_night import profile as night_profile, LESSONS as NIGHT_LESSONS, clean_memory, readiness, LEVELS
-from .world_fauna import fauna_commands
+from .world_fauna import fauna_commands, fauna_extend_commands
+from .camp_layout import commands as camp_commands
 
 LESSONS=['Enclose a hut','Craft and place a chest','Craft a wooden pickaxe','Craft a wooden axe','Craft a wooden shovel','Store eight planks and equip the axe']
 HOUSE=json.loads((Path(__file__).resolve().parent.parent/'config/house.json').read_text(encoding='utf-8'))
+RESOURCE_CONFIG=json.loads((Path(__file__).resolve().parent.parent/'config/world-resources.json').read_text(encoding='utf-8'))
 STONE_LESSONS=LESSONS+['Mine stone with the wooden pickaxe','Craft a stone pickaxe','Craft a stone axe','Craft and place a furnace','Smelt a log into charcoal','Mount indoor and outdoor wall torches']
 
 SCENARIOS=[dict(id=i,name=name,description=description,spread=spread) for i,(name,description,spread) in enumerate([
@@ -59,7 +61,7 @@ class WorldTraining(SurvivalLessons):
         assessment=data.get('assessment',False)
         if type(assessment) is not bool:raise ValueError('Assessment must be enabled or disabled.')
         if night:
-            if size!=128:raise ValueError('First Night currently uses 128 × 128 sites so natural animal resets can keep the whole site loaded safely.')
+            if size!=128:raise ValueError('First Night uses a 128 × 128 core plus its natural-resource expedition ring; choose size 128.')
             prepared=night['prepared']
             if assessment and (scenario<9 or driver!='student'):raise ValueError('First Night assessment requires a held-out site (10–12) and student control.')
             if not assessment and scenario>=9:raise ValueError('Sites 10–12 are reserved for First Night assessment; choose a training site from 1–9.')
@@ -72,9 +74,11 @@ class WorldTraining(SurvivalLessons):
         if not anchor:
             previous=next((r for r in reversed(self.saved['history']) if r.get('template')==key and r.get('prepared') and r.get('camp')),None)
             if previous:anchor=[math.floor(v) for v in previous['camp']['spawn']]
+        margin=RESOURCE_CONFIG['expedition_margin'] if night and night['id']>0 else 0
+        old_margin=self.saved['templates'].get(key,{}).get('resource_margin',0)
         fast=bool(restore and prepared and anchor and not night)
         # Include every camp chunk plus a complete one-chunk ring around it.
-        area=[x,x+size,z,z+size];ys=[-64,192]
+        area=[x-margin,x+size+margin,z-margin,z+size+margin];ys=[-64,192]
         if fast:
             cx,cy,cz=anchor
             area=[max(x,(cx-HOUSE['camp_radius'])//16*16-16),min(x+size,(cx+HOUSE['camp_radius'])//16*16+32),max(z,(cz-HOUSE['camp_radius'])//16*16-16),min(z+size,(cz+HOUSE['camp_radius'])//16*16+32)]
@@ -83,20 +87,26 @@ class WorldTraining(SurvivalLessons):
                 area=[min(area[0],max(x,(cx-32)//16*16)),max(area[1],min(x+size,(cx+32)//16*16+16)),min(area[2],max(z,(cz-54)//16*16)),max(area[3],min(z+size,(cz+54)//16*16+16))]
             low=max(-64,min(128,cy-8));ys=[low,low+64]
         self.session=dict(active=True,phase='restoring' if restore else 'snapshotting',run='world-'+str(time.time_ns()),
-            scenario=scenario,name=SCENARIOS[scenario]['name'],size=size,bounds=[x,x+size,z,z+size],driver=driver,
+            scenario=scenario,name=SCENARIOS[scenario]['name'],size=size,bounds=list(area),driver=driver,
             bots=list(names),prepared=prepared,loop=loop,results={},started_at=self.clock(),round=self.saved.get('round',max((r.get('round',0) for r in self.saved['history']),default=0))+1,
             progress=0,message='Restoring the saved natural terrain.' if restore else 'Saving pristine natural terrain before the first trial.',template=key)
-        self.session.update(reset_area=area,copy_y=ys,fast_reset=fast,camp_anchor=anchor if prepared else None)
+        self.session['bounds']=[x-margin,x+size+margin,z-margin,z+size+margin]
+        self.session.update(core_bounds=[x,x+size,z,z+size],resource_margin=margin,previous_resource_margin=old_margin,reset_area=area,copy_y=ys,fast_reset=fast,camp_anchor=anchor if prepared else None)
         self.session.update(time_budget_seconds=3600 if night else 2400 if mission in ADVANCED else 1200,mission=mission,layout=layout,lessons=NIGHT_LESSONS if night else MISSION_LESSONS.get(mission,STONE_LESSONS if mission=='stone_age' else LESSONS if mission=='settlement' else LESSONS[:1]))
         if night:
             self.session.update(first_night=night,night_level=night['id'],assessment=assessment,
                                 memory_snapshot=copy.deepcopy(data.get('memory_snapshot',self.saved.get('first_night_memory',{}))))
+        if margin:self.session['resource_policy']=dict(width=size+2*margin,core_width=size,margin=margin,preserve_groves=True,wood_planning_logs_per_bot=48,wood_planning_logs=48*len(names),description='Natural resources only; homes and access lanes are cleared, groves preserved. The whole expedition area resets between trials.')
         self.cleanup_survival()
         if fast:self.session['message']='Restoring the camp and surrounding chunks; deep underground terrain is preserved.'
         self.jobs=[];self.job=None
         # Incremental two-chunk work avoids permanent force loads and the global limit.
         for xx in range(area[0],area[1],32 if fast else 16):
             for zz in range(area[2],area[3],16):
+                # Existing pristine core stays intact. Snapshot only previously
+                # unused ring tiles, then restore them from that same saved tile.
+                was_saved=restore and x-old_margin<=xx<x+size+old_margin and z-old_margin<=zz<z+size+old_margin
+                if margin and restore and not was_saved:self.jobs.append((xx,xx+1024,zz,16))
                 source=xx+1024 if restore else xx;dest=xx if restore else xx+1024
                 self.jobs.append((source,dest,zz,min(32 if fast else 16,area[1]-xx)))
         self.total=len(self.jobs);return self.snapshot()
@@ -148,7 +158,7 @@ class WorldTraining(SurvivalLessons):
                 if not self.jobs:
                     if s.get('first_night') and not self.prepare_fauna():return
                     template=self.saved['templates'].setdefault(s['template'],{})
-                    template.update(bounds=s['bounds'],saved_at=self.clock());self.save()
+                    template.update(bounds=s['bounds'],resource_margin=s.get('resource_margin',0),saved_at=self.clock());self.save()
                     s.update(phase='running',message=(('Survival progression: '+s['mission']+'. ') if s['mission'] in ADVANCED else '')+('Stone-age lessons running: settlement, mining, stone tools, furnace, charcoal and lighting.' if s['mission']=='stone_age' else 'Settlement lessons running: hut, chest, tools and stored supplies.' if s['mission']=='settlement' else 'Survival lessons running: '+s['mission']+'.' if s['mission'] in ADVANCED else 'Hut trial running.')+' Movement and harvesting follow the selected driver. Recipes and building use scripted helpers.',progress=100,trial_at=self.clock(),reset_seconds=round(self.clock()-s['started_at'],1))
                     if s.get('first_night'):s['message']='First Night · '+s['first_night']['name']+'. '+s['first_night']['description']+' Recipes, construction, route planning and carried lights remain assisted.'
                     x0,x1,z0,z1=s['bounds']
@@ -180,7 +190,7 @@ class WorldTraining(SurvivalLessons):
                     # Acknowledge clone success before considering terrain safe to use.
                     if j['log'].count('Successfully cloned')<(s['copy_y'][1]-s['copy_y'][0])//64:
                         self.stop('Terrain copy failed; trial stopped before deploying bots. Inspect the Minecraft console.');return
-                    x0,x1,z0,z1=s['bounds'];xx=j['dest'] if s['phase']=='restoring' else j['source'];zz=j['z']
+                    x0,x1,z0,z1=s['bounds'];xx=min(j['source'],j['dest']);zz=j['z']
                     end=xx+j['width']-1
                     if xx==x0:self.command(f'fill {xx} -64 {zz} {xx} 191 {zz+15} minecraft:glass')
                     if end+1==x1:self.command(f'fill {end} -64 {zz} {end} 191 {zz+15} minecraft:glass')
@@ -208,6 +218,7 @@ class WorldTraining(SurvivalLessons):
         if not s or not s['active'] or s['phase']!='running' or name not in s['bots']:return None
         if s['results'].get(name,{}).get('state') in ('complete','stopped'):return None
         world=dict(bounds=s['bounds'],index=s['bots'].index(name),count=len(s['bots']),spread=SCENARIOS[s['scenario']]['spread'],driver=s['driver'],prepared=s['prepared'],camp_anchor=s.get('camp_anchor'),mission=s['mission'],lessons=s['lessons'],time_budget_seconds=s['time_budget_seconds'])
+        if s.get('resource_policy'):world['resource_policy']=copy.deepcopy(s['resource_policy'])
         if s.get('first_night'):
             world.update(first_night=s['first_night'],assessment=s['assessment'],memory={} if s['assessment'] else s['memory_snapshot'].get(s['template'],{}).get(name,{}))
         return dict(mode='teacher' if s['driver']=='teacher' else 'evaluate',run=s['run'],world=world)
@@ -218,7 +229,11 @@ class WorldTraining(SurvivalLessons):
         if 'fauna_queue' not in s:
             x0,x1,z0,z1=s['bounds'];self.command(f'forceload add {x0} {z0} {x1-1} {z1-1}')
             snapshot=not self.saved['templates'].get(s['template'],{}).get('fauna_snapshot')
-            s.update(fauna_queue=fauna_commands(s['bounds'],s['template'],snapshot),fauna_snapshot=snapshot,fauna_at=self.clock(),message='Restoring natural livestock as well as terrain, so student comparisons start with the same resources.')
+            template=self.saved['templates'].get(s['template'],{})
+            split=template.get('fauna_split_ring',False) or not snapshot and s.get('resource_margin',0)>template.get('fauna_margin',0)
+            extra=fauna_extend_commands(s['bounds'],s['core_bounds'],s['template']) if split else []
+            ring=[c for c in fauna_commands(s['bounds'],s['template']+'-ring16',False) if not c.startswith('kill ')] if split else []
+            s.update(fauna_queue=extra+fauna_commands(s['bounds'],s['template'],snapshot)+ring,fauna_split_ring=split,fauna_snapshot=snapshot,fauna_at=self.clock(),message='Restoring natural livestock as well as terrain, so student comparisons start with the same resources.')
             return False
         if self.clock()-s['fauna_at']<2:return False
         if s['fauna_queue']:
@@ -232,7 +247,7 @@ class WorldTraining(SurvivalLessons):
         text,self.offset=self._read(self.offset);s['fauna_log']+=text
         if f'to {s["fauna_ack"]}' in s['fauna_log'] and '#world_ack' in s['fauna_log']:
             x0,x1,z0,z1=s['bounds'];self.command(f'forceload remove {x0} {z0} {x1-1} {z1-1}')
-            self.saved['templates'].setdefault(s['template'],{})['fauna_snapshot']=True;self.save();s['fauna_ready']=True
+            self.saved['templates'].setdefault(s['template'],{}).update(fauna_snapshot=True,fauna_margin=s.get('resource_margin',0),fauna_split_ring=s.get('fauna_split_ring',False));self.save();s['fauna_ready']=True
             s.pop('fauna_queue',None);return True
         if self.clock()-s['fauna_wait']>20:self.stop('Natural animal reset acknowledgement failed; stopped before deployment.')
         return False
@@ -245,8 +260,13 @@ class WorldTraining(SurvivalLessons):
         x,y,z=[math.floor(v) for v in position];x0,x1,z0,z1=s['bounds'];radius=HOUSE['camp_radius'];spacing=HOUSE['plot_spacing'];height=HOUSE['starter_log_height']
         if s.get('camp_anchor'):[x,y,z]=s['camp_anchor']
         if not x0+radius+1<x<x1-radius-1 or not z0+radius+1<z<z1-radius-1 or not 0<y<180:raise ValueError('Camp must fit safely inside the reserved terrain.')
-        self.command(f'fill {x-radius} {y-1} {z-radius} {x+radius} {y-1} {z+radius} minecraft:grass_block')
-        self.command(f'fill {x-radius} {y} {z-radius} {x+radius} {y+9} {z+radius} minecraft:air')
+        natural=bool(s.get('first_night') and not s['first_night']['trees'])
+        if natural:
+            planned=[dict(x=x+(i%4)*spacing-spacing*3//2,y=y,z=z+(i//4)*spacing-spacing//2) for i in range(len(s['bots']))]
+            for command in camp_commands(x,y,z,planned):self.command(command)
+        else:
+            self.command(f'fill {x-radius} {y-1} {z-radius} {x+radius} {y-1} {z+radius} minecraft:grass_block')
+            self.command(f'fill {x-radius} {y} {z-radius} {x+radius} {y+9} {z+radius} minecraft:air')
         plots=[];groves=[]
         for index in range(len(s['bots'])):
             px=x+(index%4)*spacing-spacing*3//2;pz=z+(index//4)*spacing-spacing//2;direction=-1 if index<4 else 1
@@ -257,7 +277,7 @@ class WorldTraining(SurvivalLessons):
                     self.command(f'fill {tx} {y} {tz} {tx} {y+height-1} {tz} minecraft:oak_log')
                     self.command(f'fill {tx-1} {y+height} {tz-1} {tx+1} {y+height+1} {tz+1} minecraft:oak_leaves[persistent=true]')
             groves.append(trees)
-        s['camp']=dict(spawn=[x+.5,y+.1,z+.5],plots=plots,groves=groves)
+        s['camp']=dict(spawn=[x+.5,y+.1,z+.5],plots=plots,groves=groves,preserve_groves=natural)
         s['camp_anchor']=[x,y,z]
         if s.get('first_night',{}).get('stations'):
             for index,plot in enumerate(plots):

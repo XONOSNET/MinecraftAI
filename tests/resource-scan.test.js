@@ -20,3 +20,11 @@ test('temporary fetch failure preserves the attempt and has a bounded retry wind
  assert.equal(recover(state,error,30999),true);assert.equal(recover(state,error,31000),false);assert.equal(state.failureCategory,'infrastructure');
  assert.equal(recover({},Error('No safe route'),0),false);
 });
+
+test('exposed stone is filtered before the result limit so buried neighbors cannot hide it',async()=>{
+ const {stone}=require('../controller/resource_scan'),blocks={'1,64,0':1,'4,64,0':1},sections=[];sections[8]={palette:[0,1]};let yields=0;
+ const b={entity:{position:new Vec3(.5,64,.5)},game:{minY:-64},registry:{blocksByStateId:{0:{name:'air'},1:{name:'stone'}}},
+ blockAt(p){const solid=p.x<3||blocks[[p.x,p.y,p.z].join(',')];return {name:solid?'stone':'air',position:p,boundingBox:solid?'block':'empty'};},
+ world:{getColumn(x,z){return x===0&&z===0?{sections,getBlockStateId(p){return blocks[[p.x,p.y,p.z].join(',')]||0;}}:null;}}};
+ const found=await stone(b,{count:1,range:8,yieldNow:async()=>yields++});assert.deepEqual(found.map(p=>[p.x,p.y,p.z]),[[4,64,0]]);assert.ok(yields>0);
+});

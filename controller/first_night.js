@@ -1,13 +1,13 @@
 // Small explicit survival planner. Skill policies still choose movement/harvesting.
 const {Vec3}=require('vec3'),{WildernessMemory}=require('./wilderness_memory'),{standable,route}=require('./field_navigation'),{visibleBlock}=require('./target_scan'),inventory=require('./inventory_sync'),furnace=require('./furnace'),house=require('./house'),{closeDoor}=require('./door_care'),combat=require('./combat');
-const livestock=require('./first_night_livestock');
+const livestock=require('./first_night_livestock'),{Exploration}=require('./exploration'),resourceConfig=require('../config/world-resources.json'),resourceScan=require('./resource_scan');
 const RAW={beef:'cooked_beef',porkchop:'cooked_porkchop',mutton:'cooked_mutton',chicken:'cooked_chicken',rabbit:'cooked_rabbit'},FOOD=['cooked_beef','cooked_porkchop','cooked_mutton','cooked_chicken','cooked_rabbit','apple','bread'],ANIMALS=['cow','pig','sheep','chicken','rabbit'];
 const SAFE_RAW=['beef','porkchop','mutton','rabbit'];
 const HOSTILES=new Set(['zombie','zombie_villager','husk','drowned','skeleton','stray','bogged','creeper','spider','cave_spider','witch','pillager','vindicator','enderman']);
 const count=(b,n)=>b.inventory.items().filter(i=>i.name===n).reduce((s,i)=>s+i.count,0),meals=b=>FOOD.reduce((s,n)=>s+count(b,n),0),raw=b=>Object.keys(RAW).reduce((s,n)=>s+count(b,n),0);
 const enabled=w=>w.mission==='first_night',handles=p=>p.startsWith('night_');
 const inside=(p,b)=>p.x>b[0]+2&&p.x<b[1]-3&&p.z>b[2]+2&&p.z<b[3]-3;
-function init(t,w){t.wilderness={memory:new WildernessMemory(w.memory||{}),priority:'Survey',reason:'Locate a safe home and nearby resources',searches:0,recoveries:0,foodConsumed:0,attacked:0};}
+function init(t,w){t.wilderness={exploration:new Exploration(),memory:new WildernessMemory(w.memory||{}),priority:'Survey',reason:'Locate a safe home and nearby resources',searches:0,recoveries:0,foodConsumed:0,attacked:0};}
 function priority(b,t,w){
  const n=t.wilderness,sheltered=t.milestones.includes('hut'),threat=Object.values(b.entities).find(e=>HOSTILES.has(e.name)&&e.isValid!==false&&e.position.distanceTo(b.entity.position)<10&&combat.visible(b,e));
  if(meals(b)&&b.food<=16)return {kind:'eat',reason:'Restore hunger before continuing'};
@@ -47,25 +47,27 @@ async function pickup(t,b,motor,state,api,scan,tasks,names){
 }
 async function explore(t,b,motor,state,api,scan,tasks,surface,kind='wood'){
  const n=t.wilderness,p=b.entity.position,bounds=state.world.bounds,now=Date.now();
- if(n.searchGoal&&Math.hypot(n.searchGoal[0]-p.x,n.searchGoal[2]-p.z)<1){n.memory.visited.add(n.searchGoal.map(Math.floor).join(','));n.searchGoal=null;t.lastProgress=now;}
+ n.exploration??=new Exploration();n.exploration.observe(p);
+ if(n.searchKind!==kind){n.searchGoal=null;n.searchKind=kind;n.noResourceAt=null;}
+ if(n.searchGoal&&Math.hypot(n.searchGoal[0]-p.x,n.searchGoal[2]-p.z)<1){n.exploration.finish(b,kind,n.searchGoal,now);n.memory.visited.add(n.searchGoal.map(Math.floor).join(','));n.searchGoal=null;t.lastProgress=now;}
  if(!n.searchGoal){
-  if(now<(n.searchPlanAt||0)){motor.pause();t.message='Checking the last survey before choosing another safe route';return;}n.searchPlanAt=now+2500;
-  // A remembered landmark is often a solid trunk or ore block, not a walk
-  // destination. Use its clear approach cells and leave search budget for new
-  // ground; stale landmarks must not crowd every frontier out of the search.
-  const known=n.memory.resources.filter(r=>r.kind===kind&&n.memory.available(r.position)&&!n.memory.visited.has(r.position.map(Math.floor).join(','))).sort((a,c)=>new Vec3(...a.position).distanceTo(p)-new Vec3(...c.position).distanceTo(p)).flatMap(r=>approaches(b,{position:new Vec3(...r.position).floored()},bounds)).filter(g=>n.memory.available(g)&&!n.memory.visited.has(g.map(Math.floor).join(','))).slice(0,6);
-  const candidates=[...known];const offset=(state.world.index||0)*Math.PI/4;
-  for(const radius of [8,16,24,32])for(let i=0;i<8;i++){
-   const a=offset+i*Math.PI/4,x=Math.floor(p.x+Math.cos(a)*radius),z=Math.floor(p.z+Math.sin(a)*radius),y=surface(b,x,z);if(y===null)continue;
-   const goal=[x+.5,y+.1,z+.5];if(!inside(new Vec3(...goal),bounds)||!n.memory.available(goal)||n.memory.visited.has(goal.map(Math.floor).join(',')))continue;candidates.push(goal);
-  }
-  n.searchGoal=candidates.slice(0,18).find(goal=>route(b,goal,48,1024,true,{bounds,reversible:true}).reached);
-  if(!n.searchGoal){motor.pause();t.message='No safe unexplored approach to '+kind+' in loaded terrain';n.noResourceAt??=now;if(now-n.noResourceAt>20000){t.failureCategory='resource_unavailable';throw Error('No reachable '+kind+' found after surveying loaded terrain');}return;}
+  if(now<(n.searchPlanAt||0)){motor.pause();t.message='Planning the next '+kind+' expedition';return;}n.searchPlanAt=now+2500;
+  // Forget exhausted loaded landmarks, while retaining unknown/unloaded ones.
+  n.memory.resources=n.memory.resources.filter(r=>{
+   if(r.kind!==kind||!['wood','stone'].includes(kind))return true;
+   const block=b.blockAt(new Vec3(...r.position).floored());return !block||(kind==='wood'?block.name.endsWith('_log'):block.name==='stone');
+  });
+  const known=n.memory.resources.filter(r=>r.kind===kind&&n.memory.available(r.position)).flatMap(r=>approaches(b,{position:new Vec3(...r.position).floored()},bounds)).filter(g=>n.memory.available(g)).slice(0,12);
+  n.searchGoal=await n.exploration.choose(b,{...state.world,run:state.run,plots:t.campPlots||[]},surface,known,kind,now);
+  if(!n.searchGoal){motor.pause();t.message=n.exploration.state+' for '+kind;n.noResourceAt??=now;if(now-n.noResourceAt>resourceConfig.empty_search_seconds*1000){t.failureCategory='resource_unavailable';throw Error('No reachable '+kind+' after checking the loaded expedition region');}return;}
   n.searches++;delete n.noResourceAt;
  }
- t.message='Scouting '+kind+' · remembering a safe return route';
+ n.exploration.hold(b,state.run,n.searchGoal);
+ const distance=Math.round(Math.hypot(n.searchGoal[0]-p.x,n.searchGoal[2]-p.z));
+ t.message='Scouting '+kind+' · '+distance+'m to search patch · '+n.exploration.visits.size+' patches visited';
  const moved=await t.walk(b,motor,n.searchGoal,state,api,scan,tasks);
- if(moved===false){n.memory.reject(n.searchGoal);n.searchGoal=null;n.recoveries++;}
+ if(moved===false){n.memory.reject(n.searchGoal);n.exploration.reject(b,n.searchGoal,now);n.searchGoal=null;n.recoveries++;}
+
 }
 async function tick(t,b,motor,state,api,scan,tasks,surface){
  const w=state.world,n=t.wilderness,now=Date.now(),p=b.entity.position,home=[t.plot.x+.5,t.plot.y+.1,t.plot.z+.5],door=()=>b.blockAt(new Vec3(t.plot.x,t.plot.y,t.plot.z-3));
@@ -94,10 +96,10 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(!count(b,'wooden_axe'))await t.craft(b,'wooden_axe',1,table);await inventory.equip(b,'wooden_axe');t.table=pos;n.bootstrap=true;t.phase='gather';t.lastProgress=Date.now();
  }else if(t.phase==='night_stone'){
   if(count(b,'cobblestone')>=16){t.milestone('quarry');next('fuel');return;}
-  if(!n.stoneScan||now-n.stoneScan>2500){n.stoneScan=now;n.stones=b.findBlocks({matching:b.registry.blocksByName.stone.id,maxDistance:40,count:80}).map(q=>b.blockAt(q)).filter(q=>q&&inside(q.position,w.bounds)&&q.position.y>=p.y-1&&q.position.y<=p.y+3&&visibleBlock(b,q)&&!(Math.floor(p.x)===q.position.x&&Math.floor(p.z)===q.position.z));}
+  if(!n.stoneScan||now-n.stoneScan>2500){n.stoneScan=now;n.stones=(await resourceScan.stone(b,{bounds:w.bounds})).map(q=>b.blockAt(q)).filter(q=>q&&inside(q.position,w.bounds)&&q.position.y>=p.y-1&&q.position.y<=p.y+3&&visibleBlock(b,q)&&!(Math.floor(p.x)===q.position.x&&Math.floor(p.z)===q.position.z));}
   if(await pickup(t,b,motor,state,api,scan,tasks,['cobblestone']))return;
   const candidates=(n.stones||[]).filter(q=>b.blockAt(q.position)?.name==='stone'&&n.memory.available([q.position.x,q.position.y,q.position.z])&&!require('./resource_space').busy(b,state.run,q.position)).sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p));
-  const target=candidates.find(q=>q.position.offset(.5,.5,.5).distanceTo(p.offset(0,1.62,0))<4&&b.canDigBlock(q)&&q.position.y>=Math.floor(p.y)&&visibleBlock(b,q));
+  const target=candidates.find(q=>q.position.offset(.5,.5,.5).distanceTo(p.offset(0,1.62,0))<4&&b.canDigBlock(q)&&q.position.y>=Math.floor(p.y)-1&&!(q.position.x===Math.floor(p.x)&&q.position.z===Math.floor(p.z))&&visibleBlock(b,q));
   if(target){n.memory.remember('stone',target.position);t.harvestTarget=target.position;await t.harvest(b,motor,target.position,state,api,scan,tasks,'wooden_pickaxe');n.stoneScan=0;}
   else{
    let chosen=n.stoneApproach;
@@ -184,5 +186,5 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(left===0&&b.health>=12&&b.food>=10&&(!w.first_night.hostiles||n.nightSeen)){t.milestone('survived');t.phase='complete';t.message='First Night complete: provisioned, illuminated shelter, bed home, remembered resource round trip and safe survival watch';}
  }
 }
-function report(t){const n=t.wilderness;return n?{priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,livestock:n.livestock_status||null,night_seen:!!n.nightSeen,memory:n.memory.snapshot()}:null;}
+function report(t){const n=t.wilderness;return n?{priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,livestock:n.livestock_status||null,night_seen:!!n.nightSeen,exploration:n.exploration?.snapshot(t.last||{x:0,z:0},t.plot),memory:n.memory.snapshot()}:null;}
 module.exports={enabled,handles,init,priority,interrupt,explore,tick,report,approaches,meals,RAW,FOOD};

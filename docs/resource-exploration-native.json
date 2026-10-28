@@ -1,0 +1,57 @@
+{
+  "read_only": true,
+  "cases": [
+    {
+      "position": [
+        24618.5,
+        65,
+        16480.5
+      ],
+      "goal": [
+        24638.5,
+        65.1,
+        16482.5
+      ],
+      "frontier_ms": 29,
+      "routes_tested": 1,
+      "stone_candidates": 196,
+      "stone_scan_ms": 21,
+      "distance": 20
+    },
+    {
+      "position": [
+        24590.5,
+        64,
+        16440.5
+      ],
+      "goal": [
+        24590.5,
+        63.1,
+        16422.5
+      ],
+      "frontier_ms": 24,
+      "routes_tested": 1,
+      "stone_candidates": 0,
+      "stone_scan_ms": 3,
+      "distance": 18
+    },
+    {
+      "position": [
+        24660.5,
+        67,
+        16500.5
+      ],
+      "goal": [
+        24686.5,
+        64.1,
+        16506.5
+      ],
+      "frontier_ms": 22,
+      "routes_tested": 1,
+      "stone_candidates": 135,
+      "stone_scan_ms": 14,
+      "distance": 27
+    }
+  ],
+  "success": true
+}
