@@ -57,3 +57,16 @@ test('resource movement lease preserves jumping and is cancelled by an explicit 
  motor.tick();assert.equal(controls.jump,true);motor.pause();assert.equal(b.labResourceAccess.cancelled,true);assert.equal(controls.jump,false);
  b.labResourceAccess={until:Date.now()-1,cancelled:false};controls.jump=true;motor.tick();assert.equal(controls.jump,false);
 });
+
+test('column recovery rejects a changed support, off-column stance and an airborne body',async()=>{
+ const b=fixture(),state={column:[{position:new Vec3(0,64,0),name:'dirt'}]},motor={pause(){},lockLook(){}};
+ b.entity.position=new Vec3(.72,65,.5);b.set(0,64,0,'stone');assert.equal(await access.recoverColumn(b,motor,state),false);
+ b.set(0,64,0,'dirt');b.entity.position.x=1.1;assert.equal(await access.recoverColumn(b,motor,state),false);
+ b.entity.position.x=.72;b.entity.onGround=false;assert.equal(await access.recoverColumn(b,motor,state),false);
+});
+test('a safe column recenter waits for residual motion to settle',async()=>{
+ const b=fixture(),state={column:[{position:new Vec3(0,64,0),name:'dirt'}]},motor={pause(){},lockLook(){}},controls={};
+ b.entity.position=new Vec3(.53,65,.5);b.set(0,64,0,'dirt');b.clearControlStates=()=>{};b.setControlState=(k,v)=>controls[k]=v;
+ const waits=[];b.waitForTicks=async n=>waits.push(n);
+ assert.equal(await access.recoverColumn(b,motor,state),true);assert.deepEqual(waits,[4]);assert.equal(b.labResourceAccess,undefined);
+});

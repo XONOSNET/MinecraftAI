@@ -345,7 +345,10 @@ class HutTeacher{
  async workElevated(bot,motor,state,api,scan,tasks){
   const access=this.resourceAccess,[x,z]=access.tree,p=bot.entity.position;
   const entry=access.column.at(-1),center=[entry.position.x+.5,entry.position.y+1.1,entry.position.z+.5];
-  if(Math.hypot(p.x-center[0],p.z-center[2])>.15){motor.pause();throw Error('Moved away from the temporary harvesting column');}
+  if(Math.hypot(p.x-center[0],p.z-center[2])>.15){
+   if(await resourceAccess.recoverColumn(bot,motor,access)){this.message='Recentering safely on the temporary harvesting column';return;}
+   motor.pause();throw Error('Moved away from the temporary harvesting column: '+JSON.stringify({position:[p.x,p.y,p.z],support:[entry.position.x,entry.position.y,entry.position.z],on_ground:bot.entity.onGround}));
+  }
   // Finish with a one-block-at-a-time descent before changing phases or trees.
   const enough=['complete','stopped'].includes(this.phase)||count(bot,n=>LOG.test(n))*4+count(bot,planks)>=(this.supplyRun?28:this.requiredWood(bot));
   const logs=[];for(let y=Math.floor(p.y);y<=Math.floor(p.y)+7;y++){const v=new Vec3(x,y,z);if(LOG.test(bot.blockAt(v)?.name||''))logs.push(v);}

@@ -18,12 +18,13 @@ b.once('spawn',async()=>{let built=false;try{
  const target=new Vec3(-80,248,160),column={};result.steps=[];
  await admin({action:'teleport-coordinates',x:-80.2,y:240,z:160.5});await wait(350);
  result.centering=await access.attempt(b,motor,new Vec3(-80,247,160),{state:column,run:'diagnostic-only'});result.centered_position=b.entity.position.clone();
- for(let i=0;i<3;i++){
+ for(let i=0;i<2;i++){
   result.steps.push(await access.attempt(b,motor,new Vec3(-80,247,160),{state:column,run:'diagnostic-only'}));await wait(300);
  }
+ const top=column.column.at(-1).position;await admin({action:'teleport-coordinates',x:top.x+.72,y:top.y+1,z:top.z+.5});await wait(350);result.recentered=await access.recoverColumn(b,motor,column);result.recentered_position=b.entity.position.clone();
  await inventory.equip(b,'wooden_axe');result.height=b.entity.position.y;result.reachable=harvestable(b,new Vec3(-80,247,160));result.harvested=await harvest(b,b.blockAt(new Vec3(-80,247,160)));
  result.descents=[];while(column.column?.length){result.descents.push(await access.descend(b,motor,column));await wait(300);}result.return_y=b.entity.position.y;
- result.success=result.centering.handled&&Math.abs(result.centered_position.x+80.5)<.15&&result.dirt.progress&&result.leaves.progress&&result.steps.every(s=>s.progress)&&result.reachable&&result.harvested&&Math.abs(result.return_y-240)<.15;
+ result.success=result.recentered&&result.centering.progress&&Math.abs(result.centered_position.x+80.5)<.15&&result.dirt.progress&&result.leaves.progress&&result.steps.every(s=>s.progress)&&result.reachable&&result.harvested&&Math.abs(result.return_y-240)<.15;
  }catch(error){result.error=error.stack;}finally{
  motor.pause();require('../controller/survey').hold(b);await admin({action:'gamemode',gamemode:'spectator'}).catch(()=>{});
  if(built){await admin({action:'op'}).catch(()=>{});await wait(1000);await command('kill @e[type=item,x=-84,y=239,z=157,dx=8,dy=14,dz=6]');await command('fill -84 239 157 -76 252 163 air');await command('clear @s');}

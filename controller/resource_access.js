@@ -53,6 +53,22 @@ async function center(bot,feet){
  await bot.waitForTicks(3);
  return Math.hypot(bot.entity.position.x-goal.x,bot.entity.position.z-goal.z)<=.15;
 }
+async function stabilize(bot,motor,feet){
+ return controlled(bot,motor,async()=>{
+  // Released controls retain velocity for several physics ticks.
+  await bot.waitForTicks(4);active(bot);
+  if(!bot.entity.onGround||!bot.entity.position.floored().equals(feet))return false;
+  if(Math.hypot(bot.entity.position.x-feet.x-.5,bot.entity.position.z-feet.z-.5)>.06)return center(bot,feet);
+  return true;
+ });
+}
+async function recoverColumn(bot,motor,state){
+ const entry=state.column?.at(-1),p=bot.entity.position;if(!entry)return false;
+ const feet=entry.position.offset(0,1,0),support=bot.blockAt(entry.position);
+ // Recovery is local to the exact tracked support, never a jump across a gap.
+ if(!bot.entity.onGround||Math.abs(p.y-feet.y)>.15||!p.floored().equals(feet)||support?.name!==entry.name)return false;
+ return stabilize(bot,motor,feet);
+}
 async function jumpPlace(bot,position,item){
  await inventory.equip(bot,item.name);const support=bot.blockAt(position.offset(0,-1,0));
  if(support?.boundingBox!=='block'||bot.blockAt(position)?.name!=='air')return false;
@@ -78,7 +94,8 @@ async function attempt(bot,motor,target,options={}){
  if((state.column?.length||0)>=MAX_HEIGHT||!canRaise(bot,target,options))return {handled:false,message:'No safe clearing or build-up approach'};
  const item=bot.inventory.items().filter(i=>material(i.name)&&i.count>0).sort((a,b)=>Number(a.name.endsWith('_planks'))-Number(b.name.endsWith('_planks')))[0];
  if(!item)return {handled:false,message:'Higher logs need carried dirt, stone or planks for a temporary column'};
- const feet=p.floored();if(Math.hypot(p.x-feet.x-.5,p.z-feet.z-.5)>.15){const centered=await controlled(bot,motor,()=>center(bot,feet));return {handled:true,message:centered?'Centered safely before building up':'Aligning footing before building up'};}
+ const feet=p.floored();if(!await stabilize(bot,motor,feet))return {handled:true,message:'Waiting for settled footing before building up'};
+ if(!canRaise(bot,target,options))return {handled:false,message:'Resource footing changed before the jump'};
  state.column=state.column||[];state.baseY=state.baseY??feet.y;state.tree=[target.x,target.z];
  return controlled(bot,motor,async()=>{
   const placed=await jumpPlace(bot,feet,item);
@@ -98,4 +115,4 @@ async function descend(bot,motor,state){
  state.column.pop();await bot.waitForTicks(2);for(let i=0;i<25&&!bot.entity.onGround;i++)await bot.waitForTicks(1);
  return state.column.length===0;
 }
-module.exports={MAX_HEIGHT,material,clearable,corridor,obstruction,canRaise,dig,jumpPlace,center,attempt,descend};
+module.exports={MAX_HEIGHT,material,clearable,corridor,obstruction,canRaise,dig,jumpPlace,center,stabilize,recoverColumn,attempt,descend};
