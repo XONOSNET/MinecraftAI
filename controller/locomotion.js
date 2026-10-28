@@ -74,6 +74,10 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    // corridor to that point, not through the wall beyond the upcoming turn.
    if(focus&&task.center_route&&Math.hypot(focus[0]-bot.entity.position.x,focus[2]-bot.entity.position.z)<.8&&Math.abs(focus[1]-bot.entity.position.y)<.4&&Math.abs(angle)<.35&&sensed?.canWalk?.(bot.entity.yaw+angle,routeProbe(bot.entity.position,focus,.75))){recovery.reset();sensed={...sensed,wallAhead:false};}
    const rise=task?.strict_ground&&task.waypoints?.length?task.waypoints[0][1]-bot.entity.position.y:0;
+   const landing=task?.waypoints?.[0];
+   if(bot.blockAt&&task?.strict_ground&&landing&&rise<-.6&&rise> -1.2&&Math.abs(angle)<.35&&standable(bot,Math.floor(landing[0]),Math.round(landing[1]),Math.floor(landing[2]))&&sensed?.canStepDown?.(bot.entity.yaw+angle,.35)){
+    recovery.reset();sensed={...sensed,wallAhead:false};
+   }
    const autoStep=permissions.jump&&safeAutoStep(bot,task,plan,angle);
    if(autoStep){plan.jump=true;plan.label='Stepping up the verified route';}
    // A verified ascending waypoint is a step, even when the longer wall probe

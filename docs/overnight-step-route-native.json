@@ -1,0 +1,150 @@
+{
+  "fixture": "Reproduce three teacher ground-safety holds on their original natural terrain; diagnostic player only, no terrain edits or learning writes",
+  "cases": [
+    {
+      "source": "LabAI0",
+      "start": [
+        24652.48324663322,
+        66,
+        16508.18245743907
+      ],
+      "goal": [
+        24652.5,
+        65.1,
+        16508.5
+      ],
+      "arrived": true,
+      "seconds": 1.134,
+      "position": {
+        "x": 24652.496279657295,
+        "y": 65,
+        "z": 16508.582397645845
+      },
+      "navigation": {
+        "home": null,
+        "target": [
+          24652.5,
+          65.1,
+          16508.5
+        ],
+        "route_intent": "Travel outside private houses",
+        "state": "arrived",
+        "height_delta": 0.1,
+        "route_complete": true,
+        "remaining_blocks": 0,
+        "waypoints": 0,
+        "no_progress_seconds": 0,
+        "reset_seconds": 90,
+        "expanded": 1,
+        "phase": "gather",
+        "position": [
+          24652.496279657295,
+          65,
+          16508.635883480714
+        ],
+        "yaw": 6.254387347889969,
+        "on_ground": true,
+        "cue": [
+          24652.5,
+          65.1,
+          16508.5
+        ],
+        "cue_centering": false,
+        "motor_before": {
+          "label": "Following locked route",
+          "paused": false,
+          "expired": false,
+          "ground_safe": true,
+          "precise_focus": true,
+          "recovering": false,
+          "doorway": false,
+          "controls": {
+            "forward": false,
+            "back": false,
+            "left": false,
+            "right": false,
+            "jump": false,
+            "sneak": false,
+            "sprint": false
+          }
+        },
+        "nearby_players": [],
+        "player_clearance": 2,
+        "sampled_at": 1793171063381
+      }
+    },
+    {
+      "source": "LabAI7",
+      "start": [
+        24639.49508047567,
+        66.25220334025373,
+        16503.093252441944
+      ],
+      "goal": [
+        24621.5,
+        69.1,
+        16506.5
+      ],
+      "arrived": true,
+      "seconds": 7.847,
+      "position": {
+        "x": 24621.560197254537,
+        "y": 69,
+        "z": 16506.49899151895
+      },
+      "navigation": {
+        "home": null,
+        "target": [
+          24621.5,
+          69.1,
+          16506.5
+        ],
+        "route_intent": "Travel outside private houses",
+        "state": "arrived",
+        "height_delta": 0.1,
+        "route_complete": true,
+        "remaining_blocks": 0,
+        "waypoints": 0,
+        "no_progress_seconds": 0,
+        "reset_seconds": 90,
+        "expanded": 1,
+        "phase": "gather",
+        "position": [
+          24621.67805384936,
+          69,
+          16506.49899151895
+        ],
+        "yaw": 1.5734142940414682,
+        "on_ground": true,
+        "cue": [
+          24621.5,
+          69.1,
+          16506.5
+        ],
+        "cue_centering": false,
+        "motor_before": {
+          "label": "Following locked route",
+          "paused": false,
+          "expired": false,
+          "ground_safe": true,
+          "precise_focus": false,
+          "recovering": false,
+          "doorway": false,
+          "controls": {
+            "forward": false,
+            "back": false,
+            "left": false,
+            "right": false,
+            "jump": false,
+            "sneak": false,
+            "sprint": false
+          }
+        },
+        "nearby_players": [],
+        "player_clearance": 2,
+        "sampled_at": 1793171072963
+      }
+    }
+  ],
+  "success": true
+}

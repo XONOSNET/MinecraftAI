@@ -58,7 +58,7 @@ test('a route refresh during a stair fall retains the checked landing instead of
  const nav=new WorldNavigation(),goal=[.5,61.1,-2.5],options={bounds:[-20,20,-20,20],now:1000};
  assert.equal(nav.plan(b,goal,options).blocked,false);const landing=[...nav.path[0]];
  b.entity.position=new Vec3(.5,63.5,-.4);b.entity.onGround=false;
- const falling=nav.plan(b,goal,{...options,now:5000});assert.equal(falling.blocked,false);assert.deepEqual(falling.cue,landing);
+ const falling=nav.plan(b,goal,{...options,now:5000});assert.equal(falling.blocked,false);assert.deepEqual([...falling.cue],landing);assert.equal(falling.cue.centering,true);
 });
 
 test('a new route requested in midair retries immediately after landing, without waiting for the replan timer',()=>{

@@ -44,7 +44,7 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
    if(options.bounds&&(next[0]+.5<=options.bounds[0]+1||next[0]+.5>=options.bounds[1]-2||next[2]+.5<=options.bounds[2]+1||next[2]+.5>=options.bounds[3]-2))continue;
    if(options.forbidden?.(next))continue;
    if(Math.abs(next[0]-start[0])>radius||Math.abs(next[2]-start[2])>radius||!stand(...next))continue;
-   if(others.length&&!space.stepClear({x:n[0]+.5,y:n[1],z:n[2]+.5},{x:next[0]+.5,y:next[1],z:next[2]+.5},others,require('./behavior').forBot(bot).player_clearance))continue;
+   if(others.length&&!space.stepClear(key(n)===key(start)&&!escape?p:{x:n[0]+.5,y:n[1],z:n[2]+.5},{x:next[0]+.5,y:next[1],z:next[2]+.5},others,require('./behavior').forBot(bot).player_clearance))continue;
    // An ascending jump also needs clearance above the departure block.
    if(dy===1){const over=terrain.blockAt(new Vec3(n[0],n[1]+2,n[2]));if(!safe(over)||over.boundingBox!=='empty')continue;}
    if(options.reversible&&dy===-1){const over=terrain.blockAt(new Vec3(next[0],next[1]+2,next[2]));if(!passable(over))continue;}
@@ -59,8 +59,15 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
  // or wall when it starts the next leg. Center before taking that corner.
  if(!escape&&path.length&&Math.hypot(start[0]+.5-p.x,start[2]+.5-p.z)>.2){
   const adjacentWall=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]].some(([dx,dz])=>{const b=terrain.blockAt(new Vec3(start[0]+dx,start[1],start[2]+dz));return b?.boundingBox==='block'&&!b.name.endsWith('_door');});
-  if(adjacentWall){const center=[start[0]+.5,start[1]+.1,start[2]+.5];center.centering=true;path.unshift(center);}
+  const adjacentDrop=[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dz])=>!stand(start[0]+dx,start[1],start[2]+dz));
+  if(adjacentWall||adjacentDrop){const center=[start[0]+.5,start[1]+.1,start[2]+.5];center.centering=true;path.unshift(center);}
  }
- if(escape)path.unshift(escape);return {path,expanded,reached,budget_exhausted:expanded>=maxNodes,message:path.length?'Following a safe route through loaded terrain':'No safe route in loaded terrain; holding position'};
+ if(escape)path.unshift(escape);
+ // Finish centering before taking a vertical step, and settle on its landing.
+ for(let i=0;i<path.length;i++){
+  const before=i?path[i-1][1]:p.y,next=path[i+1]?.[1]??path[i][1];
+  if(Math.abs(path[i][1]-before)>.4||Math.abs(next-path[i][1])>.4)path[i].centering=true;
+ }
+ return {path,expanded,reached,budget_exhausted:expanded>=maxNodes,message:path.length?'Following a safe route through loaded terrain':'No safe route in loaded terrain; holding position'};
 }
 module.exports={standable,route};

@@ -75,3 +75,10 @@ test('quarry finishes reachable stone instead of diverting toward a loose drop',
  await t.tick(b,{pause(){}},state,async()=>({}),null,tasks);
  assert.equal(mined,true);assert.equal(walked,false);
 });
+
+
+test('player clearance checks the whole crossing segment, not just the far endpoint',()=>{
+ const from=new Vec3(0,64,1.9),other=[new Vec3(1,64,0)];
+ assert.equal(space.stepClear(from,new Vec3(2,64,1.9),other),false);
+ assert.equal(space.stepClear(from,new Vec3(-1,64,1.9),[new Vec3(0,64,0)]),true);
+});

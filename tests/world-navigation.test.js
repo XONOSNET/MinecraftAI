@@ -12,7 +12,7 @@ test('off-center movement beside a diagonal workbench aligns inside its clear ce
 
 test('a body partly across a terrace edge continues to the lower landing instead of reversing uphill',()=>{
  const bot={players:{},entity:{position:new Vec3(.5,64,-.265),onGround:true},blockAt(p){const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z),floor=64+Math.min(0,z);return {name:y<floor?'stone':'air',position:new Vec3(x,y,z),boundingBox:y<floor?'block':'empty'};}};
- const planned=route(bot,[.5,62.1,-1.5],8,128,true,{reversible:true});assert.equal(planned.reached,true);assert.deepEqual(planned.path[0],[.5,63.1,-.5]);
+ const planned=route(bot,[.5,62.1,-1.5],8,128,true,{reversible:true});assert.equal(planned.reached,true);assert.deepEqual([...planned.path[0]],[.5,63.1,-.5]);assert.equal(planned.path[0].centering,true);
 });
 
 test('tree focus survives nearest-distance crossover but releases depleted trees',()=>{
@@ -193,4 +193,11 @@ test('safe spawn survey can find dry shore beyond the old central search area',(
  const {findSpawn}=require('../controller/hut_teacher');
  const bot=fixture();bot.blockAt=p=>{const q=p.floored(),dry=q.x>=27&&q.x<=48,name=q.y<64?(dry?'grass_block':'water'):'air';return {position:q,name,boundingBox:name==='grass_block'?'block':'empty'};};
  const spawn=findSpawn(bot,[-64,64,-64,64],{margin:24});assert.ok(spawn);assert.ok(spawn[0]>24&&spawn[0]<41);
+});
+
+
+test('an off-center body at a terrace lip centers before moving along the edge',()=>{
+ const b={players:{},entity:{position:new Vec3(.5,64,.12),onGround:true,yaw:Math.PI},blockAt(p){const q=p.floored(),solid=q.y<(q.z<0?63:64);return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+ const plan=route(b,[-1.5,64.1,.5],8,128,true,{reversible:true});assert.equal(plan.reached,true);assert.equal(plan.path[0].centering,true);assert.deepEqual([...plan.path[0]],[.5,64.1,.5]);
+ const {proximity}=require('../controller/perception'),near=proximity(b,{recovery:false});assert.equal(near.canWalk(Math.PI/2,.75),false);assert.equal(near.canWalk(Math.PI,.35),true);
 });

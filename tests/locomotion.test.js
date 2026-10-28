@@ -159,3 +159,11 @@ test('expired controls stop without restarting a committed doorway from the oppo
  bot.entity.position.z=.7;assert.match(motor.command(0,task,sensed,0),/crossing/,'resume the original crossing instead of selecting a new entry side');now=4050;motor.tick();assert.equal(controls.forward,true);
  motor.pause();assert.equal(motor.passageActive(),false,'an explicit mode/task pause still clears the maneuver');
 });
+
+
+test('a verified descending landing does not enter wall-recovery based on the upper lip',()=>{
+ const {Vec3}=require('vec3'),{proximity}=require('../controller/perception');let now=0;const controls={};
+ const b={players:{},entity:{position:new Vec3(.5,64,-.16),yaw:0,pitch:0,onGround:true,velocity:new Vec3(0,0,0)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,blockAt(p){const q=p.floored(),solid=q.y<64+Math.min(0,q.z);return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+ const motor=createMotor(b,permissions,{clock:()=>now}),task={kind:'expedition',safe_walk:true,strict_ground:true,waypoints:[[.5,63.1,-.5]]};
+ const sensed={...safe,...proximity(b,{recovery:false}),wallAhead:true,headBlocked:true};motor.command(0,task,sensed,0);now=50;motor.tick();assert.equal(controls.forward,true);assert.equal(motor.diagnostic().recovering,false);
+});

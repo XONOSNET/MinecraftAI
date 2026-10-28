@@ -1,0 +1,11 @@
+# Overnight check: October 28, approximately 2 AM Central
+
+Automatic First Night learning remained active at level 1, site 3. The saved student baseline had no full completions. Seven teacher bots subsequently stopped, with fast policy replies (typically 5–30 ms); the remaining bot repeatedly jumped near a route waypoint for an extended period. This was an execution defect, not ordinary model training or a recurrence of dashboard lag. Two teacher bots had nevertheless built their huts before stopping.
+
+Three reports showed valid cell routes while off-center body footprints failed local support probes at terrain lips. Paths now center the body near adjacent drops as well as walls. Departure and landing waypoints at height transitions require precise alignment, rather than advancing from a loose waypoint radius. A separately checked one-block descent no longer invokes wall recovery solely because the upper lip looks blocked; both the lower landing and short descent corridor must still be safe. No hazard or cliff checks were removed.
+
+Crowding reports also exposed endpoint-only player checks: a route could have clear endpoints while passing inside another player's clearance radius. Planning and local movement now check the closest point of the segment. The first route edge starts at the actual body position rather than an assumed cell center. This improves consistency but is not a full qualification of multi-bot collision avoidance.
+
+Live diagnostic movement on the original natural terrain passed at all three reported ground-safety holds (0.62, 0.895 and 0.78 seconds). The blocked descent passed in 1.134 seconds, and the repetitive-jump bot's full reported route reached its destination in 7.847 seconds. These diagnostic players used real movement and terrain without edits, grants, model writes or training data. Proofs: overnight-terrain-route-native.json and overnight-step-route-native.json.
+
+All 222 JavaScript tests passed. Learning was paused safely, no model restoration remained pending, and only the bot controller process was restarted. Automatic learning resumes at the same support level and site with a fresh comparison. Minecraft and the dashboard remain online. Full eight-bot completion of this harder level remains unverified.

@@ -7,7 +7,10 @@ function clearOfPlayers(bot,p,radius=forBot(bot).player_clearance){return !playe
 function stepClear(from,to,others,radius=2){return others.every(p=>{
  if(Math.abs(p.y-to.y)>=2.5)return true;
  const next=Math.hypot(p.x-to.x,p.z-to.z),before=Math.hypot(p.x-from.x,p.z-from.z);
- return next>=radius||before<radius&&next>before+.05;
+ const dx=to.x-from.x,dz=to.z-from.z,length=dx*dx+dz*dz;
+ const t=length?Math.max(0,Math.min(1,((p.x-from.x)*dx+(p.z-from.z)*dz)/length)):0;
+ const nearest=Math.hypot(p.x-from.x-dx*t,p.z-from.z-dz*t);
+ return before>=radius?nearest>=radius:next>before+.05&&nearest>=before-.001;
 });}
 function release(owner){for(const [id,c] of claims)if(c.owner===owner)claims.delete(id);}
 function busy(bot,run,p,now=Date.now()){
