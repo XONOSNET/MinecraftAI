@@ -18,7 +18,12 @@ function chooseTree(bot,targets,previous,surface,run,previousApproach=null){
    }
   }
   approaches.sort((a,b)=>Math.hypot(a[0]-p.x,a[2]-p.z)-Math.hypot(b[0]-p.x,b[2]-p.z));
-  for(const goal of approaches.slice(0,2))if(route(bot,goal,32,512,true,{reversible:true}).reached||body.plan(bot,goal)?.blocks.length)return {key:id,targets:blocks,approach:goal};
+  // A downhill trail may need a longer switchback to remain climbable home.
+  // Expand only these route checks, keeping the candidate count bounded.
+  for(const goal of approaches.slice(0,2)){
+   const downhill=goal[1]<p.y-5;
+   if(route(bot,goal,downhill?64:32,downhill?2048:512,true,{reversible:true}).reached||body.plan(bot,goal)?.blocks.length)return {key:id,targets:blocks,approach:goal};
+  }
  }
  // Build-up candidates still require a real reversible ground route and spare blocks.
  if(bot.inventory?.items().some(i=>require('./resource_access').material(i.name)&&i.count>0))for(const [id,blocks] of ordered.slice(0,6)){

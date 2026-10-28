@@ -30,7 +30,7 @@ function safeResource(bot,p){for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++)f
 function woodDrop(bot,e,match=n=>LOG.test(n)||planks(n)){const key=bot.registry.entitiesByName.item.metadataKeys.indexOf('item'),slot=e.metadata?.[key];if(!slot)return false;try{const item=require('prismarine-item')(bot.registry).fromNotch(slot);return !!item&&match(item.name);}catch{return false;}}
 function surface(bot,x,z){
  // Inspect only the exposed surface, never an air pocket underneath solid ground.
- for(let y=190;y>=0;y--){const block=bot.blockAt(new Vec3(x,y,z));if(!block)return null;
+ for(let y=190;y>=(bot.game?.minY??-64);y--){const block=bot.blockAt(new Vec3(x,y,z));if(!block)return null;
   if(block.name.endsWith('_leaves'))continue;
   if(block.boundingBox==='block'||['water','lava'].includes(block.name))return standable(bot,x,y+1,z)&&!LOG.test(block.name)?y+1:null;
  }return null;

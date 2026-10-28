@@ -20,7 +20,9 @@ async function loadedMatches(bot,{match=LOG,minDy=-5,maxDy=8,accept=null,range=6
  }
  return found.sort((a,b)=>a.distanceTo(center)-b.distanceTo(center)).slice(0,count);
 }
-const logs=(bot,options={})=>loadedMatches(bot,options);
+// Hillside trees may be far below the current feet elevation. Keep the scan
+// loaded-only and bounded; selection must still prove a reversible route.
+const logs=(bot,options={})=>loadedMatches(bot,{minDy:-32,...options});
 function shallowFace(bot,p){
  const directions=[[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0]],access=require('./resource_access');
  const neighbors=[...directions, [0,-1,0]].map(([x,y,z])=>bot.blockAt(p.offset(x,y,z)));

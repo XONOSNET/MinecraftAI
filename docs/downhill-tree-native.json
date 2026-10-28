@@ -1,0 +1,31 @@
+{
+  "fixture": "Isolated 12-block hillside; actual loaded scan, safe tree selection, descent and climb home. No learning writes.",
+  "old_scan": 0,
+  "new_scan": 3,
+  "scan_ms": 7,
+  "tree": "-68,160",
+  "approach": [
+    -70.5,
+    228.1,
+    160.5
+  ],
+  "downhill": {
+    "arrived": true,
+    "seconds": 13.55,
+    "position": {
+      "x": -70.50573946581078,
+      "y": 228,
+      "z": 160.50023177643683
+    }
+  },
+  "return_home": {
+    "arrived": true,
+    "seconds": 7.86,
+    "position": {
+      "x": -85.45253912672155,
+      "y": 240,
+      "z": 160.4997382035402
+    }
+  },
+  "success": true
+}

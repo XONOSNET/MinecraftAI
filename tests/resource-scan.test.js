@@ -1,5 +1,18 @@
 const test=require('node:test'),assert=require('node:assert/strict'),{Vec3}=require('vec3'),{logs}=require('../controller/resource_scan'),{recover}=require('../controller/service_errors');
 
+test('tree scan includes a lower valley across section boundaries but stays height bounded',async()=>{
+ const sections=[];sections[6]={palette:[0,1]};sections[7]={palette:[0,1]};sections[8]={palette:[0,1]};
+ const b={entity:{position:new Vec3(.5,80,.5)},game:{minY:-64},registry:{blocksByStateId:{0:{name:'air'},1:{name:'oak_log'}}},world:{getColumn(x,z){return x===0&&z===0?{sections,getBlockStateId(p){return p.x===3&&p.z===0&&[48,49,64].includes(p.y)?1:0;}}:null;}}};
+ assert.deepEqual((await logs(b)).map(p=>p.y),[64,49]);
+ assert.deepEqual(await logs(b,{minDy:-5}),[],'the previous scan misses both downhill trunks');
+});
+
+test('fallback tree scan uses the same downhill limit',async()=>{
+ let options;const b={entity:{position:new Vec3(0,80,0)},findBlocks(o){options=o;return [];}};
+ await logs(b);assert.equal(options.useExtraInfo({position:new Vec3(3,64,0)}),true);
+ assert.equal(options.useExtraInfo({position:new Vec3(3,48,0)}),false);
+});
+
 test('loaded tree scan yields while preserving height, radius, ordering and missing-chunk limits',async()=>{
  const blocks={'1,64,0':1,'2,68,0':1,'3,69,0':1,'4,64,0':2},reads=[];let yielded=0;
  const b={entity:{position:new Vec3(.5,64,.5)},game:{minY:-64},registry:{blocksByStateId:{0:{name:'air'},1:{name:'oak_log'},2:{name:'stone'}}},world:{getColumn(x,z){if(x!==0||z!==0)return null;const sections=[];sections[8]={palette:[0,1,2]};return {sections,getBlockStateId(p){reads.push([p.x,p.y,p.z]);return blocks[[p.x,p.y,p.z].join(',')]||0;}};}}};
