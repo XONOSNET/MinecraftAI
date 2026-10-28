@@ -22,7 +22,7 @@ from .tasks import task_spec, arena_commands, reset_commands, task_success, SKIL
 from .config import AGENT_COUNT, EPISODES_PER_AGENT, EXPECTED_EPISODES, LANE_END, is_agent
 from .observers import Observers, observer_progress
 from .camera_input import CameraInput
-from .dashboard_state import world_view, learning_view
+from .dashboard_state import world_view, learning_view, compact_status
 from .world_training import WorldTraining, SCENARIOS, LEVELS, readiness
 from .bot_lights import BotLights
 from .efficiency import completion_timing
@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY,time REAL,event TEXT,pa
 CREATE TABLE IF NOT EXISTS models(version TEXT PRIMARY KEY,metadata TEXT);
 CREATE TABLE IF NOT EXISTS episode_timing(episode INTEGER PRIMARY KEY,seconds REAL NOT NULL CHECK(seconds>=0));
 CREATE TABLE IF NOT EXISTS run_config(run TEXT PRIMARY KEY,agent_count INT,episodes_per_agent INT);
+CREATE INDEX IF NOT EXISTS episodes_run_agent_id ON episodes(run,agent,id);
 ''')
 episode_generation=0
 episode_cache={'generation':-1,'at':0,'rows':None,'raw':db.execute('SELECT count(*) FROM episodes').fetchone()[0]}
@@ -407,14 +408,27 @@ def auth(request:Request,x_lab_token:str=Header(default='')):
     if not secrets.compare_digest(credential,TOKEN):raise HTTPException(403,'Open the dashboard on this computer again to enable controls.')
 @app.post('/access',dependencies=[Depends(auth)])
 def access():return {'ok':True}
+dashboard_cache={'at':0,'response':None}
 @app.get('/status')
-def status():
+def status(compact:bool=True,fresh:bool=False):
+    cached=dashboard_cache.get('response')
+    if compact and not fresh and cached is not None and time.monotonic()-dashboard_cache['at']<.25:return cached
     with lock:
+        captured_at=time.monotonic()
+        if compact and not fresh and dashboard_cache['response'] is not None and captured_at-dashboard_cache['at']<.25:return dashboard_cache['response']
         metrics=episode_metrics()
         run_sizes={r[0]:r[1]*r[2] for r in db.execute('SELECT * FROM run_config')}
         activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error','world_learning_cycle') ORDER BY id DESC LIMIT 20")]
-        world_status=dict(session=world_view(world_training.session),scenarios=SCENARIOS,history=[world_view(s) for s in world_training.saved['history'][-10:]],first_night_levels=LEVELS,readiness=readiness(world_training.saved['history']))
-        return JSONResponse({'world_learning':learning_view(world_learning.state),'world_training':world_status,'model_evolution':evolution.snapshot(active_skill()),'vision':dict(vision_lines.settings),'harvest_markers':dict(harvest_markers.settings),'behavior':behavior_rules.snapshot(),'behavior_active_revision':(world_training.session or {}).get('behavior_snapshot',{}).get('revision'),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}})
+        world_status=dict(session=world_view(world_training.session),scenarios=SCENARIOS,history=[world_view(s,summary=compact) for s in world_training.saved['history'][-10:]],first_night_levels=LEVELS,readiness=readiness(world_training.saved['history']))
+        payload={'world_learning':learning_view(world_learning.state),'world_training':world_status,'model_evolution':evolution.snapshot(active_skill(),history_limit=20 if compact else 60),'vision':dict(vision_lines.settings),'harvest_markers':dict(harvest_markers.settings),'behavior':behavior_rules.snapshot(),'behavior_active_revision':(world_training.session or {}).get('behavior_snapshot',{}).get('revision'),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
+        if compact:payload=compact_status(payload)
+        # Freeze mutable telemetry under the lock; JSON encoding must not block
+        # inference, heartbeats or camera updates behind historical tables.
+        payload=copy.deepcopy(payload)
+    response=JSONResponse(payload,headers={'Cache-Control':'no-store'})
+    if compact:
+        with lock:dashboard_cache.update(at=time.monotonic(),response=response)
+    return response
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:
@@ -451,6 +465,7 @@ def _assignment(d:dict):
             if assignment:return assignment
             message='Sequence complete; waiting for the other bots.' if result.get('state')=='complete' else 'Attempt stopped; waiting for the next learning phase.' if result.get('state')=='stopped' else 'Preparing terrain or training models.'
             return {'mode':'paused','run':run,'message':message}
+        if mode=='paused':return {'mode':'paused','run':run,'message':'Waiting for the next training or evaluation phase.'}
         # Repeated calls during a lifetime return the same assignment; next episode changes it.
         rng=random.Random(8000+d['index']*1000+d['episode'])
         finished=db.execute('SELECT count(*) FROM episodes WHERE run=? AND agent=?',(run,d['agent'])).fetchone()[0]

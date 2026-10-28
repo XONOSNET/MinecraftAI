@@ -70,18 +70,19 @@ class ModelEvolution:
             self.db.execute('DELETE FROM policy_pending WHERE skill=?', (skill,))
         self.db.commit()
 
-    def snapshot(self, skill):
+    def snapshot(self, skill,history_limit=60):
+        if type(history_limit) is not int or not 1<=history_limit<=60:raise ValueError('Choose 1–60 model history rows')
         active = dict(self.db.execute('SELECT skill,version FROM policy_current'))
         rows = self.db.execute('''SELECT id,skill,fingerprint,metadata FROM policy_versions
-            WHERE id IN (SELECT id FROM policy_versions ORDER BY id DESC LIMIT 60)
+            WHERE id IN (SELECT id FROM policy_versions ORDER BY id DESC LIMIT ?)
                OR id IN (SELECT version FROM policy_current)
-            ORDER BY id DESC''').fetchall()
+            ORDER BY id DESC''',(history_limit,)).fetchall()
         versions = []
         for identifier, track, fingerprint, metadata in rows:
             versions.append(dict(json.loads(metadata), id=identifier, model_id=f'MODEL-{identifier:06d}', skill=track,
                                  fingerprint=fingerprint[:12], active=active.get(track) == identifier))
         current = [v for v in versions if v['active']]
         return {'current': next((v for v in current if v['skill'] == skill), None), 'skills': current,
-                'history': versions[:60], 'version_count': self.db.execute('SELECT count(*) FROM policy_versions').fetchone()[0],
+                'history': versions[:history_limit], 'version_count': self.db.execute('SELECT count(*) FROM policy_versions').fetchone()[0],
                 'total_parameters': sum(v['parameters'] for v in current),
                 'total_weight_bytes': sum(v['weight_bytes'] for v in current)}
