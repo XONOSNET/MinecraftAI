@@ -1,6 +1,24 @@
 """Repeat natural passive animals without inventory grants or duplicated UUIDs."""
 SPECIES=('cow','pig','sheep','chicken','rabbit')
 
+def replenish_commands(bounds,plots,wave,caps):
+    """Bounded population maintenance on real grassy surface positions."""
+    x0,x1,z0,z1=bounds
+    area=f'x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}'
+    points=[(x,z) for x in range(x0+10,x1-9,16) for z in range(z0+10,z1-9,16)
+            if not any(abs(x-h['x'])<8 and abs(z-h['z'])<8 for h in plots)]
+    commands=[]
+    if not points:return commands
+    for i,(mob,cap) in enumerate(caps.items()):
+        if mob not in SPECIES or not isinstance(cap,int) or not 1<=cap<=32:raise ValueError('Invalid livestock population cap')
+        for j in range(2):
+            x,z=points[(wave*17+i*11+j*7)%len(points)];score='#fauna_'+mob
+            commands.append(f'execute store result score {score} lab_world run execute if entity @e[type=minecraft:{mob},{area}]')
+            color=',Color:0b' if mob=='sheep' else ''
+            checks=' '.join(f'if block ~{dx if dx else ""} ~-1 ~{dz if dz else ""} #minecraft:animals_spawnable_on' for dx,dz in [(0,0),(1,0),(-1,0),(0,1),(0,-1)])
+            commands.append(f'execute if score {score} lab_world matches ..{cap-1} positioned {x+.5} 0 {z+.5} positioned over motion_blocking_no_leaves {checks} if block ~ ~ ~ minecraft:air if block ~ ~1 ~ minecraft:air unless entity @a[distance=..8] run summon minecraft:{mob} ~ ~ ~ {{Tags:["lab_natural_fauna","lab_replenished_fauna"],PersistenceRequired:1b{color}}}')
+    return commands
+
 def fauna_commands(bounds,key,snapshot):
     x0,x1,z0,z1=bounds;path='sites.s'+key.replace('-','_');tag_key=key.replace('-','_')
     selector=f'x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}'

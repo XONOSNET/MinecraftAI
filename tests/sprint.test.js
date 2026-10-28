@@ -39,7 +39,7 @@ test('native sprint control stops on pause, stale policy, hunger and a newly uns
  bot.food=6;now+=50;motor.tick();assert.equal(state.sprint,false);
  bot.food=20;motor.command(0,null,sensed,0);now+=50;motor.tick();assert.equal(state.sprint,true);motor.pause();assert.equal(state.sprint,false);
  motor.command(0,null,sensed,0);now+=50;motor.tick();motor.command(0,null,{...sensed,frontHazard:true},0);now+=50;motor.tick();assert.equal(state.sprint,false);
- motor.command(0,null,sensed,0);now+=50;motor.tick();now+=300;motor.tick();assert.equal(state.sprint,false);now+=1100;motor.tick();assert.equal(state.forward,false);
+ motor.command(0,null,sensed,0);now+=50;motor.tick();now+=300;motor.tick();assert.equal(state.sprint,true);now+=600;motor.tick();assert.equal(state.sprint,false);now+=500;motor.tick();assert.equal(state.forward,false);
 });
 
 test('held sprint checks newly unsafe ground before another policy reply arrives',()=>{

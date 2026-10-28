@@ -1,0 +1,37 @@
+{
+  "fixture": "Actual world-route teacher and shared motor on an existing flat lab floor; no terrain, model or inventory changes.",
+  "walk": {
+    "distance": 8.37,
+    "sprint_frames": 0,
+    "stopped_frames": 0,
+    "total_frames": 41,
+    "pitch_range": [
+      0.010471975511965326,
+      0.12828170002157524
+    ],
+    "seconds": 2.071
+  },
+  "run": {
+    "distance": 10.82,
+    "sprint_frames": 40,
+    "stopped_frames": 0,
+    "total_frames": 41,
+    "pitch_range": [
+      -0.07330382858375728,
+      0.0026179938779913314
+    ],
+    "seconds": 2.055
+  },
+  "near": {
+    "distance": 3.02,
+    "sprint_frames": 0,
+    "stopped_frames": 26,
+    "total_frames": 40,
+    "pitch_range": [
+      0.028797932657904646,
+      0.1413716694115319
+    ],
+    "seconds": 2.044
+  },
+  "success": true
+}

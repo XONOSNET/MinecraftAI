@@ -2,6 +2,16 @@ const {test}=require('node:test');const assert=require('node:assert/strict');
 const {motorPlan,createMotor}=require('../controller/locomotion');
 const permissions={move:true,turn:true,jump:true},safe={frontBlocked:false,headBlocked:false,frontHazard:false};
 
+test('travel looks smoothly above and below the horizon without interfering with a look lock',()=>{
+ const {Vec3}=require('vec3');let now=0;const controls={},pitches=[];
+ const bot={entity:{id:2,position:new Vec3(.5,64,.5),yaw:0,pitch:0,onGround:true},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,async look(y,p){this.entity.yaw=y;this.entity.pitch=p;pitches.push(p);}};
+ const motor=createMotor(bot,permissions,{clock:()=>now}),q=[.5,64.1,-3.5],task={kind:'expedition',safe_walk:true,quick_look:true,safety_focus:q,waypoints:[q]};
+ for(let i=0;i<120;i++){if(i%10===0)motor.command(0,task,{...safe,canStepDown:()=>true},0);now+=50;motor.tick();}
+ assert.ok(Math.min(...pitches)<-.04);assert.ok(Math.max(...pitches)>.04);
+ assert.ok(pitches.slice(1).every((p,i)=>Math.abs(p-pitches[i])<=.03001));
+ motor.lockLook(true);const before=pitches.length;now+=50;motor.tick();assert.equal(pitches.length,before);
+});
+
 test('a safe doorway back-off is not blocked by the inward route corridor',()=>{
  const {Vec3}=require('vec3');let now=0;const controls={},bot={entity:{yaw:0,pitch:0,onGround:true,position:new Vec3(.5,70,-.3)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v};
  const motor=createMotor(bot,permissions,{clock:()=>now}),task={kind:'expedition',safe_walk:true,strict_ground:true,route_corridor:[[.5,70,-.3],[.5,70,.5],[.5,70,2]]};

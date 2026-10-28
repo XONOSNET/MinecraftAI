@@ -3,6 +3,13 @@ const {route,standable}=require('../controller/field_navigation');
 const {blueprint,intact,findPlot}=require('../controller/hut_teacher');
 function fixture(blocks={}){return {entity:{position:new Vec3(.5,64,.5)},blockAt(p){const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z);const name=blocks[`${x},${y},${z}`]||(y<64?'grass_block':'air');return name==='unloaded'?null:{name,boundingBox:['air','water','lava'].includes(name)?'empty':'block',position:new Vec3(x,y,z)};}};}
 
+test('travel lookahead joins a straight run but preserves turns, rises and sideways centering',()=>{
+ const {travelCue}=require('../controller/world_navigation'),p=new Vec3(.5,64,.5),a=[.5,64.1,1.5],b=[.5,64.1,2.5],c=[1.5,64.1,2.5];
+ assert.equal(travelCue(p,[a,b,c]),b);
+ assert.equal(travelCue(p,[a,[.5,65.1,2.5]]),a);
+ assert.equal(travelCue(new Vec3(.1,64,.5),[[.5,64.1,.5],[.5,64.1,1.5]])[2],.5);
+});
+
 test('closed raised-house approach uses the actual exterior ground height',()=>{
  const {homeApproach,approachGoal}=require('../controller/world_navigation'),b=fixture(),plot={x:0,y:65,z:0};
  b.entity.position=new Vec3(.5,64,-8.5);const original=b.blockAt;

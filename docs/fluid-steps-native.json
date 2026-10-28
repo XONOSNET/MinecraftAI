@@ -1,0 +1,29 @@
+{
+  "fixture": "Temporary survival-only dirt/leaf obstruction and three-block jump placement; isolated sky platform, no learning writes",
+  "start": {
+    "x": -80.5,
+    "y": 240,
+    "z": 160.5
+  },
+  "items": [
+    "dirt",
+    "wooden_axe"
+  ],
+  "step_up": {
+    "arrived": true,
+    "seconds": 0.974,
+    "y": 241,
+    "position": {
+      "x": -79.54007166609695,
+      "y": 241,
+      "z": 160.5
+    }
+  },
+  "step_down": {
+    "arrived": true,
+    "seconds": 1.177,
+    "back_frames": 0,
+    "y": 240
+  },
+  "success": true
+}

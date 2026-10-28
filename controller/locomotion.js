@@ -120,6 +120,8 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    }
    plan.safetyFocus=task?.safety_focus||null;
    plan.avoidPlayers=!!task?.avoid_players;plan.levelLook=!!task?.quick_look;
+   plan.travelLook=!!task?.safe_walk&&!!task?.quick_look&&!!task?.safety_focus;
+   if(plan.travelLook){const q=task.waypoints?.[0]||task.safety_focus;plan.terrainPitch=Math.max(-.35,Math.min(.35,Math.atan2(q[1]-bot.entity.position.y,Math.max(2,Math.hypot(q[0]-bot.entity.position.x,q[2]-bot.entity.position.z)))));}
    plan.yawRate=task?.quick_look?forBot(bot).walk_yaw_deg_per_sec*Math.PI/180:Math.PI;
    if(plan.forward&&sensed?.crouchClearance){plan.sneak=true;plan.jump=false;plan.label='Crouching under low clearance';}
    if(autoStep&&plan.jump&&plan.forward)plan.label='Stepping up the verified route';
@@ -195,14 +197,16 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    const side=!lookLocked&&plan.side&&strafeSafe(bot,plan.strafeTask,plan.side,forward,!!plan.back)?plan.side:0;
    for(const [control,wanted] of [['forward',forward],['back',!!plan.back],['left',side>0],['right',side<0],['jump',!!plan.jump],['sneak',!!plan.sneak]])if(!!bot.getControlState(control)!==wanted)bot.setControlState(control,wanted);
    if(plan.sprint&&now-lastSprintSafetyAt>=100){sprintSafe=flatSprintPath(bot,plan.sprintTask)&&(!bot.blockAt||proximity(bot,{recovery:false}).canWalk(bot.entity.yaw,3,1.79));lastSprintSafetyAt=now;}
-   const travelSafe=!plan.sprintTask?.travel_sprint||bot.food>=12&&routeRunway(bot,plan.sprintTask)>=4;
-   const sprint=!!plan.sprint&&sprintSafe&&travelSafe&&forward&&!lookLocked&&now<=expires-750&&basicSprintSafe(bot);
+   const travelSafe=!plan.sprintTask?.travel_sprint||bot.food>=12&&routeRunway(bot,plan.sprintTask)>=3;
+   const sprint=!!plan.sprint&&sprintSafe&&travelSafe&&forward&&!lookLocked&&now<=expires-100&&basicSprintSafe(bot);
    if(!!bot.getControlState('sprint')!==sprint)bot.setControlState('sprint',sprint);
    applyPose(bot,!!plan.sneak);
-   if((targetYaw!==null||plan.levelLook&&Math.abs(bot.entity.pitch)>.01)&&!lookLocked&&permissions.turn){
+   const wantedPitch=plan.travelLook?(plan.terrainPitch||0)+Math.sin(now/850+(bot.entity.id||0)%17)*.10:0;
+   if((targetYaw!==null||plan.travelLook||plan.levelLook&&Math.abs(bot.entity.pitch)>.01)&&!lookLocked&&permissions.turn){
     const delta=targetYaw===null?0:wrap(targetYaw-bot.entity.yaw),step=Math.sign(delta)*Math.min(Math.abs(delta),(plan.yawRate||Math.PI)*dt);
     const currentPitch=Number.isFinite(bot.entity.pitch)?bot.entity.pitch:0;
-    const pitch=plan.levelLook?currentPitch-Math.sign(currentPitch)*Math.min(Math.abs(currentPitch),Math.PI*dt):0;
+    const difference=wantedPitch-currentPitch;
+    const pitch=plan.levelLook?currentPitch+Math.sign(difference)*Math.min(Math.abs(difference),(plan.travelLook ? .6 : Math.PI)*dt):0;
     if(Math.abs(delta)>.002||Math.abs(bot.entity.pitch-pitch)>.002)Promise.resolve(bot.look(bot.entity.yaw+step,pitch,true)).catch(()=>clear());
     else targetYaw=null;
    }

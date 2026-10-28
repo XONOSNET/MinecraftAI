@@ -1,0 +1,7 @@
+{
+  "fixture": "Temporary grass sky platform, population caps of one per species, no learning or model writes",
+  "first_wave": 4,
+  "second_wave": 4,
+  "unsafe_wave": 0,
+  "success": true
+}

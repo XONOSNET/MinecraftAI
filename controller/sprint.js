@@ -35,7 +35,7 @@ function sprintIntent(bot,permissions,task,plan,sensed,angle,already=false){
  if(!permissions.sprint||!permissions.move||!plan.forward||plan.back||plan.jump||plan.sneak||plan.yaw||plan.moveTarget||plan.targetYaw!==undefined||plan.label&&!(travel&&plan.label==='Following locked route'))return false;
  if(task&&!ALLOWED.has(task.kind)&&!travel)return false;
  if(!basicSprintSafe(bot)||Math.abs(angle)>.12||sensed?.wallAhead||sensed?.frontBlocked||sensed?.headBlocked||sensed?.frontHazard||sensed?.crouchClearance||sensed?.doorway||sensed?.door)return false;
- const minimum=already?4.5:6;
+ const minimum=travel?(already?3:4.5):(already?4.5:6);
  const distance=travel?routeRunway(bot,task):sensed?.cueDistance;
  if(!Number.isFinite(distance)||distance<minimum||travel&&bot.food<12)return false;
  if(task?.kind==='combat'&&(!sensed.enemy||sensed.distance<6||!sensed.gear?.ready))return false;

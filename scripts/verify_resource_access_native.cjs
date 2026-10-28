@@ -32,6 +32,11 @@ b.once('spawn',async()=>{let built=false;try{
  while(Date.now()-at<10000&&!arrived){arrived=await t.walk(b,motor,stepGoal,{run:'diagnostic-only',world:{bounds:[-90,-70,150,170],driver:'student'}},async(path,data)=>{if(path!=='/step')throw Error('Unexpected diagnostic write');return {action:data.teacher};},scan,tasks)===true;if(samples.length<8)samples.push({position:b.entity.position.clone(),navigation:t.lastNavigation});await wait(50);}
  motor.pause();result.step_up={arrived,seconds:(Date.now()-at)/1000,y:b.entity.position.y,position:b.entity.position.clone()};
  if(!arrived)Object.assign(result.step_up,{navigation:t.lastNavigation,samples});
+ if(arrived){
+  const downAt=Date.now();let down=false,backFrames=0;const tick=()=>{if(b.getControlState('back'))backFrames++;};b.on('physicsTick',tick);
+  while(Date.now()-downAt<10000&&!down){down=await t.walk(b,motor,[-81.5,240.1,160.5],{run:'diagnostic-only',world:{bounds:[-90,-70,150,170],driver:'student'}},async(path,data)=>{if(path!=='/step')throw Error('Unexpected diagnostic write');return {action:data.teacher};},scan,tasks)===true;await wait(50);}
+  b.removeListener('physicsTick',tick);motor.pause();result.step_down={arrived:down,seconds:(Date.now()-downAt)/1000,back_frames:backFrames,y:b.entity.position.y};
+ }
  await admin({action:'op'});await wait(1000);await command('fill -82 240 157 -76 245 163 air');await admin({action:'deop'});await admin({action:'teleport-coordinates',x:-80.5,y:240,z:160.5});await wait(400);
  if(!process.argv.includes('--step-only')){await admin({action:'op'});await wait(1000);await command('setblock -78 241 160 air');await command('setblock -80 247 160 oak_log');await command('setblock -80 248 160 oak_log');await admin({action:'deop'});
  const target=new Vec3(-80,248,160),column={};result.steps=[];
@@ -43,11 +48,11 @@ b.once('spawn',async()=>{let built=false;try{
  const top=column.column.at(-1).position;await admin({action:'teleport-coordinates',x:top.x+.72,y:top.y+1,z:top.z+.5});await wait(350);result.recentered=await access.recoverColumn(b,motor,column);result.recentered_position=b.entity.position.clone();
  await inventory.equip(b,'wooden_axe');result.height=b.entity.position.y;result.reachable=harvestable(b,new Vec3(-80,247,160));result.harvested=await harvest(b,b.blockAt(new Vec3(-80,247,160)));
  result.descents=[];while(column.column?.length){result.descents.push(await access.descend(b,motor,column));await wait(300);}result.return_y=b.entity.position.y;
- }result.success=result.step_up?.arrived&&(process.argv.includes('--step-only')||result.minerals.every(q=>q.cleared&&q.reachable&&q.mined)&&result.recentered&&result.centering.progress&&Math.abs(result.centered_position.x+80.5)<.15&&result.dirt.progress&&result.leaves.progress&&result.steps.every(s=>s.progress)&&result.reachable&&result.harvested&&Math.abs(result.return_y-240)<.15);
+ }result.success=result.step_up?.arrived&&result.step_down?.arrived&&result.step_down.back_frames===0&&(process.argv.includes('--step-only')||result.minerals.every(q=>q.cleared&&q.reachable&&q.mined)&&result.recentered&&result.centering.progress&&Math.abs(result.centered_position.x+80.5)<.15&&result.dirt.progress&&result.leaves.progress&&result.steps.every(s=>s.progress)&&result.reachable&&result.harvested&&Math.abs(result.return_y-240)<.15);
  }catch(error){result.error=error.stack;}finally{
  motor.pause();require('../controller/survey').hold(b);await admin({action:'gamemode',gamemode:'spectator'}).catch(()=>{});
  if(built){await admin({action:'op'}).catch(()=>{});await wait(1000);await command('kill @e[type=item,x=-84,y=239,z=157,dx=8,dy=14,dz=6]');await command('fill -84 239 157 -76 252 163 air');await command('clear @s');}
  await admin({action:'deop'}).catch(()=>{});await admin({action:'teleport-coordinates',x:-153.5,y:225.1,z:160.5}).catch(()=>{});
- fs.writeFileSync('docs/resource-access-native.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));b.quit();setTimeout(()=>process.exit(result.success?0:1),300);
+ fs.writeFileSync(process.argv.includes('--step-only')?'docs/fluid-steps-native.json':'docs/resource-access-native.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));b.quit();setTimeout(()=>process.exit(result.success?0:1),300);
  }});
 setTimeout(async()=>{result.error='Diagnostic timed out';await admin({action:'deop'}).catch(()=>{});b.quit();process.exit(1);},90000).unref();
