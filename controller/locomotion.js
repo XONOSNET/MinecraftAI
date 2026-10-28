@@ -94,7 +94,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    if((action===3||autoStep)&&permissions.jump&&rise>.6&&rise<1.2&&Math.abs(angle)<.35){recovery.reset();sensed={...sensed,wallAhead:false};}
    const lateral=permissions.move?strafe.choose(action,task,sensed,angle,plan,clock()):null;
    if(lateral?.pure){plan.forward=false;plan.yaw=0;recovery.reset();}
-   const passage=doorway.update(plan,sensed||{},bot.entity.position,bot.entity.yaw,clock(),permissions);
+   const passage=doorway.update(plan,{...sensed,onGround:bot.entity.onGround},bot.entity.position,bot.entity.yaw,clock(),permissions);
    if(passage){recovery.reset();plan=passage;}
    else{
    plan=recovery.update(plan,{...sensed,inWater:!!bot.entity.isInWater,inLava:!!bot.entity.isInLava},bot.entity.position,bot.entity.yaw,clock(),permissions,angle,task?.bounds);
@@ -183,7 +183,12 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     if(d<.035||d<approaching*2.4+.04)forward=false;
    }
    if(plan.avoidPlayers){
-    const p=bot.entity.position,others=space.players(bot),clear=sign=>space.stepClear(p,{x:p.x-sign*Math.sin(bot.entity.yaw)*.7,y:p.y,z:p.z-sign*Math.cos(bot.entity.yaw)*.7},others,forBot(bot).player_clearance);
+    const p=bot.entity.position,others=space.players(bot);
+    // A precise route brakes at its alignment point. Probing beyond that point
+    // can reject a safe ledge stance because a player is beside the NEXT turn.
+    const stop=plan.moveTarget?[plan.moveTarget.x,p.y,plan.moveTarget.z]:plan.preciseFocus?plan.focusPoint:null;
+    const forwardProbe=routeProbe(p,stop,.7);
+    const clear=sign=>{const span=sign>0?forwardProbe:.7;return space.stepClear(p,{x:p.x-sign*Math.sin(bot.entity.yaw)*span,y:p.y,z:p.z-sign*Math.cos(bot.entity.yaw)*span},others,forBot(bot).player_clearance);};
     if(forward&&!clear(1)){forward=false;plan.label='Waiting for nearby player to clear the route';}
     if(plan.back&&!clear(-1))plan.back=false;
    }

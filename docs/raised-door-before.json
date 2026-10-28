@@ -1,0 +1,621 @@
+{
+  "read_only": true,
+  "fixture": "Saved raised house entry; geometry teacher intentions through the shared route motor. No learning API writes or terrain edits.",
+  "cases": [
+    {
+      "source": "LabAI7",
+      "start": [
+        24635.551672356316,
+        64,
+        16481.488651779346
+      ],
+      "goal": [
+        24633.5,
+        65.1,
+        16485.5
+      ],
+      "neighbors": [],
+      "arrived": false,
+      "seconds": 12.023,
+      "position": {
+        "x": 24635.5517,
+        "y": 64,
+        "z": 16481.4887
+      },
+      "navigation": {
+        "home": [
+          24633.5,
+          65.1,
+          16480.5
+        ],
+        "target": [
+          24633.5,
+          65.1,
+          16485.5
+        ],
+        "route_intent": "Return to own house",
+        "state": "following",
+        "height_delta": 1.1,
+        "route_complete": true,
+        "remaining_blocks": 6.5,
+        "waypoints": 7,
+        "no_progress_seconds": 11,
+        "reset_seconds": 79,
+        "expanded": 7,
+        "phase": "return_home",
+        "position": [
+          24635.5517,
+          64,
+          16481.4887
+        ],
+        "yaw": 1.500110279036151,
+        "on_ground": true,
+        "cue": [
+          24634.5,
+          65.1,
+          16481.5
+        ],
+        "cue_centering": true,
+        "motor_before": {
+          "label": "Recovering: lining up doorway",
+          "paused": false,
+          "expired": false,
+          "ground_safe": true,
+          "precise_focus": false,
+          "recovering": false,
+          "doorway": true,
+          "controls": {
+            "forward": false,
+            "back": false,
+            "left": false,
+            "right": false,
+            "jump": false,
+            "sneak": false,
+            "sprint": false
+          }
+        },
+        "nearby_players": [],
+        "player_clearance": 2,
+        "sampled_at": 1793202855867,
+        "rpc_ms": 0,
+        "decision": {
+          "selected": 1,
+          "teacher": 1,
+          "angle": 0.08143014321141907
+        },
+        "obstacles": {
+          "wall_ahead": false,
+          "front_blocked": true,
+          "head_blocked": false,
+          "ground_clear_035": false,
+          "ground_clear_075": false
+        },
+        "motor_after": {
+          "label": "Recovering: lining up doorway",
+          "paused": false,
+          "expired": false,
+          "ground_safe": true,
+          "precise_focus": false,
+          "recovering": false,
+          "doorway": true,
+          "controls": {
+            "forward": false,
+            "back": false,
+            "left": false,
+            "right": false,
+            "jump": false,
+            "sneak": false,
+            "sprint": false
+          }
+        }
+      },
+      "blocks": [
+        {
+          "p": [
+            24634,
+            63,
+            16480
+          ],
+          "name": "dirt",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24634,
+            64,
+            16480
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24634,
+            65,
+            16480
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            66,
+            16480
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            63,
+            16481
+          ],
+          "name": "dirt",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24634,
+            64,
+            16481
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24634,
+            65,
+            16481
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            66,
+            16481
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            63,
+            16482
+          ],
+          "name": "dirt",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24634,
+            64,
+            16482
+          ],
+          "name": "dirt",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24634,
+            65,
+            16482
+          ],
+          "name": "oak_planks",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24634,
+            66,
+            16482
+          ],
+          "name": "oak_planks",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24635,
+            63,
+            16480
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24635,
+            64,
+            16480
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            65,
+            16480
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            66,
+            16480
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            63,
+            16481
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24635,
+            64,
+            16481
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            65,
+            16481
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            66,
+            16481
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            63,
+            16482
+          ],
+          "name": "dirt",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24635,
+            64,
+            16482
+          ],
+          "name": "dirt",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24635,
+            65,
+            16482
+          ],
+          "name": "birch_planks",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24635,
+            66,
+            16482
+          ],
+          "name": "oak_planks",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24636,
+            63,
+            16480
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24636,
+            64,
+            16480
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            65,
+            16480
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            66,
+            16480
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            63,
+            16481
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24636,
+            64,
+            16481
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            65,
+            16481
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            66,
+            16481
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            63,
+            16482
+          ],
+          "name": "dirt",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24636,
+            64,
+            16482
+          ],
+          "name": "dirt",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24636,
+            65,
+            16482
+          ],
+          "name": "birch_planks",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24636,
+            66,
+            16482
+          ],
+          "name": "birch_planks",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "success": false
+}

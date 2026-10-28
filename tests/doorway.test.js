@@ -2,6 +2,15 @@ const {test}=require('node:test');const assert=require('node:assert/strict');con
 const permissions={move:true,turn:true},base={forward:true},door={id:'0,0',axis:'x',plane:.5,center:.59375,open:true,y:181};
 const sensed=(d=door,canWalk=()=>true)=>({doorway:d,canWalk});
 
+test('raised entry leaves its verified climb to the route until grounded at door level',()=>{
+ const c=createDoorway(),d={...door,y:182};
+ assert.equal(c.update(base,sensed(d,()=>false),{x:-1.5,y:181,z:.59375},-Math.PI/2,0,permissions),null);
+ assert.equal(c.active(),false);
+ assert.equal(c.update(base,{...sensed(d),onGround:false},{x:-.65,y:182,z:.59375},-Math.PI/2,100,permissions),null);
+ const a=c.update(base,{...sensed(d),onGround:true},{x:-.65,y:182,z:.59375},-Math.PI/2,200,permissions);
+ assert.equal(a.forward,true);assert.equal(c.active(),true);
+});
+
 test('world-height doors target the open space beside either hinge panel',()=>{
  const {doorwayDescriptor}=require('../controller/doorway'),{Vec3}=require('vec3');
  const bot={entity:{position:new Vec3(.5,70,-2)}};

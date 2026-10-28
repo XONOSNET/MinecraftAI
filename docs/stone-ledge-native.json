@@ -1,0 +1,539 @@
+{
+  "read_only": true,
+  "fixture": "Saved stone ledge; geometry teacher intentions with the recorded neighboring-player position. No learning API writes or terrain edits.",
+  "cases": [
+    {
+      "source": "LabAI2",
+      "start": [
+        24633.5022121838,
+        67,
+        16515.208663235993
+      ],
+      "goal": [
+        24632.5,
+        69.1,
+        16514.5
+      ],
+      "neighbors": [
+        [
+          24631.498584671033,
+          65,
+          16515.69991907191
+        ]
+      ],
+      "arrived": true,
+      "seconds": 2.726,
+      "position": {
+        "x": 24632.468626253267,
+        "y": 69,
+        "z": 16514.391470504528
+      },
+      "navigation": {
+        "home": [
+          24623.5,
+          65.1,
+          16470.5
+        ],
+        "target": [
+          24632.5,
+          69.1,
+          16514.5
+        ],
+        "route_intent": "Travel outside private houses",
+        "state": "arrived",
+        "height_delta": -3.9,
+        "route_complete": true,
+        "remaining_blocks": 0,
+        "waypoints": 0,
+        "no_progress_seconds": 0,
+        "reset_seconds": 90,
+        "expanded": 1,
+        "phase": "night_stone",
+        "position": [
+          24632.464255442446,
+          69,
+          16514.35475711702
+        ],
+        "yaw": -2.9373893191918334,
+        "on_ground": true,
+        "cue": [
+          24632.5,
+          69.1,
+          16514.5
+        ],
+        "cue_centering": false,
+        "motor_before": {
+          "label": "Following locked route",
+          "paused": false,
+          "expired": false,
+          "ground_safe": true,
+          "precise_focus": true,
+          "recovering": false,
+          "doorway": false,
+          "controls": {
+            "forward": false,
+            "back": false,
+            "left": false,
+            "right": false,
+            "jump": false,
+            "sneak": false,
+            "sprint": false
+          }
+        },
+        "nearby_players": [
+          [
+            24631.498584671033,
+            65,
+            16515.69991907191
+          ]
+        ],
+        "player_clearance": 2,
+        "sampled_at": 1793203091467
+      },
+      "blocks": [
+        {
+          "p": [
+            24632,
+            66,
+            16514
+          ],
+          "name": "dirt",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24632,
+            67,
+            16514
+          ],
+          "name": "dirt",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24632,
+            68,
+            16514
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24632,
+            69,
+            16514
+          ],
+          "name": "orange_tulip",
+          "shapes": []
+        },
+        {
+          "p": [
+            24632,
+            66,
+            16515
+          ],
+          "name": "stone",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24632,
+            67,
+            16515
+          ],
+          "name": "stone",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24632,
+            68,
+            16515
+          ],
+          "name": "stone",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24632,
+            69,
+            16515
+          ],
+          "name": "stone",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24632,
+            66,
+            16516
+          ],
+          "name": "stone",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24632,
+            67,
+            16516
+          ],
+          "name": "stone",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24632,
+            68,
+            16516
+          ],
+          "name": "stone",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24632,
+            69,
+            16516
+          ],
+          "name": "stone",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24633,
+            66,
+            16514
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24633,
+            67,
+            16514
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24633,
+            68,
+            16514
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24633,
+            69,
+            16514
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24633,
+            66,
+            16515
+          ],
+          "name": "stone",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24633,
+            67,
+            16515
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24633,
+            68,
+            16515
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24633,
+            69,
+            16515
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24633,
+            66,
+            16516
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24633,
+            67,
+            16516
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24633,
+            68,
+            16516
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24633,
+            69,
+            16516
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            66,
+            16514
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            67,
+            16514
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            68,
+            16514
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            69,
+            16514
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            66,
+            16515
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            67,
+            16515
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            68,
+            16515
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            69,
+            16515
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            66,
+            16516
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            67,
+            16516
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            68,
+            16516
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24634,
+            69,
+            16516
+          ],
+          "name": "air",
+          "shapes": []
+        }
+      ]
+    }
+  ],
+  "success": true
+}

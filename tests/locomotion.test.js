@@ -55,6 +55,28 @@ test('world auto-step lifts a forward intention onto a checked adjacent block bu
  landing=false;motor.command(0,task,{...safe,...proximity(bot)},0);now+=50;motor.tick();assert.equal(controls.jump,false);assert.equal(controls.forward,false);
 });
 
+test('nearby raised doorway cannot replace a verified step-up with stationary alignment',()=>{
+ const {Vec3}=require('vec3'),{proximity}=require('../controller/perception');let now=0;const controls={};
+ const bot={players:{},entity:{position:new Vec3(.5,64,.5),yaw:0,pitch:0,onGround:true},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,
+  blockAt(p){const q=p.floored(),solid=q.y<(q.z<0?65:64);return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+ const task={kind:'expedition',auto_step:true,safe_walk:true,strict_ground:true,waypoints:[[.5,65.1,-.5]]},motor=createMotor(bot,permissions,{clock:()=>now});
+ const doorway={id:'raised',axis:'z',plane:-1.5,center:.5,open:true,y:65};
+ motor.command(0,task,{...safe,...proximity(bot),doorway},0);now+=50;motor.tick();
+ assert.equal(controls.jump,true);assert.equal(controls.forward,true);assert.equal(motor.passageActive(),false);
+});
+
+test('player clearance stops at a precise ledge waypoint instead of probing through the next turn',()=>{
+ const {Vec3}=require('vec3'),space=require('../controller/resource_space');let now=0;const controls={};
+ const p=new Vec3(24633.5022,67,16515.2087),goal=[24633.5,67.1,16515.5],other=new Vec3(24631.498584671033,65,16515.69991907191);
+ const yaw=Math.atan2(-(goal[0]-p.x),-(goal[2]-p.z));
+ const bot={username:'ledge-test',players:{other:{username:'other',entity:{id:2,position:other}}},entity:{id:1,position:p,yaw,pitch:0,onGround:true},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,async look(yaw){this.entity.yaw=yaw;}};
+ assert.equal(space.stepClear(p,{x:p.x-Math.sin(yaw)*.7,y:p.y,z:p.z-Math.cos(yaw)*.7},[other],2),false);
+ assert.equal(space.stepClear(p,{x:goal[0],y:p.y,z:goal[2]},[other],2),true);
+ const motor=createMotor(bot,permissions,{clock:()=>now}),task={kind:'expedition',safe_walk:true,strict_ground:true,center_route:true,safety_focus:goal,waypoints:[goal],avoid_players:true};
+ motor.command(0,task,{...safe,canWalk:()=>true,canStepDown:()=>true,focusPoint:goal},0);now+=50;motor.tick();assert.equal(controls.forward,true);
+ const unsafe=[24633.2,67.1,16515.5];bot.entity.yaw=Math.atan2(-(unsafe[0]-p.x),-(unsafe[2]-p.z));motor.command(0,{...task,safety_focus:unsafe,waypoints:[unsafe]},{...safe,canWalk:()=>true,canStepDown:()=>true,focusPoint:unsafe},0);now+=50;motor.tick();assert.equal(controls.forward,false);
+});
+
 test('world ground safety updates while the previous policy intention is still held',()=>{
  const {Vec3}=require('vec3');let now=0,ground=true;const controls={},bot={entity:{yaw:0,onGround:true,position:new Vec3(0,70,0)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,
   blockAt(p){const q=p.floored(),solid=ground&&q.y<70;return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty',shapes:solid?[[0,0,0,1,1,1]]:[]};}};

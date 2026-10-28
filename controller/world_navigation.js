@@ -8,7 +8,11 @@ function segmentDistance(p,a,b){
  return Math.hypot(p.x-a[0]-dx*t,p.z-a[2]-dz*t);
 }
 function corridorDistance(p,points){let best=Infinity;for(let i=1;i<points.length;i++)best=Math.min(best,segmentDistance(p,points[i-1],points[i]));return best;}
-function homeApproach(plot){return plot?[plot.x+.5,plot.y+.1,plot.z-4.5]:null;}
+function homeApproach(plot,bot=null){
+ if(!plot)return null;
+ const x=plot.x,z=plot.z-5,y=bot&&[plot.y,plot.y-1,plot.y+1].find(y=>standable(bot,x,y,z));
+ return [x+.5,(Number.isFinite(y)?y:plot.y)+.1,z+.5];
+}
 function samePlot(a,b){return !!a&&!!b&&a.x===b.x&&a.y===b.y&&a.z===b.z;}
 function privatePlotCell(q,h){return q[0]>=h.x-3&&q[0]<=h.x+3&&q[2]>=h.z-3&&q[2]<=h.z+3&&q[1]>=h.y-1&&q[1]<=h.y+4;}
 function insideHome(p,plot){return !!plot&&Math.abs(p.x-plot.x-.5)<2.5&&Math.abs(p.z-plot.z-.5)<2.5&&Math.abs(p.y-plot.y)<.6;}
@@ -25,13 +29,13 @@ function approachGoal(bot,goal,plot){
  if(!plot||!crossingHome(bot,goal,plot))return goal;
  const inside=insideHome(bot.entity.position,plot);
  const door=bot.blockAt(new Vec3(plot.x,plot.y,plot.z-3));
- return door?.name.endsWith('_door')&&!door.getProperties().open?(inside?[plot.x+.5,plot.y+.1,plot.z-1.5]:homeApproach(plot)):goal;
+ return door?.name.endsWith('_door')&&!door.getProperties().open?(inside?[plot.x+.5,plot.y+.1,plot.z-1.5]:homeApproach(plot,bot)):goal;
 }
 class WorldNavigation{
  constructor(){this.path=[];this.destination=null;this.lastPlan=-Infinity;this.anchor=null;this.best=Infinity;this.progressAt=0;this.status={};}
  portalFor(bot,goal,plot,plots=[]){
   const p=bot.entity.position;
-  if(this.exitPlot){const h=this.exitPlot,a=homeApproach(h);if(Math.hypot(p.x-a[0],p.z-a[2])<.6||p.x<h.x-3.5||p.x>h.x+4.5||p.z<h.z-4||p.z>h.z+4.5)this.exitPlot=null;}
+  if(this.exitPlot){const h=this.exitPlot,a=homeApproach(h,bot);if(Math.hypot(p.x-a[0],p.z-a[2])<.6||p.x<h.x-3.5||p.x>h.x+4.5||p.z<h.z-4||p.z>h.z+4.5)this.exitPlot=null;}
   if(!this.exitPlot){const h=plots.find(h=>!samePlot(h,plot)&&insideHome(p,h));if(h)this.exitPlot=h;}
   return this.exitPlot||plot;
  }
@@ -41,7 +45,7 @@ class WorldNavigation{
   const exitClosed=exitDoor?.name.endsWith('_door')&&!exitDoor.getProperties().open;
   // An unfinished plot has no door to open. Continue outside instead of
   // waiting forever at the interior approach for a nonexistent interaction.
-  const target=foreign?(exitClosed?[portal.x+.5,portal.y+.1,portal.z-1.5]:homeApproach(portal)):approachGoal(bot,goal,portal),key=target.join(','),home=homeApproach(plot);
+  const target=foreign?(exitClosed?[portal.x+.5,portal.y+.1,portal.z-1.5]:homeApproach(portal,bot)):approachGoal(bot,goal,portal),key=target.join(','),home=homeApproach(plot,bot);
   const permitted=plots.filter(h=>samePlot(h,this.exitPlot)||insideHome(p,h)||samePlot(h,plot)&&insideHome(new Vec3(...goal),h));
   const forbidden=q=>plots.some(h=>!permitted.some(a=>samePlot(a,h))&&privatePlotCell(q,h));
   if(key!==this.destination){this.destination=key;this.path=[];this.best=Infinity;this.progressAt=now;this.lastPlan=-Infinity;this.blocked=false;}

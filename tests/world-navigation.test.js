@@ -3,6 +3,15 @@ const {route,standable}=require('../controller/field_navigation');
 const {blueprint,intact,findPlot}=require('../controller/hut_teacher');
 function fixture(blocks={}){return {entity:{position:new Vec3(.5,64,.5)},blockAt(p){const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z);const name=blocks[`${x},${y},${z}`]||(y<64?'grass_block':'air');return name==='unloaded'?null:{name,boundingBox:['air','water','lava'].includes(name)?'empty':'block',position:new Vec3(x,y,z)};}};}
 
+test('closed raised-house approach uses the actual exterior ground height',()=>{
+ const {homeApproach,approachGoal}=require('../controller/world_navigation'),b=fixture(),plot={x:0,y:65,z:0};
+ b.entity.position=new Vec3(.5,64,-8.5);const original=b.blockAt;
+ b.blockAt=p=>p.x===0&&p.y===65&&p.z===-3?{name:'oak_door',getProperties:()=>({open:false})}:original(p);
+ assert.deepEqual(homeApproach(plot,b),[.5,64.1,-4.5]);
+ assert.deepEqual(approachGoal(b,[.5,65.1,.5],plot),[.5,64.1,-4.5]);
+ const p=route(b,homeApproach(plot,b),16,512);assert.equal(p.reached,true);
+});
+
 test('off-center movement beside a diagonal workbench aligns inside its clear cell first',()=>{
  const b=fixture({'-3,64,1':'crafting_table'});b.entity.position=new Vec3(-1.8514,64,2.6204);b.entity.onGround=true;
  const planned=route(b,[-1.5,64.1,-.5],16,512,true,{reversible:true});
