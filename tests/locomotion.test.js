@@ -2,6 +2,15 @@ const {test}=require('node:test');const assert=require('node:assert/strict');
 const {motorPlan,createMotor}=require('../controller/locomotion');
 const permissions={move:true,turn:true,jump:true},safe={frontBlocked:false,headBlocked:false,frontHazard:false};
 
+test('short policy endpoints stop the wall probe at the checked destination',()=>{
+ const {Vec3}=require('vec3');let now=0,clear=true;const controls={};
+ const b={entity:{position:new Vec3(.5,64,.5),yaw:0,onGround:true},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v};
+ const motor=createMotor(b,permissions,{clock:()=>now}),task={kind:'expedition',safe_walk:true,strict_ground:true,safety_focus:[.5,64.1,.07],waypoints:[[.5,64.1,.07]]};
+ const sensed={...safe,wallAhead:true,canWalk:(_y,d)=>clear&&d<.5,canStepDown:()=>false};
+ motor.command(0,task,sensed,0);now+=50;motor.tick();assert.equal(controls.forward,true);
+ clear=false;motor.command(0,task,sensed,0);now+=50;motor.tick();assert.equal(controls.forward,false);
+});
+
 test('travel looks smoothly above and below the horizon without interfering with a look lock',()=>{
  const {Vec3}=require('vec3');let now=0;const controls={},pitches=[];
  const bot={entity:{id:2,position:new Vec3(.5,64,.5),yaw:0,pitch:0,onGround:true},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,async look(y,p){this.entity.yaw=y;this.entity.pitch=p;pitches.push(p);}};

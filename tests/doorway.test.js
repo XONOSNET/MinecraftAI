@@ -2,6 +2,13 @@ const {test}=require('node:test');const assert=require('node:assert/strict');con
 const permissions={move:true,turn:true},base={forward:true},door={id:'0,0',axis:'x',plane:.5,center:.59375,open:true,y:181};
 const sensed=(d=door,canWalk=()=>true)=>({doorway:d,canWalk});
 
+test('diagonal approach stays on the checked route until inside the door aisle',()=>{
+ const c=createDoorway();
+ assert.equal(c.update(base,sensed(),{x:-2,y:181,z:2},0,0,permissions),null);
+ assert.equal(c.active(),false);
+ assert.notEqual(c.update(base,sensed(),{x:-2,y:181,z:.6},0,100,permissions),null);
+});
+
 test('raised entry leaves its verified climb to the route until grounded at door level',()=>{
  const c=createDoorway(),d={...door,y:182};
  assert.equal(c.update(base,sensed(d,()=>false),{x:-1.5,y:181,z:.59375},-Math.PI/2,0,permissions),null);

@@ -1,0 +1,11 @@
+{
+  "fixture": "Isolated sky platform; bootstrap using actual crafting and placement.",
+  "success": true,
+  "seconds": 8.748,
+  "position": {
+    "x": -80.48645534361067,
+    "y": 240,
+    "z": 161.41145084702984
+  },
+  "phase": "gather"
+}

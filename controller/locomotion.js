@@ -76,6 +76,11 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    const routeFocus=task?.safety_focus,p=bot.entity.position;
    const routeDistance=routeFocus?Math.hypot(routeFocus[0]-p.x,routeFocus[2]-p.z):Infinity;
    const flatRoute=routeFocus&&Math.abs(routeFocus[1]-p.y)<.4;
+   // A short checked endpoint can be beside foliage or a wall. The generic
+   // long wall ray must not reject the clear body corridor ending before it.
+   if(flatRoute&&routeDistance<.8&&Math.abs(angle)<.18&&sensed?.canWalk?.(bot.entity.yaw+angle,routeDistance)){
+    recovery.reset();sensed={...sensed,wallAhead:false};
+   }
    // A wall in the old view cannot cancel a safe turn into the checked route.
    if(flatRoute&&Math.abs(angle)>.18&&sensed?.canWalk?.(bot.entity.yaw+angle,routeProbe(p,routeFocus,.75))){
     recovery.reset();sensed={...sensed,wallAhead:false};plan.forward=false;plan.jump=false;
@@ -114,11 +119,12 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     plan.descent=plan.strictGround&&rise<-.6&&rise> -1.2&&Math.abs(angle)<.35;
     if(!plannedStep)plan.jump=false;
     if(plannedStep&&plan.jump)plan.stepLevel=task.waypoints[0][1];
-    if(plan.forward&&!regain&&bot.entity.onGround!==false&&typeof sensed?.canStepDown==='function'&&!(plan.strictGround&&!plan.descent&&sensed.canWalk?sensed.canWalk(bot.entity.yaw,routeProbe(bot.entity.position,task?.safety_focus||(task?.center_route?focus:null),.75)):sensed.canStepDown(bot.entity.yaw,plan.descent ? .35 : .75))&&!(plan.jump&&plannedStep)){
+    const stop=passage&&plan.moveTarget?[plan.moveTarget.x,p.y,plan.moveTarget.z]:task?.safety_focus||(task?.center_route?focus:null);
+    if(plan.forward&&!regain&&bot.entity.onGround!==false&&typeof sensed?.canStepDown==='function'&&!(plan.strictGround&&!plan.descent&&sensed.canWalk?sensed.canWalk(bot.entity.yaw,routeProbe(bot.entity.position,stop,.75)):sensed.canStepDown(bot.entity.yaw,plan.descent ? .35 : .75))&&!(plan.jump&&plannedStep)){
      plan.forward=false;plan.label='Holding: blocked ground or unsafe drop ahead';
     }
    }
-   plan.safetyFocus=task?.safety_focus||null;
+   plan.safetyFocus=passage&&plan.moveTarget?[plan.moveTarget.x,p.y,plan.moveTarget.z]:task?.safety_focus||null;
    plan.avoidPlayers=!!task?.avoid_players;plan.levelLook=!!task?.quick_look;
    plan.travelLook=!!task?.safe_walk&&!!task?.quick_look&&!!task?.safety_focus;
    if(plan.travelLook){const q=task.waypoints?.[0]||task.safety_focus;plan.terrainPitch=Math.max(-.35,Math.min(.35,Math.atan2(q[1]-bot.entity.position.y,Math.max(2,Math.hypot(q[0]-bot.entity.position.x,q[2]-bot.entity.position.z)))));}

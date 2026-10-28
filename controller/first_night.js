@@ -82,7 +82,10 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   const pos=house.point(t.plot,'table');t.message='Making an axe early to speed up shelter harvesting';
   // Leave a body-width margin from the new table, even at the accepted
   // edge of the approach radius. The old radius allowed self-collision.
-  const stance=new Vec3(pos.x+1.8,pos.y+.1,pos.z+.5),ready=()=>b.entity.position.distanceTo(stance)<=.42;
+  // A refused placement must change the approach, rather than repeating the
+  // same obstructed click until all retries are exhausted.
+  const offsets=[[1.8,.5],[.5,1.8],[-.8,.5]],offset=offsets[Math.min(n.bootstrapRetries||0,offsets.length-1)];
+  const stance=new Vec3(pos.x+offset[0],pos.y+.1,pos.z+offset[1]),ready=()=>b.entity.position.distanceTo(stance)<=.42;
   if(!ready()){await t.walk(b,motor,[stance.x,stance.y,stance.z],state,api,scan,tasks);return;}
   motor.pause();
   if(b.entity.onGround===false||Math.hypot(b.entity.velocity?.x||0,b.entity.velocity?.z||0)>.025){t.message='Stopping at a clear workbench-building stance';return;}
@@ -90,6 +93,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(!ready()){t.navigator.lastPlan=-Infinity;t.message='Rechecking the workbench stance after crafting';return;}
   if(b.blockAt(new Vec3(pos.x,pos.y,pos.z))?.name!=='crafting_table'){
    if(!count(b,'crafting_table'))await t.craft(b,'crafting_table',1,null);
+   if(!ready()||b.entity.onGround===false||Math.hypot(b.entity.velocity?.x||0,b.entity.velocity?.z||0)>.025){t.navigator.lastPlan=-Infinity;t.message='Rechecking clear footing before placing the workbench';return;}
    try{await t.place(b,pos,'crafting_table');}catch(error){if(!String(error.message).includes('Server refused')||(n.bootstrapRetries=(n.bootstrapRetries||0)+1)>=3)throw error;t.path=[];t.navigator.lastPlan=-Infinity;t.message='Workbench placement was obstructed; checking the close approach again';return;}
   }
   const table=b.blockAt(new Vec3(pos.x,pos.y,pos.z));if(count(b,'stick')<2)await t.craft(b,'stick',1,null);

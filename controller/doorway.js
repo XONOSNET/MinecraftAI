@@ -18,7 +18,10 @@ function createDoorway(){
   // cannot walk through a one-block riser and would otherwise cancel its jump.
   const entry=d||state;
   if(entry&&(p.y<entry.y-.4||sensed.onGround===false)){state=null;label=null;return null;}
-  if(!state&&d&&!finished.has(d.id)&&permissions.move&&permissions.turn){state={...d,side:p[d.axis]<d.plane?-1:1,phase:'align',started:now};}
+  // Let the checked route reach the door aisle first. Starting from a diagonal
+  // can send the alignment shortcut through a neighboring house wall.
+  const inAisle=d&&Math.abs(p[d.axis==='x'?'z':'x']-d.center)<.65;
+  if(!state&&d&&inAisle&&!finished.has(d.id)&&permissions.move&&permissions.turn){state={...d,side:p[d.axis]<d.plane?-1:1,phase:'align',started:now};}
   if(!state){label=null;return null;}
   if(d?.id===state.id){state.open=d.open;if(d.open)state.center=d.center;}
   const cross=state.axis==='x'?'z':'x',offset=p[state.axis]-state.plane;
