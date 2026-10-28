@@ -141,3 +141,18 @@ def test_all_nine_unusable_training_sites_stop_without_visiting_held_out_sites(t
     import pytest
     with pytest.raises(RuntimeError,match='No usable dry spawn'):m.tick()
     assert not lab.reviews and lab.weights==1
+
+
+def test_transport_failure_retries_same_site_without_promoting_or_rejecting_weights(tmp_path):
+    m,lab,clock=fixture(tmp_path);reach_candidate(m,lab);lab.finish(1)
+    lab.world['results']['LabAI1']['failure_category']='infrastructure';m.tick()
+    assert m.state['phase']=='cooldown' and lab.restores==1 and lab.weights==lab.protected
+    assert not lab.reviews and not m.state['history'] and m.state['options']['scenario']==0
+
+
+def test_three_transport_failed_comparisons_stop_instead_of_looping_forever(tmp_path):
+    m,lab,clock=fixture(tmp_path);m.tick();lab.finish(0)
+    lab.world['results']['LabAI0']['failure_category']='infrastructure';m.state['infrastructure_failures']=2
+    import pytest
+    with pytest.raises(RuntimeError,match='three comparisons'):m.tick()
+    assert not lab.reviews

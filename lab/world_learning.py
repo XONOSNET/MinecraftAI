@@ -60,7 +60,7 @@ class WorldLearning:
     def start(self,options):
         if self.state.get('enabled') or self.state.get('restore_pending') or self.state.get('phase')=='stopping':raise ValueError('World learning is already active or requires protected-model restoration.')
         self.h['stop_world']()
-        self.state.update(enabled=True,options=copy.deepcopy(options),streak=0,trained=[],queue=[],pending_action=None)
+        self.state.update(enabled=True,options=copy.deepcopy(options),streak=0,trained=[],queue=[],pending_action=None,infrastructure_failures=0)
         self.phase('waiting','Automatic world learning selected. Waiting for all bots and Minecraft.')
         return self.snapshot()
 
@@ -111,6 +111,11 @@ class WorldLearning:
             if world['active']:return
             if world['phase']!='finished':raise RuntimeError('World trial preparation or execution stopped: '+world.get('message','unknown error'))
             rows=[world.get('results',{}).get(name,{}) for name in world.get('bots',[])]
+            if any(r.get('failure_category')=='infrastructure' for r in rows):
+                if s.get('restore_pending'):self.h['restore']();s['restore_pending']=False
+                s['infrastructure_failures']=s.get('infrastructure_failures',0)+1
+                if s['infrastructure_failures']>=3:raise RuntimeError('Repeated local service failures interrupted three comparisons; protected models retained.')
+                self.phase('cooldown','Local service failure interrupted this comparison. Retrying the same site without scoring or promoting models.');return
             if rows and all(r.get('state')=='stopped' and (r.get('failure_category')=='site_unavailable' or r.get('message','').startswith('survey: No safe natural spawn found.')) for r in rows):
                 if s.get('restore_pending'):self.h['restore']();s['restore_pending']=False
                 options=s['options'];key=f"{options['mission']}-{options.get('night_level',0)}-{options['size']}"
@@ -141,7 +146,7 @@ class WorldLearning:
             if s['options']['mission']=='first_night':result['night_level']=s['options'].get('night_level',0)
             self.h['review'](result)
             if not accepted:self.h['restore']()
-            s['restore_pending']=False;s['history'].append(result);s['history']=s['history'][-40:]
+            s['restore_pending']=False;s['infrastructure_failures']=0;s['history'].append(result);s['history']=s['history'][-40:]
             champion=candidate if accepted else s['baseline'];s['streak']=s.get('streak',0)+1 if champion['completed']/max(1,champion['bots'])>=.75 else 0
             if s.get('streak',0)>=2 and s['options'].get('auto_progress',True):
                 tiers=['settlement','stone_age','iron_age','homestead','home_defense']

@@ -15,3 +15,11 @@ test('search gaze returns smoothly to level after looking up',async()=>{
  await level(b);assert.ok(pitches.length>3);assert.ok(Math.abs(b.entity.pitch)<.01);assert.equal(b.entity.yaw,1);
  for(let i=1;i<pitches.length;i++)assert.ok(Math.abs(pitches[i]-pitches[i-1])<=Math.PI/20+.001);
 });
+
+
+test('grounded harvesting does not mistake ordinary gravity velocity for being airborne',async()=>{
+ const {EventEmitter}=require('node:events'),{harvest}=require('../controller/harvest'),b=new EventEmitter(),block={name:'oak_log',position:new Vec3(0,64,-1)};
+ Object.assign(b,{entity:{position:new Vec3(.5,64,.5),eyeHeight:1.62,onGround:true,velocity:new Vec3(0,-.0784,0),yaw:0,pitch:Math.atan2(-1.12,1)},look:async()=>{},blockAt:()=>block,digTime:()=>0,swingArm(){}});
+ b._client={write(packet,data){if(data.status===2)queueMicrotask(()=>b.emit('blockUpdate',block,{name:'air',position:block.position}));}};
+ const started=performance.now();assert.equal(await harvest(b,block),true);assert.ok(performance.now()-started<800,'grounded gravity must not add ten 100-ms settling waits');
+});

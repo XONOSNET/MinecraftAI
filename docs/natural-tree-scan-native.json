@@ -1,0 +1,21 @@
+{
+  "fixture": "Read-only tree acquisition profiling in the active natural-resource site",
+  "block_search": {
+    "ms": 793.3,
+    "count": 163
+  },
+  "loaded_column_search": {
+    "ms": 29.3,
+    "count": 200
+  },
+  "ray_search": {
+    "ms": 6.8,
+    "count": 0
+  },
+  "position": {
+    "x": 24628.5,
+    "y": 65,
+    "z": 16480.5
+  },
+  "success": true
+}
