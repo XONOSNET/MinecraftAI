@@ -59,7 +59,7 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
  // or wall when it starts the next leg. Center before taking that corner.
  if(!escape&&path.length&&Math.hypot(start[0]+.5-p.x,start[2]+.5-p.z)>.2){
   const adjacentWall=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]].some(([dx,dz])=>{const b=terrain.blockAt(new Vec3(start[0]+dx,start[1],start[2]+dz));return b?.boundingBox==='block'&&!b.name.endsWith('_door');});
-  const adjacentDrop=[[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dz])=>!stand(start[0]+dx,start[1],start[2]+dz));
+  const adjacentDrop=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]].some(([dx,dz])=>!stand(start[0]+dx,start[1],start[2]+dz));
   if(adjacentWall||adjacentDrop){const center=[start[0]+.5,start[1]+.1,start[2]+.5];center.centering=true;path.unshift(center);}
  }
  if(escape)path.unshift(escape);

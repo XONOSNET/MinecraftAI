@@ -70,3 +70,12 @@ test('a safe column recenter waits for residual motion to settle',async()=>{
  const waits=[];b.waitForTicks=async n=>waits.push(n);
  assert.equal(await access.recoverColumn(b,motor,state),true);assert.deepEqual(waits,[4]);assert.equal(b.labResourceAccess,undefined);
 });
+
+test('a server-rejected jump placement returns failure and releases jump controls',async()=>{
+ const b=fixture(),feet=new Vec3(0,64,0),controls={};
+ b.heldItem={name:'dirt',count:2};b.entity.yaw=0;b.entity.pitch=-Math.PI/2;
+ b.setControlState=(k,v)=>controls[k]=v;b.look=async(y,p)=>{b.entity.yaw=y;b.entity.pitch=p;};
+ b.waitForTicks=async()=>{b.entity.position.y=65.1;};b.placeBlock=async()=>{throw Error('Server refused to place dirt: the block is still air');};
+ assert.equal(await access.jumpPlace(b,feet,b.heldItem),false);assert.equal(controls.jump,false);
+ b.placeBlock=async()=>{throw Error('Unexpected connection error');};await assert.rejects(access.jumpPlace(b,feet,b.heldItem),/connection/);assert.equal(controls.jump,false);
+});

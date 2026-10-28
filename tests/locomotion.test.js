@@ -167,3 +167,16 @@ test('a verified descending landing does not enter wall-recovery based on the up
  const motor=createMotor(b,permissions,{clock:()=>now}),task={kind:'expedition',safe_walk:true,strict_ground:true,waypoints:[[.5,63.1,-.5]]};
  const sensed={...safe,...proximity(b,{recovery:false}),wallAhead:true,headBlocked:true};motor.command(0,task,sensed,0);now=50;motor.tick();assert.equal(controls.forward,true);assert.equal(motor.diagnostic().recovering,false);
 });
+
+test('policy ground checks stop at a verified waypoint instead of beyond its ledge',()=>{
+ const {Vec3}=require('vec3'),controls={},bot={players:{},entity:{yaw:-Math.PI/2,pitch:0,onGround:true,position:new Vec3(.97,67,.5),velocity:new Vec3(0,0,0)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,
+ blockAt(p){const q=p.floored(),floor=q.x<2?67:66;return {name:q.y<floor?'stone':'air',position:q,boundingBox:q.y<floor?'block':'empty'};}};
+ const {proximity}=require('../controller/perception'),sensed=proximity(bot),motor=createMotor(bot,permissions);
+ motor.command(0,{kind:'expedition',safe_walk:true,strict_ground:true},sensed,0);motor.tick();assert.equal(!!controls.forward,false);
+ motor.command(0,{kind:'expedition',safe_walk:true,strict_ground:true,safety_focus:[1.5,67.1,.5]},sensed,0);motor.tick();assert.equal(controls.forward,true);
+ motor.command(0,{kind:'expedition',safe_walk:true,strict_ground:true,safety_focus:[2.5,67.1,.5]},sensed,0);motor.tick();assert.equal(!!controls.forward,false);
+});
+test('policy waypoint braking stops momentum without selecting a heading',()=>{
+ const {Vec3}=require('vec3'),controls={},bot={entity:{yaw:-Math.PI/2,pitch:0,onGround:true,position:new Vec3(1.4,67,.5),velocity:new Vec3(.2,0,0)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,look(){throw Error('Safety braking must not steer');}};
+ const motor=createMotor(bot,permissions);motor.command(0,{kind:'expedition',safety_focus:[1.5,67.1,.5]},safe,0);motor.tick();assert.equal(!!controls.forward,false);
+});

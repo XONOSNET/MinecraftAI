@@ -78,7 +78,11 @@ async function jumpPlace(bot,position,item){
   // Wait for a real physics tick above the placement cell, not a timed teleport.
   for(let i=0;i<14;i++){
    await bot.waitForTicks(1);active(bot);
-   if(bot.entity.position.y>=position.y+1.02){await bot.placeBlock(support,new Vec3(0,1,0));break;}
+   if(bot.entity.position.y>=position.y+1.02){
+    try{await bot.placeBlock(support,new Vec3(0,1,0));}
+    catch(error){if(!String(error.message).includes('Server refused to place'))throw error;}
+    break;
+   }
   }
  }finally{bot.setControlState('jump',false);}
  for(let i=0;i<25;i++){if(bot.entity.onGround&&bot.entity.position.y>=position.y+.95)break;await bot.waitForTicks(1);}
@@ -98,10 +102,10 @@ async function attempt(bot,motor,target,options={}){
  if(!canRaise(bot,target,options))return {handled:false,message:'Resource footing changed before the jump'};
  state.column=state.column||[];state.baseY=state.baseY??feet.y;state.tree=[target.x,target.z];
  return controlled(bot,motor,async()=>{
-  const placed=await jumpPlace(bot,feet,item);
+  const placed=await jumpPlace(bot,feet,item);state.placeFailures=placed?0:(state.placeFailures||0)+1;
   // Track server-confirmed blocks even if landing has not settled yet.
   if(bot.blockAt(feet)?.name===item.name)state.column.push({position:feet.clone(),name:item.name});
-  return {handled:true,progress:placed,message:placed?'Built temporary step '+state.column.length+' / '+MAX_HEIGHT+' to reach higher logs':'Waiting for a safe build-up landing'};
+  return {handled:placed||state.placeFailures<2,progress:placed,message:placed?'Built temporary step '+state.column.length+' / '+MAX_HEIGHT+' to reach higher logs':state.placeFailures<2?'Server rejected the temporary block; checking grounded footing before one retry':'Temporary placement rejected twice; choosing another safe approach'};
  });
 }
 async function descend(bot,motor,state){
