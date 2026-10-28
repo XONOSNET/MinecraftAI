@@ -40,20 +40,20 @@ b.once('spawn',async()=>{try{
   report.current_bot_sensor_candidates[name]={in_height_and_distance:inRange.length,eligible_after_safety_and_visibility:eligible.length,wood_logs:c.results[name]?.logs,house_blocks:c.results[name]?.blocks};
  }
  await admin({action:'teleport-coordinates',x:(bounds[0]+bounds[1])/2+1024,y:85,z:(bounds[2]+bounds[3])/2});await wait(2500);
- let original=await census(bounds,1024);const originals=new Map(original.logs.map(p=>[p.toString(),p])),columns=new Set(original.column_ids);
- for(const [dx,dz] of [[8,8],[120,8],[8,120],[120,120]]){
-  if(columns.size===64)break;
+ const expected=(bounds[1]-bounds[0])*(bounds[3]-bounds[2])/256;let original=await census(bounds,1024);const originals=new Map(original.logs.map(p=>[p.toString(),p])),columns=new Set(original.column_ids);
+ for(const [dx,dz] of [[8,8],[bounds[1]-bounds[0]-8,8],[8,bounds[3]-bounds[2]-8],[bounds[1]-bounds[0]-8,bounds[3]-bounds[2]-8]]){
+  if(columns.size===expected)break;
   await admin({action:'teleport-coordinates',x:bounds[0]+1024+dx,y:85,z:bounds[2]+dz});await wait(1200);
   original=await census(bounds,1024);for(const p of original.logs)originals.set(p.toString(),p);for(const id of original.column_ids)columns.add(id);
  }
- report.saved_template={loaded_columns:columns.size,expected_columns:64,log_blocks:originals.size,trunk_columns:new Set([...originals.values()].map(p=>p.x+','+p.z)).size};
+ report.saved_template={loaded_columns:columns.size,expected_columns:expected,log_blocks:originals.size,trunk_columns:new Set([...originals.values()].map(p=>p.x+','+p.z)).size};
  if(c.camp_anchor){const [x,y,z]=c.camp_anchor,r=require('../config/house.json').camp_radius;
   const cleared=[...originals.values()].filter(p=>p.x>=x+1024-r&&p.x<=x+1024+r&&p.z>=z-r&&p.z<=z+r&&p.y>=y-1&&p.y<=y+9).length;
   report.camp_setup={logs_replaced_by_clearing:cleared,starting_logs_after_camp:originals.size-cleared};
   if(fs.existsSync('logs/resource-overhaul-camp-areas.json')){const planned=JSON.parse(fs.readFileSync('logs/resource-overhaul-camp-areas.json','utf8'));const removed=[...originals.values()].filter(p=>planned.areas.some(([a,b,c,d,top])=>p.x>=a+1024&&p.x<=b+1024&&p.z>=c&&p.z<=d&&p.y>=planned.y-1&&p.y<=top)).length;report.proposed_camp={logs_replaced_by_clearing:removed,starting_core_logs_after_camp:originals.size-removed,preserved_extra_logs:cleared-removed};}
 
  }
- report.success=current.missing_columns.length===0&&columns.size===64;
+ report.success=current.missing_columns.length===0&&columns.size===expected;
  }catch(e){report.error=e.stack;}finally{
  await admin({action:'teleport-coordinates',x:-153.5,y:225.1,z:160.5}).catch(()=>{});survey.release(b);
  fs.writeFileSync(process.argv.includes('--overhaul')?'docs/resource-overhaul-census.json':'docs/world-resource-inspection.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));b.quit();setTimeout(()=>process.exit(report.success?0:1),300);

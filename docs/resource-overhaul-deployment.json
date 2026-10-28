@@ -1,0 +1,68 @@
+{
+  "run": "world-1793197607343016900",
+  "support_level": 1,
+  "scenario": 2,
+  "phase": "running",
+  "bounds": [
+    24560,
+    24720,
+    16368,
+    16528
+  ],
+  "core_bounds": [
+    24576,
+    24704,
+    16384,
+    16512
+  ],
+  "preserve_groves": true,
+  "fauna_ready": true,
+  "fauna_split_ring": true,
+  "reset_seconds": 257.8,
+  "bots": 8,
+  "learning_enabled": true,
+  "learning_phase": "baseline",
+  "restore_pending": false,
+  "states": {
+    "LabAI7": {
+      "phase": "night_bootstrap",
+      "logs": 5,
+      "visited_cells": 3
+    },
+    "LabAI3": {
+      "phase": "gather",
+      "logs": 1,
+      "visited_cells": 3
+    },
+    "LabAI6": {
+      "phase": "gather",
+      "logs": 4,
+      "visited_cells": 3
+    },
+    "LabAI4": {
+      "phase": "gather",
+      "logs": 3,
+      "visited_cells": 6
+    },
+    "LabAI5": {
+      "phase": "gather",
+      "logs": 0,
+      "visited_cells": 3
+    },
+    "LabAI0": {
+      "phase": "night_bootstrap",
+      "logs": 4,
+      "visited_cells": 4
+    },
+    "LabAI1": {
+      "phase": "gather",
+      "logs": 0,
+      "visited_cells": 8
+    },
+    "LabAI2": {
+      "phase": "gather",
+      "logs": 0,
+      "visited_cells": 4
+    }
+  }
+}

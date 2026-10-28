@@ -27,3 +27,7 @@ The original saved core fauna list is retained. Original ring animals are captur
 - Evidence: `resource-overhaul-census.json` and `resource-exploration-native.json`.
 
 Automatic learning is paused before deployment and any unvalidated model bundle restored by the existing scheduler. The Python/backend change requires one lab restart, then a fresh paired comparison at the same level/site. Saved models, examples, identities and configuration are retained. Full survival completion remains unverified; this overhaul addresses resource supply/search constraints, not all navigation or learned-policy weaknesses.
+
+## Live deployment verified
+
+The expanded 160x160 terrain reset completed successfully, including guarded ring fauna restoration. All eight bots deployed into level 1, scenario 2; the camp reports grove preservation enabled. Automatic learning is running a fresh baseline, with no unvalidated model restoration pending. Per-bot visited-patch telemetry is present and bots are harvesting/bootstrapping tools. Evidence: `resource-overhaul-deployment.json`. Full survival-chain improvement still requires the completed paired evaluation.
