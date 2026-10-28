@@ -31,6 +31,7 @@ test('descent refuses an untracked replacement support',async()=>{
 });
 test('build-up has a fixed height limit and cannot invent material',async()=>{
  const b=fixture(),motor={pause(){},lockLook(){}},target=new Vec3(1,71,0);
+ b.set(1,71,0,'oak_log');
  assert.equal((await access.attempt(b,motor,target,{state:{column:[{},{},{}]}})).handled,false);
  b.inventory.items=()=>[];assert.match((await access.attempt(b,motor,target,{state:{}})).message,/carried dirt/);
  assert.equal(access.material('oak_log'),false);assert.equal(access.material('sand'),false);

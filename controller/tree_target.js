@@ -13,7 +13,7 @@ function chooseTree(bot,targets,previous,surface,run,previousApproach=null){
    const y=surface(bot,trunk.x+dx,trunk.z+dz);
    if(y!==null&&blocks.some(b=>withinReach(bot,b,new Vec3(trunk.x+dx+.5,y+.1,trunk.z+dz+.5)))){
     const goal=[trunk.x+dx+.5,y+.1,trunk.z+dz+.5];
-    if(space.clearOfPlayers(bot,{x:goal[0],y:goal[1],z:goal[2]})&&(Math.abs(dx)+Math.abs(dz)===1||blocks.some(b=>require('./resource_access').corridor(bot,b,new Vec3(...goal)).clear)))approaches.push(goal);
+    if(space.clearOfPlayers(bot,{x:goal[0],y:goal[1],z:goal[2]})&&blocks.some(b=>require('./resource_access').corridor(bot,b,new Vec3(...goal)).clear))approaches.push(goal);
    }
   }
   approaches.sort((a,b)=>Math.hypot(a[0]-p.x,a[2]-p.z)-Math.hypot(b[0]-p.x,b[2]-p.z));
@@ -28,6 +28,6 @@ function chooseTree(bot,targets,previous,surface,run,previousApproach=null){
    if(space.clearOfPlayers(bot,new Vec3(...goal))&&route(bot,goal,32,512,true,{reversible:true}).reached)return {key:id,targets:blocks,approach:goal};
   }
  }
- return {key:null,targets:[]};
+ return {key:null,targets:[],rejected:ordered.slice(0,6).map(([id])=>id)};
 }
 module.exports={chooseTree};

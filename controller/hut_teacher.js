@@ -103,16 +103,19 @@ class HutTeacher{
     else if(this.wilderness?.fuelTrip&&count(bot,n=>LOG.test(n))>=4){this.wilderness.fuelTrip=false;this.phase='stone_return';motor.pause();}
     else if(count(bot,n=>LOG.test(n))*4+count(bot,planks)>=(this.supplyRun?28:this.requiredWood(bot))){motor.pause();this.phase=this.supplyRun?'supply_craft':'craft';}
     else{
-     if(!this.resourceAt||now-this.resourceAt>rules.resource_scan_ms){this.resources=this.grove?this.grove.flatMap(([x,y,z])=>[0,1,2,3,4,5].map(dy=>new Vec3(x,y+dy,z))):(await resourceScan.logs(bot,{bounds:w.bounds})).filter(v=>this.inside(v,w.bounds)&&safeResource(bot,v)&&(!this.wilderness||w.first_night.trees||visibleBlock(bot,bot.blockAt(v))||resourceAccess.obstruction(bot,v)));this.resourceAt=now;}
+     if(!this.resourceAt||now-this.resourceAt>rules.resource_scan_ms){this.resources=this.grove?this.grove.flatMap(([x,y,z])=>[0,1,2,3,4,5].map(dy=>new Vec3(x,y+dy,z))):(await resourceScan.logs(bot,{bounds:w.bounds})).filter(v=>this.inside(v,w.bounds)&&safeResource(bot,v));this.resourceAt=now;}
      if(this.grove&&!this.resources.some(v=>LOG.test(bot.blockAt(v)?.name||''))){this.grove=null;this.resourceAt=0;}
      let targets=this.resources.filter(v=>!this.ignoredTrees.has(v.x+','+v.z)&&LOG.test(bot.blockAt(v)?.name||'')).sort((a,b)=>a.distanceTo(p)-b.distanceTo(p));
+     // Keep the expedition heading until arrival unless usable wood is nearby.
+     // Far-away trunks must not repeatedly cancel an underway search patch.
+     if(this.wilderness?.searchGoal&&!this.tree)targets=targets.filter(v=>v.distanceTo(p)<6&&resourceAccess.corridor(bot,v).clear);
      let focused={key:null,targets:[]};
      const drops=Object.values(bot.entities).filter(e=>e.name==='item'&&woodDrop(bot,e)&&Math.abs(e.position.y-p.y)<1.7&&e.position.distanceTo(p)<6&&(!this.ignoredDrops?.has(e.id))&&!space.busy(bot,state.run,e.position)).sort((a,b)=>a.position.distanceTo(p)-b.position.distanceTo(p));
      const pendingDrops=this.tree&&!targets.some(v=>v.x+','+v.z===this.tree)&&drops.some(e=>Math.hypot(e.position.x-Number(this.tree.split(',')[0])-.5,e.position.z-Number(this.tree.split(',')[1])-.5)<2);
      if(!pendingDrops&&(this.tree||now>this.treeRetry)){
       if(!this.tree||!targets.some(v=>v.x+','+v.z===this.tree)){this.scanCount++;this.observedTrees=scanTrees(bot).length;}
       focused=chooseTree(bot,targets,this.tree,surface,state.run,this.treeApproach);
-      if(!focused.key)this.treeRetry=now+rules.tree_retry_ms;
+      if(!focused.key){this.treeRetry=now+rules.tree_retry_ms;for(const id of focused.rejected||[])this.ignoredTrees.set(id,now+15000);}
      }
      if(!pendingDrops&&focused.key!==this.tree){this.resourceAccess={};if(this.tree)this.timing.targets++;this.tree=pendingDrops?this.tree:focused.key;this.treeApproach=focused.approach||null;this.path=[];}
      else if(!pendingDrops&&focused.approach&&JSON.stringify(focused.approach)!==JSON.stringify(this.treeApproach)){this.treeApproach=focused.approach;this.path=[];}
@@ -121,7 +124,8 @@ class HutTeacher{
      else space.release(bot.username);
      const drop=drops.find(e=>e.id===this.pickup)||drops[0];this.pickup=drop?.id??null;
      const collecting=drop&&!targets.length&&Math.hypot(drop.position.x-p.x,drop.position.z-p.z)>1;
-     let target=targets.find(v=>Math.hypot(v.x+.5-p.x,v.z+.5-p.z)<3.5&&harvestable(bot,v));
+     const atApproach=!this.treeApproach||Math.hypot(this.treeApproach[0]-p.x,this.treeApproach[2]-p.z)<.65&&Math.abs(this.treeApproach[1]-p.y)<.6;
+     let target=atApproach&&targets.find(v=>Math.hypot(v.x+.5-p.x,v.z+.5-p.z)<3.5&&harvestable(bot,v));
      if(target){await this.harvest(bot,motor,target,state,api,scan,tasks);}
      else if(collecting){this.collecting=true;const moved=await this.walk(bot,motor,[drop.position.x,p.y,drop.position.z],state,api,scan,tasks);this.collecting=false;if(moved===false){this.ignoredDrops.set(drop.id,now+5000);this.pickup=null;}this.message='Collecting harvested drops';}
      else if(targets.length){let destination=this.treeApproach,chosenTree=targets[0];
@@ -237,8 +241,10 @@ class HutTeacher{
      const blocks=this.quarry.blocks.map(v=>bot.blockAt(new Vec3(...v))).filter(b=>b?.name==='stone').sort((a,b)=>a.position.distanceTo(p)-b.position.distanceTo(p));
      const drop=Object.values(bot.entities).filter(e=>e.name==='item'&&woodDrop(bot,e,n=>n==='cobblestone')&&Math.abs(e.position.y-p.y)<1.7&&e.position.distanceTo(p)<7).sort((a,b)=>a.position.distanceTo(p)-b.position.distanceTo(p))[0];
      const target=blocks.find(b=>!space.busy(bot,state.run,b.position)&&b.position.offset(.5,.5,.5).distanceTo(p.offset(0,1.62,0))<4&&visibleBlock(bot,b)&&bot.canDigBlock(b));
+     const covered=blocks.find(b=>resourceAccess.canClear(bot,b.position,{bounds:w.bounds,plots:[this.plot,...this.campPlots]}));
      this.harvestTarget=target?.position||blocks[0]?.position||null;
      if(target)await this.harvest(bot,motor,target.position,state,api,scan,tasks,'wooden_pickaxe');
+     else if(covered&&(await this.accessResource(bot,motor,covered.position,state)).handled){/* clear one safe cover block before mining */}
      else if(blocks.length)await this.walk(bot,motor,this.quarry.approach,state,api,scan,tasks);
      else if(drop&&space.clearOfPlayers(bot,drop.position)&&Math.hypot(drop.position.x-p.x,drop.position.z-p.z)>1)await this.walk(bot,motor,[drop.position.x,p.y,drop.position.z],state,api,scan,tasks);
      else if(cobble>=14){this.milestone('quarry');this.phase='fuel_log';motor.pause();}
@@ -251,6 +257,7 @@ class HutTeacher{
      const block=this.quarry.fuel.map(v=>bot.blockAt(new Vec3(...v))).filter(b=>b&&LOG.test(b.name)).sort((a,b)=>a.position.distanceTo(p)-b.position.distanceTo(p))[0];
      this.harvestTarget=block?.position||null;
      if(block&&block.position.offset(.5,.5,.5).distanceTo(p.offset(0,1.62,0))<4&&visibleBlock(bot,block))await this.harvest(bot,motor,block.position,state,api,scan,tasks,'wooden_axe');
+     else if(block&&resourceAccess.canClear(bot,block.position,{bounds:w.bounds,plots:[this.plot,...this.campPlots]})&&(await this.accessResource(bot,motor,block.position,state)).handled){/* expose the selected fuel log */}
      else if(block)await this.walk(bot,motor,[block.position.x-1.5,this.plot.y+.1,block.position.z+.5],state,api,scan,tasks);
      else if(drop&&space.clearOfPlayers(bot,drop.position))await this.walk(bot,motor,[drop.position.x,p.y,drop.position.z],state,api,scan,tasks);
     }

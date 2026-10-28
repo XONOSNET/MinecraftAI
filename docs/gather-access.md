@@ -1,0 +1,11 @@
+# Gather approaches and shallow resource access
+
+Gather previously started its mining policy as soon as a log was visible and in reach, even when its chosen harvesting stance was one block higher. That bypassed route step-up guidance. It now reaches the stance before harvesting. All tree approaches must also have a clear or bounded soft-cover corridor, including adjacent approaches.
+
+Natural stone discovery now retains shallow dirt-covered faces. Natural stone, prepared quarry/fuel and coal/iron lessons invoke the shared clearing skill before rejecting an obstructed resource. Clearing removes only leaves, soil and listed vegetation, with at most three cover blocks along the tested corridor and six removals per target. It requires grounded footing, loaded dry surroundings, reach, and an actual visible diggable block. It protects supporting footprints, home plots, nearby players, boundaries, sand/gravel and fluid hazards. It does not tunnel through hard rock or construct columns for minerals. Charcoal remains smelted from logs.
+
+Natural Gather retains loaded terrain candidates instead of requiring visibility from its old position. Unreachable candidates are deferred briefly. While scouting, distant trunks cannot repeatedly cancel the selected search destination; nearby usable wood can interrupt it. New search patches are at least eight blocks away, with shorter trips allowed for remembered resources. Independent exploration memories and reservations remain in use.
+
+Validation: 254 JavaScript tests passed, including full Gather dispatch across an elevated approach, mineral lesson clearing dispatch, shallow cover discovery and safety guards. The isolated native survival fixture cleared dirt and leaves, mined stone/coal/iron behind dirt with a stone pickaxe, climbed a one-block ledge in 0.993 seconds, built three temporary steps, harvested high wood and descended to its original elevation. See `resource-access-native.json`. Diagnostics use real Minecraft physics with geometry teacher intentions and no learning API writes; these checks establish physical execution, not learned survival success.
+
+Deployment pauses and discards the old comparison, preserves/restores protected specialists, restarts only the Node controller and begins a fresh comparison at the existing level-1 scenario-2 site. Minecraft and the web service remain running.

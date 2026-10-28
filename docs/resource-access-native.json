@@ -12,12 +12,42 @@
   "dirt": {
     "handled": true,
     "progress": true,
-    "message": "Clearing dirt to reach the selected log"
+    "message": "Clearing dirt to expose oak_log"
   },
   "leaves": {
     "handled": true,
     "progress": true,
-    "message": "Clearing oak_leaves to reach the selected log"
+    "message": "Clearing oak_leaves to expose oak_log"
+  },
+  "minerals": [
+    {
+      "name": "stone",
+      "cleared": true,
+      "reachable": true,
+      "mined": true
+    },
+    {
+      "name": "coal_ore",
+      "cleared": true,
+      "reachable": true,
+      "mined": true
+    },
+    {
+      "name": "iron_ore",
+      "cleared": true,
+      "reachable": true,
+      "mined": true
+    }
+  ],
+  "step_up": {
+    "arrived": true,
+    "seconds": 0.993,
+    "y": 241,
+    "position": {
+      "x": -79.54007166609695,
+      "y": 241,
+      "z": 160.4999999999998
+    }
   },
   "steps": [
     {

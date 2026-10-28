@@ -96,16 +96,18 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(!count(b,'wooden_axe'))await t.craft(b,'wooden_axe',1,table);await inventory.equip(b,'wooden_axe');t.table=pos;n.bootstrap=true;t.phase='gather';t.lastProgress=Date.now();
  }else if(t.phase==='night_stone'){
   if(count(b,'cobblestone')>=16){t.milestone('quarry');next('fuel');return;}
-  if(!n.stoneScan||now-n.stoneScan>2500){n.stoneScan=now;n.stones=(await resourceScan.stone(b,{bounds:w.bounds})).map(q=>b.blockAt(q)).filter(q=>q&&inside(q.position,w.bounds)&&q.position.y>=p.y-1&&q.position.y<=p.y+3&&visibleBlock(b,q)&&!(Math.floor(p.x)===q.position.x&&Math.floor(p.z)===q.position.z));}
+  if(!n.stoneScan||now-n.stoneScan>2500){n.stoneScan=now;n.stones=(await resourceScan.stone(b,{bounds:w.bounds})).map(q=>b.blockAt(q)).filter(q=>q&&inside(q.position,w.bounds)&&q.position.y>=p.y-1&&q.position.y<=p.y+3&&!(Math.floor(p.x)===q.position.x&&Math.floor(p.z)===q.position.z));}
   if(await pickup(t,b,motor,state,api,scan,tasks,['cobblestone']))return;
   const candidates=(n.stones||[]).filter(q=>b.blockAt(q.position)?.name==='stone'&&n.memory.available([q.position.x,q.position.y,q.position.z])&&!require('./resource_space').busy(b,state.run,q.position)).sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p));
   const target=candidates.find(q=>q.position.offset(.5,.5,.5).distanceTo(p.offset(0,1.62,0))<4&&b.canDigBlock(q)&&q.position.y>=Math.floor(p.y)-1&&!(q.position.x===Math.floor(p.x)&&q.position.z===Math.floor(p.z))&&visibleBlock(b,q));
   if(target){n.memory.remember('stone',target.position);t.harvestTarget=target.position;await t.harvest(b,motor,target.position,state,api,scan,tasks,'wooden_pickaxe');n.stoneScan=0;}
   else{
+   const covered=candidates.find(q=>require('./resource_access').canClear(b,q.position,{bounds:w.bounds,plots:[t.plot,...(t.campPlots||[])]}));
+   if(covered&&(await t.accessResource(b,motor,covered.position,state)).handled){n.stoneScan=0;return;}
    let chosen=n.stoneApproach;
    if(chosen&&(!candidates.some(q=>q.position.equals(chosen.q.position))||!standable(b,Math.floor(chosen.goal[0]),Math.round(chosen.goal[1]),Math.floor(chosen.goal[2]))))chosen=null;
    if(!chosen&&now>=(n.stonePlanAt||0)){
-    n.stonePlanAt=now+2000;for(const q of candidates.slice(0,6)){const goal=approaches(b,q,w.bounds).sort((a,c)=>new Vec3(...a).distanceTo(p)-new Vec3(...c).distanceTo(p)).slice(0,2).find(g=>route(b,g,48,1024,true,{bounds:w.bounds,reversible:true}).reached);if(goal){chosen={q,goal};break;}}n.stoneApproach=chosen;
+    n.stonePlanAt=now+2000;for(const q of candidates.slice(0,6)){const goal=approaches(b,q,w.bounds).filter(g=>require('./resource_access').corridor(b,q.position,new Vec3(...g)).clear).sort((a,c)=>new Vec3(...a).distanceTo(p)-new Vec3(...c).distanceTo(p)).slice(0,2).find(g=>route(b,g,48,1024,true,{bounds:w.bounds,reversible:true}).reached);if(goal){chosen={q,goal};break;}}n.stoneApproach=chosen;
    }
    if(chosen){n.memory.remember('stone',chosen.q.position);const arrived=await t.walk(b,motor,chosen.goal,state,api,scan,tasks);if(arrived===true||arrived===false){n.memory.reject([chosen.q.position.x,chosen.q.position.y,chosen.q.position.z]);n.stoneScan=0;n.stoneApproach=null;}}
    else await explore(t,b,motor,state,api,scan,tasks,surface,'stone');

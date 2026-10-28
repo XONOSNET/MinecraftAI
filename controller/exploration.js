@@ -16,7 +16,7 @@ class Exploration{
    for(const [owner,c] of claims){if(c.until<now){claims.delete(owner);continue;}if(owner!==bot.username&&c.run===world.run&&Math.hypot(c.goal[0]-x,c.goal[2]-z)<cell)return;}
    const visits=this.visits.get(key(goal))||0,angle=Math.atan2(z-p.z,x-p.x),bias=Math.abs(Math.atan2(Math.sin(angle-index*Math.PI/4),Math.cos(angle-index*Math.PI/4)));
    const distance=Math.hypot(x-p.x,z-p.z),score=visits*35+distance*.25+bias*3-(goal.known?12:0);
-   if(distance>2)candidates.set(id,{goal,score});
+   if(distance>=(goal.known?3:8))candidates.set(id,{goal,score});
   };
   for(const g of known){const q=[...g];q.known=true;add(q);}
   // Sample the entire loaded expedition region, not only the first nearby ring.

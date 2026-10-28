@@ -21,5 +21,16 @@ async function loadedMatches(bot,{match=LOG,minDy=-5,maxDy=8,accept=null,range=6
  return found.sort((a,b)=>a.distanceTo(center)-b.distanceTo(center)).slice(0,count);
 }
 const logs=(bot,options={})=>loadedMatches(bot,options);
-const stone=(bot,options={})=>loadedMatches(bot,{range:40,minDy:-2,maxDy:4,...options,match:/^stone$/,accept:(b,p)=>{const neighbors=[[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0],[0,-1,0]].map(([x,y,z])=>b.blockAt(p.offset(x,y,z)));return neighbors.every(q=>q&&!['water','lava'].includes(q.name))&&neighbors.slice(0,5).some(q=>q.boundingBox==='empty');}});
-module.exports={logs,stone};
+function shallowFace(bot,p){
+ const directions=[[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0]],access=require('./resource_access');
+ const neighbors=[...directions, [0,-1,0]].map(([x,y,z])=>bot.blockAt(p.offset(x,y,z)));
+ if(!neighbors.every(q=>q&&!['water','lava','sand','gravel'].includes(q.name)))return false;
+ // At most three loaded soft cover blocks from an exposed face. Solid rock
+ // remains opaque; this is shallow access, not an unrestricted ore search.
+ return directions.some(([x,y,z])=>{
+  for(let d=1;d<=4;d++){const b=bot.blockAt(p.offset(x*d,y*d,z*d));if(!b)return false;if(b.boundingBox==='empty')return true;if(d===4||!access.clearable(b))return false;}
+  return false;
+ });
+}
+const stone=(bot,options={})=>loadedMatches(bot,{range:40,minDy:-2,maxDy:4,...options,match:/^stone$/,accept:shallowFace});
+module.exports={logs,stone,shallowFace};

@@ -22,6 +22,15 @@ function corridor(bot,target,standing=bot.entity.position){
  return {clear:false,block:null};
 }
 function obstruction(bot,target){return corridor(bot,target).block;}
+function safeClear(bot,block,{bounds,plots=[]}={}){
+ if(!clearable(block)||!inside(block.position,bounds)||protectedAt(block.position,plots)||!dry(bot,block.position))return false;
+ const p=bot.entity.position,q=block.position;
+ if(!bot.entity.onGround||q.y<Math.floor(p.y)-1)return false;
+ // Never remove a block intersecting anybody's supporting footprint.
+ for(const who of [p,...space.players(bot)])if(q.y<=who.y&&q.y+1>=who.y-.15&&q.x<who.x+.31&&q.x+1>who.x-.31&&q.z<who.z+.31&&q.z+1>who.z-.31)return false;
+ return space.clearOfPlayers(bot,q.offset(.5,.5,.5));
+}
+function canClear(bot,target,options={}){const b=obstruction(bot,target);return !!b&&withinReach(bot,b.position)&&safeClear(bot,b,options);}
 function canRaise(bot,target,{bounds,plots=[]}={}){
  const p=bot.entity.position,feet=p.floored(),base=feet.offset(0,-1,0),support=bot.blockAt(base);
  if(!bot.entity.onGround||Math.hypot(target.x+.5-p.x,target.z+.5-p.z)>2.5||target.y-p.y<3||target.y-p.y>7)return false;
@@ -91,10 +100,13 @@ async function jumpPlace(bot,position,item){
 async function attempt(bot,motor,target,options={}){
  const state=options.state,p=bot.entity.position,plots=options.plots||[];motor.pause();
  if(space.busy(bot,options.run,target))return {handled:false,message:'Another miner is using this resource'};
- const block=obstruction(bot,target);
- if(block&&withinReach(bot,block.position)&&block.position.y>=Math.floor(p.y)&&inside(block.position,options.bounds)&&!protectedAt(block.position,plots)&&dry(bot,block.position)&&(state.cleared||0)<MAX_CLEAR){
-  motor.lockLook(true);try{if(await dig(bot,block)){state.cleared=(state.cleared||0)+1;return {handled:true,progress:true,message:'Clearing '+block.name+' to reach the selected log'};}}finally{motor.lockLook(false);}
+ const block=obstruction(bot,target),key=target.toString();
+ if(state.clearingTarget!==key){state.clearingTarget=key;state.cleared=0;}
+ if(block&&withinReach(bot,block.position)&&safeClear(bot,block,options)&&(state.cleared||0)<MAX_CLEAR){
+  motor.lockLook(true);try{if(await dig(bot,block)){state.cleared=(state.cleared||0)+1;return {handled:true,progress:true,message:'Clearing '+block.name+' to expose '+(bot.blockAt(target)?.name||'the selected resource')};}}finally{motor.lockLook(false);}
  }
+ // Build-up and its tracked descent belong to tree harvesting only.
+ if(!bot.blockAt(target)?.name.endsWith('_log'))return {handled:false,message:'No safe removable cover in reach'};
  if((state.column?.length||0)>=MAX_HEIGHT||!canRaise(bot,target,options))return {handled:false,message:'No safe clearing or build-up approach'};
  const item=bot.inventory.items().filter(i=>material(i.name)&&i.count>0).sort((a,b)=>Number(a.name.endsWith('_planks'))-Number(b.name.endsWith('_planks')))[0];
  if(!item)return {handled:false,message:'Higher logs need carried dirt, stone or planks for a temporary column'};
@@ -119,4 +131,4 @@ async function descend(bot,motor,state){
  state.column.pop();await bot.waitForTicks(2);for(let i=0;i<25&&!bot.entity.onGround;i++)await bot.waitForTicks(1);
  return state.column.length===0;
 }
-module.exports={MAX_HEIGHT,material,clearable,corridor,obstruction,canRaise,dig,jumpPlace,center,stabilize,recoverColumn,attempt,descend};
+module.exports={MAX_HEIGHT,material,clearable,corridor,obstruction,safeClear,canClear,canRaise,dig,jumpPlace,center,stabilize,recoverColumn,attempt,descend};

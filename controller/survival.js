@@ -32,6 +32,8 @@ async function tick(t,b,motor,state,api,scan,tasks){
   else if(target){t.harvestTarget=target.position;await t.harvest(b,motor,target.position,state,api,scan,tasks,tool);}
   else if(drop)await collect();
   else if(remaining.length){
+   const covered=remaining.find(q=>require('./resource_access').canClear(b,q.position,{bounds:w.bounds,plots:[t.plot,...(t.campPlots||[])]}));
+   if(covered&&(await t.accessResource(b,motor,covered.position,state)).handled)return;
    const q=remaining.sort((a,c)=>a.position.distanceTo(b.entity.position)-c.position.distanceTo(b.entity.position))[0],s=t.survival.station;
    const goal=item==='oak_log'?[q.position.x-1.5,t.plot.y+.1,q.position.z+.5]:item==='coal'?[q.position.x+1.5,s.bottom[1],q.position.z+.5]:[q.position.x+.5,s.bottom[1],s.bottom[2]];
    if(await t.walk(b,motor,goal,state,api,scan,tasks)===true&&!harvestable(b,q.position))throw Error('Resource face is obstructed; refusing to dig an unsafe approach');
