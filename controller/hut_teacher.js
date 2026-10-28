@@ -294,7 +294,7 @@ class HutTeacher{
    await inventorySync.sync(bot);
    const item=bot.inventory.items().find(i=>name?i.name===name:planks(i.name));if(!item)throw Error('No building material available.');
    const ref=reference(bot,q);if(!ref)throw Error('No reachable supporting face for placement.');
-   await inventorySync.equip(bot,item.name);
+   await inventorySync.equip(bot,item.name,{synced:true});
    try{await bot.placeBlock(ref.block,ref.face);return;}catch(error){if(attempt||!String(error.message).includes('Server refused'))throw error;await new Promise(r=>setTimeout(r,150));}
   }
  }

@@ -7,7 +7,7 @@ from collections import deque
 from contextlib import asynccontextmanager
 import numpy as np, torch, psutil
 from fastapi import FastAPI,Header,HTTPException,Depends,Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from .model import Policy
 from .evolution import ModelEvolution
 from .jobs import TrainingJobs, TrainingCancelled
@@ -22,7 +22,8 @@ from .tasks import task_spec, arena_commands, reset_commands, task_success, SKIL
 from .config import AGENT_COUNT, EPISODES_PER_AGENT, EXPECTED_EPISODES, LANE_END, is_agent
 from .observers import Observers, observer_progress
 from .camera_input import CameraInput
-from .world_training import WorldTraining
+from .dashboard_state import world_view, learning_view
+from .world_training import WorldTraining, SCENARIOS, LEVELS, readiness
 from .bot_lights import BotLights
 from .efficiency import completion_timing
 from .world_learning import WorldLearning
@@ -412,7 +413,8 @@ def status():
         metrics=episode_metrics()
         run_sizes={r[0]:r[1]*r[2] for r in db.execute('SELECT * FROM run_config')}
         activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error','world_learning_cycle') ORDER BY id DESC LIMIT 20")]
-        return {'world_learning':world_learning.snapshot(),'world_training':world_training.snapshot(),'model_evolution':evolution.snapshot(active_skill()),'vision':dict(vision_lines.settings),'harvest_markers':dict(harvest_markers.settings),'behavior':behavior_rules.snapshot(),'behavior_active_revision':(world_training.session or {}).get('behavior_snapshot',{}).get('revision'),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
+        world_status=dict(session=world_view(world_training.session),scenarios=SCENARIOS,history=[world_view(s) for s in world_training.saved['history'][-10:]],first_night_levels=LEVELS,readiness=readiness(world_training.saved['history']))
+        return JSONResponse({'world_learning':learning_view(world_learning.state),'world_training':world_status,'model_evolution':evolution.snapshot(active_skill()),'vision':dict(vision_lines.settings),'harvest_markers':dict(harvest_markers.settings),'behavior':behavior_rules.snapshot(),'behavior_active_revision':(world_training.session or {}).get('behavior_snapshot',{}).get('revision'),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}})
 @app.get('/memory/{agent}')
 def nearby_memory(agent:str):
     with lock:

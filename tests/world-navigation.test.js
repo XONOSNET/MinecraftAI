@@ -174,3 +174,10 @@ test('construction equips from main inventory with an authoritative hotbar swap'
  bot._client={write:(packet,data)=>{if(packet==='window_click'&&data.mode===2){swaps++;[slots[data.slot],slots[36+data.mouseButton]]=[slots[36+data.mouseButton],slots[data.slot]];queueMicrotask(()=>bot.emit('setWindowItems:0'));}}};
  await equip(bot,'oak_planks');assert.equal(swaps,1);assert.equal(bot.heldItem.name,'oak_planks');assert.equal(slots[9],undefined);
 });
+
+
+test('holding the confirmed building material does not request another inventory round trip',async()=>{
+ const {equip}=require('../controller/inventory_sync');let syncs=0;
+ const bot={heldItem:{name:'oak_planks',count:32},_syncWindow:async()=>{syncs++;}};
+ await equip(bot,'oak_planks');assert.equal(syncs,0);
+});

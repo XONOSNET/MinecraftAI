@@ -14,8 +14,9 @@ async function sync(bot){
  const window=bot.currentWindow||bot.inventory,Item=require('prismarine-item')(bot.registry);
  await new Promise((resolve,reject)=>{const event=`setWindowItems:${window.id}`,done=()=>{clearTimeout(timer);resolve();};const timer=setTimeout(()=>{bot.removeListener(event,done);reject(Error('Inventory synchronization timed out'));},3000);bot.once(event,done);bot._client.write('window_click',{windowId:window.id,stateId:-1,slot:-999,mouseButton:2,mode:5,changedSlots:[],cursorItem:Item.toNotch(window.selectedItem)});});
 }
-async function equip(bot,name){
- await sync(bot);
+async function equip(bot,name,{synced=false}={}){
+ if(bot.heldItem?.name===name&&bot.heldItem.count>0)return;
+ if(!synced)await sync(bot);
  if(bot.heldItem?.name===name&&bot.heldItem.count>0)return;
  const Item=require('prismarine-item')(bot.registry),item=bot.inventory.items().find(i=>i.name===name);
  if(!item)throw Error('Missing item to equip: '+name);

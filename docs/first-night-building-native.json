@@ -1,0 +1,21 @@
+{
+  "fixture": "Eight server-confirmed wall placements with one inventory check per block and reuse of held materials",
+  "grants": [
+    "Isolated illuminated house",
+    "64 oak planks"
+  ],
+  "checks": [],
+  "placement_ms": [
+    1079,
+    121,
+    156,
+    121,
+    983,
+    111,
+    176,
+    166
+  ],
+  "seconds": 2.913,
+  "blocks": 8,
+  "success": true
+}

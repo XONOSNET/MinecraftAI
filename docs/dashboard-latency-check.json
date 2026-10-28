@@ -1,0 +1,85 @@
+{
+  "method": "Five consecutive dashboard status requests in one worker; twelve deliberately stale /step requests in the other, spaced by 50 ms. Stale requests record no actions or training data.",
+  "before_context": "Eight connected bots, live First Night student evaluation, existing dashboard pollers.",
+  "after_context": "Eight connected bots, fresh First Night baseline restoring terrain, existing dashboard pollers. Not an identical simulation workload or sustained-load benchmark.",
+  "before": {
+    "stale_step_ms": [
+      4201.7,
+      3161.7,
+      4225.7,
+      3001.4,
+      4760.1,
+      216.2,
+      25.0,
+      1447.3,
+      74.6,
+      16.8,
+      17.9,
+      6.6
+    ],
+    "median_step_ms": 831.75,
+    "max_step_ms": 4760.1,
+    "dashboard": [
+      {
+        "ms": 4202.4,
+        "bytes": 5352904
+      },
+      {
+        "ms": 3052.3,
+        "bytes": 5352911
+      },
+      {
+        "ms": 2970.5,
+        "bytes": 5353040
+      },
+      {
+        "ms": 3102.2,
+        "bytes": 5352840
+      },
+      {
+        "ms": 2963.1,
+        "bytes": 5352836
+      }
+    ]
+  },
+  "after": {
+    "stale_step_ms": [
+      70.0,
+      54.2,
+      65.1,
+      12.1,
+      2.2,
+      41.0,
+      49.2,
+      5.5,
+      13.4,
+      2.0,
+      14.0,
+      5.8
+    ],
+    "median_step_ms": 13.7,
+    "max_step_ms": 70.0,
+    "dashboard": [
+      {
+        "ms": 70.1,
+        "bytes": 1173971
+      },
+      {
+        "ms": 74.4,
+        "bytes": 1173972
+      },
+      {
+        "ms": 92.6,
+        "bytes": 1173969
+      },
+      {
+        "ms": 53.4,
+        "bytes": 1173965
+      },
+      {
+        "ms": 55.3,
+        "bytes": 1173965
+      }
+    ]
+  }
+}
