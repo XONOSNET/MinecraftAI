@@ -100,9 +100,11 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(!count(b,'wooden_axe'))await t.craft(b,'wooden_axe',1,table);await inventory.equip(b,'wooden_axe');t.table=pos;n.bootstrap=true;t.phase='gather';t.lastProgress=Date.now();
  }else if(t.phase==='night_stone'){
   if(count(b,'cobblestone')>=16){t.milestone('quarry');next('fuel');return;}
-  if(!n.stoneScan||now-n.stoneScan>2500){n.stoneScan=now;n.stones=(await resourceScan.stone(b,{bounds:w.bounds})).map(q=>b.blockAt(q)).filter(q=>q&&inside(q.position,w.bounds)&&q.position.y>=p.y-1&&q.position.y<=p.y+3&&!(Math.floor(p.x)===q.position.x&&Math.floor(p.z)===q.position.z));}
+  // First Night gathers exposed faces, not floor blocks. Removing neighboring
+  // support below our feet was creating low-ceiling pockets with no jump out.
+  if(!n.stoneScan||now-n.stoneScan>2500){n.stoneScan=now;n.stones=(await resourceScan.stone(b,{bounds:w.bounds})).map(q=>b.blockAt(q)).filter(q=>q&&inside(q.position,w.bounds)&&q.position.y>=Math.floor(p.y)&&q.position.y<=p.y+3&&!(Math.floor(p.x)===q.position.x&&Math.floor(p.z)===q.position.z));}
   if(await pickup(t,b,motor,state,api,scan,tasks,['cobblestone']))return;
-  const candidates=(n.stones||[]).filter(q=>b.blockAt(q.position)?.name==='stone'&&n.memory.available([q.position.x,q.position.y,q.position.z])&&!require('./resource_space').busy(b,state.run,q.position)).sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p));
+  const candidates=(n.stones||[]).filter(q=>q.position.y>=Math.floor(p.y)&&b.blockAt(q.position)?.name==='stone'&&n.memory.available([q.position.x,q.position.y,q.position.z])&&!require('./resource_space').busy(b,state.run,q.position)).sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p));
   const target=candidates.find(q=>q.position.offset(.5,.5,.5).distanceTo(p.offset(0,1.62,0))<4&&b.canDigBlock(q)&&q.position.y>=Math.floor(p.y)-1&&!(q.position.x===Math.floor(p.x)&&q.position.z===Math.floor(p.z))&&visibleBlock(b,q));
   if(target){n.memory.remember('stone',target.position);t.harvestTarget=target.position;await t.harvest(b,motor,target.position,state,api,scan,tasks,'wooden_pickaxe');n.stoneScan=0;}
   else{

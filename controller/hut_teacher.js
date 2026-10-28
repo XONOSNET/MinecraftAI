@@ -418,8 +418,10 @@ class HutTeacher{
   if(!access.descending&&!enough&&bot.health>=10&&target){this.harvestTarget=target;await this.harvest(bot,motor,target,state,api,scan,tasks);return;}
   if(!access.descending&&!enough&&bot.health>=10&&logs.length){const result=await this.accessResource(bot,motor,logs[0],state);if(result.handled)return;}
   access.descending=true;this.message='Dismantling temporary blocks and stepping down safely';
+  const before=access.column.length;
   if(await resourceAccess.descend(bot,motor,access)){this.resourceAccess={};this.tree=null;this.treeApproach=null;this.resourceAt=0;}
-  this.lastProgress=Date.now();
+  if(access.column.length<before)this.lastProgress=Date.now();
+  else this.message='Rechecking the tracked temporary support before stepping down';
  }
  async harvest(bot,motor,target,state,api,scan,tasks,tool=null){
   this.timing.mark(this.phase,'harvesting');

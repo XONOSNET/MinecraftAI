@@ -130,8 +130,16 @@ async function descend(bot,motor,state){
  if(Math.hypot(p.x-q.x-.5,p.z-q.z-.5)>.2||Math.abs(p.y-q.y-1)>.15||!bot.entity.onGround)throw Error('Temporary column descent needs a centered, settled stance');
  const b=bot.blockAt(q),floor=bot.blockAt(q.offset(0,-1,0));
  if(b?.name!==entry.name||floor?.boundingBox!=='block'||!dry(bot,q))throw Error('Temporary column changed; cannot descend safely');
- motor.lockLook(true);try{if(!await dig(bot,b))throw Error('Temporary support was not removed');}finally{motor.lockLook(false);}
- state.column.pop();await bot.waitForTicks(2);for(let i=0;i<25&&!bot.entity.onGround;i++)await bot.waitForTicks(1);
+ motor.lockLook(true);let removed;try{removed=await dig(bot,b);}finally{motor.lockLook(false);}
+ if(!removed){
+  // Keep the exact tracked support and retry after the next settled ticks.
+  // A transient visibility/equipment check must not strand an otherwise safe
+  // harvesting run after a single refusal. Never pop an unremoved block.
+  await bot.waitForTicks(2);
+  if((state.descentFailures=(state.descentFailures||0)+1)<3)return false;
+  throw Error('Temporary support removal failed three times: '+JSON.stringify({support:[q.x,q.y,q.z],name:bot.blockAt(q)?.name,visible:visibleBlock(bot,b),reachable:withinReach(bot,q),can_dig:bot.canDigBlock(b)}));
+ }
+ state.descentFailures=0;state.column.pop();await bot.waitForTicks(2);for(let i=0;i<25&&!bot.entity.onGround;i++)await bot.waitForTicks(1);
  return state.column.length===0;
 }
 module.exports={MAX_HEIGHT,material,clearable,corridor,obstruction,safeClear,canClear,canRaise,dig,jumpPlace,center,stabilize,recoverColumn,attempt,descend};

@@ -1,5 +1,19 @@
 const test=require('node:test'),assert=require('node:assert/strict'),{Vec3}=require('vec3');
 const access=require('../controller/resource_access');
+test('temporary descent keeps its support after a transient check and retries without fake progress',async()=>{
+ const b=fixture(),q=new Vec3(0,64,0),state={column:[{position:q,name:'dirt'}]},motor={pause(){},lockLook(){}};
+ b.set(0,64,0,'dirt');b.entity.position=new Vec3(.5,65,.5);b.entity.yaw=0;b.entity.pitch=-Math.PI/2;
+ b.world={raycast:()=>({position:q})};let available=false;b.canDigBlock=()=>available;
+ b.waitForTicks=async()=>{};b.look=async(y,p)=>{b.entity.yaw=y;b.entity.pitch=p;};b.dig=async()=>b.set(0,64,0,'air');
+ assert.equal(await access.descend(b,motor,state),false);assert.equal(state.column.length,1);assert.equal(state.descentFailures,1);
+ available=true;assert.equal(await access.descend(b,motor,state),true);assert.equal(state.column.length,0);assert.equal(state.descentFailures,0);
+});
+test('repeated temporary-support refusal stops after three checks with useful diagnostics',async()=>{
+ const b=fixture(),q=new Vec3(0,64,0),state={column:[{position:q,name:'dirt'}]},motor={pause(){},lockLook(){}};
+ b.set(0,64,0,'dirt');b.entity.position=new Vec3(.5,65,.5);b.world={raycast:()=>({position:q})};b.canDigBlock=()=>false;b.waitForTicks=async()=>{};
+ await access.descend(b,motor,state);await access.descend(b,motor,state);
+ await assert.rejects(access.descend(b,motor,state),/failed three times.*can_dig/);assert.equal(state.column.length,1);
+});
 function fixture(){const map=new Map(),b={username:'access',players:{},entity:{id:1,position:new Vec3(.5,64,.5),onGround:true,eyeHeight:1.62},inventory:{items:()=>[{name:'dirt',count:5}]},blockAt(p){p=p.floored();return {position:p,name:map.get(p.toString())||(p.y<64?'stone':'air'),boundingBox:map.has(p.toString())||p.y<64?'block':'empty'};}};b.set=(x,y,z,n)=>map.set(new Vec3(x,y,z).toString(),n);return b;}
 test('resource corridor distinguishes removable foliage and dirt from hard walls',()=>{
  const b=fixture(),target=new Vec3(2,65,0);b.set(2,65,0,'oak_log');b.set(1,65,0,'oak_leaves');

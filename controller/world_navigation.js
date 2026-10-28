@@ -59,7 +59,11 @@ class WorldNavigation{
   // An unfinished plot has no door to open. Continue outside instead of
   // waiting forever at the interior approach for a nonexistent interaction.
   const target=foreign?(exitClosed?[portal.x+.5,portal.y+.1,portal.z-1.5]:homeApproach(portal,bot)):approachGoal(bot,goal,portal),key=target.join(','),home=homeApproach(plot,bot);
-  const permitted=plots.filter(h=>samePlot(h,this.exitPlot)||insideHome(p,h)||samePlot(h,plot)&&insideHome(new Vec3(...goal),h));
+  // A bot can be on the outer strip of its plot after crafting or harvesting.
+  // Always allow departure from that occupied plot; the narrower room test
+  // otherwise marks every neighboring start cell forbidden and traps it.
+  const occupied=[Math.floor(p.x),Math.round(p.y),Math.floor(p.z)];
+  const permitted=plots.filter(h=>samePlot(h,this.exitPlot)||privatePlotCell(occupied,h)||samePlot(h,plot)&&insideHome(new Vec3(...goal),h));
   const forbidden=q=>plots.some(h=>!permitted.some(a=>samePlot(a,h))&&privatePlotCell(q,h));
   if(key!==this.destination){this.destination=key;this.path=[];this.best=Infinity;this.progressAt=now;this.lastPlan=-Infinity;this.blocked=false;}
   const previous=this.lastPosition;this.lastPosition=[p.x,p.y,p.z];
@@ -78,7 +82,9 @@ class WorldNavigation{
   const due=now-this.lastPlan>=forBot(bot).route_replan_ms&&(!this.path.length||this.blocked||now-this.progressAt>2500);
   const landing=bot.entity.onGround===false&&this.path.length&&!invalid&&!offRoute;
   if(!landing&&(this.lastPlan===-Infinity||due||offRoute||invalid||this.waiting&&bot.entity.onGround===true)){
-   const radius=Math.min(96,Math.max(48,Math.ceil(Math.hypot(target[0]-p.x,target[2]-p.z))+16));
+   // The expedition region is wider than the old 96-cell search radius.
+   // Keep room beyond a distant goal for the last turn around a hill/house.
+   const radius=Math.min(192,Math.max(48,Math.ceil(Math.hypot(target[0]-p.x,target[2]-p.z))+16));
    let planned=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden});this.lastPlan=now;this.anchor=[p.x,p.y,p.z];
    if(!planned.reached&&!planned.waiting_for_ground&&memory){const remembered=memory.detour(bot,target,bounds);if(remembered&&!remembered.some(q=>forbidden([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])]))){planned={...planned,reached:true,path:remembered};memory.replans++;}}
    this.path=planned.reached?planned.path:[];this.blocked=!planned.reached;

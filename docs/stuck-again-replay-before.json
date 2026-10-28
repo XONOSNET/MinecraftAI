@@ -1,0 +1,2009 @@
+{
+  "read_only": true,
+  "fixture": "Saved three-stop positions; teacher intentions through the shared route motor. No learning writes or terrain edits.",
+  "cases": [
+    {
+      "source": "LabAI4",
+      "start": [
+        24601.499328952796,
+        65,
+        16482.614423737392
+      ],
+      "goal": [
+        24616.5,
+        65.1,
+        16479.5
+      ],
+      "neighbors": [],
+      "arrived": false,
+      "seconds": 8.546,
+      "position": {
+        "x": 24601.4993,
+        "y": 65,
+        "z": 16482.6144
+      },
+      "navigation": {
+        "home": [
+          24603.5,
+          65.1,
+          16480.5
+        ],
+        "target": [
+          24616.5,
+          65.1,
+          16479.5
+        ],
+        "route_intent": "Travel outside private houses",
+        "state": "blocked",
+        "height_delta": 0.1,
+        "route_complete": false,
+        "remaining_blocks": 0,
+        "waypoints": 0,
+        "no_progress_seconds": 8,
+        "reset_seconds": 82,
+        "expanded": 1,
+        "phase": "gather",
+        "position": [
+          24601.4993,
+          65,
+          16482.6144
+        ],
+        "yaw": -0.002618846089183613,
+        "on_ground": true,
+        "cue": [
+          24616.5,
+          65.1,
+          16479.5
+        ],
+        "cue_centering": false,
+        "motor_before": {
+          "label": null,
+          "paused": true,
+          "expired": false,
+          "ground_safe": true,
+          "precise_focus": false,
+          "recovering": false,
+          "doorway": false,
+          "controls": {
+            "forward": false,
+            "back": false,
+            "left": false,
+            "right": false,
+            "jump": false,
+            "sneak": false,
+            "sprint": false
+          }
+        },
+        "nearby_players": [],
+        "player_clearance": 2,
+        "sampled_at": 1793221390916
+      },
+      "blocks": [
+        {
+          "p": [
+            24600,
+            64,
+            16481
+          ],
+          "name": "dirt",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24600,
+            65,
+            16481
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24600,
+            66,
+            16481
+          ],
+          "name": "oak_leaves",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24600,
+            67,
+            16481
+          ],
+          "name": "oak_leaves",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24600,
+            64,
+            16482
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24600,
+            65,
+            16482
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24600,
+            66,
+            16482
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24600,
+            67,
+            16482
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24600,
+            64,
+            16483
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24600,
+            65,
+            16483
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24600,
+            66,
+            16483
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24600,
+            67,
+            16483
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24601,
+            64,
+            16481
+          ],
+          "name": "dirt",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24601,
+            65,
+            16481
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24601,
+            66,
+            16481
+          ],
+          "name": "oak_leaves",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24601,
+            67,
+            16481
+          ],
+          "name": "oak_leaves",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24601,
+            64,
+            16482
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24601,
+            65,
+            16482
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24601,
+            66,
+            16482
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24601,
+            67,
+            16482
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24601,
+            64,
+            16483
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24601,
+            65,
+            16483
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24601,
+            66,
+            16483
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24601,
+            67,
+            16483
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24602,
+            64,
+            16481
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24602,
+            65,
+            16481
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24602,
+            66,
+            16481
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24602,
+            67,
+            16481
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24602,
+            64,
+            16482
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24602,
+            65,
+            16482
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24602,
+            66,
+            16482
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24602,
+            67,
+            16482
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24602,
+            64,
+            16483
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24602,
+            65,
+            16483
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24602,
+            66,
+            16483
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24602,
+            67,
+            16483
+          ],
+          "name": "air",
+          "shapes": []
+        }
+      ]
+    },
+    {
+      "source": "LabAI3",
+      "start": [
+        24636.52972175547,
+        65,
+        16476.505475091573
+      ],
+      "goal": [
+        24645.5,
+        64.1,
+        16494.5
+      ],
+      "neighbors": [],
+      "arrived": true,
+      "seconds": 7.356,
+      "position": {
+        "x": 24645.48825749233,
+        "y": 64,
+        "z": 16494.37779365781
+      },
+      "navigation": {
+        "home": [
+          24633.5,
+          65.1,
+          16470.5
+        ],
+        "target": [
+          24645.5,
+          64.1,
+          16494.5
+        ],
+        "route_intent": "Travel outside private houses",
+        "state": "arrived",
+        "height_delta": 1.1,
+        "route_complete": true,
+        "remaining_blocks": 0,
+        "waypoints": 0,
+        "no_progress_seconds": 0,
+        "reset_seconds": 90,
+        "expanded": 1,
+        "phase": "gather",
+        "position": [
+          24645.48825749233,
+          64,
+          16494.31342131241
+        ],
+        "yaw": -3.1520654813123645,
+        "on_ground": true,
+        "cue": [
+          24645.5,
+          64.1,
+          16494.5
+        ],
+        "cue_centering": false,
+        "motor_before": {
+          "label": "Settling at the route waypoint",
+          "paused": false,
+          "expired": false,
+          "ground_safe": true,
+          "precise_focus": false,
+          "recovering": false,
+          "doorway": false,
+          "controls": {
+            "forward": false,
+            "back": false,
+            "left": false,
+            "right": false,
+            "jump": false,
+            "sneak": false,
+            "sprint": false
+          }
+        },
+        "nearby_players": [],
+        "player_clearance": 2,
+        "sampled_at": 1793221399862
+      },
+      "blocks": [
+        {
+          "p": [
+            24635,
+            64,
+            16475
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24635,
+            65,
+            16475
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            66,
+            16475
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            67,
+            16475
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            64,
+            16476
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24635,
+            65,
+            16476
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            66,
+            16476
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            67,
+            16476
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            64,
+            16477
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24635,
+            65,
+            16477
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            66,
+            16477
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24635,
+            67,
+            16477
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            64,
+            16475
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24636,
+            65,
+            16475
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            66,
+            16475
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            67,
+            16475
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            64,
+            16476
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24636,
+            65,
+            16476
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            66,
+            16476
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            67,
+            16476
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            64,
+            16477
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24636,
+            65,
+            16477
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            66,
+            16477
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24636,
+            67,
+            16477
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24637,
+            64,
+            16475
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24637,
+            65,
+            16475
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24637,
+            66,
+            16475
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24637,
+            67,
+            16475
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24637,
+            64,
+            16476
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24637,
+            65,
+            16476
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24637,
+            66,
+            16476
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24637,
+            67,
+            16476
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24637,
+            64,
+            16477
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24637,
+            65,
+            16477
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24637,
+            66,
+            16477
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24637,
+            67,
+            16477
+          ],
+          "name": "air",
+          "shapes": []
+        }
+      ]
+    },
+    {
+      "source": "LabAI2",
+      "start": [
+        24574.464513324976,
+        72,
+        16374.50904327325
+      ],
+      "goal": [
+        24623.5,
+        65.1,
+        16470.5
+      ],
+      "neighbors": [
+        [
+          24575.21648404235,
+          72,
+          16372.542124354066
+        ]
+      ],
+      "arrived": false,
+      "seconds": 8.535,
+      "position": {
+        "x": 24574.4645,
+        "y": 72,
+        "z": 16374.509
+      },
+      "navigation": {
+        "home": [
+          24623.5,
+          65.1,
+          16470.5
+        ],
+        "target": [
+          24623.5,
+          65.1,
+          16470.5
+        ],
+        "route_intent": "Travel outside private houses",
+        "state": "blocked",
+        "height_delta": -6.9,
+        "route_complete": false,
+        "remaining_blocks": 0,
+        "waypoints": 0,
+        "no_progress_seconds": 8,
+        "reset_seconds": 82,
+        "expanded": 3071,
+        "phase": "night_food_home",
+        "position": [
+          24574.4645,
+          72,
+          16374.509
+        ],
+        "yaw": 1.2671081847373937,
+        "on_ground": true,
+        "cue": [
+          24623.5,
+          65.1,
+          16470.5
+        ],
+        "cue_centering": false,
+        "motor_before": {
+          "label": null,
+          "paused": true,
+          "expired": false,
+          "ground_safe": true,
+          "precise_focus": false,
+          "recovering": false,
+          "doorway": false,
+          "controls": {
+            "forward": false,
+            "back": false,
+            "left": false,
+            "right": false,
+            "jump": false,
+            "sneak": false,
+            "sprint": false
+          }
+        },
+        "nearby_players": [
+          [
+            24575.21648404235,
+            72,
+            16372.542124354066
+          ]
+        ],
+        "player_clearance": 2,
+        "sampled_at": 1793221409994
+      },
+      "blocks": [
+        {
+          "p": [
+            24573,
+            71,
+            16373
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24573,
+            72,
+            16373
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24573,
+            73,
+            16373
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24573,
+            74,
+            16373
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24573,
+            71,
+            16374
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24573,
+            72,
+            16374
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24573,
+            73,
+            16374
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24573,
+            74,
+            16374
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24573,
+            71,
+            16375
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24573,
+            72,
+            16375
+          ],
+          "name": "short_grass",
+          "shapes": []
+        },
+        {
+          "p": [
+            24573,
+            73,
+            16375
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24573,
+            74,
+            16375
+          ],
+          "name": "oak_leaves",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24574,
+            71,
+            16373
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24574,
+            72,
+            16373
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24574,
+            73,
+            16373
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24574,
+            74,
+            16373
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24574,
+            71,
+            16374
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24574,
+            72,
+            16374
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24574,
+            73,
+            16374
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24574,
+            74,
+            16374
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24574,
+            71,
+            16375
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24574,
+            72,
+            16375
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24574,
+            73,
+            16375
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24574,
+            74,
+            16375
+          ],
+          "name": "oak_leaves",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24575,
+            71,
+            16373
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24575,
+            72,
+            16373
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24575,
+            73,
+            16373
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24575,
+            74,
+            16373
+          ],
+          "name": "birch_leaves",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24575,
+            71,
+            16374
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24575,
+            72,
+            16374
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24575,
+            73,
+            16374
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24575,
+            74,
+            16374
+          ],
+          "name": "birch_leaves",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24575,
+            71,
+            16375
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24575,
+            72,
+            16375
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24575,
+            73,
+            16375
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24575,
+            74,
+            16375
+          ],
+          "name": "oak_leaves",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "source": "LabAI6",
+      "start": [
+        24588.32397591495,
+        65,
+        16394.468176548176
+      ],
+      "goal": [
+        24590.5,
+        65.1,
+        16386.5
+      ],
+      "neighbors": [],
+      "arrived": true,
+      "seconds": 3.053,
+      "position": {
+        "x": 24590.496949344284,
+        "y": 65,
+        "z": 16386.437895112744
+      },
+      "navigation": {
+        "home": [
+          24623.5,
+          65.1,
+          16480.5
+        ],
+        "target": [
+          24590.5,
+          65.1,
+          16386.5
+        ],
+        "route_intent": "Travel outside private houses",
+        "state": "arrived",
+        "height_delta": 0.1,
+        "route_complete": true,
+        "remaining_blocks": 0,
+        "waypoints": 0,
+        "no_progress_seconds": 0,
+        "reset_seconds": 90,
+        "expanded": 1,
+        "phase": "night_scout",
+        "position": [
+          24590.496949344284,
+          65,
+          16386.502259366705
+        ],
+        "yaw": 12.56898775602597,
+        "on_ground": true,
+        "cue": [
+          24590.5,
+          65.1,
+          16386.5
+        ],
+        "cue_centering": false,
+        "motor_before": {
+          "label": "Aligning with the verified route",
+          "paused": false,
+          "expired": false,
+          "ground_safe": true,
+          "precise_focus": false,
+          "recovering": false,
+          "doorway": false,
+          "controls": {
+            "forward": false,
+            "back": false,
+            "left": false,
+            "right": false,
+            "jump": false,
+            "sneak": false,
+            "sprint": false
+          }
+        },
+        "nearby_players": [],
+        "player_clearance": 2,
+        "sampled_at": 1793221414639
+      },
+      "blocks": [
+        {
+          "p": [
+            24587,
+            64,
+            16393
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24587,
+            65,
+            16393
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24587,
+            66,
+            16393
+          ],
+          "name": "oak_leaves",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24587,
+            67,
+            16393
+          ],
+          "name": "oak_leaves",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24587,
+            64,
+            16394
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24587,
+            65,
+            16394
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24587,
+            66,
+            16394
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24587,
+            67,
+            16394
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24587,
+            64,
+            16395
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24587,
+            65,
+            16395
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24587,
+            66,
+            16395
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24587,
+            67,
+            16395
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24588,
+            64,
+            16393
+          ],
+          "name": "grass_block",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24588,
+            65,
+            16393
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24588,
+            66,
+            16393
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24588,
+            67,
+            16393
+          ],
+          "name": "oak_leaves",
+          "shapes": [
+            [
+              0,
+              0,
+              0,
+              1,
+              1,
+              1
+            ]
+          ]
+        },
+        {
+          "p": [
+            24588,
+            64,
+            16394
+          ],
+          "name": "orange_tulip",
+          "shapes": []
+        },
+        {
+          "p": [
+            24588,
+            65,
+            16394
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24588,
+            66,
+            16394
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24588,
+            67,
+            16394
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24588,
+            64,
+            16395
+          ],
+          "name": "orange_tulip",
+          "shapes": []
+        },
+        {
+          "p": [
+            24588,
+            65,
+            16395
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24588,
+            66,
+            16395
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24588,
+            67,
+            16395
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24589,
+            64,
+            16393
+          ],
+          "name": "red_tulip",
+          "shapes": []
+        },
+        {
+          "p": [
+            24589,
+            65,
+            16393
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24589,
+            66,
+            16393
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24589,
+            67,
+            16393
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24589,
+            64,
+            16394
+          ],
+          "name": "orange_tulip",
+          "shapes": []
+        },
+        {
+          "p": [
+            24589,
+            65,
+            16394
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24589,
+            66,
+            16394
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24589,
+            67,
+            16394
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24589,
+            64,
+            16395
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24589,
+            65,
+            16395
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24589,
+            66,
+            16395
+          ],
+          "name": "air",
+          "shapes": []
+        },
+        {
+          "p": [
+            24589,
+            67,
+            16395
+          ],
+          "name": "air",
+          "shapes": []
+        }
+      ]
+    }
+  ],
+  "success": false
+}

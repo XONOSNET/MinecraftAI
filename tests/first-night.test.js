@@ -1,5 +1,15 @@
 const test=require('node:test'),assert=require('node:assert/strict'),{Vec3}=require('vec3'),night=require('../controller/first_night'),{WildernessMemory}=require('../controller/wilderness_memory');
 function bot(){return {health:20,food:20,username:'LabAI0',entity:{position:new Vec3(.5,64,.5),onGround:true},entities:{},players:{},inventory:{items:()=>[]},world:{raycast:()=>null},blockAt(p){return {name:p.y<64?'stone':'air',position:p,boundingBox:p.y<64?'block':'empty'};}};}
+
+test('First Night mines exposed stone faces without removing lower neighboring support',async()=>{
+ const scan=require('../controller/resource_scan'),original=scan.stone,b=bot(),floor=new Vec3(2,63,0),face=new Vec3(2,64,0);
+ scan.stone=async()=>[floor,face];const previous=b.blockAt;
+ b.blockAt=p=>p.equals(face)?{name:'stone',position:p,boundingBox:'block'}:previous(p);
+ b.canDigBlock=()=>true;b.world.raycast=()=>({position:face});let mined;
+ const t={phase:'night_stone',plot:{x:-10,y:64,z:-10},milestones:[],harvest:async(_b,_m,p)=>{mined=p;}};night.init(t,{});
+ try{await night.tick(t,b,{pause(){}},{world:{bounds:[-20,20,-20,20],first_night:{}}});assert.ok(mined.equals(face));assert.ok(t.wilderness.stones.every(q=>q.position.y>=64));}
+ finally{scan.stone=original;}
+});
 test('survival priorities interrupt work to eat or retreat and resume the original task',async()=>{
  const b=bot(),t={phase:'gather',milestones:['hut'],navigator:{},lastProgress:0};night.init(t,{});
  b.health=9;assert.equal(night.priority(b,t,{}).kind,'retreat');
