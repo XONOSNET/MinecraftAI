@@ -40,9 +40,9 @@ function applyPose(bot,wantsCrouch){
 const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
 function motorPlan(action,permissions,task,sensed,angle,traveling=false){
  if(task?.kind==='combat'){
-  const turn=action===1||action===2;
-  return {forward:!!permissions.move&&(action===0||turn&&Math.abs(angle)<.65&&sensed?.distance>2.7&&!sensed?.frontBlocked),
-   back:!!permissions.move&&action===3&&!!sensed?.rearSafe,jump:false,sneak:false,
+  const turn=action===1||action===2,hunt=require('./combat').isHunt(task);
+  return {forward:!!permissions.move&&(hunt?[0,1,2,3,4,6].includes(action)&&sensed?.distance>2.1&&Math.abs(angle)<.65&&!sensed?.frontBlocked:action===0||turn&&Math.abs(angle)<.65&&sensed?.distance>2.7&&!sensed?.frontBlocked),
+   back:!hunt&&!!permissions.move&&action===3&&!!sensed?.rearSafe,jump:false,sneak:false,
    yaw:turn&&permissions.turn?(action===1?1:-1)*Math.min(.8,Math.abs(angle)):0,label:null};
  }
  const turning=action===1||action===2;
@@ -59,7 +59,7 @@ function motorPlan(action,permissions,task,sensed,angle,traveling=false){
 function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
  const recovery=createRecovery(()=>forBot(bot)),doorway=createDoorway(),strafe=createStrafe(bot);
  let plan=null,targetYaw=null,expires=0,last=clock(),paused=true,lookLocked=false,stalled=false,lastSafetyAt=-Infinity,groundSafe=true,lastSprintSafetyAt=-Infinity,sprintSafe=false;
- function clear(){recovery.reset();doorway.reset();strafe.reset();bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
+ function clear(){if(bot.labCriticalAttack)bot.labCriticalAttack.cancelled=true;recovery.reset();doorway.reset();strafe.reset();bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
  return {
   command(action,task,sensed,angle){
    if(!Number.isFinite(angle)||!Number.isFinite(bot.entity?.yaw)){clear();return 'Waiting for valid orientation';}
@@ -122,6 +122,12 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
   lockLook(value){lookLocked=value;},
   tick(){
    if(legacy||!bot.entity)return;
+   const leap=bot.labCriticalAttack;
+   if(leap&&!leap.cancelled&&Date.now()<leap.until){
+    if(bot.entity.onGround===false)leap.airborne=true;
+    for(const k of ['forward','back','left','right','sprint','sneak'])bot.setControlState(k,false);
+    bot.setControlState('jump',!leap.airborne);return;
+   }
    const now=clock(),dt=Math.max(.01,Math.min(.1,(now-last)/1000));last=now;
    if(paused||now>expires){
     // A late reply stops controls, but is not a new task. Keep the committed

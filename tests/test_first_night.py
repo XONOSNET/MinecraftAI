@@ -98,3 +98,16 @@ def test_wool_sightings_survive_bounded_memory_cleanup():
     memory=clean_memory({'resources':[{'kind':'wool','position':[10,64,10]},
                                     {'kind':'wool','position':[500,64,10]}]},[0,128,0,128])
     assert memory['resources']==[{'kind':'wool','position':[10,64,10]}]
+
+
+def test_releasing_attacked_lesson_livestock_is_owned_bounded_and_idempotent(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start(dict(mission='first_night',night_level=0),['LabAI0']);s=world.session;s.update(phase='running')
+    world.camp('LabAI0',[16448,70,16448]);commands.clear()
+    request=dict(agent='LabAI0',run=s['run'],action='release',species='cow',entity_uuid='12345678-1234-5678-1234-567812345678')
+    assert world.livestock(request)['released']
+    assert len(commands)==1 and 'name=FirstNightLabAI0' in commands[0] and 'UUID:[I;' in commands[0] and 'NoAI:0b' in commands[0]
+    world.livestock(request);assert len(commands)==1
+    for change in ({'entity_uuid':'@e'},{'species':'zombie'},{'agent':'LabAI1'},{'run':'old'}):
+        with pytest.raises(ValueError):world.livestock(dict(request,**change))
+    s['assessment']=True
+    with pytest.raises(ValueError):world.livestock(request)

@@ -1,0 +1,75 @@
+{
+  "fixture": "Real melee damage and pursuit: grounded vs falling sword strikes, then a fleeing cow hunted without lateral controls",
+  "grants": [
+    "Isolated lit platform",
+    "Iron sword, wooden sword and immobile tagged husks for measured damage",
+    "One tagged cow released to ordinary AI after the first hit"
+  ],
+  "checks": [],
+  "attack_states": [
+    {
+      "y": 180,
+      "vy": -0.0784000015258789,
+      "ground": true,
+      "mode": "survival",
+      "sprint": false
+    },
+    {
+      "y": 181.02442408821366,
+      "vy": -0.22768848754498797,
+      "ground": false,
+      "mode": "survival",
+      "sprint": false
+    },
+    {
+      "y": 180,
+      "vy": -0.0784000015258789,
+      "ground": true,
+      "mode": "survival",
+      "sprint": false
+    },
+    {
+      "y": 180,
+      "vy": -0.0784000015258789,
+      "ground": true,
+      "mode": "survival",
+      "sprint": false
+    },
+    {
+      "y": 180,
+      "vy": -0.0784000015258789,
+      "ground": true,
+      "mode": "survival",
+      "sprint": false
+    },
+    {
+      "y": 180,
+      "vy": -0.0784000015258789,
+      "ground": true,
+      "mode": "survival",
+      "sprint": false
+    }
+  ],
+  "grounded": {
+    "attacked": true,
+    "before": 20,
+    "after": 14.095999717712402,
+    "damage": 5.904000282287598,
+    "critical_attempts": 0
+  },
+  "falling": {
+    "attacked": true,
+    "before": 20,
+    "after": 11.144000053405762,
+    "damage": 8.855999946594238,
+    "critical_attempts": 1
+  },
+  "hunt": {
+    "hits": 4,
+    "dead": true,
+    "moved_blocks": 14.521461201912071,
+    "lateral_controls": false,
+    "seconds": 7.658
+  },
+  "success": true
+}

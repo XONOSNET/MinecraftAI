@@ -1,5 +1,9 @@
 // Bounded seven-action combat policy; teacher decisions and neural decisions use the same actuators.
-const {Vec3}=require('vec3');
+const {Vec3}=require('vec3'),critical=require('./critical_attack');
+const PASSIVE=new Set(['cow','pig','sheep','chicken','rabbit']);
+const isHunt=task=>task.combat_style==='hunt'||(!task.combat_style&&task.mobs?.length&&task.mobs.every(name=>PASSIVE.has(name)));
+function attackDelay(task){const w=task.weapon||'';const weapon=w.endsWith('_sword')?625:w==='wooden_axe'||w==='stone_axe'?1250:w==='iron_axe'?1112:w.endsWith('_axe')?1000:650;return Math.max(task.attack_delay_ms||0,weapon);}
+
 const LABELS=['Approaching monster','Aiming left','Aiming right','Backing away for spacing','Guarding / waiting for cooldown','Equipping combat gear','Attacking monster'];
 const parts=[['helmet','head',5],['chestplate','torso',6],['leggings','legs',7],['boots','feet',8]];
 function equipment(bot,task){
@@ -26,18 +30,18 @@ function observe(bot,task,runtime,now=Date.now()){
  const distance=enemy?p.distanceTo(enemy.position):16;
  const bearing=enemy?Math.atan2(-(enemy.position.x-p.x),-(enemy.position.z-p.z)):bot.entity.yaw;
  const angle=Math.atan2(Math.sin(bearing-bot.entity.yaw),Math.cos(bearing-bot.entity.yaw));
- const attackDelay=task.attack_delay_ms||650,sight=visible(bot,enemy),cooldown=Math.max(0,attackDelay-(now-(runtime.lastAttack||0)))/attackDelay;
+ const delay=attackDelay(task),sight=visible(bot,enemy),cooldown=Math.max(0,delay-(now-(runtime.lastAttack??-Infinity)))/delay;
  const remaining=Math.max(0,task.kill_target-(runtime.kills||0));
  const extra=[Number(!!enemy),Math.min(1,distance/16),Math.sin(angle),Math.cos(angle),Number(gear.weapon),gear.armor,cooldown,Number(sight),Number(distance<1.4),remaining/Math.max(1,task.kill_target),bot.health/20,Number(gear.shield)];
- return {enemy,gear,distance,angle,sight,cooldown,extra,metrics:{weapon_equipped:gear.weapon,armor_equipped:gear.armor===1,shield_equipped:gear.shield,kills:runtime.kills||0,hits:runtime.hits||0,kill_target:task.kill_target,enemy:enemy?.name||null,attack_cooldown:cooldown}};
+ return {enemy,gear,distance,angle,sight,cooldown,prepareCritical:!isHunt(task)&&task.critical_hits!==false&&distance<=2.7&&sight&&cooldown*delay<=400&&critical.safeJump(bot,task),extra,metrics:{weapon_equipped:gear.weapon,armor_equipped:gear.armor===1,shield_equipped:gear.shield,kills:runtime.kills||0,hits:runtime.hits||0,kill_target:task.kill_target,enemy:enemy?.name||null,attack_cooldown:cooldown,critical_attempts:runtime.criticalAttempts||0,style:isHunt(task)?'hunting':'hostile_combat'}};
 }
 function teacher(sensed,task){
  if(!sensed.gear.ready)return 5;
  if(!sensed.enemy)return 4;
  if(Math.abs(sensed.angle)>.12)return sensed.angle>0?1:2;
  if(!sensed.sight||sensed.distance>2.7)return 0;
- if(sensed.cooldown===0)return 6;
- if(sensed.distance<1.4&&!task.stationary)return 3;
+ if(sensed.cooldown===0||sensed.prepareCritical)return 6;
+ if(!isHunt(task)&&sensed.distance<1.4&&!task.stationary)return 3;
  return 4;
 }
 function death(entity,task,runtime){
@@ -60,10 +64,22 @@ async function interact(bot,task,sensed,runtime,action,permissions,now=Date.now(
  const enemy=sensed.enemy;
  if(!ownedTarget(enemy,task))return false;
  if(action===4&&equipment(bot,task).shield){await bot.lookAt(enemy.position.offset(0,.9,0),true);bot.activateItem(true);return true;}
- if(action!==6||bot.heldItem?.name!==task.weapon||bot.entity.position.distanceTo(enemy.position)>3||!visible(bot,enemy)||now-(runtime.lastAttack||0)<(task.attack_delay_ms||650))return false;
- await bot.lookAt(enemy.position.offset(0,.9,0),true);
- (runtime.attacked??=new Set()).add(enemy.id);runtime.lastAttack=now;runtime.hits=(runtime.hits||0)+1;
- bot.attack(enemy);return true;
+ const canStrike=at=>ownedTarget(enemy,task)&&bot.health>0&&bot.heldItem?.name===task.weapon&&bot.entity.position.distanceTo(enemy.position)<=3&&visible(bot,enemy)&&at-(runtime.lastAttack??-Infinity)>=attackDelay(task);
+ const readyToJump=bot.heldItem?.name===task.weapon&&bot.entity.position.distanceTo(enemy.position)<=2.7&&visible(bot,enemy)&&!isHunt(task)&&task.critical_hits!==false&&permissions.jump!==false&&now-(runtime.lastAttack??-Infinity)>=attackDelay(task)-400&&critical.safeJump(bot,task);
+ if(action!==6||(!canStrike(now)&&!readyToJump))return false;
+ let leap=null;
+ try{
+  if(readyToJump)leap=await critical.fall(bot,task);
+  while(leap&&!leap.cancelled&&bot.entity.onGround===false&&Date.now()-(runtime.lastAttack??-Infinity)<attackDelay(task)&&Date.now()<leap.until)await new Promise(resolve=>setTimeout(resolve,20));
+  if(leap?.cancelled||!canStrike(leap?Date.now():now))return false;
+  await bot.lookAt(enemy.position.offset(0,.9,0),true);
+  if(leap?.cancelled||!canStrike(leap?Date.now():now))return false;
+  if(bot.setControlState)bot.setControlState('sprint',false);
+  (runtime.attacked??=new Set()).add(enemy.id);runtime.lastAttack=leap?Date.now():now;runtime.hits=(runtime.hits||0)+1;
+  if(leap&&bot.entity.onGround===false&&bot.entity.velocity?.y<-.03)runtime.criticalAttempts=(runtime.criticalAttempts||0)+1;
+  bot.attack(enemy);return true;
+ }finally{critical.finish(bot,leap);}
+
 }
 function reached(task,m){return m.health>=task.min_health&&m.inside&&Math.abs(m.y-181)<1.5&&m.weapon_equipped&&m.armor_equipped&&(!task.shield||m.shield_equipped)&&m.kills>=task.kill_target&&(!task.kill_target||m.hits>=task.kill_target);}
-module.exports={LABELS,equipment,ownedTarget,target,visible,observe,teacher,death,interact,reached};
+module.exports={isHunt,attackDelay,LABELS,equipment,ownedTarget,target,visible,observe,teacher,death,interact,reached};

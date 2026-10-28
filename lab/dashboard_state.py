@@ -1,7 +1,7 @@
 """Small detached dashboard views; private replay/landmark data stays in storage."""
 import copy
 
-PRIVATE_WORLD_KEYS={'memory_snapshot','behavior_snapshot','fauna_queue','fauna_log','lesson_resources','quarries','survival_stations','livestock_refills'}
+PRIVATE_WORLD_KEYS={'memory_snapshot','behavior_snapshot','fauna_queue','fauna_log','lesson_resources','quarries','survival_stations','livestock_refills','released_livestock'}
 
 def world_view(session):
     if session is None:return None

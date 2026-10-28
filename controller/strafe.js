@@ -16,7 +16,7 @@ function createStrafe(bot){
  return {
   reset(){heldUntil=0;wallUntil=0;cooldown=0;origin=null;},
   choose(action,task,sensed,angle,base,now){
-   if(!bot.entity?.position||!bot.blockAt)return null;
+   if(!bot.entity?.position||!bot.blockAt||task?.hunting||task?.kind==='combat'&&require('./combat').isHunt(task))return null;
    const rules=forBot(bot),rise=(task?.waypoints?.[0]?.[1]??bot.entity.position.y)-bot.entity.position.y;
    if(rules.strafe_enabled<.5||base.jump||base.sneak||Math.abs(rise)>.4||sensed?.door||sensed?.doorway||sensed?.crouchClearance||sensed?.climbing)return null;
    if(task?.kind==='combat'){

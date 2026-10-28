@@ -4,6 +4,7 @@ import json
 import math
 import re
 import time
+import uuid
 from .world_survival import SurvivalLessons, MISSION_LESSONS, ADVANCED
 from pathlib import Path
 from .protection import HOSTILES
@@ -278,6 +279,19 @@ class WorldTraining(SurvivalLessons):
             raise ValueError('No matching active livestock lesson.')
         if s.get('mission')!='first_night' or not s.get('first_night',{}).get('stations') or s.get('night_level')!=0 or s.get('assessment') or not s.get('camp'):
             raise ValueError('Replacement livestock is only available in supported First Night lessons.')
+        if data.get('action')=='release':
+            species=data.get('species')
+            if species not in ('cow','sheep','pig','chicken','rabbit'):raise ValueError('Choose a passive lesson animal.')
+            try:animal=str(uuid.UUID(str(data.get('entity_uuid'))))
+            except ValueError:raise ValueError('Choose a valid animal UUID.')
+            released=s.setdefault('released_livestock',{}).setdefault(name,[])
+            if animal in released:return dict(released=True)
+            if len(released)>=32:raise ValueError('Lesson animal release limit reached.')
+            x0,x1,z0,z1=s['bounds'];released.append(animal)
+            selector=f'@e[type=minecraft:{species},tag=lab_world_survival,name=FirstNight{name},x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}]'
+            parts=','.join(str(int.from_bytes(uuid.UUID(animal).bytes[i:i+4],byteorder='big',signed=True)) for i in range(0,16,4))
+            self.command(f'execute as {selector} if entity @s[nbt={{UUID:[I;{parts}]}}] run data merge entity @s {{NoAI:0b}}')
+            return dict(released=True)
         if kind not in ('food','wool'):raise ValueError('Choose food or wool livestock.')
         index=s['bots'].index(name);plot=s['camp']['plots'][index];direction=-1 if index<4 else 1
         species='sheep' if kind=='wool' else 'cow';position=[plot['x']+.5,plot['y'],plot['z']+direction*(19 if kind=='wool' else 17)+.5]

@@ -6,6 +6,7 @@ function whiteSheep(b,e){if(e.name!=='sheep')return false;const flags=e.metadata
 function observe(t,b,w){for(const e of Object.values(b.entities)){if(e.isValid===false||!ANIMALS.has(e.name)||!owned(b,w,e)||e.position.distanceTo(b.entity.position)>40||!combat.visible(b,e))continue;t.wilderness.memory.remember('food',e.position);if(whiteSheep(b,e))t.wilderness.memory.remember('wool',e.position);}}
 function localDrop(t,w,p){
  if(!w.first_night.stations||!t.campPlots?.length)return true;
+ const hunt=t.wilderness?.huntDropOrigin;if(hunt&&Date.now()<hunt.until&&p.distanceTo(hunt.position)<3)return true;
  const owner=t.campPlots.map((h,i)=>({h,d:Math.hypot(p.x-h.x-.5,p.z-h.z-(i<4?-19:19)-.5)})).sort((a,b)=>a.d-b.d)[0]?.h;
  return owner?.x===t.plot.x&&owner?.z===t.plot.z;
 }

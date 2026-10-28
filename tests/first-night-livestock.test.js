@@ -26,3 +26,11 @@ test('food completion first collects nearby wool byproducts',async()=>{
  const {b,t,state}=setup(),Item=require('prismarine-item')(registry),metadata=[];metadata[registry.entitiesByName.item.metadataKeys.indexOf('item')]=Item.toNotch(new Item(registry.itemsByName.white_wool.id,1));b.inventory.items=()=>[{name:'beef',count:4}];b._syncWindow=async()=>{};b.entities={drop:{id:4,name:'item',position:b.entity.position.clone(),metadata}};
  await night.tick(t,b,{pause(){}},state,()=>{throw Error('no inference needed to collect the wool');},null,null,null);assert.equal(t.phase,'night_food');assert.match(t.message,/Collecting white_wool/);
 });
+
+
+test('a pursued animal can drop its own loot outside its original station',()=>{
+ const {t,state}=setup(),drop=new Vec3(10.5,64,-18.5);
+ assert.equal(livestock.localDrop(t,state.world,drop),false);
+ t.wilderness.huntDropOrigin={position:drop.clone(),until:Date.now()+30000};assert.equal(livestock.localDrop(t,state.world,drop),true);
+ t.wilderness.huntDropOrigin.until=0;assert.equal(livestock.localDrop(t,state.world,drop),false);
+});

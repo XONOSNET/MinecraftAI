@@ -29,3 +29,10 @@ test('obstacle sidesteps are bounded and pause and stale responses release later
 test('per-bot settings can disable strafing without disabling movement',()=>{
  const b=bot();b.labBehavior={values:{...defaults,strafe_enabled:0}};assert.equal(createStrafe(b).choose(1,{}, {},.3,{forward:true},0),null);
 });
+
+
+test('passive-animal hunting disables circling and route alignment strafing',()=>{
+ const b=bot(),s=createStrafe(b),sensed={enemy:{},sight:true,distance:2.5,cueDistance:5};
+ for(const task of [{kind:'combat',mobs:['cow']},{kind:'combat',combat_style:'hunt'},{kind:'expedition',hunting:true}])
+  for(const action of [0,1,2,3,4,6])assert.equal(s.choose(action,task,sensed,.3,{forward:true},0),null);
+});

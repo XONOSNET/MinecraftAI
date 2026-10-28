@@ -6,4 +6,4 @@ Observed saved results: trial 368 student 6/8; trial 369 teacher 8/8; trial 370 
 
 The observer header now distinguishes restoration percentage from an active teacher/policy run, reports stopped bots separately, and includes the last completed policy result at the same support level. Teacher trials and reserved assessments cannot replace that score. The dashboard also explains the counter reset and advancement condition beside First Night progression.
 
-Validation: all 60 observer tests pass, including restoration labels and selection of the previous matching policy run. The dashboard HTML is served from disk and updates on refresh. The observer Python change requires a lab restart; it is intentionally staged for the next restart so this display correction does not discard the active automatic trial.
+Validation: all 60 observer tests pass, including restoration labels and selection of the previous matching policy run. The dashboard HTML is served from disk and updates on refresh. The observer Python change was staged initially to preserve the active trial, then loaded during the subsequent combat/hunting update restart.
