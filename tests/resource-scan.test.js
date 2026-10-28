@@ -4,7 +4,7 @@ test('loaded tree scan yields while preserving height, radius, ordering and miss
  const blocks={'1,64,0':1,'2,68,0':1,'3,69,0':1,'4,64,0':2},reads=[];let yielded=0;
  const b={entity:{position:new Vec3(.5,64,.5)},game:{minY:-64},registry:{blocksByStateId:{0:{name:'air'},1:{name:'oak_log'},2:{name:'stone'}}},world:{getColumn(x,z){if(x!==0||z!==0)return null;const sections=[];sections[8]={palette:[0,1,2]};return {sections,getBlockStateId(p){reads.push([p.x,p.y,p.z]);return blocks[[p.x,p.y,p.z].join(',')]||0;}};}}};
  const found=await logs(b,{range:8,yieldNow:async()=>{yielded++;}});
- assert.deepEqual(found.map(p=>[p.x,p.y,p.z]),[[1,64,0],[2,68,0]]);assert.ok(yielded>0);assert.ok(reads.length>0);
+ assert.deepEqual(found.map(p=>[p.x,p.y,p.z]),[[1,64,0],[2,68,0],[3,69,0]]);assert.ok(yielded>0);assert.ok(reads.length>0);
  assert.deepEqual(await logs(b,{range:.5}),[]);
 });
 

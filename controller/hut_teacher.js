@@ -5,6 +5,7 @@ const crafting=require('./crafting');
 const inventorySync=require('./inventory_sync');
 const {harvest,aim,level}=require('./harvest');
 const {harvestable}=require('./resource_target');
+const resourceAccess=require('./resource_access');
 const {route,standable}=require('./field_navigation');
 const {WorldTiming}=require('./world_timing');
 const space=require('./resource_space');
@@ -66,7 +67,7 @@ class HutTeacher{
   const now=Date.now(),p=bot.entity.position,w=state.world,rules=forBot(bot);
   if(this.run===state.run&&now<(this.serviceRetryAt||0)){motor.pause();return this.message;}
   if(this.run!==state.run){this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();}
-  if(this.run!==state.run){space.release(bot.username);this.treeRetry=0;this.focusBlock=null;this.lastNavigation=null;if(this.survival?.deathListener)bot.removeListener('entityDead',this.survival.deathListener);this.survival=null;this.wilderness=null;this.failureCategory=null;this.serviceFailureSince=null;this.serviceRetryAt=0;this.home=null;this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.campPlots=[];this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;this.scanCount=0;this.observedTrees=0;this.quarry=null;this.lastRecoveryReset=0;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
+  if(this.run!==state.run){space.release(bot.username);this.resourceAccess={};this.treeRetry=0;this.focusBlock=null;this.lastNavigation=null;if(this.survival?.deathListener)bot.removeListener('entityDead',this.survival.deathListener);this.survival=null;this.wilderness=null;this.failureCategory=null;this.serviceFailureSince=null;this.serviceRetryAt=0;this.home=null;this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.campPlots=[];this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;this.scanCount=0;this.observedTrees=0;this.quarry=null;this.lastRecoveryReset=0;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
   if(this.phase==='survey')survey.hold(bot);else survey.release(bot);
   if(firstNight.enabled(w)&&!this.wilderness)firstNight.init(this,w);
   if(this.wilderness&&this.phase!=='survey')this.wilderness.memory.observe(bot);
@@ -90,6 +91,7 @@ class HutTeacher{
     if(!spawn){this.message='Surveying loaded terrain for a safe shared spawn';if(now-this.started>30000){this.failureCategory='site_unavailable';throw Error('No safe natural spawn found. Try another site.');}}
     else{let destination=spawn;if(w.prepared){const camp=await api('/world/camp',{agent:bot.username,position:spawn});this.campPlots=camp.plots;this.plot=camp.plots[w.index];this.grove=camp.groves[w.index]?.length?camp.groves[w.index]:null;destination=camp.spawn;}else{this.plot=findPlot(bot,w.bounds,w.index,w.spread,w.count||8);if(!this.plot){this.failureCategory='site_unavailable';throw Error('No flat 7 × 7 build site in this bot’s sector. Try another natural scenario.');}}await api('/world/spawn',{agent:bot.username,position:destination});this.phase='gather';survey.release(bot);this.settle=now+1500;if(this.wilderness){this.wilderness.memory.remember('home',[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5]);}}
    }else if(now<this.settle){motor.pause();this.message='Settling on natural ground';}
+   else if(this.resourceAccess?.column?.length){await this.workElevated(bot,motor,state,api,scan,tasks);}
    else if(this.wilderness&&!['complete','stopped'].includes(this.phase)&&await firstNight.interrupt(this,bot,motor,state)){/* safety priority handled */}
    else if(firstNight.handles(this.phase)){await firstNight.tick(this,bot,motor,state,api,scan,tasks,surface);}
    else if(this.phase==='gather'){
@@ -100,7 +102,7 @@ class HutTeacher{
     else if(this.wilderness?.fuelTrip&&count(bot,n=>LOG.test(n))>=4){this.wilderness.fuelTrip=false;this.phase='stone_return';motor.pause();}
     else if(count(bot,n=>LOG.test(n))*4+count(bot,planks)>=(this.supplyRun?28:this.requiredWood(bot))){motor.pause();this.phase=this.supplyRun?'supply_craft':'craft';}
     else{
-     if(!this.resourceAt||now-this.resourceAt>rules.resource_scan_ms){this.resources=this.grove?this.grove.flatMap(([x,y,z])=>[0,1,2,3,4,5].map(dy=>new Vec3(x,y+dy,z))):(await resourceScan.logs(bot,{bounds:w.bounds})).filter(v=>this.inside(v,w.bounds)&&safeResource(bot,v)&&(!this.wilderness||w.first_night.trees||visibleBlock(bot,bot.blockAt(v))));this.resourceAt=now;}
+     if(!this.resourceAt||now-this.resourceAt>rules.resource_scan_ms){this.resources=this.grove?this.grove.flatMap(([x,y,z])=>[0,1,2,3,4,5].map(dy=>new Vec3(x,y+dy,z))):(await resourceScan.logs(bot,{bounds:w.bounds})).filter(v=>this.inside(v,w.bounds)&&safeResource(bot,v)&&(!this.wilderness||w.first_night.trees||visibleBlock(bot,bot.blockAt(v))||resourceAccess.obstruction(bot,v)));this.resourceAt=now;}
      if(this.grove&&!this.resources.some(v=>LOG.test(bot.blockAt(v)?.name||''))){this.grove=null;this.resourceAt=0;}
      let targets=this.resources.filter(v=>!this.ignoredTrees.has(v.x+','+v.z)&&LOG.test(bot.blockAt(v)?.name||'')).sort((a,b)=>a.distanceTo(p)-b.distanceTo(p));
      let focused={key:null,targets:[]};
@@ -111,14 +113,14 @@ class HutTeacher{
       focused=chooseTree(bot,targets,this.tree,surface,state.run,this.treeApproach);
       if(!focused.key)this.treeRetry=now+rules.tree_retry_ms;
      }
-     if(!pendingDrops&&focused.key!==this.tree){if(this.tree)this.timing.targets++;this.tree=pendingDrops?this.tree:focused.key;this.treeApproach=focused.approach||null;this.path=[];}
+     if(!pendingDrops&&focused.key!==this.tree){this.resourceAccess={};if(this.tree)this.timing.targets++;this.tree=pendingDrops?this.tree:focused.key;this.treeApproach=focused.approach||null;this.path=[];}
      else if(!pendingDrops&&focused.approach&&JSON.stringify(focused.approach)!==JSON.stringify(this.treeApproach)){this.treeApproach=focused.approach;this.path=[];}
      targets=focused.targets;
      if(targets.length){if(this.wilderness)delete this.wilderness.noResourceAt;space.reserve(bot,state.run,targets[0].offset(.5,0,.5));this.harvestTarget=targets[0];this.wilderness?.memory.remember('wood',targets[0]);}
      else space.release(bot.username);
      const drop=drops.find(e=>e.id===this.pickup)||drops[0];this.pickup=drop?.id??null;
      const collecting=drop&&!targets.length&&Math.hypot(drop.position.x-p.x,drop.position.z-p.z)>1;
-     let target=targets.find(v=>Math.hypot(v.x+.5-p.x,v.z+.5-p.z)<1.9&&harvestable(bot,v));
+     let target=targets.find(v=>Math.hypot(v.x+.5-p.x,v.z+.5-p.z)<3.5&&harvestable(bot,v));
      if(target){await this.harvest(bot,motor,target,state,api,scan,tasks);}
      else if(collecting){this.collecting=true;const moved=await this.walk(bot,motor,[drop.position.x,p.y,drop.position.z],state,api,scan,tasks);this.collecting=false;if(moved===false){this.ignoredDrops.set(drop.id,now+5000);this.pickup=null;}this.message='Collecting harvested drops';}
      else if(targets.length){let destination=this.treeApproach,chosenTree=targets[0];
@@ -126,9 +128,20 @@ class HutTeacher{
       if(!destination){const approaches=[];for(const block of targets)for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){const y=surface(bot,block.x+dx,block.z+dz);if(y!==null&&block.y-y<3.2&&block.y-y>-.5)approaches.push([block.x+dx+.5,y+.1,block.z+dz+.5]);}
        approaches.sort((a,b)=>Math.hypot(a[0]-p.x,a[2]-p.z)-Math.hypot(b[0]-p.x,b[2]-p.z));destination=approaches[0];this.treeApproach=destination||null;}
 
-      if(destination){const moved=await this.walk(bot,motor,destination,state,api,scan,tasks);if((moved===false||moved===true)&&chosenTree&&bot.entity.onGround){this.ignoredTrees.set(chosenTree.x+','+chosenTree.z,now+15000);this.tree=null;this.treeApproach=null;this.harvestTarget=null;space.release(bot.username);motor.pause();await level(bot);this.message=moved===true?'Remaining logs are blocked from this approach; checking another tree':'Tree approach is blocked; checking other resources';}this.message=this.message||'Approaching selected tree';}else{motor.pause();this.message='Tree has no safe approach';this.resourceAt=0;
-       const leaf=bot.findBlocks({matching:b=>b.name.endsWith('_leaves'),maxDistance:4,count:24}).filter(v=>this.inside(v,w.bounds)&&v.y>=p.y&&v.y<p.y+2.5).map(v=>bot.blockAt(v)).find(block=>block&&visibleBlock(bot,block)&&bot.canDigBlock(block));
-       if(leaf){this.message='Clearing foliage to reach a tree';await bot.dig(leaf);this.ignoredTrees.clear();this.lastProgress=Date.now();}
+      if(destination){
+       const near=Math.hypot(destination[0]-p.x,destination[2]-p.z)<.65&&Math.abs(destination[1]-p.y)<.6;
+       const access=near?await this.accessResource(bot,motor,chosenTree,state):null;
+       const moved=access?.handled?undefined:await this.walk(bot,motor,destination,state,api,scan,tasks);
+       if(access?.handled)this.message=access.message;
+       if((moved===false||moved===true)&&chosenTree&&bot.entity.onGround){
+        this.ignoredTrees.set(chosenTree.x+','+chosenTree.z,now+15000);this.tree=null;this.treeApproach=null;this.harvestTarget=null;
+        space.release(bot.username);motor.pause();await level(bot);
+        this.message=moved===true?'Remaining logs are blocked from this approach; checking another tree':'Tree approach is blocked; checking other resources';
+       }
+       this.message=this.message||'Approaching selected tree';
+      }else{motor.pause();this.message='Tree has no safe approach';this.resourceAt=0;
+       const access=await this.accessResource(bot,motor,chosenTree,state);
+       if(access.handled){this.message=access.message;}
        else if(chosenTree){this.ignoredTrees.set(chosenTree.x+','+chosenTree.z,now+15000);this.tree=null;this.treeApproach=null;this.message='Skipping a tree with no safe approach; checking other resources';}
       }}
      else{if(this.wilderness)await firstNight.explore(this,bot,motor,state,api,scan,tasks,surface,'wood');else{motor.pause();await level(bot);this.message='Scanning for another reachable tree; previous upper logs may be out of reach';}}
@@ -323,6 +336,26 @@ class HutTeacher{
   }
   await this.place(bot,q,null);this.lastProgress=Date.now();this.message=`Laying wooden floor ${tiles.length-remaining.length+1} / ${tiles.length}`;
  }
+ async accessResource(bot,motor,target,state){
+  this.resourceAccess=this.resourceAccess||{};
+  const result=await resourceAccess.attempt(bot,motor,target,{state:this.resourceAccess,run:state.run,bounds:state.world.bounds,plots:[this.plot,...(this.campPlots||[])]});
+  if(result.progress){this.lastProgress=Date.now();this.path=[];this.resourceAt=0;}
+  this.message=result.message;return result;
+ }
+ async workElevated(bot,motor,state,api,scan,tasks){
+  const access=this.resourceAccess,[x,z]=access.tree,p=bot.entity.position;
+  const entry=access.column.at(-1),center=[entry.position.x+.5,entry.position.y+1.1,entry.position.z+.5];
+  if(Math.hypot(p.x-center[0],p.z-center[2])>.15){motor.pause();throw Error('Moved away from the temporary harvesting column');}
+  // Finish with a one-block-at-a-time descent before changing phases or trees.
+  const enough=['complete','stopped'].includes(this.phase)||count(bot,n=>LOG.test(n))*4+count(bot,planks)>=(this.supplyRun?28:this.requiredWood(bot));
+  const logs=[];for(let y=Math.floor(p.y);y<=Math.floor(p.y)+7;y++){const v=new Vec3(x,y,z);if(LOG.test(bot.blockAt(v)?.name||''))logs.push(v);}
+  const target=logs.find(v=>harvestable(bot,v));
+  if(!access.descending&&!enough&&bot.health>=10&&target){this.harvestTarget=target;await this.harvest(bot,motor,target,state,api,scan,tasks);return;}
+  if(!access.descending&&!enough&&bot.health>=10&&logs.length){const result=await this.accessResource(bot,motor,logs[0],state);if(result.handled)return;}
+  access.descending=true;this.message='Dismantling temporary blocks and stepping down safely';
+  if(await resourceAccess.descend(bot,motor,access)){this.resourceAccess={};this.tree=null;this.treeApproach=null;this.resourceAt=0;}
+  this.lastProgress=Date.now();
+ }
  async harvest(bot,motor,target,state,api,scan,tasks,tool=null){
   this.timing.mark(this.phase,'harvesting');
   const p=bot.entity.position,goal=[target.x+.5,p.y,target.z+.5],desired=Math.atan2(-(goal[0]-p.x),-(goal[2]-p.z)),focusKey=target.toString();
@@ -332,7 +365,7 @@ class HutTeacher{
    try{await aim(bot,target.offset(.5,.5,.5));this.focusBlock=focusKey;}finally{motor.lockLook(false);}
   }
   const angle=Math.atan2(Math.sin(desired-bot.entity.yaw),Math.cos(desired-bot.entity.yaw));
-  if(!harvestable(bot,target)){this.harvestTarget=null;await level(bot);this.message='Target changed or became obstructed; reacquiring a resource';this.resourceAt=0;return;}
+  if(!harvestable(bot,target)){const access=await this.accessResource(bot,motor,target,state);if(access.handled)return;this.harvestTarget=null;await level(bot);this.message='Target changed or became obstructed; reacquiring a resource';this.resourceAt=0;return;}
   const task={kind:'gather',goal,bounds:state.world.bounds,coverage_target:100,actual_doors:[],wood_target:16,safe_walk:true,strict_ground:true,avoid_players:true},rays=scan(bot,{goalYaw:desired}),sensed=tasks.observeTask(bot,task,rays,this.runtime);
   sensed.extra[5]=Math.min(1,count(bot,n=>LOG.test(n))/3);
   const obs=[...rays.pooled,Math.sin(angle),Math.cos(angle),Math.min(p.distanceTo(new Vec3(...goal))/32,1),bot.health/20,bot.food/20,bot.entity.onGround?1:0,...sensed.extra];
@@ -350,6 +383,7 @@ class HutTeacher{
     const success=await harvest(bot,bot.blockAt(target));if(success){this.harvested=(this.harvested||0)+1;this.lastProgress=Date.now();this.harvestTarget=null;if(!this.resources?.some(v=>v.x===target.x&&v.z===target.z&&bot.blockAt(v)?.name.endsWith('_log')&&harvestable(bot,v)))await level(bot);}else{this.harvestTarget=null;await level(bot);this.message='Harvest did not remove the block; reacquiring the target';}this.path=[];
    }finally{motor.lockLook(false);}
   }
+  else if(this.resourceAccess?.column?.length){motor.pause();this.message='Holding secure footing on the temporary column while the policy selects harvesting';}
   else {this.message=result.action===4?'Policy chose to wait with a visible resource in focus':'Policy is aligning with the selected resource';motor.command(result.action,{...task,quick_look:[0,1,2,3].includes(result.action)},{...sensed,...rays.proximity,cueDistance:p.distanceTo(new Vec3(...goal))},angle);}
  }
  async walk(bot,motor,goal,state,api,scan,tasks,intent={}){

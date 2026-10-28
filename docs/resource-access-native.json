@@ -1,0 +1,58 @@
+{
+  "fixture": "Temporary survival-only dirt/leaf obstruction and three-block jump placement; isolated sky platform, no learning writes",
+  "start": {
+    "x": -80.5,
+    "y": 240,
+    "z": 160.5
+  },
+  "items": [
+    "dirt",
+    "wooden_axe"
+  ],
+  "dirt": {
+    "handled": true,
+    "progress": true,
+    "message": "Clearing dirt to reach the selected log"
+  },
+  "leaves": {
+    "handled": true,
+    "progress": true,
+    "message": "Clearing oak_leaves to reach the selected log"
+  },
+  "steps": [
+    {
+      "handled": true,
+      "progress": true,
+      "message": "Built temporary step 1 / 3 to reach higher logs"
+    },
+    {
+      "handled": true,
+      "progress": true,
+      "message": "Built temporary step 2 / 3 to reach higher logs"
+    },
+    {
+      "handled": true,
+      "progress": true,
+      "message": "Built temporary step 3 / 3 to reach higher logs"
+    }
+  ],
+  "centering": {
+    "handled": true,
+    "message": "Centered safely before building up"
+  },
+  "centered_position": {
+    "x": -80.51172710286622,
+    "y": 240,
+    "z": 160.50000000000014
+  },
+  "height": 243,
+  "reachable": true,
+  "harvested": true,
+  "descents": [
+    false,
+    false,
+    true
+  ],
+  "return_y": 240,
+  "success": true
+}

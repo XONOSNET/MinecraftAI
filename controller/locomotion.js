@@ -59,7 +59,7 @@ function motorPlan(action,permissions,task,sensed,angle,traveling=false){
 function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
  const recovery=createRecovery(()=>forBot(bot)),doorway=createDoorway(),strafe=createStrafe(bot);
  let plan=null,targetYaw=null,expires=0,last=clock(),paused=true,lookLocked=false,stalled=false,lastSafetyAt=-Infinity,groundSafe=true,lastSprintSafetyAt=-Infinity,sprintSafe=false;
- function clear(){if(bot.labCriticalAttack)bot.labCriticalAttack.cancelled=true;recovery.reset();doorway.reset();strafe.reset();bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
+ function clear(){if(bot.labResourceAccess)bot.labResourceAccess.cancelled=true;if(bot.labCriticalAttack)bot.labCriticalAttack.cancelled=true;recovery.reset();doorway.reset();strafe.reset();bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
  return {
   command(action,task,sensed,angle){
    if(!Number.isFinite(angle)||!Number.isFinite(bot.entity?.yaw)){clear();return 'Waiting for valid orientation';}
@@ -126,6 +126,8 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
   lockLook(value){lookLocked=value;},
   tick(){
    if(legacy||!bot.entity)return;
+   // Short, bounded physical build-up owns movement until landing or cancellation.
+   const access=bot.labResourceAccess;if(access&&!access.cancelled&&Date.now()<access.until)return;
    const leap=bot.labCriticalAttack;
    if(leap&&!leap.cancelled&&Date.now()<leap.until){
     if(bot.entity.onGround===false)leap.airborne=true;

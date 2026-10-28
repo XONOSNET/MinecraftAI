@@ -2,8 +2,8 @@
 const {Vec3}=require('vec3');
 const LOG=/^(oak|birch|spruce|jungle|acacia|dark_oak|mangrove|cherry)_log$/;
 async function logs(bot,{range=64,count=256,bounds=null,yieldNow=()=>new Promise(resolve=>setImmediate(resolve))}={}){
- if(!bot.world?.getColumn||!bot.registry?.blocksByStateId)return bot.findBlocks({matching:b=>LOG.test(b.name),useExtraInfo:b=>Math.abs(b.position.y-bot.entity.position.y)<5,maxDistance:range,count});
- const p=bot.entity.position.clone(),center=p.floored(),y0=Math.floor(p.y-5)+1,y1=Math.ceil(p.y+5)-1,minY=bot.game.minY,found=[],cache=new Map(),local=new Vec3(0,0,0);
+ if(!bot.world?.getColumn||!bot.registry?.blocksByStateId)return bot.findBlocks({matching:b=>LOG.test(b.name),useExtraInfo:b=>b.position.y>bot.entity.position.y-5&&b.position.y<bot.entity.position.y+8,maxDistance:range,count});
+ const p=bot.entity.position.clone(),center=p.floored(),y0=Math.floor(p.y-5)+1,y1=Math.ceil(p.y+8)-1,minY=bot.game.minY,found=[],cache=new Map(),local=new Vec3(0,0,0);
  const isLog=id=>{if(!cache.has(id))cache.set(id,LOG.test(bot.registry.blocksByStateId[id]?.name||''));return cache.get(id);};
  for(let cx=Math.floor((center.x-range)/16);cx<=Math.floor((center.x+range)/16);cx++)for(let cz=Math.floor((center.z-range)/16);cz<=Math.floor((center.z+range)/16);cz++){
   if(bounds&&(cx*16+15<bounds[0]||cx*16>=bounds[1]||cz*16+15<bounds[2]||cz*16>=bounds[3]))continue;
