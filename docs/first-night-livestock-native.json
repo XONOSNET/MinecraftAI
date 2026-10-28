@@ -1,0 +1,18 @@
+{
+  "fixture": "Supported wool shortage: start with two wool and no sheep, request one guarded replacement, then hunt and pick up the third wool",
+  "grants": [
+    "Isolated lit house and flat lesson pad",
+    "Two white wool and one stone axe; the third wool must be collected from the replacement sheep"
+  ],
+  "checks": [
+    {
+      "phase": "night_wool",
+      "seconds": 6.5
+    }
+  ],
+  "refill_requests": 1,
+  "guarded_sheep_count": 1,
+  "pulse": 1793149713021,
+  "wool": 3,
+  "success": true
+}

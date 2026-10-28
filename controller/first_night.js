@@ -1,5 +1,6 @@
 // Small explicit survival planner. Skill policies still choose movement/harvesting.
 const {Vec3}=require('vec3'),{WildernessMemory}=require('./wilderness_memory'),{standable,route}=require('./field_navigation'),{visibleBlock}=require('./target_scan'),inventory=require('./inventory_sync'),furnace=require('./furnace'),house=require('./house'),{closeDoor}=require('./door_care'),combat=require('./combat');
+const livestock=require('./first_night_livestock');
 const RAW={beef:'cooked_beef',porkchop:'cooked_porkchop',mutton:'cooked_mutton',chicken:'cooked_chicken',rabbit:'cooked_rabbit'},FOOD=['cooked_beef','cooked_porkchop','cooked_mutton','cooked_chicken','cooked_rabbit','apple','bread'],ANIMALS=['cow','pig','sheep','chicken','rabbit'];
 const SAFE_RAW=['beef','porkchop','mutton','rabbit'];
 const HOSTILES=new Set(['zombie','zombie_villager','husk','drowned','skeleton','stray','bogged','creeper','spider','cave_spider','witch','pillager','vindicator','enderman']);
@@ -33,10 +34,11 @@ function approaches(b,block,bounds){
 }
 async function pickup(t,b,motor,state,api,scan,tasks,names){
  const n=t.wilderness,p=b.entity.position,now=Date.now();n.ignoredDrops??=new Map();
- const drop=Object.values(b.entities).filter(e=>e.name==='item'&&e.isValid!==false&&e.position.distanceTo(p)<8&&Math.abs(e.position.y-p.y)<1.4&&now>(n.ignoredDrops.get(e.id)||0)&&names.includes(require('./survival').itemName(b,e))).sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p))[0];
+ const drop=Object.values(b.entities).filter(e=>e.name==='item'&&e.isValid!==false&&e.position.distanceTo(p)<8&&Math.abs(e.position.y-p.y)<1.4&&now>(n.ignoredDrops.get(e.id)||0)&&livestock.localDrop(t,state.world,e.position)&&names.includes(require('./survival').itemName(b,e))).sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p))[0];
  if(!drop)return false;
- n.pickupSince??=now;if(n.pickupId!==drop.id){n.pickupId=drop.id;n.pickupSince=now;}
- if(now-n.pickupSince>3000){n.ignoredDrops.set(drop.id,now+5000);n.pickupId=null;return false;}
+ n.pickupSince??=now;if(n.pickupId!==drop.id){n.pickupId=drop.id;n.pickupSince=now;n.pickupProgressAt=now;n.pickupBest=Infinity;}
+ const distance=drop.position.distanceTo(p);if(distance<n.pickupBest-.25){n.pickupBest=distance;n.pickupProgressAt=now;}
+ if(now-n.pickupSince>30000||now-n.pickupProgressAt>10000){n.ignoredDrops.set(drop.id,now+5000);n.pickupId=null;return false;}
  const q=drop.position,goals=[[q.x,Math.floor(q.y)+.1,q.z],...approaches(b,{position:q.floored()},state.world.bounds)].filter(g=>standable(b,Math.floor(g[0]),Math.round(g[1]),Math.floor(g[2]))&&new Vec3(...g).distanceTo(q)<1.6);
  const goal=goals.find(g=>route(b,g,16,1024,true,{bounds:state.world.bounds,reversible:true}).reached);
  if(!goal){n.ignoredDrops.set(drop.id,now+5000);return false;}
@@ -110,13 +112,15 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(b.inventory.items().filter(i=>i.name.endsWith('_log')).reduce((s,i)=>s+i.count,0)>=4){t.phase='stone_return';t.lastProgress=now;}
   else{n.fuelTrip=true;t.supplyRun=true;t.grove=null;t.resourceAt=0;t.phase='gather';}
  }else if(t.phase==='night_food'||t.phase==='night_wool'||t.phase==='night_forage'){
-  const wool=t.phase==='night_wool';
+  const wool=t.phase==='night_wool';livestock.observe(t,b,w);
+  // Keep bed material dropped during food hunting before leaving to cook.
+  if(!wool&&t.phase!=='night_forage'&&count(b,'white_wool')<3&&await pickup(t,b,motor,state,api,scan,tasks,['white_wool']))return;
   if(t.phase==='night_forage'&&(SAFE_RAW.reduce((s,name)=>s+count(b,name),0)>=2||meals(b)>=2)){t.phase=n.forageResume||'night_food';delete n.forageResume;t.lastProgress=now;return;}
   if(t.phase!=='night_forage'&&(wool?count(b,'white_wool')>=3:meals(b)+raw(b)>=4)){t.milestone(wool?'wool':'food_found');next(wool?'wool_home':'food_home');return;}
   if(await pickup(t,b,motor,state,api,scan,tasks,wool?['white_wool']:Object.keys(RAW).concat(FOOD)))return;
-  const foods=Object.values(b.entities).filter(e=>e.isValid!==false&&(!w.first_night.stations||JSON.stringify(e.metadata?.[2]||'').includes('FirstNight'+b.username))&&(wool?e.name==='sheep'&&((e.metadata?.[b.registry.entitiesByName.sheep.metadataKeys.indexOf('wool')]||0)&31)===0:ANIMALS.includes(e.name)&&(t.phase!=='night_forage'||e.name!=='chicken'))&&inside(e.position,w.bounds)&&e.position.distanceTo(p)<40&&!require('./resource_space').busy(b,state.run,e.position)&&n.memory.available([e.position.x,e.position.y,e.position.z]));
+  const foods=Object.values(b.entities).filter(e=>e.isValid!==false&&(!w.first_night.stations||JSON.stringify(e.metadata?.[2]||'').includes('FirstNight'+b.username))&&(wool?livestock.whiteSheep(b,e):ANIMALS.includes(e.name)&&(t.phase!=='night_forage'||e.name!=='chicken')&&(!w.first_night.stations||e.name!=='sheep'||count(b,'white_wool')>=3||b.food<=10))&&inside(e.position,w.bounds)&&e.position.distanceTo(p)<40&&!require('./resource_space').busy(b,state.run,e.position)&&n.memory.available([e.position.x,e.position.y,e.position.z]));
   let animal=foods.find(e=>e.id===n.animal)||foods.filter(e=>combat.visible(b,e)).sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p))[0];
-  if(animal){delete n.noResourceAt;if(n.animal!==animal.id){n.animalGoal=null;n.animalPlanAt=0;}n.animal=animal.id;n.memory.remember('food',animal.position);const distance=animal.position.distanceTo(p);
+  if(animal){delete n.noResourceAt;if(n.animal!==animal.id){n.animalGoal=null;n.animalPlanAt=0;}n.animal=animal.id;n.memory.remember('food',animal.position);if(livestock.whiteSheep(b,animal))n.memory.remember('wool',animal.position);const distance=animal.position.distanceTo(p);
    if(distance>2.7||!combat.visible(b,animal)){
     if(!n.animalGoal||now>=(n.animalPlanAt||0)){n.animalPlanAt=now+1000;n.animalGoal=approaches(b,{position:animal.position.floored()},w.bounds).sort((a,c)=>new Vec3(...a).distanceTo(p)-new Vec3(...c).distanceTo(p)).slice(0,3).find(g=>route(b,g,48,1024,true,{bounds:w.bounds,reversible:true}).reached);}
     const goal=n.animalGoal;
@@ -129,7 +133,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
     if([4,5,6].includes(result.action)&&await combat.interact(b,task,sensed,runtime,result.action,{combat_practice:true})&&result.action===6){n.attacked++;t.lastProgress=now;}
    }
    t.message=wool?'Collecting white wool · '+count(b,'white_wool')+' / 3':'Gathering food · '+(meals(b)+raw(b))+' / 4 meals · '+animal.name;
-  }else await explore(t,b,motor,state,api,scan,tasks,surface,wool?'wool':'food');
+  }else if(!await livestock.support(t,b,motor,state,api,scan,tasks,wool?'wool':'food'))await explore(t,b,motor,state,api,scan,tasks,surface,wool?'wool':'food');
  }else if(t.phase==='night_food_home')await move(home,'cook');
  else if(t.phase==='night_cook'){
   motor.pause();const d=door();if(d?.getProperties().open&&!await closeDoor(b,d))return;
@@ -176,5 +180,5 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(left===0&&b.health>=12&&b.food>=10&&(!w.first_night.hostiles||n.nightSeen)){t.milestone('survived');t.phase='complete';t.message='First Night complete: provisioned, illuminated shelter, bed home, remembered resource round trip and safe survival watch';}
  }
 }
-function report(t){const n=t.wilderness;return n?{priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,night_seen:!!n.nightSeen,memory:n.memory.snapshot()}:null;}
+function report(t){const n=t.wilderness;return n?{priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,livestock:n.livestock_status||null,night_seen:!!n.nightSeen,memory:n.memory.snapshot()}:null;}
 module.exports={enabled,handles,init,priority,interrupt,explore,tick,report,approaches,meals,RAW,FOOD};

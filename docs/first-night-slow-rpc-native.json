@@ -1,0 +1,80 @@
+{
+  "fixture": "Closed-house navigation with a simulated 2.2 second wait for every policy reply",
+  "grants": [
+    "Completed illuminated shelter, chest and furnace",
+    "Four logs for early axe crafting",
+    "Wooden pickaxe for exposed-stone test",
+    "Four fixture cows, three sheep and furnace fuel"
+  ],
+  "checks": [],
+  "start_position": {
+    "x": -237.5,
+    "y": 180,
+    "z": -123.5
+  },
+  "arrived_home": true,
+  "left_neighbor_through_exit": true,
+  "seconds": 135.8,
+  "position": {
+    "x": -247.50890287430246,
+    "y": 180,
+    "z": -123.70934994032999
+  },
+  "navigation": {
+    "home": [
+      -247.5,
+      180.1,
+      -128.5
+    ],
+    "target": [
+      -247.5,
+      180.1,
+      -123.5
+    ],
+    "route_intent": "Return to own house",
+    "state": "arrived",
+    "height_delta": 0.1,
+    "route_complete": true,
+    "remaining_blocks": 0,
+    "waypoints": 0,
+    "no_progress_seconds": 0,
+    "reset_seconds": 90,
+    "expanded": 1,
+    "phase": "stone_return",
+    "position": [
+      -247.50890287430246,
+      180,
+      -123.70934994032999
+    ],
+    "yaw": 9.46666586281675,
+    "on_ground": true,
+    "cue": [
+      -247.5,
+      180.1,
+      -123.5
+    ],
+    "cue_centering": false,
+    "motor_before": {
+      "label": "Following locked route",
+      "paused": false,
+      "expired": false,
+      "ground_safe": true,
+      "precise_focus": false,
+      "recovering": false,
+      "doorway": false,
+      "controls": {
+        "forward": false,
+        "back": false,
+        "left": false,
+        "right": false,
+        "jump": false,
+        "sneak": false,
+        "sprint": false
+      }
+    },
+    "nearby_players": [],
+    "player_clearance": 2,
+    "sampled_at": 1793150117850
+  },
+  "success": true
+}

@@ -34,3 +34,18 @@ LabAI5 waited inside an unfinished neighboring plot. An absent door was incorrec
 LabAI1 had a 90-second route-progress timeout. The original report cannot distinguish policy failure, player avoidance or a safety hold conclusively. New navigation reports preserve motor state and held controls, nearby player positions and clearance, raw obstacle flags and short/long ground probes. This timeout is not claimed fixed or forced into a passing result.
 
 All 198 JavaScript tests pass. Exact stop reports and validation limits are in `stopped-baseline-investigation.json`. The automatic comparison restarts with unchanged protected model weights and identical new controller code on both sides; an evaluation begun under older controller code is not used to promote weights.
+
+
+## Follow-up: exhausted supported livestock and missed wool
+
+Authoritative inventories showed LabAI2, LabAI4 and LabAI7 each holding two white wool with no assigned sheep remaining. Sheep assigned to stopped bots elsewhere did not make the active bots' own supply sufficient. Cross-targeting was not the main shortage in this snapshot. The food task could leave wool byproducts behind and depart to cook, while later wool searches had no wool-specific remembered sightings.
+
+Food hunting now collects nearby wool before leaving and preserves supported bed sheep when the bot is not urgently hungry. The supported station starts with four cows and can replace an absent assigned animal, with separate four-request budgets and 30-second cooldowns for food and wool. Server-side existence checks prevent queued requests from spawning duplicate animals. Later natural-resource levels and reserved assessments reject this assistance. Nearby drops in supported camps respect station ownership; pickup attempts allow actual approach progress instead of abandoning every drop after three seconds. Wool sightings persist through bounded memory cleanup.
+
+Native verification began with two wool, a stone axe and no sheep in an isolated fixture. One replacement request produced one sheep even when guarded summon commands were repeated; hunting and pickup brought inventory to three wool in 6.5 seconds. Fixture grants and results are recorded in `first-night-livestock-native.json`. This is a resource recovery check, not an eight-bot First Night pass.
+
+Movement diagnostics also exposed expired commands clearing committed doorway state. Expiry now stops controls while retaining the maneuver; explicit task pauses still reset it. Verified focus/doorway movement has bounded three-second validity with continuous local ground, corridor and player checks. Policy request duration is now recorded as `rpc_ms`.
+
+Validation: 205 JavaScript tests and 235 Python tests passed.
+
+The isolated closed-house route also completed with an artificial 2.2-second delay on every policy reply: it exited the neighboring house and arrived at its own home in 135.8 seconds (`first-night-slow-rpc-native.json`). This establishes eventual route completion in that fixture, not smooth or fast movement under heavy latency.

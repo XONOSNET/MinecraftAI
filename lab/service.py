@@ -885,6 +885,12 @@ def world_lesson_resources(d:dict):
         try:return {'trees':world_training.lesson_resources(d.get('agent'))}
         except ValueError as error:raise HTTPException(400,str(error))
 
+@app.post('/world/livestock',dependencies=[Depends(auth)])
+def world_livestock(d:dict):
+    with lock:
+        try:return world_training.livestock(d)
+        except ValueError as error:raise HTTPException(400,str(error))
+
 @app.post('/world/quarry',dependencies=[Depends(auth)])
 def prepare_world_quarry(d:dict):
     with lock:

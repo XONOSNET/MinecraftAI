@@ -265,12 +265,35 @@ class WorldTraining(SurvivalLessons):
                 self.command(f'fill {plot["x"]-3} {y-1} {near} {plot["x"]+3} {y-1} {far} minecraft:grass_block')
                 self.command(f'fill {plot["x"]-3} {y} {near} {plot["x"]+3} {y+3} {far} minecraft:air')
                 label=json.dumps(json.dumps({'text':'FirstNight'+s['bots'][index]}))
-                for offset in (-1,1):
+                for offset in (-1.5,-.5,.5,1.5):
                     self.command(f'summon minecraft:cow {plot["x"]+offset+.5} {y} {plot["z"]+direction*17+.5} {{Tags:["lab_world_survival"],PersistenceRequired:1b,NoAI:1b,CustomName:{label}}}')
                 for offset in (-1,0,1):
                     self.command(f'summon minecraft:sheep {plot["x"]+offset+.5} {y} {plot["z"]+direction*19+.5} {{Tags:["lab_world_survival"],PersistenceRequired:1b,NoAI:1b,CustomName:{label},Color:0b}}')
         self.saved['templates'].setdefault(s['template'],{})['camp_anchor']=[x,y,z];self.save()
         return copy.deepcopy(s['camp'])
+
+    def livestock(self,data):
+        s=self.session;name=data.get('agent');kind=data.get('resource')
+        if not s or not s['active'] or s['phase']!='running' or data.get('run')!=s['run'] or name not in s['bots']:
+            raise ValueError('No matching active livestock lesson.')
+        if s.get('mission')!='first_night' or not s.get('first_night',{}).get('stations') or s.get('night_level')!=0 or s.get('assessment') or not s.get('camp'):
+            raise ValueError('Replacement livestock is only available in supported First Night lessons.')
+        if kind not in ('food','wool'):raise ValueError('Choose food or wool livestock.')
+        index=s['bots'].index(name);plot=s['camp']['plots'][index];direction=-1 if index<4 else 1
+        species='sheep' if kind=='wool' else 'cow';position=[plot['x']+.5,plot['y'],plot['z']+direction*(19 if kind=='wool' else 17)+.5]
+        record=s.setdefault('livestock_refills',{}).setdefault(name,{}).setdefault(kind,dict(attempts=0,last_at=-1e9))
+        result=dict(position=position,remaining=max(0,4-record['attempts']),exhausted=record['attempts']>=4,cooldown_seconds=0)
+        if result['exhausted']:return result
+        wait=30-(self.clock()-record['last_at'])
+        if wait>0:return dict(result,cooldown_seconds=math.ceil(wait))
+        record.update(attempts=record['attempts']+1,last_at=self.clock())
+        label=json.dumps(json.dumps({'text':'FirstNight'+name}));x0,x1,z0,z1=s['bounds']
+        selector=f'@e[type=minecraft:{species},tag=lab_world_survival,name=FirstNight{name},x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1},limit=1]'
+        color=',Color:0b' if species=='sheep' else ''
+        # The server checks existence at execution time, so queued requests
+        # cannot create duplicates. Never give items or alter natural levels.
+        self.command(f'execute unless entity {selector} run summon minecraft:{species} {position[0]} {position[1]} {position[2]} {{Tags:["lab_world_survival"],PersistenceRequired:1b,NoAI:1b,CustomName:{label}{color}}}')
+        return dict(result,remaining=4-record['attempts'],requested=True)
 
     def lesson_resources(self,name):
         s=self.session

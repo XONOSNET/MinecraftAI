@@ -26,7 +26,7 @@ def clean_memory(value,bounds):
         return isinstance(p,list) and len(p)==3 and all(type(n) in (int,float) and math.isfinite(n) for n in p) and bounds[0]+1<p[0]<bounds[1]-2 and bounds[2]+1<p[2]<bounds[3]-2 and -60<p[1]<192
     resources=[]
     for r in (value.get('resources',[]) if isinstance(value.get('resources',[]),list) else [])[:96]:
-        if isinstance(r,dict) and r.get('kind') in ('wood','stone','food','home') and point(r.get('position')):
+        if isinstance(r,dict) and r.get('kind') in ('wood','stone','food','wool','home') and point(r.get('position')):
             resources.append(dict(kind=r['kind'],position=r['position']))
     roads=[p for p in (value.get('roads',[]) if isinstance(value.get('roads',[]),list) else [])[:512] if point(p)]
     # Edges refer to stable coordinate keys, not indices that filtering changes.

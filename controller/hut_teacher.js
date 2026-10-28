@@ -373,7 +373,9 @@ class HutTeacher{
   const sensedScan=scan(bot,{goalYaw:desired}),sensed=tasks.observeTask(bot,task,sensedScan,this.runtime);
   const obs=[...sensedScan.pooled,Math.sin(angle),Math.cos(angle),Math.min(p.distanceTo(new Vec3(...goal))/32,1),bot.health/20,bot.food/20,bot.entity.onGround?1:0,...sensed.extra];
   const teacher=tasks.teacherAction(bot,task,sensed,this.runtime,angle);
+  const requestAt=Date.now();
   const result=await api('/step',{agent:bot.username,run:state.run,world_skill:skill,obs,teacher,reward:0,position:[p.x,p.y,p.z],health:bot.health,food:bot.food,hits:sensedScan.hits,perception_ms:0,steps:0,goal,task:'expedition',metrics:sensed.metrics});
+  this.lastNavigation.rpc_ms=Date.now()-requestAt;
   this.lastNavigation.decision={selected:result.action,teacher,angle};
   const near=sensedScan.proximity;this.lastNavigation.obstacles={wall_ahead:!!near.wallAhead,front_blocked:!!sensed.frontBlocked,head_blocked:!!sensed.headBlocked,ground_clear_035:near.canWalk?.(bot.entity.yaw,.35),ground_clear_075:near.canWalk?.(bot.entity.yaw,.75)};
   this.timing.action(result.action);this.timing.mark(this.phase,this.collecting?'collecting':result.action===1||result.action===2?'aligning':'navigating');

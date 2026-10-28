@@ -112,18 +112,23 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    plan.sprint=!plan.side&&!plan.descent&&sprintIntent(bot,permissions,task,plan,sensed,angle,!!bot.getControlState('sprint'));
    plan.sprintTask=task;lastSprintSafetyAt=-Infinity;
    if(plan.sprint)plan.label='Sprinting on clear ground';
-   targetYaw=Number.isFinite(plan.targetYaw)?plan.targetYaw:plan.yaw?bot.entity.yaw+plan.yaw:null;expires=clock()+1000;paused=false;
+   targetYaw=Number.isFinite(plan.targetYaw)?plan.targetYaw:plan.yaw?bot.entity.yaw+plan.yaw:null;expires=clock()+(task?.safe_walk&&(focus||passage)?3000:1000);paused=false;
    return plan.label;
   },
   pause:clear,
   passageActive:()=>doorway.active(),
   status(){return stalled?'Waiting for policy response':doorway.active()?doorway.label():recovery.active()?recovery.label():plan?.side&&(bot.getControlState('left')||bot.getControlState('right'))?plan.label:plan?.sprint&&bot.getControlState('sprint')?'Sprinting on clear ground':null;},
-  diagnostic(){return {label:plan?.label||null,paused,expired:!paused&&clock()>expires,ground_safe:groundSafe,precise_focus:!!plan?.preciseFocus,recovering:recovery.active(),doorway:doorway.active(),controls:Object.fromEntries(['forward','back','left','right','jump','sneak','sprint'].map(k=>[k,!!bot.getControlState(k)]))};},
+  diagnostic(){return {label:plan?.label||null,paused,expired:stalled||!paused&&clock()>expires,ground_safe:groundSafe,precise_focus:!!plan?.preciseFocus,recovering:recovery.active(),doorway:doorway.active(),controls:Object.fromEntries(['forward','back','left','right','jump','sneak','sprint'].map(k=>[k,!!bot.getControlState(k)]))};},
   lockLook(value){lookLocked=value;},
   tick(){
    if(legacy||!bot.entity)return;
    const now=clock(),dt=Math.max(.01,Math.min(.1,(now-last)/1000));last=now;
-   if(paused||now>expires){if(!paused){clear();stalled=true;}else pauseMotion(bot,permissions);applyPose(bot,!!bot.getControlState('sneak'));return;}
+   if(paused||now>expires){
+    // A late reply stops controls, but is not a new task. Keep the committed
+    // doorway/recovery state; resetting it here repeatedly flips crossing side.
+    if(!paused){plan=null;targetYaw=null;paused=true;stalled=true;}
+    pauseMotion(bot,permissions);applyPose(bot,!!bot.getControlState('sneak'));return;
+   }
    let forward=!!plan.forward;
    // Policy replies can arrive late; recheck support while holding an intention.
    if(forward&&plan.safeWalk&&bot.blockAt&&bot.entity.onGround!==false&&!(plan.stepLevel&&bot.entity.position.y<plan.stepLevel-.3)){

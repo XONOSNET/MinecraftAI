@@ -150,3 +150,12 @@ test('a safe near center can be reached before turning beside a wall',()=>{
  const motor=createMotor(bot,permissions,{clock:()=>now}),task={kind:'expedition',navigation_lock:true,center_route:true,safe_walk:true,strict_ground:true,waypoints:[[.5,64.1,.5]]};motor.command(0,task,sensed,0);now=50;motor.tick();assert.equal(controls.forward,true);
  motor.command(0,task,{...sensed,focusPoint:[-.1,64.1,.5],cueDistance:.8},0);now=100;motor.tick();assert.equal(!!controls.forward,false,'the same probe still refuses an obstructed destination');
 });
+
+test('expired controls stop without restarting a committed doorway from the opposite side',()=>{
+ const {Vec3}=require('vec3');let now=0;const controls={},bot={entity:{yaw:Math.PI,pitch:0,onGround:true,position:new Vec3(.5,70,-.65)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,look:()=>Promise.resolve()};
+ const motor=createMotor(bot,permissions,{clock:()=>now}),task={kind:'expedition',safe_walk:true,strict_ground:true},sensed={...safe,canWalk:()=>true,canStepDown:()=>true,doorway:{id:'0,70,0',axis:'z',plane:.5,center:.5,open:true,y:70}};
+ assert.match(motor.command(0,task,sensed,0),/crossing/);now=50;motor.tick();assert.equal(controls.forward,true);
+ now=4000;motor.tick();assert.equal(!!controls.forward,false);assert.equal(motor.diagnostic().expired,true);
+ bot.entity.position.z=.7;assert.match(motor.command(0,task,sensed,0),/crossing/,'resume the original crossing instead of selecting a new entry side');now=4050;motor.tick();assert.equal(controls.forward,true);
+ motor.pause();assert.equal(motor.passageActive(),false,'an explicit mode/task pause still clears the maneuver');
+});
