@@ -56,6 +56,7 @@ function findPlot(bot,bounds,index,spread,total=8){
  }return null;
 }
 const blueprint=house.blueprint;
+function secureInterior(bot,plot){const p=bot.entity.position;return bot.entity.onGround===true&&Math.abs(p.y-plot.y)<.4&&Math.abs(p.x-plot.x-.5)<2.15&&Math.abs(p.z-plot.z-.5)<2.15;}
 function matches(bot,p){const name=bot.blockAt(new Vec3(p.x,p.y,p.z))?.name||'';return p.table?name==='crafting_table':planks(name);}
 function intact(bot,plot){return blueprint(plot).every(p=>matches(bot,p));}
 function reference(bot,p){for(const [dx,dy,dz] of [[0,-1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0]]){
@@ -186,11 +187,11 @@ class HutTeacher{
    }else if(this.phase==='enter'){
     const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-3));
     if(!door?.name.endsWith('_door'))throw Error('Door placement did not create a usable entrance.');
-    if(Math.hypot(p.x-this.plot.x-.5,p.z-this.plot.z-.5)<.8&&Math.abs(p.y-this.plot.y)<.4){motor.pause();if(door.getProperties().open&&!await closeDoor(bot,door)){this.message='Waiting for the doorway to clear before closing';return this.message;}this.secureAt=now;this.phase='shelter';}
+    if(secureInterior(bot,this.plot)){motor.pause();if(door.getProperties().open&&!await closeDoor(bot,door)){this.message='Waiting for the doorway to clear before closing';return this.message;}this.secureAt=now;this.phase='shelter';}
     else{if(!door.getProperties().open&&p.z<door.position.z+.5&&door.position.distanceTo(p)<3.5){motor.pause();await bot.activateBlock(door);}else await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5],state,api,scan,tasks);}
    }else if(this.phase==='shelter'){
     motor.pause();const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-3));
-    if(!intact(bot,this.plot)||!door?.name.endsWith('_door')||door.getProperties().open)throw Error('Hut enclosure failed final verification.');
+    if(!secureInterior(bot,this.plot)||!intact(bot,this.plot)||!door?.name.endsWith('_door')||door.getProperties().open)throw Error('Hut enclosure failed final verification.');
     if(now-this.secureAt>=3000){this.milestone('hut');this.phase=w.mission!=='hut'?'leave_hut':'complete';this.message='Hut verified. '+(w.mission!=='hut'?'Next: gather supplies for a chest and tools.':'Built an intact enclosed hut, closed the door and sheltered for 3 seconds.');}
    }else if(this.phase==='leave_hut'){
     const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-3));
@@ -426,4 +427,4 @@ class HutTeacher{
   const motorLabel=motor.command(result.action,task,{...sensed,...sensedScan.proximity,doorway:passage,focusPoint:cue,cueDistance:Math.hypot(cue[0]-p.x,cue[2]-p.z)},angle);this.lastNavigation.motor_after=motor.diagnostic?.();if(motorLabel)this.message=motorLabel;
  }
 }
-module.exports={HutTeacher,blueprint,intact,findPlot,findSpawn,surface,reference};
+module.exports={HutTeacher,secureInterior,blueprint,intact,findPlot,findSpawn,surface,reference};

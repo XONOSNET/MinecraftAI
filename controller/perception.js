@@ -57,9 +57,29 @@ function proximity(bot,{goalYaw=null,recovery=true}={}){
   }
   return clear;
  }
+ // A grounded body may partly overhang a ledge. Permit only motion that
+ // monotonically regains support and ends with the complete footprint supported.
+ function regainFooting(heading,limit=.75){
+  if(bot.entity.onGround!==true||bot.entity.isInWater||bot.entity.isInLava||limit<.1||limit>1.5)return false;
+  const direction=new Vec3(-Math.sin(heading),0,-Math.cos(heading));
+  const sample=d=>{
+   const c=p.plus(direction.scaled(d));let count=0;
+   if(blocked(d,1.79,.05,direction,p.y))return -1;
+   for(const x of [-.29,.29])for(const z of [-.29,.29]){
+    const below=blockAt(new Vec3(Math.floor(c.x+x),Math.floor(p.y-.05),Math.floor(c.z+z)));
+    if(!below||HAZARDS.has(below.name))return -1;
+    const top=supportAt(c.x+x,c.z+z,.2);if(top!==null&&Math.abs(top-p.y)<.21)count++;
+   }
+   return count;
+  };
+  let previous=sample(0);if(previous<=0||previous===4)return false;
+  for(let d=.05;d<limit;d+=.05){const count=sample(d);if(count<previous)return false;previous=count;}
+  return sample(limit)===4;
+ }
  const forwardClearance=recovery&&(wallAhead||bot.labRecovering||bot.labAvoiding)?clearance(0):null;
  const escapeRoutes=recovery&&(wallAhead||bot.labRecovering||bot.labAvoiding)?[-7,-6,-5,-4,-3,-2,2,3,4,5,6,7,8].map(i=>i*Math.PI/8).map(offset=>({yaw:yaw+offset,offset,clearance:clearance(offset)})):[];
  return {wallAhead,crouchClearance:standing&&!crouched,rearSafe:rearSafe&&!bot.entity.isInWater&&!bot.entity.isInLava,
+  canRegainFooting:regainFooting,
   canWalk:(heading,minimum=.35,height=1.79)=>clearance(heading-yaw,.2,minimum,height)>=minimum,canStepDown:(heading,minimum=.35)=>clearance(heading-yaw,1,minimum)>=minimum,escapeRoutes,forwardClearance,goalClearance:Number.isFinite(goalYaw)&&(wallAhead||bot.labRecovering||bot.labAvoiding)?clearance(goalYaw-yaw):null,escapeForwardSafe:forwardClearance!==null&&forwardClearance>=.65};
 }
 function coneWidth(distance){return Math.PI/2+Math.PI/3*Math.max(0,Math.min(1,(5-distance)/4));}

@@ -73,6 +73,15 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    // At an alignment point the next leg may turn or climb. Probe the body
    // corridor to that point, not through the wall beyond the upcoming turn.
    if(focus&&task.center_route&&Math.hypot(focus[0]-bot.entity.position.x,focus[2]-bot.entity.position.z)<.8&&Math.abs(focus[1]-bot.entity.position.y)<.4&&Math.abs(angle)<.35&&sensed?.canWalk?.(bot.entity.yaw+angle,routeProbe(bot.entity.position,focus,.75))){recovery.reset();sensed={...sensed,wallAhead:false};}
+   const routeFocus=task?.safety_focus,p=bot.entity.position;
+   const routeDistance=routeFocus?Math.hypot(routeFocus[0]-p.x,routeFocus[2]-p.z):Infinity;
+   const flatRoute=routeFocus&&Math.abs(routeFocus[1]-p.y)<.4;
+   // A wall in the old view cannot cancel a safe turn into the checked route.
+   if(flatRoute&&Math.abs(angle)>.18&&sensed?.canWalk?.(bot.entity.yaw+angle,routeProbe(p,routeFocus,.75))){
+    recovery.reset();sensed={...sensed,wallAhead:false};plan.forward=false;plan.jump=false;
+   }
+   const regain=flatRoute&&routeDistance<=1.5&&Math.abs(angle)<.18&&sensed?.canRegainFooting?.(bot.entity.yaw,routeDistance);
+   if(regain){recovery.reset();sensed={...sensed,wallAhead:false};}
    const rise=task?.strict_ground&&task.waypoints?.length?task.waypoints[0][1]-bot.entity.position.y:0;
    const landing=task?.waypoints?.[0];
    if(bot.blockAt&&task?.strict_ground&&landing&&rise<-.6&&rise> -1.2&&Math.abs(angle)<.35&&standable(bot,Math.floor(landing[0]),Math.round(landing[1]),Math.floor(landing[2]))&&sensed?.canStepDown?.(bot.entity.yaw+angle,.35)){
@@ -105,7 +114,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     plan.descent=plan.strictGround&&rise<-.6&&rise> -1.2&&Math.abs(angle)<.35;
     if(!plannedStep)plan.jump=false;
     if(plannedStep&&plan.jump)plan.stepLevel=task.waypoints[0][1];
-    if(plan.forward&&bot.entity.onGround!==false&&typeof sensed?.canStepDown==='function'&&!(plan.strictGround&&!plan.descent&&sensed.canWalk?sensed.canWalk(bot.entity.yaw,routeProbe(bot.entity.position,task?.safety_focus||(task?.center_route?focus:null),.75)):sensed.canStepDown(bot.entity.yaw,plan.descent ? .35 : .75))&&!(plan.jump&&plannedStep)){
+    if(plan.forward&&!regain&&bot.entity.onGround!==false&&typeof sensed?.canStepDown==='function'&&!(plan.strictGround&&!plan.descent&&sensed.canWalk?sensed.canWalk(bot.entity.yaw,routeProbe(bot.entity.position,task?.safety_focus||(task?.center_route?focus:null),.75)):sensed.canStepDown(bot.entity.yaw,plan.descent ? .35 : .75))&&!(plan.jump&&plannedStep)){
      plan.forward=false;plan.label='Holding: blocked ground or unsafe drop ahead';
     }
    }
@@ -145,7 +154,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    let forward=!!plan.forward;
    // Policy replies can arrive late; recheck support while holding an intention.
    if(forward&&plan.safeWalk&&bot.blockAt&&bot.entity.onGround!==false&&!(plan.stepLevel&&bot.entity.position.y<plan.stepLevel-.3)){
-    if(now-lastSafetyAt>=100){const local=proximity(bot,{recovery:false}),distance=plan.descent ? .35 : routeProbe(bot.entity.position,plan.safetyFocus||(plan.preciseFocus?plan.focusPoint:null),Math.max(.75,Math.hypot(bot.entity.velocity?.x||0,bot.entity.velocity?.z||0)*3+.35));groundSafe=plan.strictGround&&!plan.descent?local.canWalk(bot.entity.yaw,distance):local.canStepDown(bot.entity.yaw,distance);lastSafetyAt=now;}
+    if(now-lastSafetyAt>=100){const local=proximity(bot,{recovery:false}),distance=plan.descent ? .35 : routeProbe(bot.entity.position,plan.safetyFocus||(plan.preciseFocus?plan.focusPoint:null),Math.max(.75,Math.hypot(bot.entity.velocity?.x||0,bot.entity.velocity?.z||0)*3+.35));groundSafe=plan.strictGround&&!plan.descent?(local.canWalk(bot.entity.yaw,distance)||plan.safetyFocus&&Math.abs(plan.safetyFocus[1]-bot.entity.position.y)<.4&&local.canRegainFooting(bot.entity.yaw,Math.hypot(plan.safetyFocus[0]-bot.entity.position.x,plan.safetyFocus[2]-bot.entity.position.z))):local.canStepDown(bot.entity.yaw,distance);lastSafetyAt=now;}
     if(!groundSafe){forward=false;plan.label='Holding: blocked ground or unsafe drop ahead';}
    }
    if(plan.strictGround&&plan.back&&bot.blockAt&&bot.entity.onGround!==false&&!proximity(bot,{recovery:false}).canWalk(bot.entity.yaw+Math.PI,.75)){plan.back=false;plan.label='Holding: unsafe ground behind me';}
