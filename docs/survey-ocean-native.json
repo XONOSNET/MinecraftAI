@@ -1,0 +1,28 @@
+{
+  "fixture": "Read-only hover survey above the reported ocean site; return to the existing staging pad afterward",
+  "hover": {
+    "seconds": 6,
+    "max_height_change": 0,
+    "gravity": 0,
+    "physics_enabled": true,
+    "mode": "spectator"
+  },
+  "dry_spawn": [
+    24618.5,
+    65.1,
+    16480.5
+  ],
+  "search_ms": 206,
+  "water_samples": 98,
+  "loaded_samples": 169,
+  "restored": {
+    "gravity": 0.08,
+    "on_ground": true,
+    "position": {
+      "x": -153.5,
+      "y": 225.0625,
+      "z": 160.5
+    }
+  },
+  "success": true
+}

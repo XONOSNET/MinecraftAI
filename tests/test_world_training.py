@@ -201,3 +201,12 @@ def test_restore_clears_embedded_and_high_items_while_each_tile_is_loaded(tmp_pa
     assert sum(c.startswith('kill @e[type=minecraft:item,') for c in commands)==4
     assert commands[-3].startswith('kill @e[type=minecraft:item,')
     assert all(c.startswith('forceload remove') for c in commands[-2:])
+
+
+def test_survey_spawn_switches_to_survival_only_after_teleport(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.session.update(phase='running',trial_at=0);commands.clear()
+    world.camp('LabAI0',[16448.5,64.1,16448.5])
+    assert world.assignment('LabAI0')['world']['camp_anchor']==[16448,64,16448]
+    commands.clear()
+    world.spawn('LabAI0',[16448.5,64.1,16448.5])
+    assert commands[0].startswith('tp LabAI0 ') and commands[1]=='gamemode survival LabAI0'

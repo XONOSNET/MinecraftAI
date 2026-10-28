@@ -181,3 +181,16 @@ test('holding the confirmed building material does not request another inventory
  const bot={heldItem:{name:'oak_planks',count:32},_syncWindow:async()=>{syncs++;}};
  await equip(bot,'oak_planks');assert.equal(syncs,0);
 });
+
+
+test('survey flight holds gravity without disabling controller physics ticks and restores it afterward',()=>{
+ const survey=require('../controller/survey'),bot={physics:{gravity:.08},entity:{velocity:new Vec3(1,-1,1)},physicsEnabled:true};
+ survey.hold(bot);survey.hold(bot);assert.equal(bot.physics.gravity,0);assert.deepEqual(bot.entity.velocity,new Vec3(0,0,0));assert.equal(bot.physicsEnabled,true);
+ survey.release(bot);assert.equal(bot.physics.gravity,.08);survey.release(bot);assert.equal(bot.physics.gravity,.08);
+});
+
+test('safe spawn survey can find dry shore beyond the old central search area',()=>{
+ const {findSpawn}=require('../controller/hut_teacher');
+ const bot=fixture();bot.blockAt=p=>{const q=p.floored(),dry=q.x>=27&&q.x<=48,name=q.y<64?(dry?'grass_block':'water'):'air';return {position:q,name,boundingBox:name==='grass_block'?'block':'empty'};};
+ const spawn=findSpawn(bot,[-64,64,-64,64],{margin:24});assert.ok(spawn);assert.ok(spawn[0]>24&&spawn[0]<41);
+});

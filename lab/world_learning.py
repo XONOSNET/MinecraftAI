@@ -110,6 +110,18 @@ class WorldLearning:
             if not world or world.get('run')!=s.get('run'):raise RuntimeError('World learning lost its assigned trial.')
             if world['active']:return
             if world['phase']!='finished':raise RuntimeError('World trial preparation or execution stopped: '+world.get('message','unknown error'))
+            rows=[world.get('results',{}).get(name,{}) for name in world.get('bots',[])]
+            if rows and all(r.get('state')=='stopped' and (r.get('failure_category')=='site_unavailable' or r.get('message','').startswith('survey: No safe natural spawn found.')) for r in rows):
+                if s.get('restore_pending'):self.h['restore']();s['restore_pending']=False
+                options=s['options'];key=f"{options['mission']}-{options.get('night_level',0)}-{options['size']}"
+                failed=s.setdefault('unusable_sites',{}).setdefault(key,[])
+                if options['scenario'] not in failed:failed.append(options['scenario'])
+                site_count=9 if options['mission']=='first_night' else 12
+                choices=[(options['scenario']+n)%site_count for n in range(1,site_count+1) if (options['scenario']+n)%site_count not in failed]
+                if not choices:raise RuntimeError('No usable dry spawn found in any training site at this support level; protected models retained.')
+                options['scenario']=choices[0];s['streak']=0
+                self.phase('cooldown',f"Site survey found no safe dry spawn. Skipped this setup failure without scoring or training; next cycle uses site {choices[0]+1} at the same support level.")
+                return
             if s['phase']=='baseline':
                 s['baseline']=measured_trial(world);s['before_counts']=self.h['counts']()
                 self.begin('teacher','demonstrating',0);return

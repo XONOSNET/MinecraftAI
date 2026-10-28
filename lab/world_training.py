@@ -154,7 +154,7 @@ class WorldTraining(SurvivalLessons):
                     x0,x1,z0,z1=s['bounds']
                     self.command(f'kill @e[type=minecraft:item,x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}]')
                     for name in s['bots']:
-                        self.command(f'gamemode survival {name}')
+                        self.command(f'gamemode spectator {name}')
                         self.command(f'clear {name}')
                         self.command(f'effect clear {name}')
                         self.command(f'effect give {name} minecraft:instant_health 1 5 true')
@@ -258,6 +258,7 @@ class WorldTraining(SurvivalLessons):
                     self.command(f'fill {tx-1} {y+height} {tz-1} {tx+1} {y+height+1} {tz+1} minecraft:oak_leaves[persistent=true]')
             groves.append(trees)
         s['camp']=dict(spawn=[x+.5,y+.1,z+.5],plots=plots,groves=groves)
+        s['camp_anchor']=[x,y,z]
         if s.get('first_night',{}).get('stations'):
             for index,plot in enumerate(plots):
                 direction=-1 if index<4 else 1
@@ -353,6 +354,7 @@ class WorldTraining(SurvivalLessons):
         x0,x1,z0,z1=s['bounds'];x,y,z=position
         if not x0+2<x<x1-2 or not z0+2<z<z1-2 or not -60<y<185:raise ValueError('Spawn must be inside the reserved trial and below the snapshot ceiling.')
         self.command(f'tp {name} {x} {y} {z}')
+        self.command(f'gamemode survival {name}')
         self.command(f'effect clear {name} minecraft:slow_falling')
         self.command(f'effect give {name} minecraft:resistance 3 4 true')
 

@@ -112,3 +112,32 @@ def test_world_combat_demonstrations_join_protected_training_bundle(tmp_path):
     assert m.state['training_skill']=='combat' and m.state['restore_pending']
     lab.job['status']='completed';m.tick();assert m.state['phase']=='evaluating'
     lab.finish(0);m.tick();assert lab.restores==1 and not m.state['restore_pending']
+
+
+def survey_failure(lab):
+    lab.finish(0)
+    for row in lab.world['results'].values():row.update(failure_category='site_unavailable',message='survey: No safe natural spawn found. Try another site.')
+
+def test_unusable_survey_site_is_skipped_without_training_or_scoring(tmp_path):
+    m,lab,clock=fixture(tmp_path);m.state['options'].update(mission='first_night',night_level=1,scenario=8)
+    m.tick();survey_failure(lab);m.tick()
+    assert m.state['phase']=='cooldown' and m.state['options']['scenario']==0 and m.state['options']['night_level']==1
+    assert lab.job['status']=='idle' and not lab.reviews and not m.state['history']
+    clock[0]+=11;m.tick();m.tick();assert lab.runs[-1]['scenario']==0
+
+def test_unusable_candidate_restores_protected_weights_before_changing_sites(tmp_path):
+    m,lab,clock=fixture(tmp_path);reach_candidate(m,lab);survey_failure(lab);m.tick()
+    assert lab.restores==1 and lab.weights==lab.protected and m.state['restore_pending'] is False
+    assert not lab.reviews and m.state['phase']=='cooldown'
+
+def test_real_skill_failures_and_partial_survey_failures_are_not_skipped(tmp_path):
+    m,lab,clock=fixture(tmp_path);m.tick();survey_failure(lab)
+    lab.world['results']['LabAI0'].update(failure_category='stalled',message='gather: Could not reach wood')
+    m.tick();assert m.state['phase']=='demonstrating'
+
+def test_all_nine_unusable_training_sites_stop_without_visiting_held_out_sites(tmp_path):
+    m,lab,clock=fixture(tmp_path);m.state['options'].update(mission='first_night',night_level=1,scenario=8)
+    m.state['unusable_sites']={'first_night-1-128':list(range(8))};m.tick();survey_failure(lab)
+    import pytest
+    with pytest.raises(RuntimeError,match='No usable dry spawn'):m.tick()
+    assert not lab.reviews and lab.weights==1

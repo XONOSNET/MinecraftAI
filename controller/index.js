@@ -36,6 +36,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  if(phase!==state.run){episode=0;state=await api('/assignment',heartbeat());}
  if(b.labBehavior?.revision!==state.behavior?.revision)behavior.apply(b,state.behavior);
  if(state.world){if(phase!==state.run){doorCare.reset();motor.pause();phase=state.run;}await doorCare.update();goal=null;task=null;trialStarted=null;activity=await hutTeacher.tick(b,motor,state,api,scan,tasks);return;}
+ require('./survey').release(b);
  if(state.mode==='paused'){require('./resource_space').release(name);b.deactivateItem();trialStarted=null;activity=state.message||'Waiting for next learning phase';motor.pause();goal=null;return;}
  if(Date.now()<readyAt){activity='Loading arena / settling after teleport';motor.pause();b.clearControlStates();return;}
  const finishedTask=task&&lastMetrics&&tasks.reached(task,lastMetrics);
@@ -73,7 +74,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
   if(!motorConfig.smooth_movement||task.kind!=='advanced'||res.action!==5)await interaction;
  }
  lastDistance=distance;steps++;
- }catch(e){activity='Controller error: '+e.message.slice(0,100);motor.pause();b.clearControlStates();console.error(name,e.message);}finally{busy=false;}});
+ }catch(e){require('./survey').release(b);activity='Controller error: '+e.message.slice(0,100);motor.pause();b.clearControlStates();console.error(name,e.message);}finally{busy=false;}});
 }
 for(let i=0;i<agentConfig.count;i++)setTimeout(()=>spawn(i),i*1200);
 function stop(){quitting=true;for(const b of bots)if(b)b.quit('Laboratory shutdown');setTimeout(()=>process.exit(0),1000);}
