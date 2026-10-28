@@ -11,9 +11,30 @@ VIEWS=('first_person','trail','side','overhead','orbit','action','stationary','c
 DIMENSIONS=('minecraft:overworld','minecraft:the_nether','minecraft:the_end')
 MODES=('survival','creative','adventure','spectator')
 
-def observer_progress(state,stages,mode,practice,job,episodes,run=None,world=None):
+def latest_policy_result(world,history):
+    if not world:return None
+    for trial in reversed(history):
+        if trial.get('driver')!='student' or trial.get('assessment') or trial.get('mission')!=world.get('mission') or trial.get('night_level')!=world.get('night_level'):continue
+        return dict(completed=sum(r.get('state')=='complete' for r in trial.get('results',{}).values()),bots=len(trial['bots']),run=trial['run'])
+    return None
+
+def first_night_label(world,last_policy=None):
+    prefix='First Night '+str(world['night_level'])
+    phase=world['phase'];total=len(world['bots'])
+    if phase in ('snapshotting','restoring'):
+        detail=('Saving terrain' if phase=='snapshotting' else 'Restoring terrain')+' '+str(round(world.get('progress',0)))+'%'
+    elif phase!='running':detail=phase.replace('_',' ').title()
+    else:
+        done=sum(r.get('state')=='complete' for r in world['results'].values())
+        stopped=sum(r.get('state')=='stopped' for r in world['results'].values())
+        driver='Teacher' if world['driver']=='teacher' else 'Policy'
+        detail=f'{driver}: {done}/{total} complete'+(f', {stopped} stopped' if stopped else '')
+    if last_policy:detail+=f" | Last policy {last_policy['completed']}/{last_policy['bots']}"
+    return prefix+' | '+detail
+
+def observer_progress(state,stages,mode,practice,job,episodes,run=None,world=None,world_history=()):
     if world:
-        return dict(run=run,mode=mode,label=f"World trial {world['round']}",round=0,stage=1,stages=1,stage_name=world['name'],job=job,phase=world['phase'],examples=0,target=1,episodes=1,world=world)
+        return dict(run=run,mode=mode,label=f"World trial {world['round']}",round=0,stage=1,stages=1,stage_name=world['name'],job=job,phase=world['phase'],examples=0,target=1,episodes=1,world=world,last_policy=latest_policy_result(world,world_history))
     stage=state['stage'];label=(f"Review {state.get('round',0)}" if state.get('round') else '')
     if state.get('queued_active'):label='Queued teacher' if state['queued_active']['driver']=='teacher' else 'Queued test'
     if not state.get('enabled'):
@@ -252,7 +273,7 @@ class Observers:
             lines['stage']=f"World trial {world['round']} | {world['name']} | {label} {complete}/{len(world['bots'])}"
             if world.get('learning_cycle'):
                 lines['stage']=f"Learning {world['learning_cycle']} | {world.get('learning_phase','').title()} | {label} {complete}/{len(world['bots'])}"
-            if world.get('first_night'):lines['stage']='First Night '+str(world['night_level'])+' | '+world['first_night']['name']+' | '+str(complete)+'/'+str(len(world['bots']))+' complete'
+            if world.get('first_night'):lines['stage']=first_night_label(world,context.get('last_policy'))
         for suffix,value in lines.items():
             key=prefix+'_'+suffix;name=json.dumps({'text':value,'color':'aqua' if suffix=='task' else 'white'})
             if not s.get('hud_ready'):

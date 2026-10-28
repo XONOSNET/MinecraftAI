@@ -330,6 +330,8 @@ function renderNight(s){
  if(selected&&level)$('world-prepared').checked=level.prepared;
  text('night-title',active?'First Night · '+level?.name:'First Night progression');
  text('night-description',(level?.description||'')+' First Night uses 128 × 128 sites, restoring natural animals along with terrain.'+(active?' · '+(session.assessment?'Held-out assessment · no fitting':'Training site'):'') );
+ const previous=[...(w?.history||[])].reverse().find(t=>t.driver==='student'&&!t.assessment&&t.mission==='first_night'&&t.night_level===level?.id);
+ if(previous){const completed=Object.values(previous.results||{}).filter(r=>r.state==='complete').length;$('night-description').textContent+=` Last completed policy run: ${completed}/${previous.bots.length} complete. Each new trial resets its own counter; advancement requires at least 75% completion in two consecutive automatic comparison cycles.`;}
  const r=w?.readiness||{};text('night-readiness',`Reserved-site assessments: ${r.completed||0} / ${r.attempts||0} complete across ${r.batches||0} batches · ${r.deaths||0} deaths. ${(r.by_level||[]).filter(x=>x.attempts).map(x=>"Level "+x.level+": "+x.completed+"/"+x.attempts).join(" · ")} Supported runs do not certify wilderness readiness.`);
  $('night-assess').disabled=!!pending||!!session?.active||!!s.world_learning?.enabled||!!s.world_learning?.restore_pending||!!activeJob(s)||!s.server.ready;
 }

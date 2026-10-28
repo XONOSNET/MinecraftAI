@@ -419,3 +419,23 @@ def test_active_filter_ignores_old_run_and_rejoins_new_run(tmp_path):
     assert not o.cycle_candidates(o.sessions['Xonosnet'],agents)
     agents['LabAI0']['run']='new'
     assert o.cycle_candidates(o.sessions['Xonosnet'],agents)==['LabAI0']
+
+
+def test_first_night_header_distinguishes_restoration_from_a_zero_score():
+    from lab.observers import first_night_label
+    world={'night_level':0,'phase':'restoring','progress':75,'driver':'teacher','bots':['LabAI0']*8,'results':{}}
+    label=first_night_label(world,{'completed':5,'bots':8})
+    assert 'Restoring terrain 75%' in label and 'Last policy 5/8' in label
+    assert '0/8 complete' not in label
+    world.update(phase='running',results={'LabAI0':{'state':'complete'},'LabAI1':{'state':'stopped'}})
+    assert 'Teacher: 1/8 complete, 1 stopped' in first_night_label(world)
+    world['driver']='student'
+    assert 'Policy: 1/8 complete' in first_night_label(world)
+
+
+def test_previous_policy_score_ignores_teacher_other_levels_and_assessments():
+    from lab.observers import latest_policy_result
+    base={'run':'policy','driver':'student','mission':'first_night','night_level':0,'bots':['LabAI0','LabAI1'],'results':{'LabAI0':{'state':'complete'},'LabAI1':{'state':'stopped'}}}
+    history=[base,dict(base,driver='teacher'),dict(base,night_level=1),dict(base,assessment=True)]
+    assert latest_policy_result(base,history)=={'completed':1,'bots':2,'run':'policy'}
+    assert latest_policy_result(base,[]) is None
