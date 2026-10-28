@@ -27,7 +27,7 @@ function safeClear(bot,block,{bounds,plots=[]}={}){
  const p=bot.entity.position,q=block.position;
  if(!bot.entity.onGround||q.y<Math.floor(p.y)-1)return false;
  // Never remove a block intersecting anybody's supporting footprint.
- for(const who of [p,...space.players(bot)])if(q.y<=who.y&&q.y+1>=who.y-.15&&q.x<who.x+.31&&q.x+1>who.x-.31&&q.z<who.z+.31&&q.z+1>who.z-.31)return false;
+ for(const who of [p,...space.players(bot)])if(Math.abs(q.y+1-who.y)<.2&&q.x<who.x+.31&&q.x+1>who.x-.31&&q.z<who.z+.31&&q.z+1>who.z-.31)return false;
  return space.clearOfPlayers(bot,q.offset(.5,.5,.5));
 }
 function canClear(bot,target,options={}){const b=obstruction(bot,target);return !!b&&withinReach(bot,b.position)&&safeClear(bot,b,options);}
@@ -37,12 +37,15 @@ function canRaise(bot,target,{bounds,plots=[]}={}){
  if(!inside(feet,bounds)||protectedAt(feet,plots)||!space.clearOfPlayers(bot,p)||!support||support.boundingBox!=='block'||!dry(bot,base))return false;
  return [0,1,2,3].every(y=>{const b=bot.blockAt(feet.offset(0,y,0));return b?.name==='air'&&dry(bot,feet.offset(0,y,0));});
 }
-async function dig(bot,block){
+async function dig(bot,block,{validate=null}={}){
  if(!block||!withinReach(bot,block.position)||!visibleBlock(bot,block)||!bot.canDigBlock(block))return false;
  const type=block.name.endsWith('_planks')?'axe':['dirt','grass_block','coarse_dirt','rooted_dirt'].includes(block.name)?'shovel':material(block.name)?'pickaxe':null;
  const tool=type&&['netherite','diamond','iron','stone','wooden','golden'].map(t=>t+'_'+type).find(n=>bot.inventory.items().some(i=>i.name===n));
  if(tool)await inventory.equip(bot,tool);
- await aim(bot,block.position.offset(.5,.5,.5));await bot.dig(block,true);
+ await aim(bot,block.position.offset(.5,.5,.5));
+ const current=bot.blockAt(block.position);
+ if(current?.name!==block.name||!withinReach(bot,block.position)||!visibleBlock(bot,current)||!bot.canDigBlock(current)||validate&&!validate(current))return false;
+ await bot.dig(current,true);
  return bot.blockAt(block.position)?.name==='air';
 }
 async function controlled(bot,motor,action){

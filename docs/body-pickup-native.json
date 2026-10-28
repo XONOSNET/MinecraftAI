@@ -1,0 +1,42 @@
+{
+  "fixture": "Isolated sky platform; two-high leaf barrier, elevated real wood drop, then a drop on leaves. No learning writes or production inventory grants.",
+  "cases": [
+    {
+      "label": "elevated wood beyond a leaf barrier and stone steps",
+      "collected": true,
+      "inventory_logs": 1,
+      "seconds": 2.92,
+      "position": {
+        "x": -78.83963585910406,
+        "y": 241,
+        "z": 160.50000000000003
+      },
+      "cleared": 2,
+      "messages": [
+        "Clearing oak_leaves for feet and head clearance",
+        "Collecting harvested wood at its actual height",
+        "Finishing the safe landing before collecting wood"
+      ]
+    },
+    {
+      "label": "wood resting on foliage must fall into reach",
+      "collected": true,
+      "inventory_logs": 2,
+      "seconds": 1.621,
+      "position": {
+        "x": -78.66179713344324,
+        "y": 240,
+        "z": 160.49999999999946
+      },
+      "cleared": 1,
+      "messages": [
+        "Collecting harvested wood at its actual height",
+        "Clearing cover beneath harvested wood so it can fall within reach",
+        "Collecting harvested wood at its actual height"
+      ]
+    }
+  ],
+  "barrier_head": "air",
+  "barrier_feet": "air",
+  "success": true
+}

@@ -18,6 +18,10 @@ test('Gather reaches its elevated stance before switching to a visible nearby lo
  const state={run:'fixture',world:{bounds:[-20,20,-20,20],mission:'hut'}},motor={pause(){}};
  await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(walked,1);assert.equal(mined,0);
  b.entity.position=new Vec3(1.5,65,.5);await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(mined,1);
+ b.registry=require('prismarine-registry')('1.21.4');const Item=require('prismarine-item')(b.registry),index=b.registry.entitiesByName.item.metadataKeys.indexOf('item');
+ b.entities.drop={id:12,name:'item',position:new Vec3(1.8,65.2,.5),metadata:{[index]:Item.toNotch(new Item(b.registry.itemsByName.oak_log.id,1))}};
+ let collected=0;t.collectWood=async()=>{collected++;};
+ await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(collected,1);assert.equal(mined,1,'remaining visible logs do not starve nearby drop collection');
 });
 test('clearing permits adjacent shallow soil but protects supporting footprints, fluids, gravity and homes',()=>{
  const b=fixture();b.set(1,63,0,'dirt');const q=b.blockAt(new Vec3(1,63,0));assert.equal(access.safeClear(b,q),true);
