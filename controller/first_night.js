@@ -176,14 +176,16 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(b.blockAt(foot)?.name!=='white_bed'||b.blockAt(head)?.name!=='white_bed')throw Error('Both bed blocks must verify before setting home');
   t.home=await api('/world/survival',{agent:b.username,run:state.run,action:'home',position:[foot.x,foot.y,foot.z]});t.milestone('bed_home');next('scout');
  }else if(t.phase==='night_scout'){
-  const landmarks=n.memory.resources.filter(r=>r.kind==='wood'||r.kind==='stone').filter(r=>Math.hypot(r.position[0]-home[0],r.position[2]-home[2])>=8).sort((a,c)=>new Vec3(...a.position).distanceTo(new Vec3(...home))-new Vec3(...c.position).distanceTo(new Vec3(...home)));
   if(!n.scoutGoal){
    n.scoutSearchAt??=now;
    if(now<(n.scoutPlanAt||0)){motor.pause();t.message='Checking the next remembered resource route';return;}n.scoutPlanAt=now+2000;
-   n.scoutRejected??=new Set();
-   const goals=landmarks.slice(0,8).flatMap(r=>approaches(b,{position:new Vec3(...r.position).floored()},w.bounds).slice(0,2)).filter(g=>!n.scoutRejected.has(g.join(',')));
-   n.scoutGoal=goals.slice(0,8).find(g=>route(b,g,192,8192,true,{bounds:w.bounds,reversible:true}).reached);
-   if(!n.scoutGoal){motor.pause();t.message='No reachable remembered wood or stone landmark for the scouting round trip';if(now-n.scoutSearchAt>30000){t.failureCategory='landmark_unavailable';throw Error(t.message);}return;}
+   n.scoutGoal=require('./scouting').choose(b,t,w,surface,now);
+   if(!n.scoutGoal){
+    motor.pause();const plan=n.scoutPlanning;
+    t.message='Scouting: checked '+plan.checked+' / '+plan.goals.length+' grounded approaches to remembered resources';
+    const deadline=Math.max(30000,Math.ceil(plan.goals.length/4)*2000+5000);
+    if(now-n.scoutSearchAt>deadline){t.failureCategory='landmark_unavailable';throw Error('No reachable remembered wood or stone landmark for the scouting round trip ('+plan.checked+' approaches checked)');}return;
+   }
   }
   t.message='Revisit a remembered resource, then navigate home';
   const arrived=await t.walk(b,motor,n.scoutGoal,state,api,scan,tasks);
@@ -204,5 +206,5 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(left===0&&b.health>=12&&b.food>=10&&(!w.first_night.hostiles||n.nightSeen)){t.milestone('survived');t.phase='complete';t.message='First Night complete: provisioned, illuminated shelter, bed home, remembered resource round trip and safe survival watch';}
  }
 }
-function report(t){const n=t.wilderness;return n?{priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,livestock:n.livestock_status||null,night_seen:!!n.nightSeen,exploration:n.exploration?.snapshot(t.last||{x:0,z:0},t.plot),memory:n.memory.snapshot()}:null;}
+function report(t){const n=t.wilderness;return n?{priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,livestock:n.livestock_status||null,scouting:n.scoutPlanning?{checked:n.scoutPlanning.checked,total:n.scoutPlanning.goals.length,landmark:n.scoutLandmark||null}:null,night_seen:!!n.nightSeen,exploration:n.exploration?.snapshot(t.last||{x:0,z:0},t.plot),memory:n.memory.snapshot()}:null;}
 module.exports={enabled,handles,init,priority,interrupt,explore,tick,report,approaches,meals,RAW,FOOD};

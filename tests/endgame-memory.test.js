@@ -29,3 +29,33 @@ test('checking exhausted wood does not erase its observed landmark',async()=>{
  const {b,t,state}=fixture();t.wilderness.memory.remember('wood',[12,64,0]);t.wilderness.exploration={visits:new Map(),observe(){},async choose(){return [20.5,64.1,.5];},hold(){}};t.walk=async()=>undefined;
  await night.explore(t,b,{pause(){}},state,null,null,null,()=>64,'wood');assert.equal(t.wilderness.memory.resources.filter(r=>r.kind==='wood').length,1);
 });
+
+const scouting=require('../controller/scouting');
+test('upper logs yield ground-level scout goals without duplicating every log height',()=>{
+ const {b,t,state}=fixture();for(let y=69;y<=75;y++)t.wilderness.memory.remember('wood',[12,y,0]);
+ const goals=scouting.candidates(b,t.wilderness.memory,t.plot,[],state.world.bounds,()=>64);
+ assert.equal(goals.length,4);assert.ok(goals.every(c=>c.goal[1]===64.1));
+ assert.ok(scouting.choose(b,t,state.world,()=>64));
+});
+test('scout search advances past blocked approaches instead of retrying its first batch',()=>{
+ const {b,t,state}=fixture();t.wilderness.scoutPlanning={cursor:0,checked:0,goals:[...Array.from({length:5},(_,i)=>({goal:[12.5,70.1,i+.5]})),{goal:[20.5,64.1,.5]}]};
+ assert.equal(scouting.choose(b,t,state.world,()=>64),null);
+ assert.equal(t.wilderness.scoutPlanning.checked,4);
+ assert.deepEqual(scouting.choose(b,t,state.world,()=>64),[20.5,64.1,.5]);
+ assert.equal(t.wilderness.scoutPlanning.checked,6);
+});
+test('scout goals stay near observed resources and outside private plots',()=>{
+ const {b,t,state}=fixture();t.wilderness.memory.remember('wood',[12,72,0],[50.5,64.1,.5]);
+ const goals=scouting.candidates(b,t.wilderness.memory,t.plot,[{x:12,y:64,z:0}],state.world.bounds,()=>64);
+ assert.deepEqual(goals,[]);
+ t.wilderness.memory.roads.set('far',[40.5,64.1,.5]);
+ const open=scouting.candidates(b,t.wilderness.memory,t.plot,[],state.world.bounds,()=>64);
+ assert.ok(open.length);assert.ok(open.every(c=>Math.hypot(c.goal[0]-12.5,c.goal[2]-.5)<=4));
+});
+test('confirmed harvesting stances survive memory snapshots and are revalidated',()=>{
+ const {b,t,state}=fixture();const m=t.wilderness.memory;m.remember('wood',[12,72,0],[12.5,64.1,.5]);
+ const restored=new WildernessMemory(m.snapshot());assert.deepEqual(restored.resources[0].approach,[12.5,64.1,.5]);
+ assert.equal(scouting.candidates(b,restored,t.plot,[],state.world.bounds,()=>null).length,1);
+ b.blockAt=p=>({name:'air',boundingBox:'empty',position:p});
+ assert.equal(scouting.candidates(b,restored,t.plot,[],state.world.bounds,()=>null).length,0);
+});

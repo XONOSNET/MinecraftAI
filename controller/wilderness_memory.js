@@ -3,20 +3,20 @@ const {Vec3}=require('vec3'),{route,standable}=require('./field_navigation');
 const key=p=>p.map(Math.floor).join(','),point=p=>[p.x,p.y,p.z];
 class WildernessMemory{
  constructor(saved={}){
-  this.resources=[];for(const r of (saved.resources||[]).slice(-96))this.remember(r.kind,r.position);
+  this.resources=[];for(const r of (saved.resources||[]).slice(-96))this.remember(r.kind,r.position,r.approach);
   this.roads=new Map((saved.roads||[]).slice(0,512).map(p=>[key(p),p]));
   this.edges=new Map();for(const [a,b] of saved.edges||[])if(this.roads.has(a)&&this.roads.has(b)){this.link(a,b);this.link(b,a);}
   this.visited=new Set();this.rejected=new Map();this.replans=0;
  }
  link(a,b){if(!this.edges.has(a))this.edges.set(a,new Set());this.edges.get(a).add(b);}
- remember(kind,p){
+ remember(kind,p,approach=null){
   const v=Array.isArray(p)?[...p]:point(p),mobile=kind==='food'||kind==='wool';
   // Nearby sightings of moving animals are one search patch, not hundreds of
   // new landmarks. Each resource class owns a bounded share of memory, so
   // livestock movement cannot erase the home, trees or stone used for scouting.
   const old=this.resources.find(r=>r.kind===kind&&(mobile?Math.hypot(r.position[0]-v[0],r.position[2]-v[2])<6&&Math.abs(r.position[1]-v[1])<4:key(r.position)===key(v)));
-  if(old){if(mobile)old.position=v;return;}
-  this.resources.push({kind,position:v});
+  if(old){if(mobile)old.position=v;if(approach)old.approach=Array.isArray(approach)?[...approach]:point(approach);return;}
+  this.resources.push({kind,position:v,...(approach?{approach:Array.isArray(approach)?[...approach]:point(approach)}:{})});
   const limit=({home:1,wood:24,stone:24,food:24,wool:16})[kind]||7;
   while(this.resources.filter(r=>r.kind===kind).length>limit)this.resources.splice(this.resources.findIndex(r=>r.kind===kind),1);
   while(this.resources.length>96){const at=this.resources.findIndex(r=>r.kind!=='home');this.resources.splice(at<0?0:at,1);}

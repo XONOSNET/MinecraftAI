@@ -1,0 +1,100 @@
+{
+  "source_run": "world-1793305594245776400",
+  "limitation": "Saved memories tested against current restored terrain, not an exact replay of the old world.",
+  "cases": [
+    {
+      "name": "LabAI1",
+      "seconds": 25.16,
+      "phase": "night_hold",
+      "milestones": [
+        "round_trip"
+      ],
+      "scouting": {
+        "checked": 1,
+        "total": 62,
+        "landmark": {
+          "goal": [
+            24637.5,
+            65.1,
+            16494.5
+          ],
+          "kind": "wood",
+          "resource": [
+            24639,
+            68,
+            16491
+          ]
+        }
+      },
+      "message": "Following locked route",
+      "position": {
+        "x": 24613.498424835754,
+        "y": 65,
+        "z": 16475.537716882667
+      }
+    },
+    {
+      "name": "LabAI2",
+      "seconds": 7.823,
+      "phase": "night_hold",
+      "milestones": [
+        "round_trip"
+      ],
+      "scouting": {
+        "checked": 1,
+        "total": 41,
+        "landmark": {
+          "goal": [
+            24616.5,
+            65.1,
+            16479.5
+          ],
+          "kind": "wood",
+          "resource": [
+            24615,
+            72,
+            16479
+          ]
+        }
+      },
+      "message": "Following locked route",
+      "position": {
+        "x": 24623.50749893885,
+        "y": 65,
+        "z": 16475.578072348962
+      }
+    },
+    {
+      "name": "LabAI3",
+      "seconds": 13.321,
+      "phase": "night_hold",
+      "milestones": [
+        "round_trip"
+      ],
+      "scouting": {
+        "checked": 1,
+        "total": 62,
+        "landmark": {
+          "goal": [
+            24619.5,
+            65.1,
+            16486.5
+          ],
+          "kind": "wood",
+          "resource": [
+            24621,
+            69,
+            16489
+          ]
+        }
+      },
+      "message": "Following locked route",
+      "position": {
+        "x": 24633.502377634315,
+        "y": 65,
+        "z": 16475.468236489916
+      }
+    }
+  ],
+  "success": true
+}

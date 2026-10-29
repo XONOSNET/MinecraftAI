@@ -447,7 +447,7 @@ class HutTeacher{
     const axes=['netherite_axe','diamond_axe','iron_axe','stone_axe','wooden_axe','golden_axe'];
     const chosen=tool||axes.find(n=>bot.inventory.items().some(i=>i.name===n));
     if(chosen&&bot.heldItem?.name!==chosen)await inventorySync.equip(bot,chosen);
-    const success=await harvest(bot,bot.blockAt(target));if(success){this.harvested=(this.harvested||0)+1;this.lastProgress=Date.now();this.harvestTarget=null;if(!this.resources?.some(v=>v.x===target.x&&v.z===target.z&&bot.blockAt(v)?.name.endsWith('_log')&&harvestable(bot,v)))await level(bot);}else{this.harvestTarget=null;await level(bot);this.message='Harvest did not remove the block; reacquiring the target';}this.path=[];
+    const resourceKind=LOG.test(bot.blockAt(target)?.name||'')?'wood':'stone';const success=await harvest(bot,bot.blockAt(target));if(success){const stance=bot.entity.position;if(this.wilderness&&standable(bot,Math.floor(stance.x),Math.round(stance.y),Math.floor(stance.z)))this.wilderness.memory.remember(resourceKind,target,[stance.x,stance.y+.1,stance.z]);this.harvested=(this.harvested||0)+1;this.lastProgress=Date.now();this.harvestTarget=null;if(!this.resources?.some(v=>v.x===target.x&&v.z===target.z&&bot.blockAt(v)?.name.endsWith('_log')&&harvestable(bot,v)))await level(bot);}else{this.harvestTarget=null;await level(bot);this.message='Harvest did not remove the block; reacquiring the target';}this.path=[];
    }finally{motor.lockLook(false);}
   }
   else if(this.resourceAccess?.column?.length){motor.pause();this.message='Holding secure footing on the temporary column while the policy selects harvesting';}
