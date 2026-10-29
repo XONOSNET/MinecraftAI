@@ -52,12 +52,13 @@ async function explore(t,b,motor,state,api,scan,tasks,surface,kind='wood'){
  if(n.searchGoal&&Math.hypot(n.searchGoal[0]-p.x,n.searchGoal[2]-p.z)<1){n.exploration.finish(b,kind,n.searchGoal,now);n.memory.visited.add(n.searchGoal.map(Math.floor).join(','));n.searchGoal=null;t.lastProgress=now;}
  if(!n.searchGoal){
   if(now<(n.searchPlanAt||0)){motor.pause();t.message='Planning the next '+kind+' expedition';return;}n.searchPlanAt=now+2500;
-  // Forget exhausted loaded landmarks, while retaining unknown/unloaded ones.
-  n.memory.resources=n.memory.resources.filter(r=>{
+  // Search only still-present loaded resources, while preserving observed
+  // landmark locations for the separate remembered-resource round trip.
+  const available=n.memory.resources.filter(r=>{
    if(r.kind!==kind||!['wood','stone'].includes(kind))return true;
    const block=b.blockAt(new Vec3(...r.position).floored());return !block||(kind==='wood'?block.name.endsWith('_log'):block.name==='stone');
   });
-  const known=n.memory.resources.filter(r=>r.kind===kind&&n.memory.available(r.position)).flatMap(r=>approaches(b,{position:new Vec3(...r.position).floored()},bounds)).filter(g=>n.memory.available(g)).slice(0,12);
+  const known=available.filter(r=>r.kind===kind&&n.memory.available(r.position)).flatMap(r=>approaches(b,{position:new Vec3(...r.position).floored()},bounds)).filter(g=>n.memory.available(g)).slice(0,12);
   n.searchGoal=await n.exploration.choose(b,{...state.world,run:state.run,plots:t.campPlots||[]},surface,known,kind,now);
   if(!n.searchGoal){motor.pause();t.message=n.exploration.state+' for '+kind;n.noResourceAt??=now;if(now-n.noResourceAt>resourceConfig.empty_search_seconds*1000){t.failureCategory='resource_unavailable';throw Error('No reachable '+kind+' after checking the loaded expedition region');}return;}
   n.searches++;delete n.noResourceAt;
@@ -122,19 +123,20 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(b.inventory.items().filter(i=>i.name.endsWith('_log')).reduce((s,i)=>s+i.count,0)>=4){t.phase='stone_return';t.lastProgress=now;}
   else{n.fuelTrip=true;t.supplyRun=true;t.grove=null;t.resourceAt=0;t.phase='gather';}
  }else if(t.phase==='night_food'||t.phase==='night_wool'||t.phase==='night_forage'){
-  const wool=t.phase==='night_wool';livestock.observe(t,b,w);
+  const wool=t.phase==='night_wool';livestock.observe(t,b,w);n.rejectedAnimals??=new Map();
   // Keep bed material dropped during food hunting before leaving to cook.
   if(!wool&&t.phase!=='night_forage'&&count(b,'white_wool')<3&&await pickup(t,b,motor,state,api,scan,tasks,['white_wool']))return;
   if(t.phase==='night_forage'&&(SAFE_RAW.reduce((s,name)=>s+count(b,name),0)>=2||meals(b)>=2)){t.phase=n.forageResume||'night_food';delete n.forageResume;t.lastProgress=now;return;}
   if(t.phase!=='night_forage'&&(wool?count(b,'white_wool')>=3:meals(b)+raw(b)>=4)){t.milestone(wool?'wool':'food_found');next(wool?'wool_home':'food_home');return;}
   if(await pickup(t,b,motor,state,api,scan,tasks,wool?['white_wool']:Object.keys(RAW).concat(FOOD)))return;
-  const foods=Object.values(b.entities).filter(e=>e.isValid!==false&&(!w.first_night.stations||JSON.stringify(e.metadata?.[2]||'').includes('FirstNight'+b.username))&&(wool?livestock.whiteSheep(b,e):ANIMALS.includes(e.name)&&(t.phase!=='night_forage'||e.name!=='chicken')&&(!w.first_night.stations||e.name!=='sheep'||count(b,'white_wool')>=3||b.food<=10))&&inside(e.position,w.bounds)&&e.position.distanceTo(p)<40&&!require('./resource_space').busy(b,state.run,e.position)&&(e.id===n.animal||n.memory.available([e.position.x,e.position.y,e.position.z])));
+  for(const [id,until] of n.rejectedAnimals)if(until<=now)n.rejectedAnimals.delete(id);
+  const foods=Object.values(b.entities).filter(e=>!n.rejectedAnimals.has(e.id)&&e.isValid!==false&&(!w.first_night.stations||JSON.stringify(e.metadata?.[2]||'').includes('FirstNight'+b.username))&&(wool?livestock.whiteSheep(b,e):ANIMALS.includes(e.name)&&(t.phase!=='night_forage'||e.name!=='chicken')&&(!w.first_night.stations||e.name!=='sheep'||count(b,'white_wool')>=3||b.food<=10))&&inside(e.position,w.bounds)&&e.position.distanceTo(p)<40&&!require('./resource_space').busy(b,state.run,e.position)&&(e.id===n.animal||n.memory.available([e.position.x,e.position.y,e.position.z])));
   let animal=foods.find(e=>e.id===n.animal)||foods.filter(e=>combat.visible(b,e)).sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p))[0];
   if(animal){delete n.noResourceAt;if(n.animal!==animal.id){n.animalGoal=null;n.animalPlanAt=0;}n.animal=animal.id;n.memory.remember('food',animal.position);if(livestock.whiteSheep(b,animal))n.memory.remember('wool',animal.position);const distance=animal.position.distanceTo(p);
    if(distance>4.5||Math.abs(animal.position.y-p.y)>.6||!combat.visible(b,animal)){
     if(!n.animalGoal||now>=(n.animalPlanAt||0)||n.animalLastPosition?.distanceTo(animal.position)>.75){n.animalLastPosition=animal.position.clone();n.animalPlanAt=now+250;n.animalGoal=approaches(b,{position:animal.position.floored()},w.bounds).sort((a,c)=>new Vec3(...a).distanceTo(p)-new Vec3(...c).distanceTo(p)).slice(0,3).find(g=>route(b,g,48,1024,true,{bounds:w.bounds,reversible:true}).reached);}
     const goal=n.animalGoal;
-    if(goal){if(await t.walk(b,motor,goal,state,api,scan,tasks,{hunting:true})===false)n.memory.reject([animal.position.x,animal.position.y,animal.position.z]);}else{n.memory.reject([animal.position.x,animal.position.y,animal.position.z]);n.animal=null;}
+    if(!goal||await t.walk(b,motor,goal,state,api,scan,tasks,{hunting:true})===false){n.memory.reject([animal.position.x,animal.position.y,animal.position.z]);n.rejectedAnimals.set(animal.id,now+30000);n.animal=null;n.animalGoal=null;n.animalPlanAt=0;t.message='Animal approach blocked; checking another reachable target';}
    }else{
     const task={kind:'combat',combat_style:'hunt',mobs:[animal.name],mob_label:w.first_night.stations?'FirstNight'+b.username:'',target_id:animal.id,bounds:w.bounds,min_y:-60,max_y:190,weapon:count(b,'stone_axe')?'stone_axe':'wooden_axe',kill_target:1,stationary:false,attack_delay_ms:1000,safe_walk:true,strict_ground:true};
     const runtime=n.combat||=( {} ),sensed=combat.observe(b,task,runtime),rays=scan(b),obs=[...rays.pooled,Math.sin(sensed.angle),Math.cos(sensed.angle),Math.min(sensed.distance/32,1),b.health/20,b.food/20,b.entity.onGround?1:0,...sensed.extra];
@@ -146,7 +148,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
      if(w.first_night.stations&&animal.uuid){n.releasedAnimals??=new Set();if(!n.releasedAnimals.has(animal.uuid)){await api('/world/livestock',{agent:b.username,run:state.run,action:'release',species:animal.name,entity_uuid:animal.uuid});n.releasedAnimals.add(animal.uuid);}}
     }
    }
-   t.message=wool?'Collecting white wool · '+count(b,'white_wool')+' / 3':'Gathering food · '+(meals(b)+raw(b))+' / 4 meals · '+animal.name;
+   if(n.animal!==null)t.message=wool?'Collecting white wool · '+count(b,'white_wool')+' / 3':'Gathering food · '+(meals(b)+raw(b))+' / 4 meals · '+animal.name;
   }else if(!await livestock.support(t,b,motor,state,api,scan,tasks,wool?'wool':'food'))await explore(t,b,motor,state,api,scan,tasks,surface,wool?'wool':'food');
  }else if(t.phase==='night_food_home')await move(home,'cook');
  else if(t.phase==='night_cook'){
@@ -172,13 +174,19 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(b.blockAt(foot)?.name!=='white_bed'||b.blockAt(head)?.name!=='white_bed')throw Error('Both bed blocks must verify before setting home');
   t.home=await api('/world/survival',{agent:b.username,run:state.run,action:'home',position:[foot.x,foot.y,foot.z]});t.milestone('bed_home');next('scout');
  }else if(t.phase==='night_scout'){
-  const landmarks=n.memory.resources.filter(r=>r.kind==='wood'||r.kind==='stone').filter(r=>Math.hypot(r.position[0]-home[0],r.position[2]-home[2])>=8);
+  const landmarks=n.memory.resources.filter(r=>r.kind==='wood'||r.kind==='stone').filter(r=>Math.hypot(r.position[0]-home[0],r.position[2]-home[2])>=8).sort((a,c)=>new Vec3(...a.position).distanceTo(new Vec3(...home))-new Vec3(...c.position).distanceTo(new Vec3(...home)));
   if(!n.scoutGoal){
-   const goals=landmarks.flatMap(r=>approaches(b,{position:new Vec3(...r.position).floored()},w.bounds));
-   n.scoutGoal=goals.find(g=>route(b,g,48,4096,true,{bounds:w.bounds,reversible:true}).reached);
-   if(!n.scoutGoal){await explore(t,b,motor,state,api,scan,tasks,surface,'wood');return;}
+   n.scoutSearchAt??=now;
+   if(now<(n.scoutPlanAt||0)){motor.pause();t.message='Checking the next remembered resource route';return;}n.scoutPlanAt=now+2000;
+   n.scoutRejected??=new Set();
+   const goals=landmarks.slice(0,8).flatMap(r=>approaches(b,{position:new Vec3(...r.position).floored()},w.bounds).slice(0,2)).filter(g=>!n.scoutRejected.has(g.join(',')));
+   n.scoutGoal=goals.slice(0,8).find(g=>route(b,g,192,8192,true,{bounds:w.bounds,reversible:true}).reached);
+   if(!n.scoutGoal){motor.pause();t.message='No reachable remembered wood or stone landmark for the scouting round trip';if(now-n.scoutSearchAt>30000){t.failureCategory='landmark_unavailable';throw Error(t.message);}return;}
   }
-  t.message='Revisit a remembered resource, then navigate home';await move(n.scoutGoal,'scout_home');
+  t.message='Revisit a remembered resource, then navigate home';
+  const arrived=await t.walk(b,motor,n.scoutGoal,state,api,scan,tasks);
+  if(arrived===true){motor.pause();next('scout_home');}
+  else if(arrived===false){n.scoutRejected.add(n.scoutGoal.join(','));n.scoutGoal=null;}
  }else if(t.phase==='night_scout_home'){await move(home,'hold');if(t.phase==='night_hold'){t.milestone('round_trip');n.holdAt=now;}}
  else if(t.phase==='night_retreat')await move(home,'recover');
  else if(t.phase==='night_recover'){

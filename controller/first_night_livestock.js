@@ -2,7 +2,7 @@
 const {Vec3}=require('vec3'),combat=require('./combat');
 const ANIMALS=new Set(['cow','pig','sheep','chicken','rabbit']);
 function owned(b,w,e){return !w.first_night.stations||JSON.stringify(e.metadata?.[2]||'').includes('FirstNight'+b.username);}
-function whiteSheep(b,e){if(e.name!=='sheep')return false;const flags=e.metadata?.[b.registry.entitiesByName.sheep.metadataKeys.indexOf('wool')]||0;return e.name==='sheep'&&(flags&31)===0;}
+function whiteSheep(b,e){if(e.name!=='sheep')return false;const keys=b.registry.entitiesByName.sheep.metadataKeys,flags=e.metadata?.[keys.indexOf('wool')]||0;return (flags&31)===0&&!e.metadata?.[keys.indexOf('baby')];}
 function observe(t,b,w){for(const e of Object.values(b.entities)){if(e.isValid===false||!ANIMALS.has(e.name)||!owned(b,w,e)||e.position.distanceTo(b.entity.position)>40||!combat.visible(b,e))continue;t.wilderness.memory.remember('food',e.position);if(whiteSheep(b,e))t.wilderness.memory.remember('wool',e.position);}}
 function localDrop(t,w,p){
  if(!w.first_night.stations||!t.campPlots?.length)return true;

@@ -458,7 +458,7 @@ class HutTeacher{
   const portal=this.navigator.portalFor(bot,goal,this.plot,this.campPlots);
   if(portal&&(this.navigator.exitPlot||require('./world_navigation').crossingHome(bot,goal,portal))){
    const door=bot.blockAt(new Vec3(portal.x,portal.y,portal.z-3));
-   if(door?.name.endsWith('_door')&&!door.getProperties().open&&p.offset(0,1.62,0).distanceTo(door.position.offset(.5,.5,.5))<4.2){
+   if(door?.name.endsWith('_door')&&!door.getProperties().open&&p.offset(0,1.62,0).distanceTo(door.position.offset(.5,.5,.5))<4.2&&visibleBlock(bot,door)){
     motor.pause();await bot.activateBlock(door);this.path=[];this.navigator.lastPlan=-Infinity;this.message='Opening the home door for this route';return;
    }
   }

@@ -1,0 +1,125 @@
+{
+  "fixture": "Isolated house, real adult sheep wool collection, then observed-resource scouting and physical return. No production resources or learning writes.",
+  "wool": {
+    "completed": true,
+    "seconds": 4.512,
+    "count": 3,
+    "phase": "night_wool_home",
+    "message": "Collecting white_wool"
+  },
+  "scout": {
+    "completed": true,
+    "seconds": 8.977,
+    "phase": "night_hold",
+    "navigation": {
+      "home": [
+        -79.5,
+        180.1,
+        155.5
+      ],
+      "target": [
+        -79.5,
+        180.1,
+        160.5
+      ],
+      "partial_route": false,
+      "route_intent": "Return to own house",
+      "state": "arrived",
+      "height_delta": 0.1,
+      "route_complete": true,
+      "remaining_blocks": 0,
+      "waypoints": 0,
+      "no_progress_seconds": 0,
+      "reset_seconds": 90,
+      "expanded": 8,
+      "phase": "night_scout_home",
+      "position": [
+        -79.50727938651255,
+        180,
+        160.18212852266652
+      ],
+      "yaw": 3.094469003470401,
+      "on_ground": true,
+      "cue": [
+        -79.5,
+        180.1,
+        160.5
+      ],
+      "cue_centering": false,
+      "motor_before": {
+        "label": "Settling at the route waypoint",
+        "paused": false,
+        "expired": false,
+        "ground_safe": true,
+        "precise_focus": false,
+        "recovering": false,
+        "doorway": false,
+        "controls": {
+          "forward": false,
+          "back": false,
+          "left": false,
+          "right": false,
+          "jump": false,
+          "sneak": false,
+          "sprint": false
+        }
+      },
+      "nearby_players": [],
+      "player_clearance": 2,
+      "sampled_at": 1793242163881
+    },
+    "position": {
+      "x": -79.51332300272071,
+      "y": 180,
+      "z": 160.2990383537894
+    },
+    "goal": [
+      -63.5,
+      180.1,
+      154.5
+    ],
+    "resources": [
+      {
+        "kind": "wood",
+        "position": [
+          -65,
+          180,
+          154
+        ]
+      },
+      {
+        "kind": "food",
+        "position": [
+          -65.4499593404176,
+          180.58276135939693,
+          154.5
+        ]
+      },
+      {
+        "kind": "wool",
+        "position": [
+          -65.4499593404176,
+          180.58276135939693,
+          154.5
+        ]
+      },
+      {
+        "kind": "food",
+        "position": [
+          -72.5,
+          180,
+          154.5
+        ]
+      },
+      {
+        "kind": "wool",
+        "position": [
+          -72.5,
+          180,
+          154.5
+        ]
+      }
+    ]
+  },
+  "success": true
+}

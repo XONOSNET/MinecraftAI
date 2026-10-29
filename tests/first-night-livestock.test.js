@@ -5,7 +5,19 @@ function setup(){const b=bot(),t={phase:'night_food',plot:{x:0,y:64,z:0},campPlo
 function sheep(id,x=0,color=0,owner='LabAI0'){const metadata={2:'FirstNight'+owner};metadata[registry.entitiesByName.sheep.metadataKeys.indexOf('wool')]=color;return {id,name:'sheep',position:new Vec3(x+.5,64,-18.5),metadata};}
 test('resource sightings remember wool separately and respect ownership and white wool',()=>{
  const {b,t,state}=setup();b.entities={white:sheep(1),black:sheep(2,3,15),neighbor:sheep(3,10,0,'LabAI1')};livestock.observe(t,b,state.world);
- assert.equal(t.wilderness.memory.resources.filter(r=>r.kind==='wool').length,1);assert.equal(t.wilderness.memory.resources.filter(r=>r.kind==='food').length,2);
+ assert.equal(t.wilderness.memory.resources.filter(r=>r.kind==='wool').length,1);assert.equal(t.wilderness.memory.resources.filter(r=>r.kind==='food').length,1,'nearby animals share a remembered search patch');
+});
+
+test('wool targets exclude lambs and already-sheared sheep',()=>{
+ const {b}=setup(),baby=sheep(1),shorn=sheep(2,0,16);baby.metadata[registry.entitiesByName.sheep.metadataKeys.indexOf('baby')]=true;
+ assert.equal(livestock.whiteSheep(b,baby),false);assert.equal(livestock.whiteSheep(b,shorn),false);assert.equal(livestock.whiteSheep(b,sheep(3)),true);
+});
+
+test('an unreachable pursued sheep loses its lock and stays rejected as it moves',async()=>{
+ const {b,t,state}=setup();state.world.first_night.stations=false;t.phase='night_wool';b.entities={sheep:sheep(90,8)};
+ t.wilderness.animal=90;t.wilderness.animalGoal=[8.5,64.1,-18.5];t.wilderness.animalPlanAt=Date.now()+10000;t.wilderness.animalLastPosition=b.entities.sheep.position.clone();
+ t.walk=async()=>false;await night.tick(t,b,{pause(){}},state,null,null,null,()=>64);
+ assert.equal(t.wilderness.animal,null);assert.ok(t.wilderness.rejectedAnimals.get(90)>Date.now());assert.match(t.message,/blocked/);
 });
 test('supported drops belong to the nearest assigned animal station',()=>{
  const {t,state}=setup();assert.equal(livestock.localDrop(t,state.world,new Vec3(.5,64,-18.5)),true);assert.equal(livestock.localDrop(t,state.world,new Vec3(10.5,64,-18.5)),false);assert.equal(livestock.localDrop(t,{first_night:{stations:false}},new Vec3(10.5,64,-18.5)),true);

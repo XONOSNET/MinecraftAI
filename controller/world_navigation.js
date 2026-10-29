@@ -42,7 +42,7 @@ function approachGoal(bot,goal,plot){
  if(!plot||!crossingHome(bot,goal,plot))return goal;
  const inside=insideHome(bot.entity.position,plot);
  const door=bot.blockAt(new Vec3(plot.x,plot.y,plot.z-3));
- return door?.name.endsWith('_door')&&!door.getProperties().open?(inside?[plot.x+.5,plot.y+.1,plot.z-1.5]:homeApproach(plot,bot)):goal;
+ return !door||door.name.endsWith('_door')&&!door.getProperties().open?(inside?[plot.x+.5,plot.y+.1,plot.z-1.5]:homeApproach(plot,bot)):goal;
 }
 class WorldNavigation{
  constructor(){this.path=[];this.destination=null;this.lastPlan=-Infinity;this.anchor=null;this.best=Infinity;this.progressAt=0;this.status={};}
@@ -87,7 +87,15 @@ class WorldNavigation{
    const radius=Math.min(192,Math.max(48,Math.ceil(Math.hypot(target[0]-p.x,target[2]-p.z))+16));
    let planned=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden});this.lastPlan=now;this.anchor=[p.x,p.y,p.z];
    if(!planned.reached&&!planned.waiting_for_ground&&memory){const remembered=memory.detour(bot,target,bounds);if(remembered&&!remembered.some(q=>forbidden([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])]))){planned={...planned,reached:true,path:remembered};memory.replans++;}}
+   // A distant remembered home can be outside the client's loaded chunks.
+   // Advance a short, actually checked prefix toward that unknown destination
+   // instead of discarding the entire valid route. Solid blocked goals never
+   // qualify, and arrival still requires the actual destination to be reached.
+   const unknown=!bot.blockAt(new Vec3(Math.floor(target[0]),Math.round(target[1]),Math.floor(target[2])));
+   const end=planned.path.at(-1),gain=end?Math.hypot(target[0]-p.x,target[2]-p.z)-Math.hypot(target[0]-end[0],target[2]-end[2]):0;
+   if(!planned.reached&&!planned.waiting_for_ground&&unknown&&planned.path.length>=4&&gain>=4){planned={...planned,reached:true,partial:true,path:planned.path.slice(0,12)};this.best=Infinity;}
    this.path=planned.reached?planned.path:[];this.blocked=!planned.reached;
+   this.partial=!!planned.partial;
    this.waiting=!!planned.waiting_for_ground;
    this.reason=this.waiting?'Waiting to land safely before replanning':planned.budget_exhausted?'Return-route search reached its limit; checking again':'No complete safe route in loaded terrain; checking for another way';
    this.expanded=planned.expanded;this.replanned=true;
@@ -96,7 +104,7 @@ class WorldNavigation{
   const arrived=!this.blocked&&!this.path.length&&Math.hypot(target[0]-p.x,target[2]-p.z)<.4&&Math.abs(target[1]-p.y)<.4;
   if(!this.blocked&&(remaining<this.best-.75||arrived)){this.best=remaining;this.progressAt=now;}
   const idle=Math.max(0,(now-this.progressAt)/1000),timeout=forBot(bot).stationary_timeout_seconds;
-  this.status={home,target:[...target],route_intent:foreign?'Exit neighboring house':plot&&insideHome(new Vec3(...goal),plot)?'Return to own house':'Travel outside private houses',state:this.waiting&&this.blocked?'landing':this.blocked?'blocked':arrived?'arrived':'following',height_delta:Math.round(((home||target)[1]-p.y)*10)/10,
+  this.status={home,target:[...target],partial_route:!!this.partial,route_intent:foreign?'Exit neighboring house':plot&&insideHome(new Vec3(...goal),plot)?'Return to own house':'Travel outside private houses',state:this.waiting&&this.blocked?'landing':this.blocked?'blocked':arrived?'arrived':'following',height_delta:Math.round(((home||target)[1]-p.y)*10)/10,
    route_complete:!this.blocked,remaining_blocks:Math.round(remaining*10)/10,waypoints:this.path.length,no_progress_seconds:Math.floor(idle),reset_seconds:Math.max(0,Math.ceil(timeout-idle)),expanded:this.expanded||0};
   if(idle>=timeout)throw Error('No route progress for '+timeout+' seconds; ended this attempt instead of circling.');
   return {path:this.path,cue:travelCue(p,this.path)||target,corridor:[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,5)],blocked:this.blocked,arrived,message:this.reason,portal};
