@@ -58,7 +58,7 @@ async function explore(t,b,motor,state,api,scan,tasks,surface,kind='wood'){
    if(r.kind!==kind||!['wood','stone'].includes(kind))return true;
    const block=b.blockAt(new Vec3(...r.position).floored());return !block||(kind==='wood'?block.name.endsWith('_log'):block.name==='stone');
   });
-  const known=available.filter(r=>r.kind===kind&&n.memory.available(r.position)).flatMap(r=>approaches(b,{position:new Vec3(...r.position).floored()},bounds)).filter(g=>n.memory.available(g)).slice(0,12);
+  const known=available.filter(r=>r.kind===kind&&n.memory.available(r.position)).sort((a,c)=>new Vec3(...a.position).distanceTo(p)-new Vec3(...c.position).distanceTo(p)).flatMap(r=>approaches(b,{position:new Vec3(...r.position).floored()},bounds)).filter(g=>n.memory.available(g)).slice(0,12);
   n.searchGoal=await n.exploration.choose(b,{...state.world,run:state.run,plots:t.campPlots||[]},surface,known,kind,now);
   if(!n.searchGoal){motor.pause();t.message=n.exploration.state+' for '+kind;n.noResourceAt??=now;if(now-n.noResourceAt>resourceConfig.empty_search_seconds*1000){t.failureCategory='resource_unavailable';throw Error('No reachable '+kind+' after checking the loaded expedition region');}return;}
   n.searches++;delete n.noResourceAt;
@@ -124,6 +124,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   else{n.fuelTrip=true;t.supplyRun=true;t.grove=null;t.resourceAt=0;t.phase='gather';}
  }else if(t.phase==='night_food'||t.phase==='night_wool'||t.phase==='night_forage'){
   const wool=t.phase==='night_wool';livestock.observe(t,b,w);n.rejectedAnimals??=new Map();
+  if(wool&&!w.first_night.stations)n.livestock_status={...(n.livestock_status?.resource==='wool'?n.livestock_status:{}),resource:'wool',wool:count(b,'white_wool'),wool_target:3};
   // Keep bed material dropped during food hunting before leaving to cook.
   if(!wool&&t.phase!=='night_forage'&&count(b,'white_wool')<3&&await pickup(t,b,motor,state,api,scan,tasks,['white_wool']))return;
   if(t.phase==='night_forage'&&(SAFE_RAW.reduce((s,name)=>s+count(b,name),0)>=2||meals(b)>=2)){t.phase=n.forageResume||'night_food';delete n.forageResume;t.lastProgress=now;return;}
@@ -132,6 +133,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   for(const [id,until] of n.rejectedAnimals)if(until<=now)n.rejectedAnimals.delete(id);
   const foods=Object.values(b.entities).filter(e=>!n.rejectedAnimals.has(e.id)&&e.isValid!==false&&(!w.first_night.stations||JSON.stringify(e.metadata?.[2]||'').includes('FirstNight'+b.username))&&(wool?livestock.whiteSheep(b,e):ANIMALS.includes(e.name)&&(t.phase!=='night_forage'||e.name!=='chicken')&&(!w.first_night.stations||e.name!=='sheep'||count(b,'white_wool')>=3||b.food<=10))&&inside(e.position,w.bounds)&&e.position.distanceTo(p)<40&&!require('./resource_space').busy(b,state.run,e.position)&&(e.id===n.animal||n.memory.available([e.position.x,e.position.y,e.position.z])));
   let animal=foods.find(e=>e.id===n.animal)||foods.filter(e=>combat.visible(b,e)).sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p))[0];
+  if(!w.first_night.stations)n.livestock_status={resource:wool?'wool':'food',state:animal?'pursuing':'searching',wool:count(b,'white_wool'),wool_target:3,loaded_white_sheep:Object.values(b.entities).filter(e=>e.isValid!==false&&livestock.whiteSheep(b,e)&&inside(e.position,w.bounds)&&e.position.distanceTo(p)<40).length,eligible_targets:foods.length,remembered_patches:n.memory.resources.filter(r=>r.kind===(wool?'wool':'food')).length,rejected_targets:n.rejectedAnimals.size};
   if(animal){delete n.noResourceAt;if(n.animal!==animal.id){n.animalGoal=null;n.animalPlanAt=0;}n.animal=animal.id;n.memory.remember('food',animal.position);if(livestock.whiteSheep(b,animal))n.memory.remember('wool',animal.position);const distance=animal.position.distanceTo(p);
    if(distance>4.5||Math.abs(animal.position.y-p.y)>.6||!combat.visible(b,animal)){
     if(!n.animalGoal||now>=(n.animalPlanAt||0)||n.animalLastPosition?.distanceTo(animal.position)>.75){n.animalLastPosition=animal.position.clone();n.animalPlanAt=now+250;n.animalGoal=approaches(b,{position:animal.position.floored()},w.bounds).sort((a,c)=>new Vec3(...a).distanceTo(p)-new Vec3(...c).distanceTo(p)).slice(0,3).find(g=>route(b,g,48,1024,true,{bounds:w.bounds,reversible:true}).reached);}

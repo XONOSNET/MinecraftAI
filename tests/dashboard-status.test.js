@@ -7,6 +7,12 @@ for(const script of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Func
 const source=html.slice(html.indexOf('function describeLabActivity('),html.indexOf('function renderLabStatus('));
 const describe=vm.runInNewContext(source+';describeLabActivity');
 
+test('wool status separates carried wool, nearby sheep and deferred targets',()=>{
+ const start=html.indexOf('function woolStatusText('),end=html.indexOf('function worldTimingText(',start),format=vm.runInNewContext(html.slice(start,end)+';woolStatusText');
+ assert.match(format({phase:'night_wool',wilderness:{livestock:{resource:'wool',wool:1,loaded_white_sheep:4,eligible_targets:2,remembered_patches:3,rejected_targets:1}}}),/Wool 1\/3.*4 nearby.*2 candidates.*3 remembered.*1 deferred/);
+ assert.equal(format({phase:'complete'}),'');
+});
+
 test('world learning banner explains student baseline and CPU training takes precedence',()=>{
  const s={world_learning:{enabled:true,phase:'baseline',round:3,message:'Testing without teacher control',options:{mission:'stone_age'}},world_training:{session:{active:true,phase:'running',bots:['A','B'],results:{A:{state:'complete'}},message:'In progress'}},training_job:{status:'idle'}};
  let v=describe(s);assert.match(v.title,/World learning.*baseline/);assert.match(v.context,/cycle 3.*stone_age/);assert.match(v.detail,/1 \/ 2/);assert.match(v.copy,/without teacher/);

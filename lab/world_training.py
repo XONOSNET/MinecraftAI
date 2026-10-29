@@ -9,7 +9,7 @@ from .world_survival import SurvivalLessons, MISSION_LESSONS, ADVANCED
 from pathlib import Path
 from .protection import HOSTILES
 from .first_night import profile as night_profile, LESSONS as NIGHT_LESSONS, clean_memory, readiness, LEVELS
-from .world_fauna import fauna_commands, fauna_extend_commands, replenish_commands
+from .world_fauna import fauna_commands, fauna_extend_commands, replenish_commands, walked_pastures
 from .camp_layout import commands as camp_commands
 
 LESSONS=['Enclose a hut','Craft and place a chest','Craft a wooden pickaxe','Craft a wooden axe','Craft a wooden shovel','Store eight planks and equip the axe']
@@ -157,8 +157,10 @@ class WorldTraining(SurvivalLessons):
             interval=RESOURCE_CONFIG.get('livestock_replenish_seconds',120)
             refill=s.setdefault('fauna_replenishment',dict(waves=0,next_at=s.get('trial_at',self.clock())+30,interval_seconds=interval,caps=RESOURCE_CONFIG.get('livestock_caps',{})))
             if self.clock()>=refill['next_at']:
-                for command in replenish_commands(s['bounds'],s.get('camp',{}).get('plots',[]),refill['waves'],refill['caps']):self.command(command)
+                pastures=walked_pastures(s)
+                for command in replenish_commands(s['bounds'],s.get('camp',{}).get('plots',[]),refill['waves'],refill['caps'],pastures):self.command(command)
                 refill.update(waves=refill['waves']+1,next_at=self.clock()+interval,last_at=self.clock())
+                refill.update(sheep_placement='walked grass candidates' if pastures else 'regional grass candidates',walked_pastures=len(pastures))
         if s['phase'] in ('snapshotting','restoring'):
             if not self.job:
                 if not self.jobs:

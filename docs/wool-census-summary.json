@@ -1,0 +1,18 @@
+{
+  "description": "Read-only loaded-world census and geometry checks from camp; movement/visibility and animal positions remain dynamic.",
+  "counts": [
+    "Test passed, count: 23",
+    "Test passed, count: 19",
+    "Test passed, count: 12"
+  ],
+  "count_order": [
+    "all sheep",
+    "Age=0 white unsheared sheep",
+    "all cows"
+  ],
+  "tracked_eligible_checked": 16,
+  "complete_dry_routes": 4,
+  "route_node_limit": 32768,
+  "route_budget_exhausted": 0,
+  "grass_and_air_walked_candidates": 28
+}

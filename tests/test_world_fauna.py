@@ -2,6 +2,38 @@ from lab.world_fauna import fauna_commands
 from test_world_training import fixture
 
 
+def test_walked_pastures_require_real_bounded_nearby_roads_outside_houses():
+    from lab.world_fauna import walked_pastures
+    session=dict(bounds=[0,160,0,160],camp=dict(spawn=[80,65,80],plots=[dict(x=80,z=80)]),results={
+        'LabAI0':dict(wilderness=dict(memory=dict(roads=[[100.5,65.1,80.5],[101.5,65.1,80.5],[110.5,65.1,80.5],
+            [80.5,65.1,80.5],[140.5,65.1,80.5],[100.5,100.1,80.5],[float('nan'),65,90]])))})
+    assert walked_pastures(session)==[(100,65,80),(110,65,80)]
+    session['camp']={};assert walked_pastures(session)==[]
+
+
+def test_walked_sheep_replenishment_keeps_population_and_successful_wave_caps():
+    from lab.world_fauna import replenish_commands
+    commands=replenish_commands([0,160,0,160],[],0,dict(sheep=24),[(20,65,20),(30,66,30),(40,65,40)])
+    summons=[c for c in commands if 'run summon' in c]
+    assert len(summons)==3
+    assert all('matches ..1 if score #fauna_sheep lab_world matches ..23' in c for c in summons)
+    assert all('store success score #fauna_spawn_ok' in c and 'unless entity @a[distance=..8]' in c for c in summons)
+    assert all(c.count('#minecraft:animals_spawnable_on')==5 and 'Age:0' in c for c in summons)
+    assert all('positioned over' not in c for c in summons),'use the actual walked height rather than an unrelated surface above it'
+    assert sum('#fauna_wave_sheep lab_world += #fauna_spawn_ok' in c for c in commands)==3
+
+
+def test_active_natural_trial_uses_reported_walked_pastures(tmp_path):
+    world,commands,clock,log=fixture(tmp_path)
+    world.start(dict(mission='first_night',night_level=1),['LabAI0'])
+    world.session.update(phase='running',trial_at=0,camp=dict(spawn=[16440,65,16440],plots=[dict(x=16440,z=16440)]),
+                         results={'LabAI0':dict(wilderness=dict(memory=dict(roads=[[16460.5,65.1,16440.5]])))})
+    commands.clear();clock[0]=30;world.tick()
+    assert any('positioned 16460.5 65 16440.5' in c and 'run summon minecraft:sheep' in c for c in commands)
+    assert world.session['fauna_replenishment']['sheep_placement']=='walked grass candidates'
+    assert world.session['fauna_replenishment']['walked_pastures']==1
+
+
 def test_replenishment_is_bounded_surface_checked_and_avoids_house_plots():
     from lab.world_fauna import replenish_commands
     commands=replenish_commands([0,128,0,128],[dict(x=10,z=10)],0,dict(sheep=24,cow=12))

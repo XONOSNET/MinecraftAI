@@ -1,0 +1,8 @@
+{
+  "fixture": "Conditional walked-pasture grass spawns; cap four sheep, wave budget two; no production inventory or model writes",
+  "first_wave": 2,
+  "second_wave": 4,
+  "capped_wave": 4,
+  "unsafe_wave": 0,
+  "success": true
+}

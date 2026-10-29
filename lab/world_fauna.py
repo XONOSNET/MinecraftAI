@@ -1,7 +1,27 @@
 """Repeat natural passive animals without inventory grants or duplicated UUIDs."""
+import math
 SPECIES=('cow','pig','sheep','chicken','rabbit')
 
-def replenish_commands(bounds,plots,wave,caps):
+def walked_pastures(session):
+    """Candidate grass checks beside actual camp travel, never animal locations."""
+    camp=session.get('camp') or {};spawn=camp.get('spawn');plots=camp.get('plots',[])
+    if not spawn:return []
+    x0,x1,z0,z1=session['bounds'];found={}
+    for report in session.get('results',{}).values():
+        for p in ((report.get('wilderness') or {}).get('memory') or {}).get('roads',[])[:512]:
+            if not isinstance(p,list) or len(p)!=3 or any(type(v) not in (int,float) or not math.isfinite(v) for v in p):continue
+            x,y,z=math.floor(p[0]),round(p[1]),math.floor(p[2]);distance=math.hypot(x+.5-spawn[0],z+.5-spawn[2])
+            if not x0+3<x<x1-4 or not z0+3<z<z1-4 or not 12<=distance<=48 or abs(y-spawn[1])>8:continue
+            if any(abs(x-h['x'])<8 and abs(z-h['z'])<8 for h in plots):continue
+            found[(x,z)]=(x,y,z)
+    # Spread attempts across distinct patches, rather than adjacent road cells.
+    result=[]
+    for p in sorted(found.values(),key=lambda p:math.hypot(p[0]-spawn[0],p[2]-spawn[2])):
+        if all(math.hypot(p[0]-q[0],p[2]-q[2])>=4 for q in result):result.append(p)
+        if len(result)>=64:break
+    return result
+
+def replenish_commands(bounds,plots,wave,caps,pastures=None):
     """Bounded population maintenance on real grassy surface positions."""
     x0,x1,z0,z1=bounds
     area=f'x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}'
@@ -11,6 +31,19 @@ def replenish_commands(bounds,plots,wave,caps):
     if not points:return commands
     for i,(mob,cap) in enumerate(caps.items()):
         if mob not in SPECIES or not isinstance(cap,int) or not 1<=cap<=32:raise ValueError('Invalid livestock population cap')
+        if mob=='sheep' and pastures:
+            # Several conditional attempts, but at most TWO successful additions
+            # per wave and the same whole-area population cap as before.
+            wave_score='#fauna_wave_sheep';success='#fauna_spawn_ok';score='#fauna_sheep'
+            commands.append(f'scoreboard players set {wave_score} lab_world 0')
+            for j in range(min(8,len(pastures))):
+                x,y,z=pastures[(wave*7+j)%len(pastures)]
+                checks=' '.join(f'if block ~{dx if dx else ""} ~-1 ~{dz if dz else ""} #minecraft:animals_spawnable_on' for dx,dz in [(0,0),(1,0),(-1,0),(0,1),(0,-1)])
+                commands.extend([
+                    f'execute store result score {score} lab_world run execute if entity @e[type=minecraft:sheep,{area}]',
+                    f'execute store success score {success} lab_world run execute if score {wave_score} lab_world matches ..1 if score {score} lab_world matches ..{cap-1} positioned {x+.5} {y} {z+.5} {checks} if block ~ ~ ~ minecraft:air if block ~ ~1 ~ minecraft:air unless entity @a[distance=..8] run summon minecraft:sheep ~ ~ ~ {{Tags:["lab_natural_fauna","lab_replenished_fauna"],PersistenceRequired:1b,Color:0b,Age:0}}',
+                    f'scoreboard players operation {wave_score} lab_world += {success} lab_world'])
+            continue
         for j in range(2):
             x,z=points[(wave*17+i*11+j*7)%len(points)];score='#fauna_'+mob
             commands.append(f'execute store result score {score} lab_world run execute if entity @e[type=minecraft:{mob},{area}]')

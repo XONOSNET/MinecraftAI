@@ -1,6 +1,13 @@
 const test=require('node:test'),assert=require('node:assert/strict'),{Vec3}=require('vec3'),{Exploration,release}=require('../controller/exploration');
 function bot(name='explore'){return {username:name,players:{},entity:{position:new Vec3(.5,64,.5),onGround:true},blockAt(p){const q=p.floored();return {position:q,name:q.y<64?'stone':'air',boundingBox:q.y<64?'block':'empty'};}};}
 const world={bounds:[-80,80,-80,80],index:0,run:'survey-test'};
+
+test('remembered wool is checked before unknown terrain even after repeated visits',async()=>{
+ const b=bot('wool-memory'),e=new Exploration(),known=[24.5,64.1,.5];
+ for(let i=0;i<20;i++){e.observe(new Vec3(24.5,64,.5));e.observe(new Vec3(.5,64,.5));}
+ const goal=await e.choose(b,world,()=>64,[known],'wool');assert.deepEqual([...goal],known);release(b.username);
+ e.finish(b,'wool',known);const next=await e.choose(b,world,()=>64,[known],'wool');assert.notDeepEqual([...next],known);release(b.username);
+});
 test('survey goes beyond depleted local patches into farther loaded terrain',async()=>{
  const b=bot(),e=new Exploration();
  for(let x=-20;x<=20;x+=12)for(let z=-20;z<=20;z+=12)e.finish(b,'wood',[x,64,z]);
