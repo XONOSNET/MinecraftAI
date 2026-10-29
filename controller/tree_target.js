@@ -4,6 +4,7 @@ const body=require('./resource_body');
 function chooseTree(bot,targets,previous,surface,run,previousApproach=null){
  const groups=new Map(),p=bot.entity.position;
  for(const v of targets){const id=v.x+','+v.z;if(!groups.has(id))groups.set(id,[]);groups.get(id).push(v);}
+ if(groups.has(previous)&&!space.busy(bot,run,groups.get(previous)[0].offset(.5,0,.5))&&standingTarget(bot,groups.get(previous)))return {key:previous,targets:groups.get(previous),approach:[p.x,p.y+.1,p.z]};
  if(previousApproach&&groups.has(previous)&&!space.busy(bot,run,groups.get(previous)[0].offset(.5,0,.5))&&groups.get(previous).some(b=>withinReach(bot,b,new Vec3(...previousApproach))))return {key:previous,targets:groups.get(previous),approach:previousApproach};
  const ordered=[...groups].filter(([,blocks])=>!space.busy(bot,run,blocks[0].offset(.5,0,.5))).sort((a,b)=>Math.hypot(a[1][0].x+.5-p.x,a[1][0].z+.5-p.z)-Math.hypot(b[1][0].x+.5-p.x,b[1][0].z+.5-p.z));
  ordered.sort((a,b)=>Number(b[0]===previous)-Number(a[0]===previous));
@@ -36,4 +37,9 @@ function chooseTree(bot,targets,previous,surface,run,previousApproach=null){
  }
  return {key:null,targets:[],rejected:ordered.slice(0,6).map(([id])=>id)};
 }
-module.exports={chooseTree};
+function standingTarget(bot,targets){
+ const p=bot.entity.position;
+ if(bot.entity.onGround!==true||!require('./field_navigation').standable(bot,Math.floor(p.x),Math.round(p.y),Math.floor(p.z)))return null;
+ return targets.find(v=>Math.hypot(v.x+.5-p.x,v.z+.5-p.z)<3.5&&require('./resource_target').harvestable(bot,v))||null;
+}
+module.exports={chooseTree,standingTarget};

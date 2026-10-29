@@ -217,3 +217,22 @@ test('an off-center body at a terrace lip centers before moving along the edge',
  const plan=route(b,[-1.5,64.1,.5],8,128,true,{reversible:true});assert.equal(plan.reached,true);assert.equal(plan.path[0].centering,true);assert.deepEqual([...plan.path[0]],[.5,64.1,.5]);
  const {proximity}=require('../controller/perception'),near=proximity(b,{recovery:false});assert.equal(near.canWalk(Math.PI/2,.75),false);assert.equal(near.canWalk(Math.PI,.35),true);
 });
+
+test('a grounded bot approaching a safe downhill step does not retreat to its upper cell center',()=>{
+ const b={players:{},entity:{position:new Vec3(.5,64,.12),onGround:true,yaw:0},blockAt(p){const q=p.floored(),solid=q.y<(q.z<0?63:64);return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+ const plan=route(b,[.5,63.1,-2.5],8,128,true,{reversible:true});assert.equal(plan.reached,true);assert.deepEqual([...plan.path[0]],[.5,63.1,-.5]);
+});
+test('tree work retains an in-reach upper log from current footing rather than revisiting its approach',()=>{
+ const {chooseTree,standingTarget}=require('../controller/tree_target');const b=fixture({'2,65,0':'oak_log','2,66,0':'oak_log'});b.entity.onGround=true;b.entity.eyeHeight=1.62;b.canDigBlock=()=>true;b.canSeeBlock=()=>true;b.world={raycast:(eye,d,range)=>({position:eye.plus(d.scaled(range-.05)).floored()})};
+ const blocks=[new Vec3(2,65,0),new Vec3(2,66,0)];const picked=standingTarget(b,blocks);assert.ok(picked);const tree=chooseTree(b,blocks,'2,0',()=>64,'fixture',[3.5,64.1,.5]);assert.equal(tree.key,'2,0');assert.deepEqual(tree.approach,[.5,64.1,.5]);
+ b.entity.onGround=false;assert.equal(standingTarget(b,blocks),null);
+});
+
+test('a late grounded update beyond a landing continues forward without returning to its center',()=>{
+ const {WorldNavigation}=require('../controller/world_navigation');const b={players:{},entity:{position:new Vec3(.5,63,-.8),onGround:true,yaw:0},blockAt(p){const q=p.floored(),solid=q.y<(q.z<0?63:64);return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+ const nav=new WorldNavigation(),goal=[.5,63.1,-2.5],landing=[.5,63.1,-.5];landing.centering=true;
+ Object.assign(nav,{destination:goal.join(','),path:[landing,[.5,63.1,-1.5],goal],anchor:[.5,64.1,.5],lastPlan:1000,progressAt:1000,lastPosition:[.5,63.5,-.65]});
+ const plan=nav.plan(b,goal,{now:1100});assert.equal(plan.path.includes(landing),false);assert.ok(plan.cue[2]<b.entity.position.z);
+ const corner=new WorldNavigation();Object.assign(corner,{destination:goal.join(','),path:[landing,[-.5,63.1,-.5],goal],anchor:[.5,64.1,.5],lastPlan:1000,progressAt:1000,lastPosition:[.5,63.5,-.65]});
+ assert.equal(corner.plan(b,goal,{now:1100}).path[0],landing,'turns still require the checked corner');
+});

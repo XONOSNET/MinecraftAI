@@ -66,6 +66,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    stalled=false;
    if(legacy){applyMotion(bot,action,permissions,task);return null;}
    plan=motorPlan(action,permissions,task,{...sensed,inWater:!!bot.entity?.isInWater},angle,!!bot.getControlState('forward'));
+   if(task?.stationary_work){recovery.reset();doorway.reset();strafe.reset();plan.forward=false;plan.jump=false;}
    const focus=(task?.navigation_lock||task?.center_route)&&sensed?.focusPoint&&[0,1,2,3].includes(action)?sensed.focusPoint:null;
    // Face the planned corridor before trying to move. A wall in the old
    // viewing direction is not evidence that the new corridor requires backing.
@@ -97,9 +98,9 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    // A verified ascending waypoint is a step, even when the longer wall probe
    // also sees the next terrace. Execute a chosen jump without backing away.
    if((action===3||autoStep)&&permissions.jump&&rise>.6&&rise<1.2&&Math.abs(angle)<.35){recovery.reset();sensed={...sensed,wallAhead:false};}
-   const lateral=permissions.move?strafe.choose(action,task,sensed,angle,plan,clock()):null;
+   const lateral=permissions.move&&!task?.stationary_work?strafe.choose(action,task,sensed,angle,plan,clock()):null;
    if(lateral?.pure){plan.forward=false;plan.yaw=0;recovery.reset();}
-   const passage=doorway.update(plan,{...sensed,onGround:bot.entity.onGround},bot.entity.position,bot.entity.yaw,clock(),permissions);
+   const passage=task?.stationary_work?null:doorway.update(plan,{...sensed,onGround:bot.entity.onGround},bot.entity.position,bot.entity.yaw,clock(),permissions);
    if(passage){recovery.reset();plan=passage;}
    else{
    plan=recovery.update(plan,{...sensed,inWater:!!bot.entity.isInWater,inLava:!!bot.entity.isInLava},bot.entity.position,bot.entity.yaw,clock(),permissions,angle,task?.bounds);

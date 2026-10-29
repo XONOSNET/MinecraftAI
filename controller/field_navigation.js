@@ -60,7 +60,12 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
  if(!escape&&path.length&&Math.hypot(start[0]+.5-p.x,start[2]+.5-p.z)>.2){
   const adjacentWall=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]].some(([dx,dz])=>{const b=terrain.blockAt(new Vec3(start[0]+dx,start[1],start[2]+dz));return b?.boundingBox==='block'&&!b.name.endsWith('_door');});
   const adjacentDrop=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]].some(([dx,dz])=>!stand(start[0]+dx,start[1],start[2]+dz));
-  if(adjacentWall||adjacentDrop){const center=[start[0]+.5,start[1]+.1,start[2]+.5];
+  // A verified downhill body corridor needs no retreat to the old cell center.
+  // Lateral travel beside an edge still centers, as do nearby solid walls.
+  const next=path[0],descending=next[1]-p.y<-.6&&next[1]-p.y> -1.2;
+  const heading=Math.atan2(-(next[0]-p.x),-(next[2]-p.z));
+  const directDescent=descending&&require('./perception').proximity(bot,{recovery:false}).canStepDown(heading,Math.min(.75,Math.hypot(next[0]-p.x,next[2]-p.z)));
+  if(adjacentWall||adjacentDrop&&!directDescent){const center=[start[0]+.5,start[1]+.1,start[2]+.5];
    if(!others.length||space.stepClear(p,{x:center[0],y:center[1],z:center[2]},others,require('./behavior').forBot(bot).player_clearance)){center.centering=true;path.unshift(center);}
   }
  }

@@ -44,6 +44,15 @@ function approachGoal(bot,goal,plot){
  const door=bot.blockAt(new Vec3(plot.x,plot.y,plot.z-3));
  return !door||door.name.endsWith('_door')&&!door.getProperties().open?(inside?[plot.x+.5,plot.y+.1,plot.z-1.5]:homeApproach(plot,bot)):goal;
 }
+function passedLanding(bot,q,next,anchor){
+ const p=bot.entity.position;if(!q.centering||!next||!anchor||p.distanceTo(new Vec3(...q))>.65)return false;
+ const dx=q[0]-anchor[0],dz=q[2]-anchor[2],length=Math.hypot(dx,dz),nx=next[0]-q[0],nz=next[2]-q[2],span=Math.hypot(nx,nz);
+ if(length<.1||span<.1||(dx*nx+dz*nz)/(length*span)<.999)return false;
+ const along=((p.x-q[0])*dx+(p.z-q[2])*dz)/length,lateral=Math.abs((p.x-q[0])*dz-(p.z-q[2])*dx)/length;
+ if(along<0||along>.6||lateral>.12||!standable(bot,Math.floor(p.x),Math.round(p.y),Math.floor(p.z)))return false;
+ const heading=Math.atan2(-(next[0]-p.x),-(next[2]-p.z)),probe=Math.min(.35,Math.hypot(next[0]-p.x,next[2]-p.z)),local=require('./perception').proximity(bot,{recovery:false});
+ return Math.abs(next[1]-p.y)<.4?local.canWalk(heading,probe):next[1]-p.y<-.6&&next[1]-p.y> -1.2&&local.canStepDown(heading,probe);
+}
 class WorldNavigation{
  constructor(){this.path=[];this.destination=null;this.lastPlan=-Infinity;this.anchor=null;this.best=Infinity;this.progressAt=0;this.status={};}
  portalFor(bot,goal,plot,plots=[]){
@@ -72,7 +81,9 @@ class WorldNavigation{
   while(bot.entity.onGround!==false&&this.path.length&&Math.abs(this.path[0][1]-p.y)<.4){
    const q=this.path[0],near=Math.hypot(q[0]-p.x,q[2]-p.z)<(q.centering ? .15 : .4);
    const crossed=previous&&Math.abs(previous[1]-p.y)<.4&&Math.hypot(previous[0]-p.x,previous[2]-p.z)<=4&&segmentDistance({x:q[0],z:q[2]},previous,[p.x,p.y,p.z])<.12;
-   if(!near&&!crossed)break;this.anchor=this.path.shift();
+   // Momentum can pass a landing center before the first grounded reply.
+   // Continue only a clear straight leg; retain precise centering at corners.
+   if(!near&&!crossed&&!passedLanding(bot,q,this.path[1],this.anchor))break;this.anchor=this.path.shift();
   }
   const corridor=[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,3)];
   const offRoute=this.path.length&&corridorDistance(p,corridor)>.85;

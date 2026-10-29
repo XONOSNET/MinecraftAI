@@ -7,7 +7,7 @@ function fixture(){
  canDigBlock:()=>true,look:async()=>{},clearControlStates(){}};
  b.set=(x,y,z,n)=>blocks.set(new Vec3(x,y,z).toString(),n);return b;
 }
-test('Gather reaches its elevated stance before switching to a visible nearby log',async()=>{
+test('Gather cuts reachable logs before moving to an old approach or collecting loose wood',async()=>{
  const b=fixture(),p=b.entity.position,now=Date.now(),t=new HutTeacher(),target=new Vec3(2,65,0),goal=[1.5,65.1,.5];
  b.set(1,64,0,'stone');b.set(2,65,0,'oak_log');b.world={raycast:()=>b.blockAt(target)};
  Object.assign(t,{run:'fixture',phase:'gather',started:now,lastProgress:now,lastReport:now,last:p.clone(),anchor:p.clone(),travelled:0,
@@ -16,12 +16,13 @@ test('Gather reaches its elevated stance before switching to a visible nearby lo
   path:[],milestones:[],harvested:0,plot:null,campPlots:[],settle:0,resourceAccess:{}});
  let walked=0,mined=0;t.walk=async(_b,_m,g)=>{assert.deepEqual(g,goal);walked++;};t.harvest=async()=>{mined++;};
  const state={run:'fixture',world:{bounds:[-20,20,-20,20],mission:'hut'}},motor={pause(){}};
- await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(walked,1);assert.equal(mined,0);
- b.entity.position=new Vec3(1.5,65,.5);await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(mined,1);
+ await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(walked,0);assert.equal(mined,1);
+ b.entity.position=new Vec3(1.5,65,.5);await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(mined,2);
  b.registry=require('prismarine-registry')('1.21.4');const Item=require('prismarine-item')(b.registry),index=b.registry.entitiesByName.item.metadataKeys.indexOf('item');
  b.entities.drop={id:12,name:'item',position:new Vec3(1.8,65.2,.5),metadata:{[index]:Item.toNotch(new Item(b.registry.itemsByName.oak_log.id,1))}};
  let collected=0;t.collectWood=async()=>{collected++;};
- await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(collected,1);assert.equal(mined,1,'remaining visible logs do not starve nearby drop collection');
+ await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(collected,0);assert.equal(mined,3,'reachable logs retain the work stance');
+ b.set(2,65,0,'air');await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(collected,1,'drops are collected once reachable logs are gone');
 });
 test('clearing permits adjacent shallow soil but protects supporting footprints, fluids, gravity and homes',()=>{
  const b=fixture();b.set(1,63,0,'dirt');const q=b.blockAt(new Vec3(1,63,0));assert.equal(access.safeClear(b,q),true);

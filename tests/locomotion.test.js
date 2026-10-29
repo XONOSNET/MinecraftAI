@@ -221,3 +221,8 @@ test('policy waypoint braking stops momentum without selecting a heading',()=>{
  const {Vec3}=require('vec3'),controls={},bot={entity:{yaw:-Math.PI/2,pitch:0,onGround:true,position:new Vec3(1.4,67,.5),velocity:new Vec3(.2,0,0)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,look(){throw Error('Safety braking must not steer');}};
  const motor=createMotor(bot,permissions);motor.command(0,{kind:'expedition',safety_focus:[1.5,67.1,.5]},safe,0);motor.tick();assert.equal(!!controls.forward,false);
 });
+
+test('a reachable mining target permits policy alignment without walking or jumping away',()=>{
+ const {Vec3}=require('vec3');let now=0;const controls={},b={entity:{position:new Vec3(.5,64,.5),yaw:0,pitch:0,onGround:true},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,async look(y,p){this.entity.yaw=y;this.entity.pitch=p;}};
+ const motor=createMotor(b,permissions,{clock:()=>now});for(const action of [0,1,2,3,4]){motor.command(action,{kind:'gather',stationary_work:true},{...safe,wallAhead:true},.3);now+=50;motor.tick();assert.equal(!!controls.forward,false);assert.equal(!!controls.back,false);assert.equal(!!controls.jump,false);assert.equal(!!controls.left,false);assert.equal(!!controls.right,false);}
+});

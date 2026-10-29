@@ -124,9 +124,10 @@ class HutTeacher{
      if(targets.length){if(this.wilderness)delete this.wilderness.noResourceAt;space.reserve(bot,state.run,targets[0].offset(.5,0,.5));this.harvestTarget=targets[0];this.wilderness?.memory.remember('wood',targets[0]);}
      else space.release(bot.username);
      const drop=drops.find(e=>e.id===this.pickup)||drops[0];this.pickup=drop?.id??null;
-     const collecting=drop&&(!targets.length||drop.position.distanceTo(p)<4);
-     const atApproach=!this.treeApproach||standable(bot,Math.floor(this.treeApproach[0]),Math.round(this.treeApproach[1]),Math.floor(this.treeApproach[2]))&&Math.hypot(this.treeApproach[0]-p.x,this.treeApproach[2]-p.z)<.65&&Math.abs(this.treeApproach[1]-p.y)<.6;
-     let target=atApproach&&targets.find(v=>Math.hypot(v.x+.5-p.x,v.z+.5-p.z)<3.5&&harvestable(bot,v));
+     // An already reachable trunk wins over loose drops and the old approach center.
+     // Keep cutting from real safe footing; collect after reachable logs are done.
+     const target=require('./tree_target').standingTarget(bot,targets);
+     const collecting=!target&&drop&&(!targets.length||drop.position.distanceTo(p)<4);
      if(collecting){await this.collectWood(bot,motor,drop,state,api,scan,tasks);}
      else if(target){await this.harvest(bot,motor,target,state,api,scan,tasks);}
      else if(targets.length){let destination=this.treeApproach,chosenTree=targets[0];
@@ -328,7 +329,7 @@ class HutTeacher{
    const item=bot.inventory.items().find(i=>name?i.name===name:planks(i.name));if(!item)throw Error('No building material available.');
    const ref=reference(bot,q);if(!ref)throw Error('No reachable supporting face for placement.');
    await inventorySync.equip(bot,item.name,{synced:true});
-   try{await bot.placeBlock(ref.block,ref.face);return;}catch(error){if(attempt||!String(error.message).includes('Server refused'))throw error;await new Promise(r=>setTimeout(r,150));}
+   try{await aim(bot,ref.block.position.offset(.5+ref.face.x*.5,.5+ref.face.y*.5,.5+ref.face.z*.5));await bot._placeBlockWithOptions(ref.block,ref.face,{swingArm:'right',forceLook:'ignore'});return;}catch(error){if(attempt||!String(error.message).includes('Server refused'))throw error;await new Promise(r=>setTimeout(r,150));}
   }
  }
 
@@ -451,7 +452,7 @@ class HutTeacher{
    }finally{motor.lockLook(false);}
   }
   else if(this.resourceAccess?.column?.length){motor.pause();this.message='Holding secure footing on the temporary column while the policy selects harvesting';}
-  else {this.message=result.action===4?'Policy chose to wait with a visible resource in focus':'Policy is aligning with the selected resource';motor.command(result.action,{...task,quick_look:[0,1,2,3].includes(result.action)},{...sensed,...rays.proximity,cueDistance:p.distanceTo(new Vec3(...goal))},angle);}
+  else {this.message=result.action===4?'Policy chose to wait with a visible resource in focus':'Policy is aligning with the selected resource';motor.command(result.action,{...task,stationary_work:true,quick_look:[0,1,2,3].includes(result.action)},{...sensed,...rays.proximity,cueDistance:p.distanceTo(new Vec3(...goal))},angle);}
  }
  async walk(bot,motor,goal,state,api,scan,tasks,intent={}){
   const p=bot.entity.position,now=Date.now();this.navigationActive=true;

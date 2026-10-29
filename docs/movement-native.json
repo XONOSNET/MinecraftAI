@@ -1,0 +1,47 @@
+{
+  "fixture": "Isolated lit terraces and four real oak logs; no production resources or learning writes.",
+  "descent": {
+    "arrived": true,
+    "seconds": 4.388,
+    "backtracks": 0,
+    "start": [
+      -80.5,
+      180,
+      158.5
+    ],
+    "end": {
+      "x": -67.50367595631272,
+      "y": 177,
+      "z": 158.50054954936502
+    }
+  },
+  "harvest": {
+    "removed": [
+      [
+        -65,
+        177,
+        158
+      ],
+      [
+        -65,
+        178,
+        158
+      ],
+      [
+        -65,
+        179,
+        158
+      ],
+      [
+        -65,
+        180,
+        158
+      ]
+    ],
+    "displacement": 0.13798448722887713
+  },
+  "placement": {
+    "verified": true
+  },
+  "success": true
+}
