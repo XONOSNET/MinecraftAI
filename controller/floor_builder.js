@@ -12,7 +12,16 @@ function stances(t,b,q,tiles,state,used=new Set()){
   .sort((a,c)=>Math.hypot(a.tile.x-q.x,a.tile.z-q.z)-Math.hypot(c.tile.x-q.x,c.tile.z-q.z)||new Vec3(...a.goal).distanceTo(p)-new Vec3(...c.goal).distanceTo(p));
 }
 async function tick(t,b,motor,state,api,scan,tasks){
- const p=b.entity.position,all=house.blueprint(t.plot),tiles=all.filter(q=>q.floor),remaining=tiles.filter(q=>!finished(b,q));
+ const p=b.entity.position;
+ // Floor stances are local work positions, not long-distance return routes.
+ // Reach the exterior first: the center floor may already contain a dug hole.
+ if(Math.hypot(p.x-t.plot.x-.5,p.z-t.plot.z-.5)>6||Math.abs(p.y-t.plot.y)>1.25){
+  const goal=require('./world_navigation').homeApproach(t.plot,b);
+  const moved=await t.walk(b,motor,goal,state,api,scan,tasks);
+  if(moved===false)throw Error('No safe return route to the unfinished house floor');
+  t.message='Returning to the house before laying the floor';return;
+ }
+ const all=house.blueprint(t.plot),tiles=all.filter(q=>q.floor),remaining=tiles.filter(q=>!finished(b,q));
  t.built=house.total-all.filter(q=>q.table?b.blockAt(new Vec3(q.x,q.y,q.z))?.name!=='crafting_table':!finished(b,q)).length;
  if(!remaining.length){motor.pause();t.floorRecovery=null;t.phase='table';return;}
  let recovery=t.floorRecovery;

@@ -1,0 +1,20 @@
+{
+  "fixture": "Isolated 20-block return from gathering ground to actual floor placement; no production learning writes.",
+  "returnAndBuild": {
+    "start": {
+      "x": -60.5,
+      "y": 180,
+      "z": 158.5
+    },
+    "end": {
+      "x": -76.64579057720637,
+      "y": 180,
+      "z": 158.49719912719857
+    },
+    "returnedFromGathering": true,
+    "phase": "table",
+    "block": "oak_planks",
+    "seconds": 6.112
+  },
+  "success": true
+}

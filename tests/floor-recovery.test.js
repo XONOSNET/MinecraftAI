@@ -27,3 +27,26 @@ test('floor work waits for a player occupying the target and propagates real inv
 test('floor reach accounts for the lower supporting face when standing on a raised ledge',async()=>{
  const {t,b,state,motor}=fixture();b.entity.position=new Vec3(-.5,65,2.5);let moved=false;t.place=async()=>assert.fail('must take a lower stance');t.walk=async()=>{moved=true;};await t.buildFloor(b,motor,state);assert.equal(moved,true);
 });
+
+
+test('floor builders return from distant wood gathering before applying local stance limits',async()=>{
+ for(const [distance,height] of [[19,64],[39,67],[74,65]]){
+  const {t,b,state,motor}=fixture();state.world.bounds=[-100,100,-100,100];b.entity.position=new Vec3(distance+.5,height,.5);
+  const original=b.blockAt;b.blockAt=p=>p.x<5?null:original(p); // home may not yet be loaded
+  let walked;t.walk=async(_b,_m,goal)=>{walked=goal;};t.place=async()=>assert.fail('not at the house');
+  await t.buildFloor(b,motor,state);assert.deepEqual(walked,[.5,64.1,-4.5]);assert.match(t.message,/Returning to the house/);assert.equal(t.floorRecovery,undefined);
+ }
+});
+
+test('returning to the exterior transitions into real local floor work after arrival',async()=>{
+ const {t,b,map,state,motor}=fixture();state.world.bounds=[-100,100,-100,100];b.entity.position=new Vec3(40.5,64,.5);let moves=0,placed=0;
+ t.walk=async(_b,_m,g)=>{moves++;b.entity.position=new Vec3(...g);return true;};
+ t.place=async(_b,q)=>{placed++;map.set([q.x,q.y,q.z].join(','),'oak_planks');};
+ for(let i=0;i<8&&t.phase==='floor';i++)await t.buildFloor(b,motor,state);
+ assert.ok(moves>=1);assert.equal(placed,1);assert.equal(t.phase,'table');
+});
+
+test('a genuinely blocked home return stops with a return-route diagnosis instead of a floor-stance error',async()=>{
+ const {t,b,state,motor}=fixture();b.entity.position.x=40;t.walk=async()=>false;
+ await assert.rejects(t.buildFloor(b,motor,state),/return route/);
+});
