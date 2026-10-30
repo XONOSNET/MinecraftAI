@@ -37,7 +37,7 @@ class WorldTraining(SurvivalLessons):
         self.path=Path(path);self.command=command;self.logpath=Path(logpath);self.clock=clock
         self.staging=staging;self.persist=persist
         self.saved=json.loads(self.path.read_text(encoding='utf-8')) if self.path.exists() else {'templates':{},'history':[]}
-        self.session=None;self.jobs=[];self.job=None;self.offset=0;self.serial=0;self.ui_at=0;self.ui_offset=self.logpath.stat().st_size if self.logpath.exists() else 0
+        self.session=None;self.jobs=[];self.job=None;self.preloaded=None;self.offset=0;self.serial=0;self.ui_at=0;self.ui_offset=self.logpath.stat().st_size if self.logpath.exists() else 0
 
     def save(self):
         if self.persist:
@@ -104,7 +104,7 @@ class WorldTraining(SurvivalLessons):
         if margin:self.session['resource_policy']=dict(width=size+2*margin,core_width=size,margin=margin,preserve_groves=True,wood_planning_logs_per_bot=48,wood_planning_logs=48*len(names),description='Natural resources only; homes and access lanes are cleared, groves preserved. The whole expedition area resets between trials.')
         self.cleanup_survival()
         if fast:self.session['message']='Restoring the camp and surrounding chunks; deep underground terrain is preserved.'
-        self.jobs=[];self.job=None
+        self.jobs=[];self.job=None;self.preloaded=None
         # Incremental two-chunk work avoids permanent force loads and the global limit.
         for xx in range(area[0],area[1],32 if fast else 16):
             for zz in range(area[2],area[3],16):
@@ -143,6 +143,31 @@ class WorldTraining(SurvivalLessons):
         with self.logpath.open('rb') as stream:
             stream.seek(min(offset,self.logpath.stat().st_size));data=stream.read(262144);return re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]','',data.decode('utf-8',errors='replace')).replace('\r','\n'),stream.tell()
 
+    @staticmethod
+    def tile_chunks(job):
+        return {(x//16,z//16) for start in (job['source'],job['dest'])
+                for x in range(start,start+job['width'],16)
+                for z in range(job['z'],job['z']+16,16)}
+
+    def tile_job(self,tile):
+        source,dest,z,width=tile
+        job=dict(source=source,dest=dest,z=z,width=width,phase='loading',at=self.clock())
+        return job
+
+    def force_tile(self,job,action):
+        for xx in (job['source'],job['dest']):
+            self.command(f"forceload {action} {xx} {job['z']} {xx+job['width']-1} {job['z']+15}")
+
+    def preload_next(self):
+        if self.preloaded or not self.jobs:return
+        next_job=self.tile_job(self.jobs[0])
+        # A first-time ring snapshot can share tiles with the following restore.
+        # Keep those sequential so removing one job's tickets cannot unload another.
+        if self.tile_chunks(self.job)&self.tile_chunks(next_job):return
+        # Record ownership before commands so stop() can clean up partial failures.
+        self.preloaded=next_job
+        self.force_tile(next_job,'add')
+
     def clear_tile_items(self,job):
         # Entity selectors see loaded chunks only. Keep both tiles force-loaded
         # until cleanup finishes, including underground and above the copy band.
@@ -168,6 +193,9 @@ class WorldTraining(SurvivalLessons):
                 refill.update(sheep_placement='walked grass candidates' if pastures else 'regional grass candidates',walked_pastures=len(pastures))
         if s['phase'] in ('snapshotting','restoring'):
             if not self.job:
+                expected=self.tile_job(self.jobs[0]) if self.jobs else None
+                if self.preloaded and (not expected or self.tile_chunks(expected)!=self.tile_chunks(self.preloaded)):
+                    self.force_tile(self.preloaded,'remove');self.preloaded=None
                 if not self.jobs:
                     if s.get('first_night') and not self.prepare_fauna():return
                     template=self.saved['templates'].setdefault(s['template'],{})
@@ -187,9 +215,12 @@ class WorldTraining(SurvivalLessons):
                         self.command(f'effect give {name} minecraft:saturation 1 5 true')
                         self.command(f'tp {name} {(x0+x1)/2} 196 {(z0+z1)/2}')
                     return
-                source,dest,z,width=self.jobs.pop(0);self.job=dict(source=source,dest=dest,z=z,width=width,phase='loading',at=self.clock())
-                for xx in (source,dest):self.command(f'forceload add {xx} {z} {xx+width-1} {z+15}')
-                return
+                tile=self.jobs.pop(0)
+                warmed=self.preloaded is not None
+                self.job=self.preloaded or self.tile_job(tile);self.preloaded=None
+                if not warmed:self.force_tile(self.job,'add')
+                self.preload_next()
+                if not warmed:return
             j=self.job
             if j['phase']=='loading' and self.clock()-j['at']>=.8:
                 self.offset=self.logpath.stat().st_size if self.logpath.exists() else 0
@@ -415,12 +446,12 @@ class WorldTraining(SurvivalLessons):
             x0,x1,z0,z1=self.session['bounds']
             try:self.command(f'forceload remove {x0} {z0} {x1-1} {z1-1}')
             except RuntimeError:pass
-        if self.job:
-            j=self.job
+        for j in (self.job,self.preloaded):
+            if not j:continue
             for xx in (j['source'],j['dest']):
                 try:self.command(f"forceload remove {xx} {j['z']} {xx+j['width']-1} {j['z']+15}")
                 except RuntimeError:pass
-        self.jobs=[];self.job=None
+        self.jobs=[];self.job=None;self.preloaded=None
         self.cleanup_survival()
         if self.session:
             if self.session['active']:

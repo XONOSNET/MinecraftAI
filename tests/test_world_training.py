@@ -210,3 +210,55 @@ def test_survey_spawn_switches_to_survival_only_after_teleport(tmp_path):
     commands.clear()
     world.spawn('LabAI0',[16448.5,64.1,16448.5])
     assert commands[0].startswith('tp LabAI0 ') and commands[1]=='gamemode survival LabAI0'
+
+
+def test_pipeline_warms_next_tile_without_copying_before_current_ack(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.tick()
+    assert world.preloaded is not None
+    assert len(world.tile_chunks(world.job)|world.tile_chunks(world.preloaded))==4
+    assert sum(c.startswith('forceload add') for c in commands)==4
+    clock[0]=1;world.tick()
+    assert sum(c.startswith('clone ') for c in commands)==4
+    clock[0]=1.1;world.tick()
+    assert sum(c.startswith('clone ') for c in commands)==4, 'next copy waits for previous acknowledgement'
+    log.write_text(('Successfully cloned 16384 blocks\n'*4)+'Set [lab_world] for #world_ack to 1\n')
+    world.tick();clock[0]=1.4;world.tick()
+    assert world.job is None and world.preloaded is not None
+    world.tick()
+    assert world.job['phase']=='waiting', 'preloaded tile copies immediately without another loading wait'
+    assert world.job['at']==1.4 and world.serial==2
+    assert sum(c.startswith('clone ') for c in commands)==8
+
+
+def test_pipeline_stop_releases_current_and_prefetched_chunks(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.tick()
+    owned=world.tile_chunks(world.job)|world.tile_chunks(world.preloaded)
+    commands.clear();world.stop()
+    removed=set()
+    for cmd in commands:
+        if cmd.startswith('forceload remove '):
+            _,_,x,z,x1,z1=cmd.split()
+            removed.update((a//16,b//16) for a in range(int(x),int(x1)+1,16) for b in range(int(z),int(z1)+1,16))
+    assert removed==owned and world.preloaded is None and world.job is None and world.jobs==[]
+
+
+def test_pipeline_shared_snapshot_restore_tiles_are_not_preloaded(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0'])
+    world.jobs=[(16384,17408,16384,16),(17408,16384,16384,16)];world.total=2
+    world.tick();assert world.preloaded is None
+    assert sum(c.startswith('forceload add') for c in commands)==2
+
+
+def test_pipeline_bad_ack_releases_both_tiles_without_deploying_bots(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.tick()
+    clock[0]=1;world.tick();log.write_text('Clone failed\nSet [lab_world] for #world_ack to 1\n')
+    world.tick()
+    assert world.session['phase']=='paused' and world.preloaded is None
+    assert sum(c.startswith('forceload remove') for c in commands)==4
+    assert not any(c.startswith('clear LabAI') for c in commands)
+
+
+def test_pipeline_fast_reset_keeps_only_eight_chunks_loaded(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.saved['templates']['0-128']={'camp_anchor':[16448,70,16448]}
+    world.start({},['LabAI0']);world.tick()
+    assert len(world.tile_chunks(world.job)|world.tile_chunks(world.preloaded))==8
