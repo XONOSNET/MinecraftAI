@@ -1,0 +1,14 @@
+{
+  "fixture": "Isolated floor and temporary blocking armor stand; no production learning writes.",
+  "rejection": {
+    "retried": true,
+    "refusals": 1,
+    "message": "Floor placement refused; trying a different safe stance"
+  },
+  "recovery": {
+    "phase": "table",
+    "block": "oak_planks",
+    "seconds": 1.509
+  },
+  "success": true
+}

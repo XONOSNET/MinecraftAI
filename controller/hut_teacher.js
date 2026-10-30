@@ -69,7 +69,7 @@ class HutTeacher{
   const now=Date.now(),p=bot.entity.position,w=state.world,rules=forBot(bot);
   if(this.run===state.run&&now<(this.serviceRetryAt||0)){motor.pause();return this.message;}
   if(this.run!==state.run){this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();this.dropTrack=null;this.pickupTravelGoal=null;}
-  if(this.run!==state.run){space.release(bot.username);require('./exploration').release(bot.username);this.resourceAccess={};this.buildAttempts=new Map();this.buildApproach=null;this.treeRetry=0;this.focusBlock=null;this.lastNavigation=null;if(this.survival?.deathListener)bot.removeListener('entityDead',this.survival.deathListener);this.survival=null;this.wilderness=null;this.failureCategory=null;this.serviceFailureSince=null;this.serviceRetryAt=0;this.home=null;this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.campPlots=[];this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;this.scanCount=0;this.observedTrees=0;this.quarry=null;this.lastRecoveryReset=0;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
+  if(this.run!==state.run){space.release(bot.username);require('./exploration').release(bot.username);this.resourceAccess={};this.buildAttempts=new Map();this.buildApproach=null;this.floorRecovery=null;this.treeRetry=0;this.focusBlock=null;this.lastNavigation=null;if(this.survival?.deathListener)bot.removeListener('entityDead',this.survival.deathListener);this.survival=null;this.wilderness=null;this.failureCategory=null;this.serviceFailureSince=null;this.serviceRetryAt=0;this.home=null;this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.campPlots=[];this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;this.scanCount=0;this.observedTrees=0;this.quarry=null;this.lastRecoveryReset=0;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
   if(this.phase==='survey')survey.hold(bot);else survey.release(bot);
   if(firstNight.enabled(w)&&!this.wilderness)firstNight.init(this,w);
   if(this.wilderness&&this.phase!=='survey'){this.wilderness.memory.observe(bot);this.wilderness.exploration?.observe(p);}
@@ -335,21 +335,7 @@ class HutTeacher{
  }
 
  async buildFloor(bot,motor,state,api,scan,tasks){
-  const p=bot.entity.position,tiles=blueprint(this.plot).filter(q=>q.floor),remaining=tiles.filter(q=>!matches(bot,q));
-  this.built=house.total-blueprint(this.plot).filter(q=>!matches(bot,q)).length;
-  if(!remaining.length){motor.pause();this.phase='table';return;}
-  const q=remaining.find(q=>!(Math.abs(p.x-q.x-.5)<.85&&Math.abs(p.z-q.z-.5)<.85)&&new Vec3(q.x+.5,q.y+.5,q.z+.5).distanceTo(p.offset(0,1.62,0))<4.2);
-  if(!q){
-   const goal=remaining[0],stances=tiles.filter(v=>v.x!==goal.x||v.z!==goal.z).filter(v=>standable(bot,v.x,this.plot.y,v.z)).sort((a,b)=>Math.hypot(a.x-goal.x,a.z-goal.z)-Math.hypot(b.x-goal.x,b.z-goal.z));
-   const stance=stances[0];if(!stance)throw Error('No safe stance beside the unfinished floor');
-   await this.walk(bot,motor,[stance.x+.5,this.plot.y+.1,stance.z+.5],state,api,scan,tasks);return;
-  }
-  motor.pause();const block=bot.blockAt(new Vec3(q.x,q.y,q.z));
-  if(block?.boundingBox!=='empty'){
-   if(!block||!['grass_block','dirt','stone','coarse_dirt','rooted_dirt','granite','diorite','andesite'].includes(block.name))throw Error('Floor foundation is obstructed');
-   await bot.dig(block);
-  }
-  await this.place(bot,q,null);this.lastProgress=Date.now();this.message=`Laying wooden floor ${tiles.length-remaining.length+1} / ${tiles.length}`;
+  return require('./floor_builder').tick(this,bot,motor,state,api,scan,tasks);
  }
  async bodyAccess(bot,motor,goal,key,state,api,scan,tasks,planned=null){
   this.resourceAccess??={};const options={bounds:state.world.bounds,plots:[this.plot,...(this.campPlots||[])],state:this.resourceAccess,key,run:state.run};

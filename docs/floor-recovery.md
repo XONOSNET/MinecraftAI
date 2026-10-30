@@ -1,0 +1,11 @@
+# Floor placement recovery
+
+The current candidate evaluation recorded BirchToad stopping after Minecraft refused an oak-plank floor replacement. The old floor builder retried the same placement twice and then stopped. Its target-center reach calculation did not account for the lower supporting face, particularly when approaching from an elevated ledge. The stop report alone does not prove the precise reason Minecraft rejected that particular packet.
+
+The floor builder now settles before working, considers the depth of the supporting face for reach, prefers nearby existing holes, and waits if another player occupies its target. After a server rejection it retains the unfinished tile and chooses a different supported, unoccupied stance with a checked route. It caps refusals at three and preserves explicit inventory, obstruction and route failures. A rejected packet does not earn progress or a milestone. It still avoids digging the block supporting the bot.
+
+Validation: all 314 JavaScript tests passed. Five new tests cover alternate stances, bounded failure, settling, occupied targets, inventory failure and elevated reach. A native Minecraft fixture used an armor stand to cause a real server rejection; after removing that diagnostic obstruction, the bot moved to its new stance and placed the plank successfully in 1.509 seconds. Fixture terrain/entities/items were cleaned up. No production resources or training results were modified. Result: docs/floor-recovery-native.json.
+
+The bounded helper scripts/deploy_controller_after_comparison.py can wait for a specified candidate run to appear in completed comparison history, then apply the controller update only while a fresh baseline is restoring terrain. It cancels if learning is disabled and waits for eight fresh entity IDs before resuming saved options. It never restarts an active attempt. Its safety gate has a focused Python regression test.
+
+Deployment is pending: automatic approval review rejected launching the deferred rollout helper with `blocked by policy` and no further reason. The launch did not execute. No rollout process or report was created; no controller or service was restarted. Automatic learning remains enabled in evaluation run world-1793334916495116700, round 127, using the existing controller. The floor fix is saved but not active in that process.
