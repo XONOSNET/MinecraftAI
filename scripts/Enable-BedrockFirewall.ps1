@@ -1,6 +1,12 @@
 $ErrorActionPreference='Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
 $receipt=Join-Path $PWD 'data/bedrock-firewall-result.json'
+$taskPrincipal=[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
+if(!$taskPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+ $taskHostPath=(Get-Process -Id $PID).Path
+ Start-Process -FilePath $taskHostPath -ArgumentList @('-NoProfile','-File',('"{0}"' -f $PSCommandPath)) -Verb RunAs -Wait
+ exit
+}
 try {
  $identity=[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
  if(!$identity.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Run this script as administrator to enable LAN Bedrock connections.'}
