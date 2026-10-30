@@ -1,0 +1,22 @@
+{
+  "enabled": true,
+  "address": "192.168.1.24",
+  "port": 19132,
+  "auth_type": "floodgate",
+  "downloads": [
+    {
+      "project": "geyser",
+      "version": "2.12.1",
+      "build": 1279,
+      "sha256": "234fa467a32bbc780bd495296eb18fa0fbd7af8dab41f137ed5f7a45aabfbb90",
+      "url": "https://download.geysermc.org/v2/projects/geyser/versions/2.12.1/builds/1279/downloads/spigot"
+    },
+    {
+      "project": "floodgate",
+      "version": "2.2.5",
+      "build": 141,
+      "sha256": "21570aff9ce17d6983928e8552777760e1ede5050026b04c686b0ae112e6fd7e",
+      "url": "https://download.geysermc.org/v2/projects/floodgate/versions/2.2.5/builds/141/downloads/spigot"
+    }
+  ]
+}
