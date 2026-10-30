@@ -13,11 +13,11 @@ test('wool targets exclude lambs and already-sheared sheep',()=>{
  assert.equal(livestock.whiteSheep(b,baby),false);assert.equal(livestock.whiteSheep(b,shorn),false);assert.equal(livestock.whiteSheep(b,sheep(3)),true);
 });
 
-test('an unreachable pursued sheep loses its lock and stays rejected as it moves',async()=>{
+test('an unreachable pursued sheep loses its lock and records a short position-aware deferral',async()=>{
  const {b,t,state}=setup();state.world.first_night.stations=false;t.phase='night_wool';b.entities={sheep:sheep(90,8)};
  t.wilderness.animal=90;t.wilderness.animalGoal=[8.5,64.1,-18.5];t.wilderness.animalPlanAt=Date.now()+10000;t.wilderness.animalLastPosition=b.entities.sheep.position.clone();
  t.walk=async()=>false;await night.tick(t,b,{pause(){}},state,null,null,null,()=>64);
- assert.equal(t.wilderness.animal,null);assert.ok(t.wilderness.rejectedAnimals.get(90)>Date.now());assert.match(t.message,/blocked/);
+ assert.equal(t.wilderness.animal,null);assert.ok(t.wilderness.rejectedAnimals.get(90).until>Date.now());assert.match(t.message,/blocked/);
 });
 test('supported drops belong to the nearest assigned animal station',()=>{
  const {t,state}=setup();assert.equal(livestock.localDrop(t,state.world,new Vec3(.5,64,-18.5)),true);assert.equal(livestock.localDrop(t,state.world,new Vec3(10.5,64,-18.5)),false);assert.equal(livestock.localDrop(t,{first_night:{stations:false}},new Vec3(10.5,64,-18.5)),true);

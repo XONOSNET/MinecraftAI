@@ -1,0 +1,25 @@
+{
+  "fixture": "Two isolated real sheep: nearby target versus distant lock, then native weapon equip and kill; no production learning writes.",
+  "before": {
+    "held": null,
+    "axeSlot": 9
+  },
+  "selection": {
+    "oldTarget": 1269,
+    "nearby": 757582,
+    "selected": 757582,
+    "searchCancelled": true,
+    "reason": "Selected nearby reachable sheep"
+  },
+  "preparation": {
+    "returned": false,
+    "held": "stone_axe",
+    "hits": 0
+  },
+  "hunting": {
+    "hits": 2,
+    "kills": 1,
+    "seconds": 1.39
+  },
+  "success": true
+}

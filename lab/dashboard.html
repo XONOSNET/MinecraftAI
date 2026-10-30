@@ -290,7 +290,7 @@ $('harvest-markers').addEventListener('change',async()=>{try{const r=await fetch
 $('vision-enabled').addEventListener('change',saveVision);$('vision-scope').addEventListener('change',saveVision);
 function woolStatusText(r){
  const v=r?.wilderness?.livestock;if(v?.resource!=='wool'||!['night_wool','night_wool_home'].includes(r.phase))return '';
- return ` · Wool ${v.wool??0}/${v.wool_target||3}`+(Number.isFinite(v.loaded_white_sheep)?` · ${v.loaded_white_sheep} nearby adult white sheep · ${v.eligible_targets||0} candidates · ${v.remembered_patches||0} remembered areas · ${v.rejected_targets||0} deferred targets`:' · Checking nearby sheep');
+ return ` · Wool ${v.wool??0}/${v.wool_target||3}`+(Number.isFinite(v.loaded_white_sheep)?` · ${v.loaded_white_sheep} nearby adult white sheep · ${v.eligible_targets||0} candidates · ${v.remembered_patches||0} remembered areas · ${v.rejected_targets||0} deferred targets`:' · Checking nearby sheep')+(v.selection_reason?' · '+v.selection_reason:'');
 }
 function worldTimingText(r){
  if(!r)return 'Waiting for trial';
