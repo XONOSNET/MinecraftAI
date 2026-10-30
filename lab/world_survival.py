@@ -11,8 +11,12 @@ MISSION_LESSONS={'iron_age':BASE+IRON,'homestead':BASE+IRON+HOME,'home_defense':
 
 class SurvivalLessons:
     def cleanup_survival(self):
-        self.command('kill @e[tag=lab_world_survival]')
-        self.command('kill @e[tag=lab_world_home]')
+        for command in ('kill @e[tag=lab_world_survival]','kill @e[tag=lab_world_home]'):
+            try:self.command(command)
+            except RuntimeError as error:
+                # A dead Minecraft process has no entities to clean up yet.
+                # Let lifecycle preparation finish so it can launch a replacement.
+                if str(error)!='Minecraft server is not running':raise
         self.saved['homes']={}
 
     def survival(self,data,display_name):

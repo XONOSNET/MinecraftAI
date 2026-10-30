@@ -49,3 +49,26 @@ def test_automatic_recovery_origin_is_visible_without_changing_manual_operations
     control.request('restart',automatic=True);assert control.wait(3)['ready']
     control.request('stop');assert not control.wait(3)['alive']
     assert seen==[True,False]
+
+
+def test_crashed_server_trial_cleanup_does_not_prevent_launch(tmp_path):
+    from lab.world_training import WorldTraining
+    state={'alive':False};commands=[]
+    def command(text):
+        if not state['alive']:raise RuntimeError('Minecraft server is not running')
+        commands.append(text)
+    world=WorldTraining(tmp_path/'world.json',command,tmp_path/'console.log')
+    world.session=dict(active=True,phase='running',bots=['LabAI0'],bounds=[0,128,0,128])
+    world.saved['homes']={'LabAI0':{'position':[1,64,1]}}
+    control=ServerControl(lambda:state.update(alive=True),lambda:None,world.stop,lambda:state['alive'],lambda:state['alive'])
+    control.request('start',automatic=True);assert control.wait(3)['ready']
+    assert world.session['phase']=='paused' and world.saved['homes']=={}
+    assert not commands
+
+
+def test_survival_cleanup_does_not_hide_other_command_failures(tmp_path):
+    import pytest
+    from lab.world_training import WorldTraining
+    def command(text):raise RuntimeError('Broken command pipe')
+    world=WorldTraining(tmp_path/'world.json',command,tmp_path/'console.log')
+    with pytest.raises(RuntimeError,match='Broken command pipe'):world.cleanup_survival()
