@@ -1,0 +1,18 @@
+{
+  "fixture": "Isolated grassy sky fixture: successful sheep births, wave limit and population cap. No production resources modified.",
+  "waves": [
+    {
+      "births": 2,
+      "population": 2
+    },
+    {
+      "births": 1,
+      "population": 3
+    },
+    {
+      "births": 0,
+      "population": 3
+    }
+  ],
+  "success": true
+}

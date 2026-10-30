@@ -186,8 +186,20 @@ class WorldTraining(SurvivalLessons):
         if s['phase']=='running' and s.get('first_night') and not s['first_night'].get('stations') and not s.get('assessment'):
             interval=RESOURCE_CONFIG.get('livestock_replenish_seconds',120)
             refill=s.setdefault('fauna_replenishment',dict(waves=0,next_at=s.get('trial_at',self.clock())+30,interval_seconds=interval,caps=RESOURCE_CONFIG.get('livestock_caps',{})))
+            if refill.get('pending_counts'):
+                text,refill['log_offset']=self._read(refill['log_offset'])
+                refill['count_log']=(refill.get('count_log','')+text)[-16384:]
+                births=re.search(r'#fauna_wave_sheep has (\d+) ',refill['count_log'])
+                population=re.search(r'#fauna_sheep has (\d+) ',refill['count_log'])
+                if births and population:
+                    refill.update(last_sheep_spawned=int(births[1]),loaded_sheep=int(population[1]),
+                                  total_sheep_spawned=refill.get('total_sheep_spawned',0)+int(births[1]),
+                                  counts_verified_at=self.clock(),pending_counts=False,count_log='')
+                elif self.clock()-refill['last_at']>15:
+                    refill.update(pending_counts=False,count_error='Sheep spawn count acknowledgement timed out')
             if self.clock()>=refill['next_at']:
                 pastures=walked_pastures(s)
+                refill.update(log_offset=self.logpath.stat().st_size if self.logpath.exists() else 0,pending_counts=True,count_log='',count_error=None)
                 for command in replenish_commands(s['bounds'],s.get('camp',{}).get('plots',[]),refill['waves'],refill['caps'],pastures):self.command(command)
                 refill.update(waves=refill['waves']+1,next_at=self.clock()+interval,last_at=self.clock())
                 refill.update(sheep_placement='walked grass candidates' if pastures else 'regional grass candidates',walked_pastures=len(pastures))

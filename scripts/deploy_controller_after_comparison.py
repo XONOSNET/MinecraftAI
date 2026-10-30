@@ -5,6 +5,7 @@ Uses existing authenticated pause/resume controls and the normal bot launcher.
 """
 import json
 import pathlib
+import shutil
 import subprocess
 import sys
 import time
@@ -38,6 +39,8 @@ def report(phase,**details):
 
 
 def main(candidate_run):
+    shell=shutil.which('pwsh.exe') or shutil.which('pwsh')
+    if not shell:raise RuntimeError('PowerShell 7 is required for the configured bot launcher; no rollout attempted.')
     report('waiting_for_completed_comparison',candidate_run=candidate_run)
     deadline=time.monotonic()+7200
     while time.monotonic()<deadline:
@@ -66,7 +69,7 @@ if($taskBotProcess -and $taskBotProcess.CommandLine -like '*controller/index.js*
 }
 & ./scripts/Start-Bots.ps1
 """
-    subprocess.run(['powershell.exe','-NoProfile','-NonInteractive','-Command',script],cwd=ROOT,check=True,timeout=60)
+    subprocess.run([shell,'-NoProfile','-NonInteractive','-Command',script],cwd=ROOT,check=True,timeout=60)
     for _ in range(90):
         current=status()
         agents=current.get('agents',{})

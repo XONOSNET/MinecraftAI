@@ -6,8 +6,11 @@ def test_walked_pastures_require_real_bounded_nearby_roads_outside_houses():
     from lab.world_fauna import walked_pastures
     session=dict(bounds=[0,160,0,160],camp=dict(spawn=[80,65,80],plots=[dict(x=80,z=80)]),results={
         'LabAI0':dict(wilderness=dict(memory=dict(roads=[[100.5,65.1,80.5],[101.5,65.1,80.5],[110.5,65.1,80.5],
-            [80.5,65.1,80.5],[140.5,65.1,80.5],[100.5,100.1,80.5],[float('nan'),65,90]])))})
-    assert walked_pastures(session)==[(100,65,80),(110,65,80)]
+            [80.5,65.1,80.5],[140.5,65.1,80.5],[120.5,100.1,80.5],[float('nan'),65,90]])))})
+    points=walked_pastures(session)
+    assert (140,65,80) in points and (110,65,80) in points
+    assert any(p[1]==100 for p in points), 'real explored elevations are not restricted to camp height'
+    assert all(p[0]!=80 for p in points)
     session['camp']={};assert walked_pastures(session)==[]
 
 
@@ -15,12 +18,13 @@ def test_walked_sheep_replenishment_keeps_population_and_successful_wave_caps():
     from lab.world_fauna import replenish_commands
     commands=replenish_commands([0,160,0,160],[],0,dict(sheep=24),[(20,65,20),(30,66,30),(40,65,40)])
     summons=[c for c in commands if 'run summon' in c]
-    assert len(summons)==3
+    assert len(summons)==7
+    assert sum('positioned over' not in c for c in summons)==3
     assert all('matches ..1 if score #fauna_sheep lab_world matches ..23' in c for c in summons)
-    assert all('store success score #fauna_spawn_ok' in c and 'unless entity @a[distance=..8]' in c for c in summons)
-    assert all(c.count('#minecraft:animals_spawnable_on')==5 and 'Age:0' in c for c in summons)
-    assert all('positioned over' not in c for c in summons),'use the actual walked height rather than an unrelated surface above it'
-    assert sum('#fauna_wave_sheep lab_world += #fauna_spawn_ok' in c for c in commands)==3
+    assert all('unless entity @a[distance=..8]' in c and 'unless entity @e[type=minecraft:sheep,distance=..6]' in c for c in summons)
+    assert all(c.count('#minecraft:animals_spawnable_on')==1 and 'Age:0' in c for c in summons)
+    assert sum('tag=lab_refill_new' in c and 'execute store result' in c for c in commands)==7
+    assert not any('store success' in c for c in commands)
 
 
 def test_active_natural_trial_uses_reported_walked_pastures(tmp_path):
@@ -37,14 +41,14 @@ def test_active_natural_trial_uses_reported_walked_pastures(tmp_path):
 def test_replenishment_is_bounded_surface_checked_and_avoids_house_plots():
     from lab.world_fauna import replenish_commands
     commands=replenish_commands([0,128,0,128],[dict(x=10,z=10)],0,dict(sheep=24,cow=12))
-    assert len(commands)==8
-    assert all('execute store result score' in commands[i] for i in range(0,8,2))
-    summons=commands[1::2]
+    summons=[c for c in commands if 'run summon' in c]
+    assert len(summons)==6
     assert all('positioned over motion_blocking_no_leaves' in c and 'unless entity @a[distance=..8]' in c for c in summons)
-    assert all(c.count('#minecraft:animals_spawnable_on')==5 and 'if block ~ ~1 ~ minecraft:air' in c for c in summons)
+    assert all('if block ~ ~1 ~ minecraft:air' in c for c in summons)
+    assert all(c.count('#minecraft:animals_spawnable_on')==(1 if 'summon minecraft:sheep' in c else 5) for c in summons)
     assert all('positioned 10.5 0 10.5' not in c for c in summons)
     assert 'matches ..23' in summons[0] and 'Color:0b' in summons[0]
-    assert 'x=0,y=-64,z=0,dx=127,dy=383,dz=127' in commands[0]
+    assert any('x=0,y=-64,z=0,dx=127,dy=383,dz=127' in c for c in commands)
     assert replenish_commands([0,128,0,128],[],1,dict(sheep=24))!=replenish_commands([0,128,0,128],[],0,dict(sheep=24))
 
 
@@ -53,9 +57,9 @@ def test_periodic_fauna_runs_only_during_active_natural_training_with_a_cooldown
     world.start(dict(mission='first_night',night_level=1),['LabAI0'])
     world.session.update(phase='running',trial_at=0);commands.clear()
     clock[0]=29;world.tick();assert not any('lab_replenished_fauna' in c for c in commands)
-    clock[0]=30;world.tick();assert sum('lab_replenished_fauna' in c for c in commands)==8
+    clock[0]=30;world.tick();assert sum('lab_replenished_fauna' in c for c in commands)==10
     commands.clear();clock[0]=149;world.tick();assert not any('lab_replenished_fauna' in c for c in commands)
-    clock[0]=150;world.tick();assert sum('lab_replenished_fauna' in c for c in commands)==8
+    clock[0]=150;world.tick();assert sum('lab_replenished_fauna' in c for c in commands)==10
     assert world.session['fauna_replenishment']['waves']==2
     commands.clear();world.session['assessment']=True;clock[0]=300;world.tick();assert not any('lab_replenished_fauna' in c for c in commands)
     world.session.update(assessment=False,active=False);clock[0]=500;world.tick();assert not any('lab_replenished_fauna' in c for c in commands)
@@ -85,3 +89,24 @@ def test_cancel_during_fauna_restore_releases_whole_site(tmp_path):
     world,commands,clock,log=fixture(tmp_path)
     world.start(dict(mission='first_night'),['LabAI0']);world.prepare_fauna();world.stop()
     assert 'forceload remove 16384 16384 16511 16511' in commands
+
+
+def test_sheep_birth_counts_require_server_acknowledgement(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start(dict(mission='first_night',night_level=1),['LabAI0'])
+    world.session.update(phase='running',trial_at=0);clock[0]=30;world.tick()
+    refill=world.session['fauna_replenishment'];assert refill['pending_counts'] and 'last_sheep_spawned' not in refill
+    log.write_text('#fauna_wave_sheep has 2 [lab_world]\n#fauna_sheep has 14 [lab_world]\n')
+    clock[0]=31;world.tick();assert refill['last_sheep_spawned']==2 and refill['total_sheep_spawned']==2 and refill['loaded_sheep']==14
+    clock[0]=32;world.tick();assert refill['total_sheep_spawned']==2
+    clock[0]=150;world.tick();clock[0]=166;world.tick();assert 'timed out' in refill['count_error']
+
+
+def test_pasture_sampling_spreads_across_large_explored_site():
+    from lab.world_fauna import walked_pastures
+    roads=[[x+.5,65.1,z+.5] for x in range(8,248,4) for z in range(8,248,16)]
+    session=dict(bounds=[0,256,0,256],camp=dict(spawn=[128,65,128],plots=[]),results={
+        'LabAI0':dict(wilderness=dict(memory=dict(roads=roads[:512]))),
+        'LabAI1':dict(wilderness=dict(memory=dict(roads=roads[512:])))})
+    points=walked_pastures(session)
+    assert len(points)<=128 and min(p[0] for p in points)<20 and max(p[0] for p in points)>230
+    assert min(p[2] for p in points)<20 and max(p[2] for p in points)>230
