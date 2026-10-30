@@ -7,6 +7,16 @@ def fixture(tmp_path):
     return world,commands,clock,log
 
 
+
+def acknowledge_tile(world,clock,log):
+    # Feed only real per-command successes, until this tile reaches cleanup.
+    while world.job and world.job['phase']!='cleaning':
+        if world.job['phase']=='waiting':
+            with log.open('a') as stream:stream.write(f"Successfully cloned 4096 blocks\nSet [lab_world] for #world_ack to {world.job['serial']}\n")
+        else:clock[0]+=.1
+        world.tick()
+
+
 def test_world_protection_includes_zombie_villagers_and_keeps_tagged_combat_mobs(tmp_path):
     world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0'])
     world.session.update(phase='running',trial_at=0);clock[0]=2;commands.clear();world.tick()
@@ -68,12 +78,12 @@ def test_single_batch_option_and_round_counter_survive_history_limit(tmp_path):
 def test_copy_acknowledged_before_deployment_and_scoped_to_reserved_terrain(tmp_path):
     world,commands,clock,log=fixture(tmp_path)
     world.start({'scenario':0,'size':128},['LabAI0']);world.tick();assert not world.assignment('LabAI0')
-    clock[0]=1;world.tick();assert sum(c.startswith('clone ') for c in commands)==4
+    clock[0]=1;world.tick();assert sum(c.startswith('clone ') for c in commands)==1
     for command in commands:
         if command.startswith('clone '):
-            xyz=list(map(int,command.split()[1:10]));assert (xyz[3]-xyz[0]+1)*(xyz[4]-xyz[1]+1)*(xyz[5]-xyz[2]+1)<=32768
-    log.write_text(('Successfully cloned 16384 blocks\n'*4)+'Set [lab_world] for #world_ack to 1\n')
-    world.tick();assert world.job['phase']=='cleaning';clock[0]+=.3;world.tick();assert world.session['progress']>0;assert any('minecraft:glass' in c for c in commands)
+            xyz=list(map(int,command.split()[1:10]));assert (xyz[3]-xyz[0]+1)*(xyz[4]-xyz[1]+1)*(xyz[5]-xyz[2]+1)<=4096
+    acknowledge_tile(world,clock,log)
+    assert world.job['phase']=='cleaning';clock[0]+=.3;world.tick();assert world.session['progress']>0;assert any('minecraft:glass' in c for c in commands)
     assert any(c.startswith('forceload remove') for c in commands)
     world.jobs=[];world.tick();assert world.session['phase']=='running';assert world.assignment('LabAI0')['world']['bounds']==[16384,16512,16384,16512]
     assert any(c.startswith('clear LabAI0') for c in commands)
@@ -138,9 +148,9 @@ def test_prepared_reset_covers_camp_and_surrounding_chunks_with_bounded_clones(t
     world.tick();clock[0]=1;world.tick()
     clones=[c for c in commands if c.startswith('clone ')]
     assert len(clones)==1
-    xyz=list(map(int,clones[0].split()[1:10]));assert (xyz[3]-xyz[0]+1)*(xyz[4]-xyz[1]+1)*(xyz[5]-xyz[2]+1)==32768
-    log.write_text('Successfully cloned 32768 blocks\nSet [lab_world] for #world_ack to 1\n')
-    world.tick();assert world.job['phase']=='cleaning';clock[0]+=.3;world.tick();assert world.session['active'] and world.job is None
+    xyz=list(map(int,clones[0].split()[1:10]));assert (xyz[3]-xyz[0]+1)*(xyz[4]-xyz[1]+1)*(xyz[5]-xyz[2]+1)==4096
+    acknowledge_tile(world,clock,log)
+    assert world.job['phase']=='cleaning';clock[0]+=.3;world.tick();assert world.session['active'] and world.job is None
     world.jobs=[];world.tick()
     assert world.saved['templates']['0-128']['camp_anchor']==[16448,70,16448]
     assert world.assignment('LabAI0')['world']['camp_anchor']==[16448,70,16448]
@@ -193,8 +203,8 @@ def test_restore_clears_embedded_and_high_items_while_each_tile_is_loaded(tmp_pa
     sweeps=[c for c in commands if c.startswith('kill @e[type=minecraft:item,')]
     assert len(sweeps)==2 and all('y=-64' in c and 'dy=383' in c and 'dx=31' in c and 'dz=15' in c for c in sweeps)
     assert commands.index(sweeps[0])<next(i for i,c in enumerate(commands) if c.startswith('clone '))
-    log.write_text('Successfully cloned 32768 blocks\nSet [lab_world] for #world_ack to 1\n')
-    world.tick();assert world.job['phase']=='cleaning'
+    acknowledge_tile(world,clock,log)
+    assert world.job['phase']=='cleaning'
     assert not any(c.startswith('forceload remove') for c in commands)
     clock[0]+=.1;world.tick();assert world.job is not None
     clock[0]+=.2;world.tick();assert world.job is None
@@ -216,18 +226,15 @@ def test_pipeline_warms_next_tile_without_copying_before_current_ack(tmp_path):
     world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.tick()
     assert world.preloaded is not None
     assert len(world.tile_chunks(world.job)|world.tile_chunks(world.preloaded))==4
-    assert sum(c.startswith('forceload add') for c in commands)==4
-    clock[0]=1;world.tick()
-    assert sum(c.startswith('clone ') for c in commands)==4
-    clock[0]=1.1;world.tick()
-    assert sum(c.startswith('clone ') for c in commands)==4, 'next copy waits for previous acknowledgement'
-    log.write_text(('Successfully cloned 16384 blocks\n'*4)+'Set [lab_world] for #world_ack to 1\n')
-    world.tick();clock[0]=1.4;world.tick()
-    assert world.job is None and world.preloaded is not None
-    world.tick()
-    assert world.job['phase']=='waiting', 'preloaded tile copies immediately without another loading wait'
-    assert world.job['at']==1.4 and world.serial==2
-    assert sum(c.startswith('clone ') for c in commands)==8
+    clock[0]=1;world.tick();assert sum(c.startswith('clone ') for c in commands)==1
+    clock[0]=1.1;world.tick();assert sum(c.startswith('clone ') for c in commands)==1
+    acknowledge_tile(world,clock,log);first_count=sum(c.startswith('clone ') for c in commands)
+    assert first_count==16
+    clock[0]+=.3;world.tick();assert world.job is None
+    before=clock[0];world.tick()
+    assert world.job['phase']=='waiting' and world.job['at']==before
+    assert sum(c.startswith('clone ') for c in commands)==first_count+1
+    assert world.session['copy_stats']['sent']==17 and world.session['copy_stats']['acknowledged']==16
 
 
 def test_pipeline_stop_releases_current_and_prefetched_chunks(tmp_path):
@@ -262,3 +269,34 @@ def test_pipeline_fast_reset_keeps_only_eight_chunks_loaded(tmp_path):
     world,commands,clock,log=fixture(tmp_path);world.saved['templates']['0-128']={'camp_anchor':[16448,70,16448]}
     world.start({},['LabAI0']);world.tick()
     assert len(world.tile_chunks(world.job)|world.tile_chunks(world.preloaded))==8
+
+
+def test_copy_slice_ack_is_exact_and_cannot_queue_a_burst(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.tick();clock[0]=1;world.tick()
+    log.write_text('Set [lab_world] for #world_ack to 10\n')
+    world.tick();assert world.job['phase']=='waiting' and world.session['copy_stats']['acknowledged']==0
+    with log.open('a') as stream:stream.write('Successfully cloned 4096 blocks\nSet [lab_world] for #world_ack to 1\n')
+    world.tick();assert world.job['phase']=='copying'
+    world.tick();assert sum(c.startswith('clone ') for c in commands)==1
+    clock[0]+=.06;world.tick();assert sum(c.startswith('clone ') for c in commands)==2
+
+
+def test_sliced_copy_covers_every_height_once_for_both_tile_widths(tmp_path):
+    for fast in [False,True]:
+        base=tmp_path/str(fast);base.mkdir();world,commands,clock,log=fixture(base)
+        if fast:world.saved['templates']['0-128']={'camp_anchor':[16448,70,16448]}
+        world.start({},['LabAI0']);low,high=world.session['copy_y'];world.tick();clock[0]=1;world.tick();acknowledge_tile(world,clock,log)
+        intervals=[]
+        for command in commands:
+            if command.startswith('clone '):
+                xyz=list(map(int,command.split()[1:10]));intervals.append((xyz[1],xyz[4]+1))
+                assert (xyz[3]-xyz[0]+1)*(xyz[4]-xyz[1]+1)*(xyz[5]-xyz[2]+1)<=4096
+        assert intervals[0][0]==low and intervals[-1][1]==high
+        assert all(a[1]==b[0] for a,b in zip(intervals,intervals[1:]))
+
+
+def test_stalled_slice_stops_without_queuing_more_clones_and_releases_prefetch(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.tick();clock[0]=1;world.tick()
+    clock[0]=22;world.tick();assert world.session['phase']=='paused'
+    assert sum(c.startswith('clone ') for c in commands)==1
+    assert sum(c.startswith('forceload remove') for c in commands)==4

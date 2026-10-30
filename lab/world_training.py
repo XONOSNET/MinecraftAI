@@ -168,6 +168,20 @@ class WorldTraining(SurvivalLessons):
         self.preloaded=next_job
         self.force_tile(next_job,'add')
 
+    def copy_slice(self,job):
+        session=self.session
+        y=job.get('next_y',session['copy_y'][0])
+        # Bound a single main-thread operation to 4096 blocks. Wider fast-reset
+        # tiles use shorter vertical slices instead of larger command bursts.
+        height=min(4096//(job['width']*16),session['copy_y'][1]-y)
+        self.offset=self.logpath.stat().st_size if self.logpath.exists() else 0
+        self.serial+=1
+        job.update(phase='waiting',at=self.clock(),serial=self.serial,log='',next_y=y+height)
+        self.command(f"clone {job['source']} {y} {job['z']} {job['source']+job['width']-1} {y+height-1} {job['z']+15} {job['dest']} {y} {job['z']} replace force")
+        self.command(f'scoreboard players set #world_ack lab_world {self.serial}')
+        stats=session.setdefault('copy_stats',dict(block_limit=4096,sent=0,acknowledged=0,max_ack_seconds=0))
+        stats['sent']+=1
+
     def clear_tile_items(self,job):
         # Entity selectors see loaded chunks only. Keep both tiles force-loaded
         # until cleanup finishes, including underground and above the copy band.
@@ -235,17 +249,21 @@ class WorldTraining(SurvivalLessons):
                 if not warmed:return
             j=self.job
             if j['phase']=='loading' and self.clock()-j['at']>=.8:
-                self.offset=self.logpath.stat().st_size if self.logpath.exists() else 0
                 self.clear_tile_items(j)
-                for y in range(*s['copy_y'],64):self.command(f"clone {j['source']} {y} {j['z']} {j['source']+j['width']-1} {y+63} {j['z']+15} {j['dest']} {y} {j['z']} replace force")
-                self.serial+=1;self.command(f'scoreboard players set #world_ack lab_world {self.serial}')
-                j.update(phase='waiting',at=self.clock(),serial=self.serial,log='');return
+                self.copy_slice(j);return
+            if j['phase']=='copying' and self.clock()-j['at']>=.05:
+                self.copy_slice(j);return
             if j['phase']=='waiting':
                 text,self.offset=self._read(self.offset);j['log']+=text
-                if f'to {j["serial"]}' in j['log'] and '#world_ack' in j['log']:
-                    # Acknowledge clone success before considering terrain safe to use.
-                    if j['log'].count('Successfully cloned')<(s['copy_y'][1]-s['copy_y'][0])//64:
+                if re.search(r'#world_ack to '+str(j['serial'])+r'(?!\d)',j['log']):
+                    # Exactly one slice is in flight. An acknowledgement alone
+                    # cannot stand in for successful block copying.
+                    if j['log'].count('Successfully cloned')!=1:
                         self.stop('Terrain copy failed; trial stopped before deploying bots. Inspect the Minecraft console.');return
+                    stats=s['copy_stats'];stats['acknowledged']+=1
+                    stats['max_ack_seconds']=round(max(stats['max_ack_seconds'],self.clock()-j['at']),3)
+                    if j['next_y']<s['copy_y'][1]:
+                        j.update(phase='copying',at=self.clock());return
                     x0,x1,z0,z1=s['bounds'];xx=min(j['source'],j['dest']);zz=j['z']
                     end=xx+j['width']-1
                     if xx==x0:self.command(f'fill {xx} -64 {zz} {xx} 191 {zz+15} minecraft:glass')
