@@ -111,3 +111,18 @@ def test_releasing_attacked_lesson_livestock_is_owned_bounded_and_idempotent(tmp
         with pytest.raises(ValueError):world.livestock(dict(request,**change))
     s['assessment']=True
     with pytest.raises(ValueError):world.livestock(request)
+
+
+def test_initial_memory_is_resent_until_the_client_acknowledges_this_run(tmp_path):
+    from lab.world_training import WorldTraining
+    world=WorldTraining(tmp_path/'world.json',lambda _:None,tmp_path/'log')
+    world.start({'mission':'first_night','night_level':1,'size':128},['LabAI0']);s=world.session;s['phase']='running'
+    remembered={'resources':[{'kind':'wood','position':[10,64,20]}],'roads':[[10,64,20]],'edges':[]}
+    s['memory_snapshot']={s['template']:{'LabAI0':remembered}}
+    first=world.assignment('LabAI0');assert first['world']['memory']==remembered
+    assert world.assignment('LabAI0','old-run')['world']['memory']==remembered
+    warm=world.assignment('LabAI0',s['run']);assert 'memory' not in warm['world'] and warm['run']==s['run']
+    assert warm['world']['first_night']==first['world']['first_night']
+    # A reconnect or an older client without an acknowledgement must get the data again.
+    assert world.assignment('LabAI0',None)['world']['memory']==remembered
+    assert s['memory_snapshot'][s['template']]['LabAI0']==remembered

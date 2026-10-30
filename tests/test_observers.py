@@ -155,7 +155,7 @@ def test_trial_and_training_pass_counters_and_named_roster(tmp_path):
     tick('paused',{'job':{'status':'running','epoch':42,'epochs':100,'percent':40,'samples':1500,'phase':'learning'}})
     assert any('Training pass 42/100 | 58 left' in c for c in commands)
     assert 'bossbar set lab:observer_xonosnet_task value 40' in commands
-    assert 'bossbar set lab:observer_xonosnet_state visible false' in commands
+    assert o.hud_commands['Xonosnet']['bossbar set lab:observer_xonosnet_state visible']=='bossbar set lab:observer_xonosnet_state visible false'
 
 
 def test_camera_uses_native_display_interpolation(tmp_path):
@@ -163,7 +163,7 @@ def test_camera_uses_native_display_interpolation(tmp_path):
     o.start({'player':'Xonosnet','target':'LabAI0','view':'orbit'},['Xonosnet'])
     o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':{'connected':True,'last_seen':100,'entity_id':1}},True)
     assert any('summon minecraft:item_display' in c and 'teleport_duration:0' in c and 'Rotation:[' in c for c in commands)
-    assert any('data merge entity' in c and 'teleport_duration:3' in c for c in commands)
+    assert any('data merge entity' in c and 'teleport_duration:2' in c for c in commands)
     assert not any('armor_stand' in c for c in commands)
 
 
@@ -203,11 +203,11 @@ def test_world_stall_countdown_is_visible_and_not_shown_for_finished_bots(tmp_pa
     a={'connected':True,'last_seen':100,'entity_id':1}
     o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':a},True,'evaluate',progress_context={'world':world})
     assert any('No progress: attempt ends in 42s' in c for c in commands)
-    assert 'bossbar set lab:observer_xonosnet_state visible true' in commands
+    assert o.hud_commands['Xonosnet']['bossbar set lab:observer_xonosnet_state visible']=='bossbar set lab:observer_xonosnet_state visible true'
     commands.clear();now[0]+=2;result['state']='complete';a['last_seen']=now[0]
     o.update_hud(o.sessions['Xonosnet'],a,'evaluate')
     assert not any('attempt ends in' in c for c in commands)
-    assert 'bossbar set lab:observer_xonosnet_state visible false' in commands
+    assert o.hud_commands['Xonosnet']['bossbar set lab:observer_xonosnet_state visible']=='bossbar set lab:observer_xonosnet_state visible false'
 
 
 def test_camera_cycle_uses_interval_and_skips_offline_bots(tmp_path):
@@ -291,10 +291,10 @@ def test_route_bar_and_trial_batch_bar_use_different_progress(tmp_path):
     a={'connected':True,'last_seen':100,'position':[0,181,0],'goal':[10,181,0],'run':'one','steps':0,'trial_completed':1}
     def tick():o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':now[0]}},{'LabAI0':a},True,'evaluate',progress_context={'episodes':3})
     tick();commands.clear();now[0]+=2;a.update(position=[5,181,0],steps=1);tick()
-    assert 'bossbar set lab:observer_xonosnet_task value 33' in commands
+    assert o.hud_commands['Xonosnet']['bossbar set lab:observer_xonosnet_task value']=='bossbar set lab:observer_xonosnet_task value 33'
     assert 'bossbar set lab:observer_xonosnet_state value 50' in commands
     assert any('Route 50%' in c for c in commands)
-    assert 'bossbar set lab:observer_xonosnet_state visible true' in commands
+    assert o.hud_commands['Xonosnet']['bossbar set lab:observer_xonosnet_state visible']=='bossbar set lab:observer_xonosnet_state visible true'
 
 
 def test_reference_header_tracks_live_course_instead_of_saved_review_stage():
@@ -439,3 +439,25 @@ def test_previous_policy_score_ignores_teacher_other_levels_and_assessments():
     history=[base,dict(base,driver='teacher'),dict(base,night_level=1),dict(base,assessment=True)]
     assert latest_policy_result(base,history)=={'completed':1,'bots':2,'run':'policy'}
     assert latest_policy_result(base,[]) is None
+
+
+def test_camera_motion_continues_without_reentering_world_or_dashboard_tick(tmp_path):
+    now=[100.];commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:now[0],settle_delay=0);o.external_motion=True
+    o.start({'player':'Xonosnet','target':'LabAI0','view':'orbit'},['Xonosnet'])
+    agent={'connected':True,'last_seen':100,'position':[0,65,0],'entity_id':1,'run':'same'}
+    o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':agent},True)
+    commands.clear()
+    # No calls to the maintenance tick while its work is slow.
+    for _ in range(20):now[0]+=.05;o.move_cameras()
+    assert len(commands)==20 and all('execute at LabAI0 run tp' in c for c in commands)
+    assert len(set(commands))>1
+    o.stop('Xonosnet',['Xonosnet']);commands.clear();o.move_cameras();assert not commands
+
+
+def test_unchanged_hud_values_are_not_resent_every_second(tmp_path):
+    now=[100.];commands=[];o=Observers(tmp_path/'hud',commands.append,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    agent={'connected':True,'last_seen':100,'position':[0,65,0],'entity_id':1,'run':'same'}
+    o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':agent},True)
+    commands.clear();now[0]+=1.1;o.update_hud(o.sessions['Xonosnet'],agent,'paused')
+    assert not any(c.startswith('bossbar ') for c in commands)

@@ -13,8 +13,8 @@ SKILL_INPUTS=82
 SKILL_ACTIONS=7
 
 class SkillBank:
-    def __init__(self,root='data/skills',checkpoints='checkpoints/skills'):
-        self.root=Path(root);self.checkpoints=Path(checkpoints);self.entries={}
+    def __init__(self,root='data/skills',checkpoints='checkpoints/skills',persist=None):
+        self.root=Path(root);self.checkpoints=Path(checkpoints);self.entries={};self.persist=persist
         self.root.mkdir(parents=True,exist_ok=True);self.checkpoints.mkdir(parents=True,exist_ok=True)
     def get(self,skill,navigation):
         if skill not in SKILLS or skill=='navigation':raise ValueError('Unknown independent skill')
@@ -58,6 +58,8 @@ class SkillBank:
     def save_replay(self,skill):
         samples=self.entries[skill]['samples'];path=self.root/(skill+'.npz');tmp=path.with_suffix('.tmp')
         if not samples:return
+        if self.persist:
+            self.persist(path,list(samples),2 if skill in ('advanced','terrain','expedition') else 1,self.entries[skill]['model'].parameters_count,self.root/(skill+'.json'));return
         with tmp.open('wb') as stream:np.savez_compressed(stream,obs=np.asarray([s[0] for s in samples],dtype=np.float32),actions=np.asarray([s[1] for s in samples]),observation_version=2 if skill in ('advanced','terrain','expedition') else 1)
         os.replace(tmp,path);self.metadata(skill)
 

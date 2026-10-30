@@ -33,13 +33,18 @@ SCENARIOS=[dict(id=i,name=name,description=description,spread=spread) for i,(nam
 
 
 class WorldTraining(SurvivalLessons):
-    def __init__(self,path,command,logpath,clock=time.time,staging=None):
+    def __init__(self,path,command,logpath,clock=time.time,staging=None,persist=None):
         self.path=Path(path);self.command=command;self.logpath=Path(logpath);self.clock=clock
-        self.staging=staging
+        self.staging=staging;self.persist=persist
         self.saved=json.loads(self.path.read_text(encoding='utf-8')) if self.path.exists() else {'templates':{},'history':[]}
         self.session=None;self.jobs=[];self.job=None;self.offset=0;self.serial=0;self.ui_at=0;self.ui_offset=self.logpath.stat().st_size if self.logpath.exists() else 0
 
     def save(self):
+        if self.persist:
+            # Finished history entries are immutable copies, published by finish().
+            # Freeze the list and changing metadata without copying all old terrain memories.
+            snapshot={k:(list(v) if k=='history' else copy.deepcopy(v)) for k,v in self.saved.items()}
+            self.persist(self.path,snapshot);return
         self.path.parent.mkdir(parents=True,exist_ok=True)
         temp=self.path.with_suffix('.tmp');temp.write_text(json.dumps(self.saved,indent=2),encoding='utf-8');temp.replace(self.path)
 
@@ -221,14 +226,15 @@ class WorldTraining(SurvivalLessons):
                         result.update(run=s['run'],state='stopped',phase='stopped',failure_category='deadline',message=f'Trial time budget reached ({budget} s). Returned to the lab; eligible next batch.',seconds=self.clock()-s['trial_at'])
                         self.report(name,result)
 
-    def assignment(self,name):
+    def assignment(self,name,loaded_memory_run=None):
         s=self.session
         if not s or not s['active'] or s['phase']!='running' or name not in s['bots']:return None
         if s['results'].get(name,{}).get('state') in ('complete','stopped'):return None
         world=dict(bounds=s['bounds'],index=s['bots'].index(name),count=len(s['bots']),spread=SCENARIOS[s['scenario']]['spread'],driver=s['driver'],prepared=s['prepared'],camp_anchor=s.get('camp_anchor'),mission=s['mission'],lessons=s['lessons'],time_budget_seconds=s['time_budget_seconds'])
         if s.get('resource_policy'):world['resource_policy']=copy.deepcopy(s['resource_policy'])
         if s.get('first_night'):
-            world.update(first_night=s['first_night'],assessment=s['assessment'],memory={} if s['assessment'] else s['memory_snapshot'].get(s['template'],{}).get(name,{}))
+            world.update(first_night=s['first_night'],assessment=s['assessment'])
+            if loaded_memory_run!=s['run']:world['memory']={} if s['assessment'] else s['memory_snapshot'].get(s['template'],{}).get(name,{})
         return dict(mode='teacher' if s['driver']=='teacher' else 'evaluate',run=s['run'],world=world)
 
     def prepare_fauna(self):

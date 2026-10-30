@@ -33,3 +33,13 @@ def test_unavailable_server_invalid_positions_and_other_dimensions_are_ignored()
     lights.tick({'LabAI0':dict(position=[float('nan'),0,0],connected=True,last_seen=100),
                  'LabAI1':dict(position=[0,70,0],dimension='the_nether',connected=True,last_seen=100)},True)
     assert not any('summon' in c for c in commands)
+
+
+def test_one_moving_bot_does_not_rebuild_every_other_lamp():
+    commands=[];now=[100.];lights=BotLights(commands.append,lambda:now[0])
+    agents={f'LabAI{i}':dict(position=[i*4,70,0],connected=True,last_seen=100) for i in range(8)}
+    lights.tick(agents,True);commands.clear();now[0]+=.3;agents['LabAI0']['position'][0]+=1;lights.tick(agents,True)
+    assert len(commands)==4
+    assert not any('lab_lamp_4_71_0' in c for c in commands)
+    commands.clear();now[0]+=2;lights.tick(agents,True)
+    assert any('tag=!lab_light_current' in c for c in commands)

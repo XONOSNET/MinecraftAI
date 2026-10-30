@@ -9,6 +9,7 @@ from .config import is_agent, EPISODES_PER_AGENT
 
 VIEWS=('first_person','trail','side','overhead','orbit','action','stationary','cycle')
 DIMENSIONS=('minecraft:overworld','minecraft:the_nether','minecraft:the_end')
+CAMERA_INTERPOLATION_TICKS=2
 MODES=('survival','creative','adventure','spectator')
 
 def latest_policy_result(world,history):
@@ -102,6 +103,7 @@ def camera_spawn(owner,target,tag,view,distance,height,elapsed,heading=0):
 class Observers:
     def __init__(self,path,command,clock=time.time,settle_delay=.8):
         self.path=Path(path);self.command=command;self.clock=clock;self.settle_delay=settle_delay;self.sessions={};self.progress_context={};self.camera_mode='paused'
+        self.external_motion=False;self.motion_frames={};self.hud_commands={};self.motion_stats={'last_at':None,'ticks':0,'max_gap_ms':0}
         if self.path.exists():self.sessions=json.loads(self.path.read_text(encoding='utf-8'))
         for s in self.sessions.values():s.setdefault('active_only',True);s.update(hud_ready=False,hud_at=None,attached=False,attach_ready_at=None,camera_created=False,status='waiting',message='Waiting for Minecraft and your player to reconnect.')
     def save(self):
@@ -182,6 +184,7 @@ class Observers:
     def tags(self,s):
         suffix=s['player'].lower();return 'lab_camera_'+suffix,'lab_return_'+suffix
     def kill_camera(self,s):
+        self.motion_frames.pop(s['player'],None)
         camera,_=self.tags(s)
         for dimension in DIMENSIONS:self.command(f'execute in {dimension} run kill @e[tag={camera}]')
         s.update(camera_created=False,attached=False,attach_ready_at=None)
@@ -193,6 +196,13 @@ class Observers:
         now=self.clock()
         if s.get('hud_at') is not None and now-s['hud_at']<1:return
         s['hud_at']=now
+        cache=self.hud_commands.setdefault(s['player'],{})
+        if not s.get('hud_ready'):cache.clear()
+        def emit(command):
+            key=' '.join(command.split(' ')[:4])
+            if not s.get('hud_ready') or cache.get(key)!=command:
+                self.command(command);cache[key]=command
+
         display_name=agent.get('display_name') or s['target']
         owner=s['player'];prefix=f'lab:observer_{owner.lower()}'
         labels=('Moving forward','Turning left','Turning right','Jumping forward','Waiting','Gathering wood','Eating')
@@ -277,16 +287,16 @@ class Observers:
         for suffix,value in lines.items():
             key=prefix+'_'+suffix;name=json.dumps({'text':value,'color':'aqua' if suffix=='task' else 'white'})
             if not s.get('hud_ready'):
-                self.command(f'bossbar remove {key}')
-                self.command(f'bossbar add {key} {name}')
-                self.command(f'bossbar set {key} color '+('yellow' if suffix=='stage' else 'blue' if suffix=='task' else 'green'))
-                self.command(f'bossbar set {key} max 100')
-            self.command(f'bossbar set {key} name {name}')
+                emit(f'bossbar remove {key}')
+                emit(f'bossbar add {key} {name}')
+                emit(f'bossbar set {key} color '+('yellow' if suffix=='stage' else 'blue' if suffix=='task' else 'green'))
+                emit(f'bossbar set {key} max 100')
+            emit(f'bossbar set {key} name {name}')
             if suffix=='stage' and world:value=round(world['progress']) if world['phase'] in ('snapshotting','restoring') else round(100*complete/max(1,len(world['bots'])))
             else:value=round(100*(context['stage']-1)/context['stages']) if suffix=='stage' else route_progress if suffix=='state' else progress
-            self.command(f'bossbar set {key} value {value}')
-            self.command(f'bossbar set {key} players {owner}')
-            if suffix=='state':self.command(f'bossbar set {key} visible '+str(route_visible and job.get('status') not in ('running','cancelling')).lower())
+            emit(f'bossbar set {key} value {value}')
+            emit(f'bossbar set {key} players {owner}')
+            if suffix=='state':emit(f'bossbar set {key} visible '+str(route_visible and job.get('status') not in ('running','cancelling')).lower())
         s['hud_ready']=True
     def update_names(self,agents):
         if not hasattr(self,'name_tags'):self.name_tags={}
@@ -366,6 +376,16 @@ class Observers:
             self.kill_camera(s)
             if s['enabled']:s.update(status='waiting',message='Waiting for the server and player to reconnect.')
         self.save()
+    def move_cameras(self):
+        # Frames are immutable tuples. Movement uses live server-relative targets,
+        # so a slow history save cannot freeze position updates behind its lock.
+        now=self.clock();frames=[f for f in list(self.motion_frames.values()) if now-f[-1]<8]
+        previous=self.motion_stats
+        gap=1000*(now-previous['last_at']) if frames and previous['last_at'] is not None else 0
+        self.motion_stats=dict(last_at=now if frames else None,ticks=previous['ticks']+bool(frames),gap_ms=gap,max_gap_ms=max(previous['max_gap_ms'],gap))
+        for target,tag,view,distance,height,started,heading,updated in frames:
+            if now-updated<8:self.command(camera_move(target,tag,view,distance,height,now-started,heading))
+
     def tick(self,online,states,agents,ready,mode='paused',pause_reason='Movement paused',progress_context=None):
         if not ready:return
         self.progress_context=progress_context or {}
@@ -376,9 +396,11 @@ class Observers:
         for s in self.sessions.values():
             owner=s['player']
             if not s['enabled']:
+                self.motion_frames.pop(owner,None)
                 if s.get('saved_mode') is not None and owner in online:self.release(s,online);self.kill_camera(s);self.save()
                 continue
             if owner not in online:
+                self.motion_frames.pop(owner,None)
                 if s.get('hud_ready'):self.clear_hud(s)
                 s.update(attached=False,attach_ready_at=None,status='waiting_player',message='Join Minecraft to start or resume following.');continue
             if s.get('cycle_enabled'):
@@ -387,6 +409,7 @@ class Observers:
                     self.cycle_target(s,agents)
             target=s['target'];agent=agents.get(target,{})
             if not agent.get('connected',False) or self.clock()-agent.get('last_seen',0)>8 or agent.get('health',20)<=0:
+                self.motion_frames.pop(owner,None)
                 s.update(attached=False,attach_ready_at=None,status='waiting_target',message=f'Waiting for {target} to connect or respawn.')
                 self.update_hud(s,agent,mode);continue
             state=states.get(owner,{})
@@ -438,10 +461,13 @@ class Observers:
                     anchor=owner if s['view']=='stationary' else target
                     self.command(camera_spawn(owner,target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
                     self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
-                    self.command(f'execute at {target} run data merge entity @e[tag={camera},limit=1] {{teleport_duration:3}}')
+                    self.command(f'execute at {target} run data merge entity @e[tag={camera},limit=1] {{teleport_duration:{CAMERA_INTERPOLATION_TICKS}}}')
                     self.command(f"execute at {owner if s['view']=='stationary' else target} run spectate @e[tag={camera},limit=1] {owner}");s['camera_created']=True
                 s.update(attached=True,attach_ready_at=None,attached_at=self.clock());self.save()
-            if s['view']!='first_person':self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
+            if s['view']!='first_person':
+                if self.external_motion:self.motion_frames[owner]=(target,camera,s['view'],s['distance'],s['height'],s['started_at'],s.get('camera_heading',0),self.clock())
+                else:self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
+            else:self.motion_frames.pop(owner,None)
             s.update(status='following',message=(f"Watching {target} from a stationary position. Switch bots to look around; use a following view to travel between arenas." if s['view']=='stationary' else f"Following {target}: {s['view'].replace('_',' ')}. Camera follows arena transfers and respawns."),simulation=agent.get('simulation','Waiting'),target_position=agent.get('position'))
 
             if s['view']=='action':

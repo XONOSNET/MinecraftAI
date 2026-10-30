@@ -29,7 +29,7 @@ def test_status_encodes_outside_control_lock_freezes_bots_and_reuses_bounded_cac
         world_view=world_view,learning_view=learning_view,compact_status=compact_status,SCENARIOS=[],LEVELS=[],readiness=lambda _: {},
         evolution=NS(snapshot=lambda *a,**kw:{'history':[]}),active_skill=lambda:'navigation',
         vision_lines=NS(settings={}),harvest_markers=NS(settings={}),behavior_rules=snapshot,
-        practice_protection=snapshot,AGENT_COUNT=1,trial_limit=lambda:3,observers=snapshot,
+        practice_protection=snapshot,AGENT_COUNT=1,trial_limit=lambda:3,observers=NS(snapshot=lambda:{},motion_stats={}),persistence=NS(snapshot=lambda:{}),
         psutil=NS(virtual_memory=lambda:memory,cpu_count=lambda:1),mode='paused',run='test',agents=agents,
         learning_context=lambda:(NS(parameters_count=4),None,[]),practice=None,server_alive=lambda:True,
         server_details=lambda:{},online_players=lambda:[],operators=lambda:[],system_cpu=0,started=0,
@@ -45,3 +45,16 @@ def test_status_encodes_outside_control_lock_freezes_bots_and_reuses_bounded_cac
     now[0]+=.3;route();assert len(calls)==3
     route(compact=False);assert len(calls)==4
     db.close()
+
+
+def test_assignment_uses_direct_json_encoding_outside_the_controller_lock():
+    class Lock:
+        held=False
+        def __enter__(self):self.held=True
+        def __exit__(self,*args):self.held=False
+    lock=Lock()
+    def encode(data):assert not lock.held;return JSONResponse(data)
+    env=dict(lock=lock,_assignment=lambda d:{'run':'world-one','world':{'bounds':[0,10,0,10]}},world_training=NS(session={}),behavior_rules=NS(effective=lambda *args:{'revision':'one'}),JSONResponse=encode)
+    tree=ast.parse((Path(__file__).parents[1]/'lab/service.py').read_text(encoding='utf-8'));fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='assignment');fn.decorator_list=[]
+    exec(compile(ast.Module(body=[fn],type_ignores=[]),'assignment-route','exec'),env)
+    assert json.loads(env['assignment']({'agent':'LabAI0'}).body)['world']['bounds']==[0,10,0,10]

@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from .model import Policy
 from .evolution import ModelEvolution
 from .jobs import TrainingJobs, TrainingCancelled
+from .persistence import TelemetryPersistence
 from .lan import LanBridge
 from .server_control import ServerControl
 from .minecraft_status import query_status
@@ -58,12 +59,15 @@ def episode_metrics():
             SELECT run,count(*),sum(success),avg(steps),avg(episode_timing.seconds) FROM ranked LEFT JOIN episode_timing ON ranked.id=episode_timing.episode WHERE sequence<={EPISODES_PER_AGENT} OR run LIKE '%teacher%' GROUP BY run''').fetchall(),generation=episode_generation,at=time.monotonic())
     return episode_cache['rows']
 
+persistence=TelemetryPersistence('data/lab.sqlite')
+personality_json=json.dumps({'personality':json.loads(Path('config/personality.json').read_text()),'generation':0})
 identities=Identities(db,AGENT_COUNT)
 model=Policy();opt=torch.optim.Adam(model.parameters(),lr=.003)
 if Path('checkpoints/latest.pt').exists():
     saved=torch.load('checkpoints/latest.pt',weights_only=True)
     model=Policy(saved.get('width',128));opt=torch.optim.Adam(model.parameters(),lr=.003)
     model.load_state_dict(saved['model']);opt.load_state_dict(saved['optimizer'])
+console_lock=threading.Lock();maintenance_lock=threading.Lock()
 mode='paused';run='idle';agents={};samples=deque(maxlen=50000);server=None;logfile=None;lock=threading.RLock();started=time.time();training=False
 system_cpu=0.0
 example_counter=0
@@ -78,7 +82,7 @@ last_timing_request=None
 player_status={'players':{},'sampled_at':None}
 player_states={}
 training_jobs=TrainingJobs()
-skill_bank=SkillBank()
+skill_bank=SkillBank(persist=persistence.replay)
 evolution=ModelEvolution(db)
 evolution.record('navigation',model.state_dict(),'checkpoints/latest.pt')
 for existing_skill in SKILLS:
@@ -121,6 +125,7 @@ def start_training(background=False,world_automatic=False):
         if world_learning.state.get('enabled') and not world_automatic:raise HTTPException(409,'World learning owns the current model comparison.')
         skill=active_skill();policy,optimizer,replay=learning_context(skill)
         if len(replay)<(30 if world_automatic else 100):raise HTTPException(400,'Collect more examples before training (100 for manual training, 30 fresh examples for an automatic world specialist).')
+        db.commit();persistence.flush()
         cleanup_combat()
         observations=list(replay)
         validation=[];world_mix={}
@@ -200,19 +205,21 @@ def cleanup_combat():
 
 def console(command):
     if not server or server.poll() is not None:raise RuntimeError('Minecraft server is not running')
-    server.stdin.write(command+'\n');server.stdin.flush()
+    with console_lock:
+        server.stdin.write(command+'\n');server.stdin.flush()
 from .vision import VisionLines
 vision_lines=VisionLines('data/vision.json',console)
 from .harvest_markers import HarvestMarkers,validate_intent
 harvest_markers=HarvestMarkers('data/harvest-markers.json',console)
 observers=Observers('data/observers.json',console)
+observers.external_motion=True
 camera_input=CameraInput('logs/minecraft-console.log',console,'server/world/datapacks/lab_camera_controls')
 from .bot_outlines import install_outline_pack
 install_outline_pack('server/world/datapacks/lab_bot_outlines')
 practice_protection=PracticeProtection(console)
 from .staging import StagingPad
 staging_pad=StagingPad(console)
-world_training=WorldTraining('data/world-training.json',console,'logs/minecraft-console.log',staging=staging_pad)
+world_training=WorldTraining('data/world-training.json',console,'logs/minecraft-console.log',staging=staging_pad,persist=persistence.document)
 bot_lights=BotLights(console)
 from .behavior import BehaviorRules
 behavior_rules=BehaviorRules('config/behavior.json',[f'LabAI{i}' for i in range(AGENT_COUNT)])
@@ -258,6 +265,8 @@ def server_ready():
 
 def prepare_server_operation():
     global mode,run
+    # ServerControl marks the operation busy before entering here.
+    with maintenance_lock:pass
     with lock:
         if curriculum and curriculum.state['enabled']:
             if server_control.snapshot().get('automatic'):curriculum.hold('Waiting for Minecraft to recover.')
@@ -270,6 +279,9 @@ def prepare_server_operation():
     if training_jobs.running:
         training_jobs.cancel();training_jobs.wait()
     with lock:
+        world_training.save();db.commit()
+    persistence.flush()
+    with lock:
         if server_ready():
             observers.suspend([p['name'] for p in online_players()])
             bot_lights.clear()
@@ -280,6 +292,7 @@ def prepare_server_operation():
             with Path('data/demonstrations.tmp').open('wb') as stream:
                 np.savez_compressed(stream,obs=np.asarray([s[0] for s in samples],dtype=np.float32),actions=np.asarray([s[1] for s in samples]))
             os.replace('data/demonstrations.tmp','data/demonstrations.npz')
+    persistence.flush()
 
 def stop_minecraft():
     if server_alive():
@@ -328,24 +341,30 @@ def online_players():
             for entry in player_status['players'].get('sample',[]) if re.fullmatch(r'[A-Za-z0-9_]{3,16}',entry.get('name',''))]
 
 def backup():
-    import zipfile
-    offset=Path('logs/minecraft-console.log').stat().st_size
-    console('save-off')
-    try:
-        console('save-all flush')
-        deadline=time.time()+30
-        while time.time()<deadline:
-            if 'Saved the game' in Path('logs/minecraft-console.log').read_bytes()[offset:].decode(errors='replace'):break
-            time.sleep(.2)
-        else:raise RuntimeError('World save acknowledgment timed out; backup skipped')
-        dest=Path('backups')/(time.strftime('%Y%m%d-%H%M%S')+'.zip')
-        with zipfile.ZipFile(dest,'w',zipfile.ZIP_DEFLATED) as z:
-            for world in Path('server').glob('world*'):
-                for f in world.rglob('*'):
-                    if f.is_file() and f.name!='session.lock':z.write(f,f.relative_to('server'))
-        for old in sorted(Path('backups').glob('*.zip'))[:-3]:old.unlink()
-        event('backup',{'path':str(dest)})
-    finally:console('save-on')
+    with maintenance_lock:
+        import zipfile
+        if shutting_down or server_control.snapshot()['busy']:return
+        offset=Path('logs/minecraft-console.log').stat().st_size
+        console('save-off')
+        try:
+            console('save-all flush')
+            deadline=time.time()+30
+            tail=''
+            while time.time()<deadline:
+                with Path('logs/minecraft-console.log').open('rb') as stream:
+                    stream.seek(offset);chunk=stream.read(262144);offset=stream.tell()
+                tail=(tail+chunk.decode(errors='replace'))[-262144:]
+                if 'Saved the game' in tail:break
+                time.sleep(.2)
+            else:raise RuntimeError('World save acknowledgment timed out; backup skipped')
+            dest=Path('backups')/(time.strftime('%Y%m%d-%H%M%S')+'.zip')
+            with zipfile.ZipFile(dest,'w',zipfile.ZIP_DEFLATED) as z:
+                for world in Path('server').glob('world*'):
+                    for f in world.rglob('*'):
+                        if f.is_file() and f.name!='session.lock':z.write(f,f.relative_to('server'))
+            for old in sorted(Path('backups').glob('*.zip'))[:-3]:old.unlink()
+            with lock:event('backup',{'path':str(dest)})
+        finally:console('save-on')
 
 def watchdog():
     global system_cpu,mode,last_timing_request,player_status
@@ -362,6 +381,7 @@ def watchdog():
                 response=query_status()
                 with lock:player_status={'players':response.get('players',{}),'sampled_at':time.time()}
             except (OSError,ValueError):pass
+        do_backup=False
         with lock:
             if psutil.virtual_memory().percent>90 and not curriculum.state['enabled']:
                 if world_learning.state.get('enabled') and world_learning.state.get('phase')!='recovering':
@@ -376,14 +396,18 @@ def watchdog():
             if lifecycle['ready'] and not lifecycle['busy'] and (last_timing_request is None or time.time()-last_timing_request>30):
                 console('tps');console('mspt');last_timing_request=time.time()
             if time.time()-last>600 and lifecycle['ready'] and not lifecycle['busy'] and not training_jobs.running:
-                try:checkpoint();backup()
+                try:checkpoint();do_backup=True
                 except Exception as e:event('maintenance_error',str(e))
                 last=time.time()
+        if do_backup:
+            try:backup()
+            except Exception as error:
+                with lock:event('maintenance_error',str(error))
 server_control=ServerControl(launch_minecraft,stop_minecraft,prepare_server_operation,server_alive,server_ready,server_event)
 @asynccontextmanager
 async def lifespan(app):
     global shutting_down,lan_bridge,lan_error
-    launch();threading.Thread(target=watchdog,daemon=True).start();threading.Thread(target=curriculum_worker,daemon=True).start();threading.Thread(target=observer_worker,daemon=True).start()
+    launch();threading.Thread(target=watchdog,daemon=True).start();threading.Thread(target=curriculum_worker,daemon=True).start();threading.Thread(target=observer_worker,daemon=True).start();threading.Thread(target=camera_worker,daemon=True).start()
     if Path('config/lan.json').exists():
         config=json.loads(Path('config/lan.json').read_text(encoding='utf-8'))
         if config.get('enabled'):
@@ -400,6 +424,8 @@ async def lifespan(app):
         training_jobs.cancel();training_jobs.wait()
     if server_control.snapshot()['busy']:server_control.wait()
     server_control.request('stop');server_control.wait()
+    with lock:db.commit()
+    persistence.close()
     with lock:db.close()
 app=FastAPI(lifespan=lifespan)
 def auth(request:Request,x_lab_token:str=Header(default='')):
@@ -416,11 +442,18 @@ def status(compact:bool=True,fresh:bool=False):
     with lock:
         captured_at=time.monotonic()
         if compact and not fresh and dashboard_cache['response'] is not None and captured_at-dashboard_cache['at']<.25:return dashboard_cache['response']
-        metrics=episode_metrics()
-        run_sizes={r[0]:r[1]*r[2] for r in db.execute('SELECT * FROM run_config')}
-        activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error','world_learning_cycle') ORDER BY id DESC LIMIT 20")]
-        world_status=dict(session=world_view(world_training.session),scenarios=SCENARIOS,history=[world_view(s,summary=compact) for s in world_training.saved['history'][-10:]],first_night_levels=LEVELS,readiness=readiness(world_training.saved['history']))
-        payload={'world_learning':learning_view(world_learning.state),'world_training':world_status,'model_evolution':evolution.snapshot(active_skill(),history_limit=20 if compact else 60),'vision':dict(vision_lines.settings),'harvest_markers':dict(harvest_markers.settings),'behavior':behavior_rules.snapshot(),'behavior_active_revision':(world_training.session or {}).get('behavior_snapshot',{}).get('revision'),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':skill_status(),'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
+        metadata=dashboard_cache.get('metadata')
+        if fresh or not metadata or metadata['compact']!=compact or metadata['skill']!=active_skill() or captured_at-metadata['at']>=5:
+            metrics=episode_metrics()
+            run_sizes={r[0]:r[1]*r[2] for r in db.execute('SELECT * FROM run_config')}
+            activity=[{'id':row[0],'time':row[1],'event':row[2],'details':json.loads(row[3])} for row in db.execute("SELECT id,time,event,payload FROM events WHERE event IN ('mode','training_started','training','training_failed','training_cancelled','backup','server_recovery','memory_pause','server_operation_started','server_operation_completed','server_operation_failed','admin_action','curriculum_cycle','curriculum_error','world_learning_cycle') ORDER BY id DESC LIMIT 20")]
+            metadata=dict(at=captured_at,compact=compact,skill=active_skill(),metrics=metrics,run_sizes=run_sizes,activity=activity,
+                          history=[world_view(s,summary=compact) for s in world_training.saved['history'][-10:]],
+                          readiness=readiness(world_training.saved['history']),models=evolution.snapshot(active_skill(),history_limit=20 if compact else 60),skills=skill_status())
+            dashboard_cache['metadata']=metadata
+        metrics=metadata['metrics'];run_sizes=metadata['run_sizes'];activity=metadata['activity']
+        world_status=dict(session=world_view(world_training.session),scenarios=SCENARIOS,history=metadata['history'],first_night_levels=LEVELS,readiness=metadata['readiness'])
+        payload={'performance':{'persistence':persistence.snapshot(),'camera_worker':dict(observers.motion_stats)},'world_learning':learning_view(world_learning.state),'world_training':world_status,'model_evolution':metadata['models'],'vision':dict(vision_lines.settings),'harvest_markers':dict(harvest_markers.settings),'behavior':behavior_rules.snapshot(),'behavior_active_revision':(world_training.session or {}).get('behavior_snapshot',{}).get('revision'),'practice_protection':practice_protection.snapshot(),'agent_count':AGENT_COUNT,'evaluation':{'episodes_per_agent':trial_limit(),'expected_episodes':AGENT_COUNT*trial_limit()},'observer':observers.snapshot(),'hardware':{'ram_gib':round(psutil.virtual_memory().total/2**30,1),'logical_cpus':psutil.cpu_count()},'mode':mode,'run':run,'agents':agents,'parameters':learning_context()[0].parameters_count,'samples':len(learning_context()[2]),'current_skill':active_skill(),'practice':practice,'server_alive':server_alive(),'server':server_details(),'players':online_players(),'operators':operators(),'cpu_percent':system_cpu,'ram_percent':psutil.virtual_memory().percent,'uptime':time.time()-started,'training':training,'training_job':training_jobs.snapshot(),'last_training':training_results.get(active_skill()),'activity':activity,'episodes':[dict(zip(['run','episodes','successes','mean_steps','mean_seconds'],r),expected_episodes=run_sizes.get(r[0],15)) for r in metrics],'raw_episode_rows':episode_cache['raw'],'v9_stage_names':[stage['name'] for stage in STAGES_V9],'previous_stage_names':[stage['name'] for stage in STAGES_V8],'legacy_stage_names':[stage['name'] for stage in LEGACY_STAGES],'curriculum':curriculum.snapshot(),'skills':metadata['skills'],'lan':lan_bridge.snapshot() if lan_bridge else {'enabled':False,'error':lan_error}}
         if compact:payload=compact_status(payload)
         # Freeze mutable telemetry under the lock; JSON encoding must not block
         # inference, heartbeats or camera updates behind historical tables.
@@ -442,7 +475,9 @@ def assignment(d:dict):
         response=_assignment(d)
         frozen=(world_training.session or {}).get('behavior_snapshot') if world_training.session else None
         response['behavior']=behavior_rules.effective(d['agent'],frozen)
-        return response
+    # Assignment fields are owned snapshots or immutable per-run configuration.
+    # Avoid the framework's recursive encoder on the high-frequency control path.
+    return JSONResponse(response)
 
 def _assignment(d:dict):
     with lock:
@@ -458,7 +493,7 @@ def _assignment(d:dict):
             state.update(trial_seconds=d.get('trial_seconds'),activity=str(d.get('activity','Waiting'))[:160],speed=d.get('speed',0),reset_seconds=d.get('reset_seconds'),reset_steps_left=d.get('reset_steps_left'))
             state.update(connected=True,entity_id=d.get('entity_id'),dimension=d.get('dimension'),simulation=STAGES[practice['stage'] if practice else curriculum.state['stage']]['name'] if practice or curriculum.state['enabled'] else 'Manual navigation')
         if world_training.session:
-            assignment=world_training.assignment(d['agent'])
+            assignment=world_training.assignment(d['agent'],d.get('world_memory_run'))
             result=world_training.session['results'].get(d['agent'],{})
             agents[d['agent']].update(trial_completed=1 if result.get('state') in ('complete','stopped') else 0,trial=1,reset_seconds=None,reset_steps_left=None)
             agents[d['agent']]['simulation']='Real world: '+world_training.session['name']
@@ -524,19 +559,15 @@ def step(d:dict):
         agents[d['agent']]['vision']=d.get('vision')
         agents[d['agent']]['rays']=d['obs'][:64]
         agents[d['agent']]['skill']=skill;agents[d['agent']]['metrics']=d.get('metrics')
-        db.execute('INSERT OR IGNORE INTO agents VALUES(?,?,?)',(d['agent'],json.dumps({'personality':json.loads(Path('config/personality.json').read_text()),'generation':0}), '{}'))
-        db.execute('UPDATE agents SET state=? WHERE id=?',(json.dumps(agents[d['agent']]),d['agent']))
-        for h in d['hits']:
-            p=h['position'];db.execute('INSERT OR REPLACE INTO memory VALUES(?,?,?,?,?,?)',(d['agent'],p['x'],p['y'],p['z'],h['name'],time.time()))
-        if len(replay)%20==0:db.commit()
-        # Append numeric trajectories as compact float32 rows, including action/reward.
         trajectory=Path('data/transitions.f32') if skill=='navigation' else Path('data/skills')/(skill+'-transitions.f32')
-        if trajectory.exists() and trajectory.stat().st_size>100_000_000:
-            os.replace(trajectory,trajectory.with_name(trajectory.stem+'-previous.f32'))
-        with open(trajectory,'ab') as f:np.asarray(d['obs']+[action,d['reward']],dtype=np.float32).tofile(f)
+        row=dict(agent=d['agent'],profile=personality_json,state=json.dumps(agents[d['agent']]),
+                 hits=[(d['agent'],h['position']['x'],h['position']['y'],h['position']['z'],h['name'],time.time()) for h in d['hits']],
+                 trajectory=str(trajectory),transition=np.asarray(d['obs']+[action,d['reward']],dtype=np.float32).tobytes())
         if mode=='teacher' and skill=='navigation' and example_counter%100==0:
-            np.savez_compressed('data/demonstrations.npz',obs=np.asarray([s[0] for s in samples],dtype=np.float32),actions=np.asarray([s[1] for s in samples]))
-        return {'action':action,'inference_ms':latency,'skill':skill}
+            persistence.replay('data/demonstrations.npz',list(samples))
+    # Backpressure waits outside the controller/camera lock; accepted rows stay ordered.
+    persistence.step(row)
+    return {'action':action,'inference_ms':latency,'skill':skill}
 @app.post('/episode',dependencies=[Depends(auth)])
 def episode(d:dict):
     global episode_generation
@@ -813,6 +844,15 @@ def practice_stage(stage_index:int,d:dict={}):
         run=('practice-' if driver=='teacher' else 'skilltest-')+str(stage_index)+'-'+str(int(time.time()))+'-v10'
         record_run();event('mode',{'mode':mode,'run':run,'stage':STAGES[stage_index]['name'],'reference':driver=='teacher'})
         return {'run':run,'stage':STAGES[stage_index],'message':'Teacher reference started; demonstrations are collected. This measures task feasibility, not learned performance.' if driver=='teacher' else 'Neural policy test started on fresh routes, without teacher control.'}
+
+def camera_worker():
+    next_tick=time.monotonic()
+    while not shutting_down:
+        try:
+            if server_alive() and server_ready_seen and not server_control.snapshot()['busy']:observers.move_cameras()
+        except (OSError,RuntimeError):pass
+        next_tick=max(next_tick+.05,time.monotonic())
+        time.sleep(max(0,next_tick-time.monotonic()))
 
 def observer_worker():
     next_tick=time.monotonic()
