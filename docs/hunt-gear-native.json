@@ -1,0 +1,18 @@
+{
+  "fixture": "Empty sky, isolated sheep and diagnostic inventory only; no production learning writes.",
+  "before": {
+    "held": null,
+    "axeSlot": 9
+  },
+  "preparation": {
+    "returned": false,
+    "held": "stone_axe",
+    "hits": 0
+  },
+  "hunting": {
+    "hits": 2,
+    "kills": 1,
+    "seconds": 1.397
+  },
+  "success": true
+}

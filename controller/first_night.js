@@ -134,23 +134,25 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   const foods=Object.values(b.entities).filter(e=>!n.rejectedAnimals.has(e.id)&&e.isValid!==false&&(!w.first_night.stations||JSON.stringify(e.metadata?.[2]||'').includes('FirstNight'+b.username))&&(wool?livestock.whiteSheep(b,e):ANIMALS.includes(e.name)&&(t.phase!=='night_forage'||e.name!=='chicken')&&(!w.first_night.stations||e.name!=='sheep'||count(b,'white_wool')>=3||b.food<=10))&&inside(e.position,w.bounds)&&e.position.distanceTo(p)<40&&!require('./resource_space').busy(b,state.run,e.position)&&(e.id===n.animal||n.memory.available([e.position.x,e.position.y,e.position.z])));
   let animal=foods.find(e=>e.id===n.animal)||foods.filter(e=>combat.visible(b,e)).sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p))[0];
   if(!w.first_night.stations)n.livestock_status={resource:wool?'wool':'food',state:animal?'pursuing':'searching',wool:count(b,'white_wool'),wool_target:3,loaded_white_sheep:Object.values(b.entities).filter(e=>e.isValid!==false&&livestock.whiteSheep(b,e)&&inside(e.position,w.bounds)&&e.position.distanceTo(p)<40).length,eligible_targets:foods.length,remembered_patches:n.memory.resources.filter(r=>r.kind===(wool?'wool':'food')).length,rejected_targets:n.rejectedAnimals.size};
-  if(animal){delete n.noResourceAt;if(n.animal!==animal.id){n.animalGoal=null;n.animalPlanAt=0;}n.animal=animal.id;n.memory.remember('food',animal.position);if(livestock.whiteSheep(b,animal))n.memory.remember('wool',animal.position);const distance=animal.position.distanceTo(p);
+  if(animal){let huntMessage=null;delete n.noResourceAt;if(n.animal!==animal.id){n.animalGoal=null;n.animalPlanAt=0;}n.animal=animal.id;n.memory.remember('food',animal.position);if(livestock.whiteSheep(b,animal))n.memory.remember('wool',animal.position);const distance=animal.position.distanceTo(p);
    if(distance>4.5||Math.abs(animal.position.y-p.y)>.6||!combat.visible(b,animal)){
     if(!n.animalGoal||now>=(n.animalPlanAt||0)||n.animalLastPosition?.distanceTo(animal.position)>.75){n.animalLastPosition=animal.position.clone();n.animalPlanAt=now+250;n.animalGoal=approaches(b,{position:animal.position.floored()},w.bounds).sort((a,c)=>new Vec3(...a).distanceTo(p)-new Vec3(...c).distanceTo(p)).slice(0,3).find(g=>route(b,g,48,1024,true,{bounds:w.bounds,reversible:true}).reached);}
     const goal=n.animalGoal;
     if(!goal||await t.walk(b,motor,goal,state,api,scan,tasks,{hunting:true})===false){n.memory.reject([animal.position.x,animal.position.y,animal.position.z]);n.rejectedAnimals.set(animal.id,now+30000);n.animal=null;n.animalGoal=null;n.animalPlanAt=0;t.message='Animal approach blocked; checking another reachable target';}
    }else{
-    const task={kind:'combat',combat_style:'hunt',mobs:[animal.name],mob_label:w.first_night.stations?'FirstNight'+b.username:'',target_id:animal.id,bounds:w.bounds,min_y:-60,max_y:190,weapon:count(b,'stone_axe')?'stone_axe':'wooden_axe',kill_target:1,stationary:false,attack_delay_ms:1000,safe_walk:true,strict_ground:true};
+    const task={kind:'combat',combat_style:'hunt',auto_equip_for_attack:true,mobs:[animal.name],mob_label:w.first_night.stations?'FirstNight'+b.username:'',target_id:animal.id,bounds:w.bounds,min_y:-60,max_y:190,weapon:count(b,'stone_axe')?'stone_axe':'wooden_axe',kill_target:1,stationary:false,attack_delay_ms:1000,safe_walk:true,strict_ground:true};
     const runtime=n.combat||=( {} ),sensed=combat.observe(b,task,runtime),rays=scan(b),obs=[...rays.pooled,Math.sin(sensed.angle),Math.cos(sensed.angle),Math.min(sensed.distance/32,1),b.health/20,b.food/20,b.entity.onGround?1:0,...sensed.extra];
     const result=await api('/step',{agent:b.username,run:state.run,world_skill:'combat',obs,teacher:combat.teacher(sensed,task),reward:0,position:[p.x,p.y,p.z],health:b.health,food:b.food,hits:rays.hits,perception_ms:0,steps:0,goal:[animal.position.x,animal.position.y,animal.position.z],task:'combat',metrics:sensed.metrics});
     motor.command(result.action,task,{...sensed,...rays.proximity},sensed.angle);
+    if(result.action===6&&!sensed.gear.weapon)motor.pause();
     if([4,5,6].includes(result.action)&&await combat.interact(b,task,sensed,runtime,result.action,{combat_practice:true})&&result.action===6){
      n.attacked++;n.huntDropOrigin={position:animal.position.clone(),until:Date.now()+30000};t.lastProgress=now;
      // Wake only the assigned animal after a real hit. Its normal AI handles panic.
      if(w.first_night.stations&&animal.uuid){n.releasedAnimals??=new Set();if(!n.releasedAnimals.has(animal.uuid)){await api('/world/livestock',{agent:b.username,run:state.run,action:'release',species:animal.name,entity_uuid:animal.uuid});n.releasedAnimals.add(animal.uuid);}}
     }
+    huntMessage=runtime.equipmentStatus;
    }
-   if(n.animal!==null)t.message=wool?'Collecting white wool · '+count(b,'white_wool')+' / 3':'Gathering food · '+(meals(b)+raw(b))+' / 4 meals · '+animal.name;
+   if(n.animal!==null)t.message=huntMessage||(wool?'Collecting white wool · '+count(b,'white_wool')+' / 3':'Gathering food · '+(meals(b)+raw(b))+' / 4 meals · '+animal.name);
   }else if(!await livestock.support(t,b,motor,state,api,scan,tasks,wool?'wool':'food'))await explore(t,b,motor,state,api,scan,tasks,surface,wool?'wool':'food');
  }else if(t.phase==='night_food_home')await move(home,'cook');
  else if(t.phase==='night_cook'){

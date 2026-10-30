@@ -80,3 +80,16 @@ test('hostile jump wind-up overlaps the final cooldown instead of delaying until
  task.combat_style='hunt';const hunting=combat.observe(bot,task,{lastAttack:10000},10300);
  assert.equal(hunting.prepareCritical,false);assert.notEqual(combat.teacher(hunting,task),6);
 });
+
+test('world hunting attack intent equips a carried weapon without counting preparation as a hit',async()=>{
+ const {bot,task,attacks,equips}=fixture();task.combat_style='hunt';task.auto_equip_for_attack=true;const runtime={};
+ assert.equal(await combat.interact(bot,task,combat.observe(bot,task,runtime,10000),runtime,6,{combat_practice:true},10000),false);
+ assert.deepEqual(equips,['hand']);assert.equal(runtime.hits,undefined);assert.equal(attacks.length,0);
+ assert.equal(await combat.interact(bot,task,combat.observe(bot,task,runtime,10000),runtime,6,{combat_practice:true},10000),true);assert.equal(attacks.length,1);
+});
+test('explicit combat lessons still require the equip action and missing hunt gear reports a real error',async()=>{
+ const {bot,task,attacks}=fixture();task.combat_style='hunt';const runtime={};
+ assert.equal(await combat.interact(bot,task,combat.observe(bot,task,runtime),runtime,6,{combat_practice:true}),false);assert.equal(attacks.length,0);
+ task.auto_equip_for_attack=true;bot.inventory.items=()=>[];
+ await assert.rejects(combat.interact(bot,task,combat.observe(bot,task,runtime),runtime,6,{combat_practice:true}),/hunting weapon is missing/);
+});

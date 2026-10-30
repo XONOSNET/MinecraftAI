@@ -53,9 +53,17 @@ async function interact(bot,task,sensed,runtime,action,permissions,now=Date.now(
  if(!permissions.combat_practice)return false;
  const p=bot.entity.position,b=task.bounds;
  if(!(p.x>b[0]&&p.x<b[1]&&p.z>b[2]&&p.z<b[3]&&p.y>=(task.min_y??179)&&p.y<=(task.max_y??186)))return false;
+ runtime.equipmentStatus=null;
  if(action!==4)bot.deactivateItem();
+ if(action===6&&task.auto_equip_for_attack&&isHunt(task)&&bot.heldItem?.name!==task.weapon){
+  const item=bot.inventory.items().find(i=>i.name===task.weapon);
+  if(!item)throw Error('Carried hunting weapon is missing: '+task.weapon);
+  if(bot.version==='1.21.4')await require('./inventory_sync').equip(bot,task.weapon);else await bot.equip(item,'hand');
+  runtime.equipmentStatus='Equipped '+task.weapon.replaceAll('_',' ')+'; ready to hunt';
+  return false; // Preparing equipment is not a hit or a successful attack.
+ }
  if(action===5){
-  const equip=async(name,slot)=>{const item=bot.inventory.items().find(i=>i.name===name);if(item)await bot.equip(item,slot);};
+  const equip=async(name,slot)=>{const item=bot.inventory.items().find(i=>i.name===name);if(item){if(slot==='hand'&&bot.version==='1.21.4')await require('./inventory_sync').equip(bot,name);else await bot.equip(item,slot);}};
   if(task.armor)for(const [part,slot,index] of parts)if(bot.inventory.slots[index]?.name!==`${task.armor}_${part}`)await equip(`${task.armor}_${part}`,slot);
   if(task.shield&&bot.inventory.slots[45]?.name!=='shield')await equip('shield','off-hand');
   if(bot.heldItem?.name!==task.weapon)await equip(task.weapon,'hand');
