@@ -5,9 +5,9 @@ const SOFT=new Set(['short_grass','tall_grass','fern','large_fern','dead_bush','
 const EARTH=new Set(['dirt','grass_block','coarse_dirt','rooted_dirt','podzol','mycelium','moss_block','stone','granite','diorite','andesite','deepslate','tuff']);
 const natural=name=>SOFT.has(name)||EARTH.has(name)||name.endsWith('_leaves')||name.endsWith('_log')||name.endsWith('_tulip');
 const empty=b=>b&&['air','cave_air','void_air'].includes(b.name);
-function owned(t,p){const h=t.plot;return !!h&&p.y>=h.y&&p.y<=h.y+house.config.wall_height+1&&Math.abs(p.x-h.x)<=3&&Math.abs(p.z-h.z)<=3;}
-function safe(t,b,block){
- if(!block||!owned(t,block.position)||!natural(block.name)||b.entity.onGround!==true)return false;
+function owned(t,p,{lighting=false}={}){const h=t.plot;return !!h&&(p.y>=h.y&&p.y<=h.y+house.config.wall_height+1&&Math.abs(p.x-h.x)<=3&&Math.abs(p.z-h.z)<=3||lighting&&t.phase==='light_place'&&house.torchMount(h,'outdoor').position.equals(p));}
+function safe(t,b,block,options){
+ if(!block||!owned(t,block.position,options)||!natural(block.name)||b.entity.onGround!==true)return false;
  const q=block.position;
  if((t.campPlots||[]).some(h=>h&&(h.x!==t.plot.x||h.z!==t.plot.z)&&Math.abs(q.x-h.x)<=4&&Math.abs(q.z-h.z)<=4&&q.y>=h.y-1&&q.y<=h.y+5))return false;
  for(const p of [b.entity.position,...space.players(b)])if(Math.abs(q.y+1-p.y)<.25&&q.x<p.x+.32&&q.x+1>p.x-.32&&q.z<p.z+.32&&q.z+1>p.z-.32)return false;
@@ -17,20 +17,20 @@ function safe(t,b,block){
  return space.clearOfPlayers(b,q.offset(.5,.5,.5));
 }
 function blocked(message){const error=Error(message);error.code='BUILD_OBSTRUCTED';return error;}
-async function clear(t,b,block){
+async function clear(t,b,block,options){
  if(empty(b.blockAt(block.position)))return false;
- if(!safe(t,b,block))throw blocked('Cannot safely clear construction obstruction '+block.name);
+ if(!safe(t,b,block,options))throw blocked('Cannot safely clear construction obstruction '+block.name);
  const type=block.name.endsWith('_log')?'axe':EARTH.has(block.name)?(['stone','granite','diorite','andesite','deepslate','tuff'].includes(block.name)?'pickaxe':'shovel'):null;
  const tool=type&&['netherite','diamond','iron','stone','wooden','golden'].map(s=>s+'_'+type).find(n=>b.inventory.items().some(i=>i.name===n));
  if(tool)await inventory.equip(b,tool);
  t.timing?.mark(t.phase,'clearing');t.message='Clearing '+block.name+' from the house construction area';
- let removed=await access.dig(b,block,{validate:current=>safe(t,b,current)});
+ let removed=await access.dig(b,block,{validate:current=>safe(t,b,current,options)});
  // Small, offset plant shapes can miss a center ray even with a completely
  // clear reach corridor. Dig their real block, without accepting walls in front.
  if(!removed&&SOFT.has(block.name)&&require('./resource_target').withinReach(b,block.position)&&!firstObstruction(b,block.position)){
   await require('./harvest').aim(b,block.position.offset(.5,.3,.5));
   const current=b.blockAt(block.position);
-  if(current?.name===block.name&&safe(t,b,current)&&b.canDigBlock(current)&&!firstObstruction(b,current.position)){
+  if(current?.name===block.name&&safe(t,b,current,options)&&b.canDigBlock(current)&&!firstObstruction(b,current.position)){
    await b.dig(current,true);removed=empty(b.blockAt(current.position));
   }
  }

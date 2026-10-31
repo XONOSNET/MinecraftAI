@@ -312,7 +312,7 @@ class HutTeacher{
    }else if(this.phase==='light_inside'){
     motor.pause();await houseLighting.place(bot,this.plot,'indoor');this.phase='light_exit';this.lastProgress=Date.now();this.message='Indoor wall torch installed; heading outside to light the entrance';
    }else if(this.phase==='light_place'){
-    motor.pause();await houseLighting.place(bot,this.plot,'outdoor');
+    motor.pause();await houseLighting.place(bot,this.plot,'outdoor',this);
     if(houseLighting.missing(bot,this.plot))throw Error('Both indoor and outdoor wall torches must verify');this.milestone('torch');await inventorySync.equip(bot,'stone_axe');this.phase='light_return';this.lastProgress=Date.now();this.message='Both wall torches verified; returning inside';
    }else if(survival.handles(this.phase)){await survival.tick(this,bot,motor,state,api,scan,tasks);}
    else motor.pause();

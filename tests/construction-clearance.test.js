@@ -43,6 +43,18 @@ test('does not open water or falling-block hazards and does not count unconfirme
  try{await assert.rejects(clearance.prepare(f.t,f.b,{x:3,y:64,z:0}),{code:'BUILD_OBSTRUCTED'});assert.equal(f.t.lastProgress,undefined);}finally{access.dig=original;}
 });
 
+test('lighting clearance extends only to the exact outdoor mount during its placement phase',()=>{
+ const house=require('../controller/house'),f=fixture(),p=house.torchMount(f.t.plot,'outdoor').position;
+ const block={name:'oak_leaves',position:p};
+ assert.equal(clearance.safe(f.t,f.b,block,{lighting:true}),false);
+ f.t.phase='light_place';assert.equal(clearance.safe(f.t,f.b,block),false);
+ assert.equal(clearance.safe(f.t,f.b,block,{lighting:true}),true);
+ assert.equal(clearance.safe(f.t,f.b,{...block,position:p.offset(1,0,0)},{lighting:true}),false);
+ for(const name of ['oak_planks','chest','wall_torch','water'])assert.equal(clearance.safe(f.t,f.b,{...block,name},{lighting:true}),false);
+ f.blocks.set(p.offset(0,1,0).toString(),'water');assert.equal(clearance.safe(f.t,f.b,block,{lighting:true}),false);
+ f.blocks.clear();f.t.campPlots=[{x:p.x,y:p.y,z:p.z}];assert.equal(clearance.safe(f.t,f.b,block,{lighting:true}),false);
+});
+
 test('floor placement never excavates adjacent support ground crossed by its center ray',async()=>{
  const f=fixture({'(-2, 63, 0)':'air'});f.b.entity.position=new Vec3(2,64,.5);
  const q={x:-2,y:63,z:0,floor:true},hit=clearance.firstObstruction(f.b,new Vec3(q.x,q.y,q.z));
