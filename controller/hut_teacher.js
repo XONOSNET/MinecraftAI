@@ -83,7 +83,7 @@ class HutTeacher{
  async tick(bot,motor,state,api,scan,tasks){
   const now=Date.now(),p=bot.entity.position,w=state.world,rules=forBot(bot);
   if(this.run===state.run&&now<(this.serviceRetryAt||0)){motor.pause();return this.message;}
-  if(this.run!==state.run){this.plotClearing=null;this.afterPlotClear=null;this.constructionCleared=0;this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();this.dropTrack=null;this.pickupTravelGoal=null;}
+  if(this.run!==state.run){this.reforest=null;this.plotClearing=null;this.afterPlotClear=null;this.constructionCleared=0;this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();this.dropTrack=null;this.pickupTravelGoal=null;}
   if(this.run!==state.run){space.release(bot.username);require('./exploration').release(bot.username);this.resourceAccess={};this.buildAttempts=new Map();this.buildApproach=null;this.floorRecovery=null;this.treeRetry=0;this.focusBlock=null;this.lastNavigation=null;if(this.survival?.deathListener)bot.removeListener('entityDead',this.survival.deathListener);this.survival=null;this.wilderness=null;this.failureCategory=null;this.serviceFailureSince=null;this.serviceRetryAt=0;this.home=null;this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.campPlots=[];this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;this.scanCount=0;this.observedTrees=0;this.quarry=null;this.lastRecoveryReset=0;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
   if(this.phase==='survey')survey.hold(bot);else survey.release(bot);
   if(firstNight.enabled(w)&&!this.wilderness)firstNight.init(this,w);
@@ -317,6 +317,8 @@ class HutTeacher{
    else motor.pause();
    if(!firstNight.handles(this.phase)&&!survival.handles(this.phase)&&!['survey','gather','craft','door_craft','supply_craft','chest','tools','stock_chest','quarry','fuel_log','stone_tools','furnace','smelt','torch_craft','shelter','complete','stopped'].includes(this.phase)&&now-this.lastProgress>60000)throw Error('No construction or movement progress for 60 seconds.');
   }catch(error){motor.pause();connectionRetry=serviceErrors.recover(this,error);if(!connectionRetry){survey.release(bot);this.error=this.phase+': '+error.message;this.phase='stopped';}}
+  // Only try spare saplings after the primary action has finished naturally.
+  if(!connectionRetry)await require('./reforest').tick(this,bot,motor,state).catch(()=>{});
   if(bot.isSleeping&&['complete','stopped'].includes(this.phase)&&this.wilderness)await require('./night_sleep').wake(this,bot,motor);
   if(!connectionRetry)this.serviceFailureSince=null;
   if(now-this.lastReport>1000||['complete','stopped'].includes(this.phase)){
