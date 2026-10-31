@@ -120,7 +120,7 @@ class HutTeacher{
     if(now-this.inventoryAt>1500){await inventorySync.sync(bot);this.inventoryAt=now;}
     if(this.wilderness&&!this.wilderness.bootstrap&&count(bot,n=>LOG.test(n))>=4){motor.pause();this.phase='night_bootstrap';}
     else if(this.wilderness?.fuelTrip&&count(bot,n=>LOG.test(n))>=4){this.wilderness.fuelTrip=false;this.phase='stone_return';motor.pause();}
-    else if(count(bot,n=>LOG.test(n))*4+count(bot,planks)>=(this.supplyRun?28:this.requiredWood(bot))){motor.pause();this.phase=this.supplyRun?'supply_craft':'craft';}
+    else if(!this.wilderness?.fuelTrip&&this.woodReady(bot)){motor.pause();this.phase=this.supplyRun?'supply_craft':'craft';}
     else{
      if(!this.resourceAt||now-this.resourceAt>rules.resource_scan_ms){this.resources=this.grove?this.grove.flatMap(([x,y,z])=>[0,1,2,3,4,5].map(dy=>new Vec3(x,y+dy,z))):(await resourceScan.logs(bot,{bounds:w.bounds})).filter(v=>this.inside(v,w.bounds)&&safeResource(bot,v));this.resourceAt=now;}
      if(this.grove&&!this.resources.some(v=>LOG.test(bot.blockAt(v)?.name||''))){this.grove=null;this.resourceAt=0;}
@@ -174,7 +174,7 @@ class HutTeacher{
        else if(chosenTree){this.ignoredTrees.set(chosenTree.x+','+chosenTree.z,now+15000);this.tree=null;this.treeApproach=null;this.message='Skipping a tree with no safe approach; checking other resources';}
       }}
      else{if(this.wilderness)await firstNight.explore(this,bot,motor,state,api,scan,tasks,surface,'wood');else{motor.pause();await level(bot);this.message='Scanning for another reachable tree; previous upper logs may be out of reach';}}
-     this.message=this.message||`Harvesting logs ${count(bot,n=>LOG.test(n))} / ${Math.ceil(this.requiredWood(bot)/4)}`;
+     this.message=this.wilderness?.fuelTrip?`Fuel logs ${count(bot,n=>LOG.test(n))} / 4 · ${this.message||'Harvesting raw wood'}`:this.message||`Harvesting logs ${count(bot,n=>LOG.test(n))} / ${Math.ceil(this.requiredWood(bot)/4)}`;
     }
    }else if(this.phase==='craft'){
     this.timing.mark(this.phase,'crafting');motor.pause();for(const item of [...bot.inventory.items()].filter(i=>LOG.test(i.name))){const name=item.name.replace('_log','_planks'),id=bot.registry.itemsByName[name]?.id;const recipe=id&&bot.recipesFor(id,null,1,null)[0];if(recipe)await crafting.craft(bot,name,item.count,null);}
@@ -337,6 +337,11 @@ class HutTeacher{
   return {run:this.run,position:[this.harvestTarget.x,this.harvestTarget.y,this.harvestTarget.z],kind:this.harvestKind||'approach',block:block.name};
  }
  milestone(name){if(!this.milestones.includes(name))this.milestones.push(name);}
+ woodReady(bot){
+  // Fuel must remain raw: spare planks cannot replace logs for charcoal.
+  const logs=count(bot,n=>LOG.test(n));
+  return this.wilderness?.fuelTrip?logs>=4:logs*4+count(bot,planks)>=(this.supplyRun?28:this.requiredWood(bot));
+ }
  requiredWood(bot){
   if(!this.plot)return house.total-1+10;
   const missing=blueprint(this.plot).filter(q=>!matches(bot,q));
@@ -424,7 +429,7 @@ class HutTeacher{
    motor.pause();throw Error('Moved away from the temporary harvesting column: '+JSON.stringify({position:[p.x,p.y,p.z],support:[entry.position.x,entry.position.y,entry.position.z],on_ground:bot.entity.onGround}));
   }
   // Finish with a one-block-at-a-time descent before changing phases or trees.
-  const enough=['complete','stopped'].includes(this.phase)||count(bot,n=>LOG.test(n))*4+count(bot,planks)>=(this.supplyRun?28:this.requiredWood(bot));
+  const enough=['complete','stopped'].includes(this.phase)||this.woodReady(bot);
   const logs=[];for(let y=Math.floor(p.y);y<=Math.floor(p.y)+7;y++){const v=new Vec3(x,y,z);if(LOG.test(bot.blockAt(v)?.name||''))logs.push(v);}
   const target=logs.find(v=>harvestable(bot,v));
   if(!access.descending&&!enough&&bot.health>=10&&target){this.harvestTarget=target;await this.harvest(bot,motor,target,state,api,scan,tasks);return;}

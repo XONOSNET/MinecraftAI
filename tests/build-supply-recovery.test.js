@@ -15,6 +15,41 @@ test('missing torch wood starts a real fuel trip instead of a doomed stick recip
  await t.tick(b,{pause(){}},state,async()=>({}),null,{});
  assert.equal(crafted,false);assert.equal(t.phase,'gather');assert.equal(t.wilderness.fuelTrip,true);assert.equal(t.supplyRun,true);
 });
+
+test('fuel gathering ignores spare planks across repeated ticks and returns with unconverted logs',async()=>{
+ const items=[{name:'oak_planks',count:64}],{b,t,state}=fixture(items),night=require('../controller/first_night'),original=night.explore;
+ Object.assign(t,{phase:'gather',supplyRun:true,inventoryAt:Date.now(),resourceAt:Date.now(),resources:[],ignoredTrees:new Map(),ignoredDrops:new Map(),treeRetry:Date.now()+60000});
+ t.wilderness={bootstrap:true,fuelTrip:true,memory:{observe(){}}};let searches=0;
+ night.explore=async()=>{searches++;t.message='Searching for wood';};
+ try{
+  for(const logs of [0,1,3]){
+   items.splice(1,items.length,...(logs?[{name:'birch_log',count:logs}]:[]));
+   await t.tick(b,{pause(){}},state,async()=>({}),null,{});
+   assert.equal(t.phase,'gather');assert.equal(t.error,undefined);assert.equal(t.woodReady(b),false);assert.match(t.message,new RegExp(`Fuel logs ${logs} / 4`));
+  }
+  assert.equal(searches,3);
+  items.push({name:'spruce_log',count:1});
+  await t.tick(b,{pause(){}},state,async()=>({}),null,{});
+  assert.equal(t.phase,'stone_return');assert.equal(t.wilderness.fuelTrip,false);
+  assert.equal(items.filter(i=>i.name.endsWith('_log')).reduce((n,i)=>n+i.count,0),4);
+ }finally{night.explore=original;}
+});
+
+test('elevated fuel harvesting continues despite a full stack of spare planks',async()=>{
+ const {b,t,state}=fixture([{name:'oak_planks',count:64},{name:'birch_log',count:3}]);
+ t.wilderness={fuelTrip:true};t.supplyRun=true;t.phase='gather';
+ b.entity.position=new Vec3(.5,65.1,.5);t.resourceAccess={tree:[1,0],column:[{position:new Vec3(0,64,0)}]};
+ const previous=b.blockAt;b.blockAt=p=>p.equals(new Vec3(1,66,0))?{name:'birch_log',position:p,boundingBox:'block'}:previous(p);
+ b.canDigBlock=()=>true;b.world={raycast:()=>({position:new Vec3(1,66,0)})};let mined;
+ t.harvest=async(_b,_motor,p)=>{mined=p;};
+ await t.workElevated(b,{pause(){}},state,async()=>({}),null,{});
+ assert.deepEqual(mined,new Vec3(1,66,0));assert.notEqual(t.resourceAccess.descending,true);
+});
+
+test('ordinary settlement supplies still accept planks and log equivalents',()=>{
+ const items=[{name:'oak_planks',count:24}],{b,t}=fixture(items);t.supplyRun=true;
+ assert.equal(t.woodReady(b),false);items.push({name:'birch_log',count:1});assert.equal(t.woodReady(b),true);
+});
 test('wall retries choose distinct reachable stances and stop after three positions',()=>{
  const {b,t}=fixture(),retry=require('../controller/build_approach').retry,q={x:3,y:64,z:0},bounds=[-20,20,-20,20];
  assert.equal(retry(t,b,q,bounds),true);const first=t.buildApproach.slice();assert.notDeepEqual(first,[.5,64.1,.5]);
