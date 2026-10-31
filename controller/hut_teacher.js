@@ -317,6 +317,7 @@ class HutTeacher{
    else motor.pause();
    if(!firstNight.handles(this.phase)&&!survival.handles(this.phase)&&!['survey','gather','craft','door_craft','supply_craft','chest','tools','stock_chest','quarry','fuel_log','stone_tools','furnace','smelt','torch_craft','shelter','complete','stopped'].includes(this.phase)&&now-this.lastProgress>60000)throw Error('No construction or movement progress for 60 seconds.');
   }catch(error){motor.pause();connectionRetry=serviceErrors.recover(this,error);if(!connectionRetry){survey.release(bot);this.error=this.phase+': '+error.message;this.phase='stopped';}}
+  if(bot.isSleeping&&['complete','stopped'].includes(this.phase)&&this.wilderness)await require('./night_sleep').wake(this,bot,motor);
   if(!connectionRetry)this.serviceFailureSince=null;
   if(now-this.lastReport>1000||['complete','stopped'].includes(this.phase)){
    const reportLogs=this.phase==='survey'||Date.now()<this.settle?0:count(bot,n=>LOG.test(n));

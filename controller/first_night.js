@@ -1,6 +1,7 @@
 // Small explicit survival planner. Skill policies still choose movement/harvesting.
 const {Vec3}=require('vec3'),{WildernessMemory}=require('./wilderness_memory'),{standable,route}=require('./field_navigation'),{visibleBlock}=require('./target_scan'),inventory=require('./inventory_sync'),furnace=require('./furnace'),house=require('./house'),{closeDoor}=require('./door_care'),combat=require('./combat');
 const livestock=require('./first_night_livestock'),{Exploration}=require('./exploration'),resourceConfig=require('../config/world-resources.json'),resourceScan=require('./resource_scan');
+const nightSleep=require('./night_sleep');
 const RAW={beef:'cooked_beef',porkchop:'cooked_porkchop',mutton:'cooked_mutton',chicken:'cooked_chicken',rabbit:'cooked_rabbit'},FOOD=['cooked_beef','cooked_porkchop','cooked_mutton','cooked_chicken','cooked_rabbit','apple','bread'],ANIMALS=['cow','pig','sheep','chicken','rabbit'];
 const SAFE_RAW=['beef','porkchop','mutton','rabbit'];
 const HOSTILES=new Set(['zombie','zombie_villager','husk','drowned','skeleton','stray','bogged','creeper','spider','cave_spider','witch','pillager','vindicator','enderman']);
@@ -19,8 +20,12 @@ function priority(b,t,w){
 async function interrupt(t,b,motor,state){
  const n=t.wilderness,p=priority(b,t,state.world);n.priority=p.kind;n.reason=p.reason;
  const time=b.time?.timeOfDay;if(time>=13000&&time<23000)n.nightSeen=true;
+ if(t.phase==='night_hold')nightSleep.observe(t,b);
+ if(b.isSleeping&&(t.phase!=='night_hold'||['eat','eat raw'].includes(p.kind)||b.health<12))return nightSleep.wake(t,b,motor);
+ // Keep a sleeping bot still. Awake bots watch from shelter if monsters prevent bed use.
+ if(b.isSleeping)return false;
  if(p.kind==='eat'||p.kind==='eat raw'){motor.pause();await inventory.equip(b,(p.kind==='eat'?FOOD:SAFE_RAW).find(n=>count(b,n)));await b.consume();n.foodConsumed++;t.lastProgress=Date.now();return true;}
- if(p.kind==='retreat'&&!['night_retreat','night_recover'].includes(t.phase)){n.resume=t.phase;n.recoveries++;t.phase='night_retreat';t.path=[];t.navigator.lastPlan=-Infinity;return true;}
+ if(p.kind==='retreat'&&!(t.phase==='night_hold'&&b.health>=12)&&!['night_retreat','night_recover'].includes(t.phase)){n.resume=t.phase;n.recoveries++;t.phase='night_retreat';t.path=[];t.navigator.lastPlan=-Infinity;return true;}
  if(p.kind==='resume'&&['night_retreat','night_recover'].includes(t.phase)){t.phase=n.resume;delete n.resume;t.lastProgress=Date.now();return true;}
  if(b.food<=10&&!['night_food','night_wool','night_forage','night_retreat','night_recover'].includes(t.phase)&&b.inventory.items().some(i=>i.name.endsWith('_axe'))&&!n.forageResume){n.forageResume=t.phase;t.phase='night_forage';return true;}
  return false;
@@ -196,14 +201,15 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   motor.pause();const d=door();if(d?.getProperties().open&&!await closeDoor(b,d))return;t.message='Sheltered recovery · health '+b.health+' / 20';
   if(!meals(b)&&b.food<10){t.failureCategory='food_exhausted';throw Error('Insufficient food to recover safely');}
  }else if(t.phase==='night_hold'){
-  motor.pause();const d=door();if(d?.getProperties().open){await closeDoor(b,d);return;}
+  motor.pause();const d=door();if(d?.getProperties().open){if(b.isSleeping){await nightSleep.wake(t,b,motor);return;}t.message='Securing the shelter door before bed';await closeDoor(b,d);return;}
   if(!d?.name.endsWith('_door')||d.getProperties().open!==false)throw Error('Shelter door did not verify closed');
   if(!require('./hut_teacher').intact(b,t.plot))throw Error('Shelter enclosure no longer intact');
   n.holdAt??=now;const elapsed=w.first_night.hostiles?(now-t.started)/1000:(now-n.holdAt)/1000,left=Math.max(0,Math.ceil(w.first_night.hold_seconds-elapsed));
-  t.message=`Shelter watch · ${left} s left · health ${b.health} · food ${b.food} · ${meals(b)} meals`;
-  if(meals(b)<1&&b.food<16){next('food');return;}
-  if(left===0&&b.health>=12&&b.food>=10&&(!w.first_night.hostiles||n.nightSeen)){t.milestone('survived');t.phase='complete';t.message='First Night complete: provisioned, illuminated shelter, bed home, remembered resource round trip and safe survival watch';}
+  if(meals(b)<1&&b.food<16){if(await nightSleep.wake(t,b,motor))return;next('food');return;}
+  const sleepStatus=await nightSleep.tick(t,b,motor,goal=>t.walk(b,motor,goal,state,api,scan,tasks),now);
+  t.message=`${sleepStatus} · watch ${left} s left · health ${b.health} · food ${b.food}`;
+  if(left===0&&b.health>=12&&b.food>=10&&n.sleep.morning_seen&&!b.isSleeping){t.milestone('survived');t.phase='complete';t.message='First Night complete: morning verified after a safe, provisioned shelter watch';}
  }
 }
-function report(t){const n=t.wilderness;return n?{priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,livestock:n.livestock_status||null,scouting:n.scoutPlanning?{checked:n.scoutPlanning.checked,total:n.scoutPlanning.goals.length,landmark:n.scoutLandmark||null}:null,night_seen:!!n.nightSeen,exploration:n.exploration?.snapshot(t.last||{x:0,z:0},t.plot),memory:n.memory.snapshot()}:null;}
+function report(t){const n=t.wilderness;return n?{priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,livestock:n.livestock_status||null,scouting:n.scoutPlanning?{checked:n.scoutPlanning.checked,total:n.scoutPlanning.goals.length,landmark:n.scoutLandmark||null}:null,night_seen:!!n.nightSeen,sleep:n.sleep?{status:n.sleep.status,night_seen:!!n.sleep.night_seen,morning_seen:!!n.sleep.morning_seen}:null,exploration:n.exploration?.snapshot(t.last||{x:0,z:0},t.plot),memory:n.memory.snapshot()}:null;}
 module.exports={enabled,handles,init,priority,interrupt,explore,tick,report,approaches,meals,RAW,FOOD};
