@@ -109,6 +109,21 @@ test('natural plots are flat, separated by sectors and never created by filling 
  const bot=fixture();const a=findPlot(bot,[-64,64,-64,64],0,9),b=findPlot(bot,[-64,64,-64,64],1,9);assert.ok(a&&b);assert.ok(Math.abs(a.x-b.x)>=7);assert.equal(a.y,64);
 });
 
+test('house plot allocation searches dry land outside watery sectors without overlapping homes',()=>{
+ const {claimPlot}=require('../controller/hut_teacher'),bot=fixture(),original=bot.blockAt;
+ bot.blockAt=p=>p.z>=-5&&Math.floor(p.y)===63?{name:'water',boundingBox:'empty',position:p}:original(p);
+ const world={bounds:[-64,64,-64,64],count:8,spread:9},plots=[];
+ // A later bot ticking first must still reserve in roster order.
+ assert.ok(claimPlot(bot,{...world,index:7},'plot-water-test'));
+ for(let index=0;index<8;index++){
+  const plot=claimPlot(bot,{...world,index},'plot-water-test');assert.ok(plot);assert.ok(plot.z+3<-5);
+  for(const other of plots)assert.ok(Math.abs(plot.x-other.x)>=10||Math.abs(plot.z-other.z)>=10);
+  plots.push(plot);
+ }
+ assert.equal(claimPlot(bot,{...world,index:7},'plot-water-test'),plots[7]);
+ assert.deepEqual(claimPlot(bot,{...world,index:0},'fresh-plot-water-test'),plots[0]);
+});
+
 test('larger house has a complete floor, clear headroom and separate furniture cells',()=>{
  const house=require('../controller/house'),plot={x:0,y:64,z:0},blocks=blueprint(plot),floor=blocks.filter(q=>q.floor);
  assert.equal(floor.length,25);assert.equal(blocks.filter(q=>q.y===67).length,49);

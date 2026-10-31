@@ -59,6 +59,7 @@ class StagingPad:
             yaw=round(math.degrees(math.atan2(dx,dz)),1)
             self.command(f'effect give {name} minecraft:slow_falling 120 0 true')
             self.command(f'tp {name} {x} {y} {z} {yaw} 0')
+            self.command(f'gamemode survival {name}')
         self.pending.clear()
 
     def tick(self,pid,now):

@@ -42,4 +42,6 @@ def test_world_stop_and_failed_attempt_use_injected_sky_staging(tmp_path):
     world.start({},['LabAI0']);world.session.update(phase='running',trial_at=0)
     world.report('LabAI0',dict(run=world.session['run'],state='stopped'))
     assert any(c.startswith('tp LabAI0 -153.5 225.1 160.5') for c in commands)
+    assert 'gamemode survival LabAI0' in commands
+    assert commands.index('gamemode survival LabAI0')>next(i for i,c in enumerate(commands) if c.startswith('tp LabAI0 '))
     assert not any(' 0 181 0' in c for c in commands)

@@ -253,7 +253,7 @@ class WorldTraining(SurvivalLessons):
                     x0,x1,z0,z1=s['bounds']
                     self.command(f'kill @e[type=minecraft:item,x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}]')
                     for name in s['bots']:
-                        self.command(f'gamemode spectator {name}')
+                        self.command(f'gamemode survival {name}')
                         self.command(f'clear {name}')
                         self.command(f'effect clear {name}')
                         self.command(f'effect give {name} minecraft:instant_health 1 5 true')

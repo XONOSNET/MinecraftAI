@@ -45,16 +45,31 @@ function findSpawn(bot,bounds,{margin=8}={}){
   const value=y-Math.hypot(dx,dz)*.1;if(valid&&value>score){score=value;best=[x+.5,y+.1,z+.5];}
  }return best;
 }
-function findPlot(bot,bounds,index,spread,total=8){
+function findPlot(bot,bounds,index,spread,total=8,reserved=[]){
  const width=bounds[1]-bounds[0],depth=bounds[3]-bounds[2],columns=Math.min(4,total),rows=Math.ceil(total/columns);
- const ox=Math.floor(bounds[0]+(index%columns+.5)*width/columns),oz=Math.floor(bounds[2]+(Math.floor(index/columns)+.5)*depth/rows),radius=Math.floor(Math.min(width/columns,depth/rows)/2)-4;
+ const ox=Math.floor(bounds[0]+(index%columns+.5)*width/columns),oz=Math.floor(bounds[2]+(Math.floor(index/columns)+.5)*depth/rows);
  const cache=new Map(),height=(x,z)=>{const key=x+','+z;if(!cache.has(key))cache.set(key,surface(bot,x,z));return cache.get(key);};
- for(let r=0;r<=radius;r++)for(let dx=-r;dx<=r;dx++)for(let dz=-r;dz<=r;dz++){
+ // Prefer the bot's own sector, then search other loaded land when that
+ // sector is water or steep terrain. Keep complete yards apart.
+ const limit=Math.max(width,depth);
+ for(let r=0;r<=limit;r++)for(let dx=-r;dx<=r;dx++)for(let dz=-r;dz<=r;dz+=Math.abs(dx)===r?1:Math.max(1,2*r)){
   if(Math.abs(dx)!==r&&Math.abs(dz)!==r)continue;
-  const x=ox+dx,z=oz+dz,y=height(x,z);if(y===null||x<bounds[0]+5||x>bounds[1]-6||z<bounds[2]+5||z>bounds[3]-6)continue;
+  const x=ox+dx,z=oz+dz;if(x<bounds[0]+5||x>bounds[1]-6||z<bounds[2]+5||z>bounds[3]-6||reserved.some(p=>Math.abs(p.x-x)<house.config.plot_spacing&&Math.abs(p.z-z)<house.config.plot_spacing))continue;
+  const y=height(x,z);if(y===null)continue;
   let flat=true;for(let a=-3;a<=3&&flat;a++)for(let b=-3;b<=3;b++)if(height(x+a,z+b)!==y){flat=false;break;}
   if(flat){const tableY=height(x-3,z+3);if(tableY!==null&&Math.abs(tableY-y)<3)return {x,y,z,tableY};}
- }return null;
+}return null;
+}
+const plotClaims=new Map();
+function claimPlot(bot,world,run){
+ if(!plotClaims.has(run)){plotClaims.set(run,new Map());if(plotClaims.size>2)plotClaims.delete(plotClaims.keys().next().value);}
+ const claims=plotClaims.get(run);if(claims.has(world.index))return claims.get(world.index);
+ // Reserve in roster order, independent of which controller ticks first.
+ for(let index=0;index<(world.count||8);index++)if(!claims.has(index)){
+  const plot=findPlot(bot,world.bounds,index,world.spread,world.count||8,[...claims.values()]);
+  if(plot)claims.set(index,plot);
+ }
+ return claims.get(world.index)||null;
 }
 const blueprint=house.blueprint;
 function secureInterior(bot,plot){const p=bot.entity.position;return bot.entity.onGround===true&&Math.abs(p.y-plot.y)<.4&&Math.abs(p.x-plot.x-.5)<2.15&&Math.abs(p.z-plot.z-.5)<2.15;}
@@ -89,9 +104,11 @@ class HutTeacher{
    else if(this.phase==='survey'){
     motor.pause();
     if(now<(this.surveyNextAt||0)){this.message='Surveying loaded terrain for dry, safe ground';return this.message;}this.surveyNextAt=now+1000;
-    const spawn=w.prepared&&w.camp_anchor&&standable(bot,...w.camp_anchor)?[w.camp_anchor[0]+.5,w.camp_anchor[1]+.1,w.camp_anchor[2]+.5]:findSpawn(bot,w.bounds,{margin:w.prepared?house.config.camp_radius+2:8});
-    if(!spawn){this.message='Surveying loaded terrain for a safe shared spawn';if(now-this.started>30000){this.failureCategory='site_unavailable';throw Error('No safe natural spawn found. Try another site.');}}
-    else{let destination=spawn;if(w.prepared){const camp=await api('/world/camp',{agent:bot.username,position:spawn});this.campPlots=camp.plots;this.plot=camp.plots[w.index];this.grove=camp.groves[w.index]?.length?camp.groves[w.index]:null;destination=camp.spawn;}else{this.plot=findPlot(bot,w.bounds,w.index,w.spread,w.count||8);if(!this.plot){this.failureCategory='site_unavailable';throw Error('No flat 7 × 7 build site in this bot’s sector. Try another natural scenario.');}}await api('/world/spawn',{agent:bot.username,position:destination});this.phase='gather';survey.release(bot);this.settle=now+1500;if(this.wilderness){this.wilderness.memory.remember('home',[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5]);}}
+    let spawn;
+    if(w.prepared)spawn=w.camp_anchor&&standable(bot,...w.camp_anchor)?[w.camp_anchor[0]+.5,w.camp_anchor[1]+.1,w.camp_anchor[2]+.5]:findSpawn(bot,w.bounds,{margin:house.config.camp_radius+2});
+    else{this.plot=claimPlot(bot,w,state.run);this.campPlots=[...(plotClaims.get(state.run)?.values()||[])];if(this.plot)spawn=[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5];}
+    if(!spawn){this.message=w.prepared?'Surveying loaded terrain for a safe shared spawn':'Searching loaded land for a separate flat house plot';if(now-this.started>30000){this.failureCategory='site_unavailable';throw Error(w.prepared?'No safe natural spawn found. Try another site.':'No separate flat 7 × 7 build site in the loaded trial area. Try another natural scenario.');}}
+    else{let destination=spawn;if(w.prepared){const camp=await api('/world/camp',{agent:bot.username,position:spawn});this.campPlots=camp.plots;this.plot=camp.plots[w.index];this.grove=camp.groves[w.index]?.length?camp.groves[w.index]:null;destination=camp.spawn;}await api('/world/spawn',{agent:bot.username,position:destination});this.phase='gather';survey.release(bot);this.settle=now+1500;if(this.wilderness){this.wilderness.memory.remember('home',[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5]);}}
    }else if(now<this.settle){motor.pause();this.message='Settling on natural ground';}
    else if(this.resourceAccess?.column?.length){await this.workElevated(bot,motor,state,api,scan,tasks);}
    else if(this.wilderness&&!['complete','stopped'].includes(this.phase)&&await firstNight.interrupt(this,bot,motor,state)){/* safety priority handled */}
@@ -478,4 +495,4 @@ class HutTeacher{
   const motorLabel=motor.command(result.action,task,{...sensed,...sensedScan.proximity,doorway:passage,focusPoint:cue,cueDistance:Math.hypot(cue[0]-p.x,cue[2]-p.z)},angle);this.lastNavigation.motor_after=motor.diagnostic?.();if(motorLabel)this.message=motorLabel;
  }
 }
-module.exports={HutTeacher,secureInterior,blueprint,intact,findPlot,findSpawn,surface,reference};
+module.exports={HutTeacher,secureInterior,blueprint,intact,findPlot,claimPlot,findSpawn,surface,reference};
