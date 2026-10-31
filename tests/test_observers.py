@@ -210,6 +210,57 @@ def test_world_stall_countdown_is_visible_and_not_shown_for_finished_bots(tmp_pa
     assert o.hud_commands['Xonosnet']['bossbar set lab:observer_xonosnet_state visible']=='bossbar set lab:observer_xonosnet_state visible false'
 
 
+def test_world_shelter_watch_uses_third_bar_and_keeps_counting_after_morning(tmp_path):
+    commands=[];now=[100];o=Observers(tmp_path/'hud',commands.append,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    sleep={'status':'Morning verified','morning_seen':True,'watch_seconds_left':125,'watch_seconds_total':300,'watch_updated_at':100}
+    result={'state':'working','phase':'night_hold','message':'Morning verified','wilderness':{'sleep':sleep}}
+    world={'active':True,'phase':'running','round':1,'name':'Camp','message':'Testing','bots':['LabAI0'],'results':{'LabAI0':result}}
+    a={'connected':True,'last_seen':100,'entity_id':1,'display_name':'CedarWren'}
+    o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':a},True,'evaluate',progress_context={'world':world})
+    cache=o.hud_commands['Xonosnet'];prefix='bossbar set lab:observer_xonosnet_state '
+    assert 'CedarWren | Shelter watch | 2:05 remaining' in cache[prefix+'name']
+    assert cache[prefix+'value']==prefix+'value 42'
+    assert cache[prefix+'color']==prefix+'color purple'
+    assert cache[prefix+'visible']==prefix+'visible true'
+    # Interpolate the timestamped report rather than freezing between updates.
+    now[0]=103;a['last_seen']=103;o.update_hud(o.sessions['Xonosnet'],a,'evaluate')
+    assert '2:02 remaining' in cache[prefix+'name']
+    now[0]=226;a['last_seen']=226;o.update_hud(o.sessions['Xonosnet'],a,'evaluate')
+    assert cache[prefix+'visible']==prefix+'visible false'
+
+
+@pytest.mark.parametrize('phase,state,world_phase,mode,fresh',[
+    ('complete','complete','running','evaluate',True),
+    ('stopped','stopped','running','evaluate',True),
+    ('night_food','working','running','evaluate',True),
+    ('night_hold','working','restoring','evaluate',True),
+    ('night_hold','working','running','paused',True),
+    ('night_hold','working','running','evaluate',False),
+])
+def test_shelter_countdown_hides_when_not_actively_watching(tmp_path,phase,state,world_phase,mode,fresh):
+    commands=[];o=Observers(tmp_path/'hud',commands.append,lambda:100,settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    result={'phase':phase,'state':state,'wilderness':{'sleep':{'watch_seconds_left':120,'watch_seconds_total':300}}}
+    o.progress_context={'world':{'phase':world_phase,'progress':40,'round':1,'name':'Camp','message':'Testing','bots':['LabAI0'],'results':{'LabAI0':result}}}
+    o.update_hud(o.sessions['Xonosnet'],{'connected':fresh,'last_seen':100,'entity_id':1},mode)
+    assert o.hud_commands['Xonosnet']['bossbar set lab:observer_xonosnet_state visible'].endswith(' false')
+
+
+def test_shelter_countdown_updates_for_the_selected_bot_and_cleans_up(tmp_path):
+    commands=[];now=[100];o=Observers(tmp_path/'hud',commands.append,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    o.progress_context={'world':{'phase':'running','round':1,'name':'Camp','message':'Testing','bots':['LabAI0','LabAI1'],'results':{
+        'LabAI0':{'phase':'night_hold','state':'working','wilderness':{'sleep':{'watch_seconds_left':60,'watch_seconds_total':300}}},
+        'LabAI1':{'phase':'night_wool','state':'working'},
+    }}}
+    a={'connected':True,'last_seen':100,'entity_id':1};session=o.sessions['Xonosnet'];o.update_hud(session,a,'evaluate')
+    assert o.hud_commands['Xonosnet']['bossbar set lab:observer_xonosnet_state visible'].endswith(' true')
+    session['target']='LabAI1';now[0]=102;a['last_seen']=102;o.update_hud(session,a,'evaluate')
+    assert o.hud_commands['Xonosnet']['bossbar set lab:observer_xonosnet_state visible'].endswith(' false')
+    o.clear_hud(session);assert 'bossbar remove lab:observer_xonosnet_state' in commands
+
+
 def test_camera_cycle_uses_interval_and_skips_offline_bots(tmp_path):
     now=[100.];commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:now[0],settle_delay=0)
     o.start({'player':'Xonosnet','target':'LabAI0','view':'cycle','cycle_seconds':30},['Xonosnet'])

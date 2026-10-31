@@ -30,3 +30,25 @@ verified the daytime wait and actual Mineflayer daytime refusal. Confirmed
 sleep/wake, dawn gating, occupied beds, retries, interrupted meals, and retained
 watch timers are covered by focused automated tests; a natural-night live sleep
 remains to be observed. No training data or global time is written by the fixture.
+
+## Spectator countdown bar
+
+While watching a bot in `night_hold`, a third purple bossbar displays its name
+and remaining shelter-watch time as minutes and seconds. It shrinks toward
+zero and disappears once the countdown is up, even if the bot is still waiting
+for dawn or another survival condition. It also hides when switching to a bot
+outside the watch, on completion/stop, while paused/training, during restoration,
+or when bot telemetry is unavailable. Sleeping through the night does not reset
+or bypass the watch timer.
+
+The controller reports `watch_seconds_left`, `watch_seconds_total`, and
+`watch_updated_at` in `wilderness.sleep`. The HUD uses that timestamp to keep
+the visible countdown moving between reports. It reuses the otherwise hidden
+third status bar, with the existing route/stall display available outside the
+shelter watch; stopping observation removes all bars.
+
+Validation of this HUD addition: 311 Python and 364 JavaScript tests pass. A
+diagnostic Minecraft client received the actual bossbar packets, verified the
+watch label and decreasing fill, then verified the bar disappeared on expiry.
+Its temporary bars and operator privilege were removed afterward. Evidence:
+`logs/watch-hud-native.json`. No production survival results were fabricated.

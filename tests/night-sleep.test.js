@@ -57,6 +57,7 @@ test('shelter watch requires morning and its full timer, never just a sleep or h
  b.time.timeOfDay=14000;await night.tick(t,b,motor,state);assert.equal(b.isSleeping,true);assert.equal(t.phase,'night_hold');
  b.time.timeOfDay=0;await night.tick(t,b,motor,state);assert.equal(t.phase,'night_hold','must wait for server wake');
  b.isSleeping=false;state.world.first_night.hold_seconds=180;await night.tick(t,b,motor,state);assert.equal(t.phase,'night_hold','timer still applies after dawn');
+ assert.equal(night.report(t).sleep.watch_seconds_total,180);assert.ok(night.report(t).sleep.watch_seconds_left>0);assert.ok(night.report(t).sleep.watch_updated_at>0);
  state.world.first_night.hold_seconds=0;await night.tick(t,b,motor,state);assert.equal(t.phase,'complete');assert.ok(t.milestones.includes('survived'));
  assert.equal(night.report(t).sleep.morning_seen,true);
 });

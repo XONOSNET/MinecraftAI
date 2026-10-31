@@ -250,7 +250,7 @@ class Observers:
         if agent.get('skill')=='combat':
             m=agent.get('metrics') or {};progress=round(100*m.get('kills',0)/max(1,m.get('kill_target',0))) if m.get('kill_target') else (100 if m.get('weapon_equipped') and m.get('armor_equipped') else 0)
         route_progress=progress
-        route_visible=bool(fresh and position and goal and mode!='paused')
+        route_visible=bool(fresh and position and goal and mode!='paused');watch_visible=False
         context=getattr(self,'progress_context',{});job=context.get('job',{})
         total=context.get('episodes',3);completed=min(total,agent.get('trial_completed',0))
         trial=min(total,completed+1)
@@ -292,6 +292,13 @@ class Observers:
             if result.get('stall_seconds_left') is not None and result.get('state') not in ('complete','stopped'):
                 lines['state']=f"No progress: attempt ends in {result['stall_seconds_left']}s | "+lines['state'][:65]
                 route_visible=True;route_progress=round(100*(90-result['stall_seconds_left'])/90)
+            sleep=(result.get('wilderness') or {}).get('sleep') or {}
+            left=sleep.get('watch_seconds_left');duration=sleep.get('watch_seconds_total');updated=sleep.get('watch_updated_at')
+            if fresh and mode!='paused' and world.get('phase')=='running' and result.get('phase')=='night_hold' and result.get('state')=='working' and type(left) in (int,float) and type(duration) in (int,float) and math.isfinite(left) and math.isfinite(duration) and duration>0:
+                if type(updated) in (int,float) and math.isfinite(updated):left-=max(0,now-updated)
+                left=max(0,math.ceil(left));watch_visible=left>0
+                route_visible=watch_visible;route_progress=max(0,min(100,round(100*left/duration)))
+                lines['state']=f"{display_name} | Shelter watch | {left//60}:{left%60:02d} remaining"
         if context.get('stage'):
             lines={'stage':((context.get('label')+' | ') if context.get('label') else (f"Review {context['round']} | " if context.get('round') else ''))+f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
         if world:
@@ -301,7 +308,9 @@ class Observers:
             if world.get('learning_cycle'):
                 lines['stage']=f"Learning {world['learning_cycle']} | {world.get('learning_phase','').title()} | {label} {complete}/{len(world['bots'])}"
             if world.get('first_night'):lines['stage']=first_night_label(world,context.get('last_policy'))
-        for suffix,value in lines.items():
+        for suffix in ('stage','task','state'):
+            if suffix not in lines:continue
+            value=lines[suffix]
             key=prefix+'_'+suffix;name=json.dumps({'text':value,'color':'aqua' if suffix=='task' else 'white'})
             if not s.get('hud_ready'):
                 emit(f'bossbar remove {key}')
@@ -313,7 +322,9 @@ class Observers:
             else:value=round(100*(context['stage']-1)/context['stages']) if suffix=='stage' else route_progress if suffix=='state' else progress
             emit(f'bossbar set {key} value {value}')
             emit(f'bossbar set {key} players {owner}')
-            if suffix=='state':emit(f'bossbar set {key} visible '+str(route_visible and job.get('status') not in ('running','cancelling')).lower())
+            if suffix=='state':
+                emit(f'bossbar set {key} color '+('purple' if watch_visible else 'green'))
+                emit(f'bossbar set {key} visible '+str(route_visible and job.get('status') not in ('running','cancelling')).lower())
         s['hud_ready']=True
     def update_names(self,agents):
         if not hasattr(self,'name_tags'):self.name_tags={}
