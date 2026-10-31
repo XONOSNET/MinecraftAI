@@ -14,7 +14,7 @@ Dashboard update: restarted the existing local lab to load background-training p
 
 
 
-LAN enabled through config/lan.json and a bounded subnet-restricted TCP bridge. Added Windows inbound rule MinecraftAILab-LAN-25565 for TCP 25565, local 192.168.1.24, remote 192.168.1.0/24, Ethernet2, profiles Any (existing Public network category unchanged), edge traversal blocked. Receipt: data/lan-firewall-result.json; prior properties backed up in backups/. Dashboard and RCON remain inaccessible from LAN. Installed official ViaVersion 5.12.1, SHA256 b8033807e7182c35003a45962352dd642c1e91880ca281da3a43cb6f481a95a2. Added pinned installation to Setup.ps1. Granted Xonosnet OP level 4 via console; verified server/ops.json.
+LAN enabled through config/lan.json and a bounded subnet-restricted TCP bridge. Added Windows inbound rule MinecraftAILab-LAN-25565 for TCP 25565, local SERVER_LAN_IP, remote LAN_SUBNET, Ethernet2, profiles Any (existing Public network category unchanged), edge traversal blocked. Receipt: data/lan-firewall-result.json; prior properties backed up in backups/. Dashboard and RCON remain inaccessible from LAN. Installed official ViaVersion 5.12.1, SHA256 b8033807e7182c35003a45962352dd642c1e91880ca281da3a43cb6f481a95a2. Added pinned installation to Setup.ps1. Granted Xonosnet OP level 4 via console; verified server/ops.json.
 
 
 Added local autonomous curriculum scheduling, authenticated start/pause endpoints, dashboard progress/results, persistent curriculum state and a protected champion checkpoint. Reused existing dependencies, arenas and CPU training limits. No cloud service, recurring Codex task, spending, OS scheduler, or power-setting changes. Restarted the lab to deploy the scheduler; world, demonstrations and operator privileges preserved.

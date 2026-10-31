@@ -12,7 +12,9 @@ From PowerShell in this directory:
 
 Dashboard: http://127.0.0.1:8000. It now guides you through **Collect examples → Train the network → Test learned behavior → Review**. Each stage explains what the bots are doing and highlights the next action. Training deliberately pauses movement; its live progress, completion notice and saved checkpoint appear on the page. No token pasting is needed in the browser: the localhost page establishes a same-site, HttpOnly session. Command-line clients still use `data/api-token`; never publish that token.
 
-Minecraft Java **26.3** clients can join via ViaVersion while Paper and bots remain on 1.21.4. Multiplayer → Direct Connection → `127.0.0.1:25565` on this computer, or `192.168.1.24:25565` from the trusted LAN. Human and bot connectivity have both been verified.
+Minecraft Java **26.3** clients can join via ViaVersion while Paper and bots remain on 1.21.4. Multiplayer → Direct Connection → `127.0.0.1:25565` on this computer, or `SERVER_LAN_IP:25565` from the trusted LAN. Human and bot connectivity have both been verified.
+
+`SERVER_LAN_IP` means the local IPv4 address of **your computer running the lab**; `LAN_SUBNET` means your local network's subnet. These are placeholders, not addresses to copy literally. Run `ipconfig` on the server PC and use the IPv4 address of its active Ethernet or Wi-Fi adapter. `127.0.0.1` works only on the server PC itself. Before enabling LAN access on a fresh checkout, follow [local network setup](docs/network-setup.md) to replace deployment-specific configuration and firewall defaults with your own values.
 
 For a fresh checkout, first run `./scripts/Setup.ps1 -AcceptEula` only after reading and agreeing to the Minecraft EULA. Python 3.11 and Node.js 22+ must be available. Setup downloads project-local Java and Paper and installs locked packages. First startup creates the two research courses once and preserves `data/arena.initialized` with the world. Keep that marker when restoring the world so startup does not rebuild the courses.
 
@@ -48,7 +50,7 @@ node --test tests/perception.test.js
 
 Inspect `logs/service-error.log`, `logs/bots-error.log`, and `logs/minecraft-console.log`. Initial Paper startup downloads Mojang files and can take longer than subsequent starts. Wait for `Done` before spawning bots. Port conflicts fail instead of starting a second server. A failed arena command (`That position is not loaded`) invalidates an experiment; the current arena setup force-loads both courses before building them.
 
-Minecraft and the authenticated dashboard bind to loopback. A bounded bridge exposes Minecraft only at 192.168.1.24:25565 to 192.168.1.0/24. The scoped Windows firewall rule permits that LAN connection; no router forwarding is configured. Local offline identities are suitable for this trusted LAN and do not authenticate account ownership. RCON remains disabled. EULA accepted explicitly in chat on 2026-10-21.
+Minecraft and the authenticated dashboard bind to loopback. A bounded bridge exposes Minecraft only at SERVER_LAN_IP:25565 to LAN_SUBNET. The scoped Windows firewall rule permits that LAN connection; no router forwarding is configured. Local offline identities are suitable for this trusted LAN and do not authenticate account ownership. RCON remains disabled. EULA accepted explicitly in chat on 2026-10-21.
 
 Java 26.3 clients can join through pinned ViaVersion 5.12.1 while the server and bots stay on 1.21.4. The dashboard shows online players, saved operator levels, server readiness, RAM and tick metrics. Start/Stop/Restart run in the background, preserve the world/model/examples, and leave the dashboard available. Learning stays paused after server operations. Player administration supports OP/deop, game modes, teleport, heal, feed and disconnect through validated commands. Xonosnet was granted operator level 4.
 
