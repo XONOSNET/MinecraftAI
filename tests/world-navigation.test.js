@@ -109,6 +109,17 @@ test('natural plots are flat, separated by sectors and never created by filling 
  const bot=fixture();const a=findPlot(bot,[-64,64,-64,64],0,9),b=findPlot(bot,[-64,64,-64,64],1,9);assert.ok(a&&b);assert.ok(Math.abs(a.x-b.x)>=7);assert.equal(a.y,64);
 });
 
+test('floor work stances stay clear of the target even when navigation stops short of center',()=>{
+ const {stances}=require('../controller/floor_builder'),house=require('../controller/house'),b=fixture(),plot={x:0,y:64,z:0},q={x:0,y:63,z:0};
+ const choices=stances({plot},b,q,house.blueprint(plot).filter(p=>p.floor),{world:{bounds:[-20,20,-20,20]}});
+ assert.ok(choices.length);
+ for(const {goal} of choices){
+  const dx=q.x+.5-goal[0],dz=q.z+.5-goal[2],d=Math.hypot(dx,dz);
+  const arrived={x:goal[0]+dx/d*.4,z:goal[2]+dz/d*.4};
+  assert.ok(Math.abs(arrived.x-q.x-.5)>=.85||Math.abs(arrived.z-q.z-.5)>=.85,'arrival must clear the dig footprint');
+ }
+});
+
 test('house plot allocation searches dry land outside watery sectors without overlapping homes',()=>{
  const {claimPlot}=require('../controller/hut_teacher'),bot=fixture(),original=bot.blockAt;
  bot.blockAt=p=>p.z>=-5&&Math.floor(p.y)===63?{name:'water',boundingBox:'empty',position:p}:original(p);

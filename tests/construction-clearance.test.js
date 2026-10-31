@@ -42,3 +42,16 @@ test('does not open water or falling-block hazards and does not count unconfirme
  const f=fixture({'(3, 64, 0)':'oak_leaves'}),original=access.dig;access.dig=async()=>false;
  try{await assert.rejects(clearance.prepare(f.t,f.b,{x:3,y:64,z:0}),{code:'BUILD_OBSTRUCTED'});assert.equal(f.t.lastProgress,undefined);}finally{access.dig=original;}
 });
+
+test('floor placement never excavates adjacent support ground crossed by its center ray',async()=>{
+ const f=fixture({'(-2, 63, 0)':'air'});f.b.entity.position=new Vec3(2,64,.5);
+ const q={x:-2,y:63,z:0,floor:true},hit=clearance.firstObstruction(f.b,new Vec3(q.x,q.y,q.z));
+ assert.ok(hit&&hit.position.y===63,'reproduce a ray through adjacent foundation');
+ await digging(f,()=>clearance.prepare(f.t,f.b,q));assert.deepEqual(f.dug,[]);
+});
+
+test('plants outside the house are preserved instead of failing placement inside it',async()=>{
+ const f=fixture({'(4, 65, 0)':'large_fern'});f.b.entity.position=new Vec3(5.5,64,.5);
+ const q={x:3,y:64,z:0};assert.equal(clearance.firstObstruction(f.b,new Vec3(3,64,0))?.name,'large_fern');
+ await digging(f,()=>clearance.prepare(f.t,f.b,q));assert.deepEqual(f.dug,[]);assert.equal(f.blocks.get('(4, 65, 0)'),'large_fern');
+});

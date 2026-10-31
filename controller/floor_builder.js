@@ -5,7 +5,10 @@ const finished=(b,q)=>b.blockAt(new Vec3(q.x,q.y,q.z))?.name.endsWith('_planks')
 const beside=(p,q)=>!(Math.abs(p.x-q.x-.5)<.85&&Math.abs(p.z-q.z-.5)<.85);
 function stances(t,b,q,tiles,state,used=new Set()){
  const p=b.entity.position;
- return tiles.filter(v=>!same(v,q)&&!used.has(key(v))&&standable(b,v.x,t.plot.y,v.z))
+ // Navigation can arrive 0.4m short of a cell center. A neighboring one-cell
+ // stance can therefore leave the body over the tile it must dig, forever
+ // selecting the same already-arrived goal. Leave room for that tolerance.
+ return tiles.filter(v=>Math.max(Math.abs(v.x-q.x),Math.abs(v.z-q.z))>=2&&!used.has(key(v))&&standable(b,v.x,t.plot.y,v.z))
   .map(v=>({tile:v,goal:[v.x+.5,t.plot.y+.1,v.z+.5]}))
   .filter(v=>new Vec3(...v.goal).offset(0,1.62,0).distanceTo(new Vec3(q.x+.5,q.y,q.z+.5))<4&&space.clearOfPlayers(b,new Vec3(...v.goal)))
   .filter(v=>!state.world?.bounds||route(b,v.goal,12,512,true,{bounds:state.world.bounds,reversible:true}).reached)
@@ -54,7 +57,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
  if(!beside(b.entity.position,q)||b.entity.onGround===false){t.message='Rechecking footing after digging the floor tile';return;}
  try{await t.place(b,q,null);}
  catch(error){
-  if(!String(error.message).includes('Server refused'))throw error;
+  if(error.code!=='BUILD_OBSTRUCTED'&&!String(error.message).includes('Server refused'))throw error;
   recovery=t.floorRecovery??={target:q,used:new Set(),refusals:0};recovery.refusals++;
   const current=tiles.find(v=>v.x===Math.floor(p.x)&&v.z===Math.floor(p.z));if(current)recovery.used.add(key(current));
   if(recovery.refusals>=3)throw Error('Floor placement refused after three checked stances: '+error.message);

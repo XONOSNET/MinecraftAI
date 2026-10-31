@@ -54,7 +54,10 @@ async function prepare(t,b,q,name){
   if(!empty(b.blockAt(cell))&&!natural(b.blockAt(cell)?.name||''))throw blocked('Construction cell contains '+(b.blockAt(cell)?.name||'unloaded terrain'));
   while(cleared<6){
    const obstacle=firstObstruction(b,cell);
-   if(obstacle&&natural(obstacle.name)){await clear(t,b,obstacle);cleared++;continue;}
+   // The line to a below-foot floor cell can cross adjacent ground, or a
+   // plant outside the house. Those are not construction cells to excavate.
+   // Let normal supporting-face placement and stance recovery handle them.
+   if(obstacle&&natural(obstacle.name)&&owned(t,obstacle.position)){await clear(t,b,obstacle);cleared++;continue;}
    const current=b.blockAt(cell);if(empty(current))break;
    await clear(t,b,current);cleared++;
   }
