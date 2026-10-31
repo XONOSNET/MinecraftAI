@@ -5,7 +5,7 @@ const SOFT=new Set(['short_grass','tall_grass','fern','large_fern','dead_bush','
 const EARTH=new Set(['dirt','grass_block','coarse_dirt','rooted_dirt','podzol','mycelium','moss_block','stone','granite','diorite','andesite','deepslate','tuff']);
 const natural=name=>SOFT.has(name)||EARTH.has(name)||name.endsWith('_leaves')||name.endsWith('_log')||name.endsWith('_tulip');
 const empty=b=>b&&['air','cave_air','void_air'].includes(b.name);
-function owned(t,p){const h=t.plot;return !!h&&p.y>=h.y&&p.y<=h.y+house.config.wall_height&&Math.abs(p.x-h.x)<=3&&Math.abs(p.z-h.z)<=3;}
+function owned(t,p){const h=t.plot;return !!h&&p.y>=h.y&&p.y<=h.y+house.config.wall_height+1&&Math.abs(p.x-h.x)<=3&&Math.abs(p.z-h.z)<=3;}
 function safe(t,b,block){
  if(!block||!owned(t,block.position)||!natural(block.name)||b.entity.onGround!==true)return false;
  const q=block.position;
@@ -18,6 +18,7 @@ function safe(t,b,block){
 }
 function blocked(message){const error=Error(message);error.code='BUILD_OBSTRUCTED';return error;}
 async function clear(t,b,block){
+ if(empty(b.blockAt(block.position)))return false;
  if(!safe(t,b,block))throw blocked('Cannot safely clear construction obstruction '+block.name);
  const type=block.name.endsWith('_log')?'axe':EARTH.has(block.name)?(['stone','granite','diorite','andesite','deepslate','tuff'].includes(block.name)?'pickaxe':'shovel'):null;
  const tool=type&&['netherite','diamond','iron','stone','wooden','golden'].map(s=>s+'_'+type).find(n=>b.inventory.items().some(i=>i.name===n));
@@ -33,8 +34,10 @@ async function clear(t,b,block){
    await b.dig(current,true);removed=empty(b.blockAt(current.position));
   }
  }
+ if(!removed&&empty(b.blockAt(block.position)))return false;
  if(!removed)throw blocked('Construction obstruction needs a closer safe angle: '+block.name);
  t.lastProgress=Date.now();t.constructionCleared=(t.constructionCleared||0)+1;
+ return true;
 }
 function firstObstruction(b,target){
  const eye=b.entity.position.offset(0,b.entity.eyeHeight||1.62,0),delta=target.offset(.5,.5,.5).minus(eye),length=delta.norm(),seen=new Set();
@@ -64,4 +67,4 @@ async function prepare(t,b,q,name){
   if(!empty(b.blockAt(cell)))throw blocked('Construction obstruction remains; another safe approach is needed');
  }
 }
-module.exports={natural,safe,prepare,firstObstruction};
+module.exports={natural,empty,owned,safe,clear,prepare,firstObstruction};
