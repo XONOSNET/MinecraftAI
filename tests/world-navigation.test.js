@@ -88,7 +88,7 @@ test('a motionless world attempt reports failure and releases the batch instead 
  const {HutTeacher}=require('../controller/hut_teacher'),teacher=new HutTeacher(),bot=fixture();
  Object.assign(bot,{username:'LabAI0',health:20,food:20,game:{gameMode:'survival'},inventory:{items:()=>[]}});
  const reports=[],state={run:'stall-test',world:{bounds:[-64,64,-64,64]}},api=async(path,data)=>reports.push(data),tasks={createRuntime:()=>({})},motor={pause(){}};
- await teacher.tick(bot,motor,state,api,null,tasks);teacher.phase='gather';teacher.stall.update(bot.entity.position,'gather|0|0|0|0|',Date.now()-91000);
+ await teacher.tick(bot,motor,state,api,null,tasks);teacher.phase='gather';teacher.stall.update(bot.entity.position,'gather|0|0|0|0|0|',Date.now()-91000);
  teacher.lastNavigation={phase:'gather',position:[.5,64,.5],cue:[1.5,64.1,.5],decision:{selected:1,teacher:0,angle:-.2}};
  await teacher.tick(bot,motor,state,api,null,tasks);
  assert.equal(teacher.phase,'stopped');assert.equal(reports.at(-1).state,'stopped');assert.match(reports.at(-1).message,/Stationary for 90 seconds/);assert.equal(reports.at(-1).stall_seconds_left,null);
