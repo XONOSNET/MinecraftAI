@@ -85,3 +85,14 @@ test('threshold shortcut keeps obstruction checks and does not cross a closed do
  const closed=createDoorway().update(base,sensed({...door,open:false}),p,Math.PI/2,0,permissions);
  assert.equal(closed.targetYaw,Math.PI/2);assert.match(closed.label,/lining up/);
 });
+
+test('a route-checked lower landing allows an upright doorway exit, with drop probes still enforced',()=>{
+ const p={x:.13,y:181,z:door.center},d={...door,descent:true};
+ const s={...sensed(d,()=>false),canStepDown:()=>true};
+ const a=createDoorway().update(base,s,p,-Math.PI/2,0,permissions);
+ assert.equal(a.forward,true);assert.equal(a.descent,true);assert.equal(a.sneak,false);assert.match(a.label,/stepping down from doorway/);
+ const unsafe=createDoorway().update(base,{...s,canStepDown:()=>false},p,-Math.PI/2,0,permissions);
+ assert.equal(unsafe.forward,false);
+ const unverified=createDoorway().update(base,{...s,doorway:door},p,-Math.PI/2,0,permissions);
+ assert.equal(unverified.forward,false);assert.equal(unverified.descent,false);
+});

@@ -39,6 +39,13 @@ test('door alignment follows the route out of the front door before turning towa
  assert.ok(routeDoorway(b,plot,[[.5,64.1,-2.5],[.5,64.1,-3.5],[1.5,64.1,-3.5]],[.5,64.1,8.5]));
 });
 
+test('door alignment authorizes a descent only for the next checked one-block landing',()=>{
+ const {routeDoorway}=require('../controller/world_navigation'),plot={x:0,y:64,z:0},b={entity:{position:new Vec3(.5,64,-1.5)},blockAt:()=>({name:'oak_door',position:new Vec3(0,64,-3),getProperties:()=>({open:true,facing:'north'})})};
+ const sill=[.5,64.1,-2.5],goal=[.5,63.1,-4.5];
+ assert.equal(routeDoorway(b,plot,[sill,[.5,63.1,-3.5]],goal).descent,true);
+ for(const path of [[sill],[sill,[.5,64.1,-3.5]],[sill,[.5,62.1,-3.5]]])assert.notEqual(routeDoorway(b,plot,path,goal).descent,true);
+});
+
 test('survival wood trip opens the enlarged house door from the room center even for resources behind home',async()=>{
  const survival=require('../controller/survival'),{HutTeacher}=require('../controller/hut_teacher'),t=new HutTeacher(),plot={x:0,y:64,z:0};
  let opened=false,walked=false;const b={entity:{position:new Vec3(.5,64,.5)},blockAt:p=>({name:'oak_door',position:p,getProperties:()=>({open:false})}),activateBlock:async()=>{opened=true;}};

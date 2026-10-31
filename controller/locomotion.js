@@ -117,7 +117,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     plan.safeWalk=true;plan.strictGround=!!task.strict_ground;plan.corridor=passage?null:task.route_corridor||null;
     const rise=(task.waypoints?.[0]?.[1]??bot.entity.position.y)-bot.entity.position.y;
     const plannedStep=rise>.6&&rise<1.2&&Math.abs(angle)<.35;
-    plan.descent=plan.strictGround&&rise<-.6&&rise> -1.2&&Math.abs(angle)<.35;
+    plan.descent=plan.strictGround&&(!!passage?.descent||rise<-.6&&rise> -1.2&&Math.abs(angle)<.35);
     if(!plannedStep)plan.jump=false;
     if(plannedStep&&plan.jump)plan.stepLevel=task.waypoints[0][1];
     const stop=passage&&plan.moveTarget?[plan.moveTarget.x,p.y,plan.moveTarget.z]:task?.safety_focus||(task?.center_route?focus:null);

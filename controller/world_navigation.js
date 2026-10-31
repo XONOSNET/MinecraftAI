@@ -36,7 +36,10 @@ function routeDoorway(bot,plot,path,goal){
  if(index<0)return null;
  // Use the actual crossing direction; the ultimate destination may be behind
  // the house, on the same side of the door plane as the starting room.
- return doorwayDescriptor(bot,bot.blockAt(new Vec3(plot.x,plot.y,plot.z-3)),path[index+1]||goal);
+ const next=path[index+1],descriptor=doorwayDescriptor(bot,bot.blockAt(new Vec3(plot.x,plot.y,plot.z-3)),next||goal);
+ // Only a route-checked landing can authorize stepping off a raised sill.
+ if(descriptor&&next&&next[1]-plot.y<-.6&&next[1]-plot.y> -1.2)descriptor.descent=true;
+ return descriptor;
 }
 function approachGoal(bot,goal,plot){
  if(!plot||!crossingHome(bot,goal,plot))return goal;

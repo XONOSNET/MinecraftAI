@@ -20,6 +20,11 @@ b.once('spawn',async()=>{try{
  const start=Date.now(),goal=[plot.x+.5,plot.y+.1,plot.z+.5];let arrived=false;
  while(Date.now()-start<20000){if(await t.walk(b,motor,goal,state,api,scan,tasks)===true){arrived=true;break;}await wait(100);}
  motor.pause();result.seconds=Math.round((Date.now()-start)/100)/10;result.position=b.entity.position.clone();result.health=b.health;result.mode=b.game.gameMode;result.navigation=t.lastNavigation;result.success=arrived&&b.health===20&&b.game.gameMode==='survival';
+ if(!result.success)throw Error('Threshold entry failed');
+ t.phase='light_exit';t.navigator=new WorldNavigation();const exterior=homeApproach(plot,b),exitStart=Date.now();let exited=false;
+ while(Date.now()-exitStart<20000){if(await t.walk(b,motor,exterior,state,api,scan,tasks)===true){exited=true;break;}await wait(100);}
+ motor.pause();result.exit={seconds:Math.round((Date.now()-exitStart)/100)/10,position:b.entity.position.clone(),health:b.health,navigation:t.lastNavigation};
+ result.success=exited&&b.health===20&&b.game.gameMode==='survival';
 
 }catch(e){result.error=e.stack;result.success=false;}finally{await finish();}});
 b.on('kicked',reason=>{result.error='Disconnected: '+JSON.stringify(reason);result.success=false;finish();});setTimeout(()=>{result.error='Native test deadline';result.success=false;finish();},160000).unref();

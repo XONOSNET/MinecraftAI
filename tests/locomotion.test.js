@@ -28,6 +28,14 @@ test('a safe doorway back-off is not blocked by the inward route corridor',()=>{
  motor.command(0,task,sensed,0);now=50;motor.tick();assert.equal(controls.forward,true);assert.match(motor.status(),/lining up doorway/);
 });
 
+test('doorway landing permission survives strict route safety while the cue remains on the sill',()=>{
+ const {Vec3}=require('vec3');let now=0;const controls={},bot={entity:{yaw:0,pitch:0,onGround:true,position:new Vec3(.5,70,.87)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v};
+ const motor=createMotor(bot,permissions,{clock:()=>now}),task={kind:'expedition',safe_walk:true,strict_ground:true,waypoints:[[.5,70.1,.5]]};
+ const sensed={...safe,canWalk:()=>false,canStepDown:()=>true,doorway:{id:'0,70,0',axis:'z',plane:.5,center:.5,open:true,y:70,descent:true}};
+ motor.command(0,task,sensed,0);now=50;motor.tick();assert.equal(controls.forward,true);assert.equal(!!controls.sneak,false);
+ motor.command(0,task,{...sensed,canStepDown:()=>false},0);now=100;motor.tick();assert.equal(controls.forward,false);
+});
+
 test('a verified descending terrace checks the immediate landing rather than the following stair',()=>{
  const {Vec3}=require('vec3'),{proximity}=require('../controller/perception');let now=0;const controls={};
  const bot={entity:{position:new Vec3(.5,64,-.16),yaw:0,pitch:0,onGround:true,velocity:new Vec3(0,0,0)},players:{},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,blockAt(p){const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z),floor=64+Math.min(0,z);return {name:y<floor?'stone':'air',position:new Vec3(x,y,z),boundingBox:y<floor?'block':'empty'};}};

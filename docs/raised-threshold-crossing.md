@@ -23,3 +23,20 @@ Validation:
 
 The teacher wall-placement refusal observed in the same check is a separate
 remaining issue; this change does not claim to resolve it.
+
+## Stepping down on exit
+
+A later teacher run exposed the complementary exit case: doorway alignment
+owned movement while the route still targeted the sill at door height. The
+strict safety gate consequently rejected the lower ground outside, even though
+the route had already checked a safe one-block landing.
+
+The route now explicitly marks that next lower landing on its doorway
+descriptor. Crossing can use the existing one-block descent probe, and the
+motor preserves that permission through its strict safety gate. An absent,
+level or deeper landing does not authorize this behavior. Clearance, hazard
+and landing probes still stop unsafe movement.
+
+The native fixture now tests both entry and exit. The previous controller
+entered but froze at the exit for 20 seconds. The fixed controller entered
+in 0.9 seconds and stepped down outside in 2.0 seconds at full health.
