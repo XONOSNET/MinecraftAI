@@ -66,3 +66,22 @@ test('ordinary doors stay upright; crouching is reserved for real low clearance'
  const normal=createDoorway().update(base,sensed(),p,-Math.PI/2,0,permissions);assert.equal(normal.forward,true);assert.equal(normal.sneak,false);
  const low=createDoorway().update(base,sensed(door,(_yaw,_distance,height)=>height<1.5),p,-Math.PI/2,0,permissions);assert.equal(low.forward,true);assert.equal(low.sneak,true);assert.match(low.label,/low doorway/);
 });
+
+test('landing centered on an open raised threshold crosses without backing off the porch',()=>{
+ for(const axis of ['x','z'])for(const side of [-1,1]){
+  const c=createDoorway(),d={...door,axis},p={x:d.center,y:d.y,z:d.center};p[axis]=d.plane+side*.37;
+  const forwardYaw=axis==='x'?side*Math.PI/2:side===-1?Math.PI:0;
+  const s=sensed(d,heading=>Math.abs(Math.atan2(Math.sin(heading-forwardYaw),Math.cos(heading-forwardYaw)))<.1);
+  const a=c.update(base,s,p,forwardYaw,0,permissions);
+  assert.equal(a.forward,true);assert.match(a.label,/crossing doorway/);assert.equal(a.sneak,false);
+  assert.ok(Math.abs(Math.atan2(Math.sin(a.targetYaw-forwardYaw),Math.cos(a.targetYaw-forwardYaw)))<.1);
+ }
+});
+
+test('threshold shortcut keeps obstruction checks and does not cross a closed door',()=>{
+ const p={x:.13,y:181,z:door.center};
+ const blocked=createDoorway().update(base,sensed(door,()=>false),p,-Math.PI/2,0,permissions);
+ assert.equal(blocked.forward,false);
+ const closed=createDoorway().update(base,sensed({...door,open:false}),p,Math.PI/2,0,permissions);
+ assert.equal(closed.targetYaw,Math.PI/2);assert.match(closed.label,/lining up/);
+});
