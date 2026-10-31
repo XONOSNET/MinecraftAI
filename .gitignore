@@ -8,3 +8,10 @@ backups/
 checkpoints/
 __pycache__/
 .pytest_cache/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
