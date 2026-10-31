@@ -163,7 +163,7 @@ def test_camera_uses_native_display_interpolation(tmp_path):
     o.start({'player':'Xonosnet','target':'LabAI0','view':'orbit'},['Xonosnet'])
     o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':{'connected':True,'last_seen':100,'entity_id':1}},True)
     assert any('summon minecraft:item_display' in c and 'teleport_duration:0' in c and 'Rotation:[' in c for c in commands)
-    assert any('data merge entity' in c and 'teleport_duration:2' in c for c in commands)
+    assert any('data merge entity' in c and 'teleport_duration:4' in c for c in commands)
     assert not any('armor_stand' in c for c in commands)
 
 
@@ -238,7 +238,7 @@ def test_angled_cameras_aim_at_fixed_torso_height(view):
 @pytest.mark.parametrize('view',['side','trail'])
 def test_camera_bearing_ignores_head_and_tracks_travel(tmp_path,view):
     import math
-    commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:100,settle_delay=0)
+    now=[100.];commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:now[0],settle_delay=0)
     o.start({'player':'Xonosnet','target':'LabAI0','view':view},['Xonosnet'])
     a={'connected':True,'last_seen':100,'entity_id':1,'position':[0,181,0],'run':'one','yaw':0}
     def tick():
@@ -248,11 +248,11 @@ def test_camera_bearing_ignores_head_and_tracks_travel(tmp_path,view):
     a.update(yaw=math.pi,pitch=1.2)
     assert tick()==initial
     assert 'rotated as' not in initial and '^' not in initial
-    a['position']=[0,181,1]
+    a['position']=[0,181,1];now[0]+=.05
     tick();s=o.sessions['Xonosnet']
     assert s['travel_heading']==math.pi/2 and 0<s['camera_heading']<=.025
-    for _ in range(70):tick()
-    assert s['camera_heading']==pytest.approx(math.pi/2)
+    for _ in range(100):now[0]+=.05;tick()
+    assert s['camera_heading']==pytest.approx(math.pi/2,abs=.002)
     a['position']=[100,181,0];tick()
     assert s['camera_heading']==0  # Arena teleports are not movement bearings.
 
@@ -322,7 +322,38 @@ def test_action_camera_is_continuous_bounded_and_cycles_all_shots():
     assert seen=={s[0] for s in ACTION_SHOTS}
     for boundary in range(12,193,12):
         a=action_pose(7,4,boundary-.001)[:3];b=action_pose(7,4,boundary+.001)[:3]
-        assert math.dist(a,b)<.001
+        assert math.dist(a,b)<.004
+
+
+def test_action_camera_keeps_continuous_velocity_through_shots_and_loop():
+    from lab.observers import action_pose
+    import math
+    epsilon=.001
+    for distance,height in ((3,2),(7,4),(16,12)):
+        for boundary in range(12,193,12):
+            a=action_pose(distance,height,boundary-epsilon)[:3]
+            b=action_pose(distance,height,boundary)[:3]
+            c=action_pose(distance,height,boundary+epsilon)[:3]
+            before=[(y-x)/epsilon for x,y in zip(a,b)]
+            after=[(y-x)/epsilon for x,y in zip(b,c)]
+            assert math.dist(before,after)<.003
+            assert math.hypot(before[0],before[2])>.1
+
+
+def test_camera_heading_eases_in_and_out_without_overshoot_or_long_wrap():
+    from lab.observers import smooth_heading
+    import math
+    heading=velocity=0;steps=[]
+    for _ in range(200):
+        previous=heading;heading,velocity=smooth_heading(heading,math.pi/2,velocity,.05)
+        steps.append(heading-previous)
+        assert 0<=heading<=math.pi/2 and abs(velocity)<=.8
+    assert steps[0]<steps[5] and steps[-1]<steps[5]/100
+    assert heading==pytest.approx(math.pi/2,abs=.0001)
+    wrapped,velocity=smooth_heading(math.pi-.02,-math.pi+.02,0,.05)
+    assert math.pi-.02<wrapped<math.pi+.02
+    assert smooth_heading(0,1,0,0)==(0,0)
+    assert abs(smooth_heading(0,math.pi/2,0,30)[0])<=.2
 
 def test_active_cycle_skips_finished_and_holds_last_bot(tmp_path):
     now=[100.];o=Observers(tmp_path/'camera',lambda c:None,lambda:now[0],settle_delay=0)

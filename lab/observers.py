@@ -9,7 +9,7 @@ from .config import is_agent, EPISODES_PER_AGENT
 
 VIEWS=('first_person','trail','side','overhead','orbit','action','stationary','cycle')
 DIMENSIONS=('minecraft:overworld','minecraft:the_nether','minecraft:the_end')
-CAMERA_INTERPOLATION_TICKS=2
+CAMERA_INTERPOLATION_TICKS=4
 MODES=('survival','creative','adventure','spectator')
 
 def latest_policy_result(world,history):
@@ -58,15 +58,31 @@ ACTION_SHOTS=(('Chase',-math.pi,1,.9),('Right tracking',-math.pi/2,.85,.7),
               ('Wide orbit',math.pi,1.4,1.4),('Left tracking',3*math.pi/2,.9,.7),
               ('Low front',2*math.pi,.75,.6),('High establishing',5*math.pi/2,1.3,1.8))
 
+def framing_spline(values,index,u):
+    a,b,c,d=(values[(index+i)%len(values)] for i in (-1,0,1,2))
+    def tangent(left,right):return 2*left*right/(left+right) if left*right>0 else 0
+    m=tangent(b-a,c-b);n=tangent(c-b,d-c)
+    return (2*u**3-3*u*u+1)*b+(u**3-2*u*u+u)*m+(-2*u**3+3*u*u)*c+(u**3-u*u)*n
+
+
+def smooth_heading(heading,target,velocity,dt):
+    dt=max(0,min(.25,dt))
+    delta=(target-heading+math.pi)%(2*math.pi)-math.pi
+    desired=max(-.8,min(.8,delta/.5))
+    velocity+=(desired-velocity)*(1-math.exp(-dt/.18))
+    step=velocity*dt
+    if delta*step>=0 and abs(step)>=abs(delta):return heading+delta,0
+    return heading+step,velocity
+
+
 def action_pose(distance,height,elapsed,heading=0):
     phase=max(0,elapsed)/12;index=int(phase)%len(ACTION_SHOTS);u=phase%1
-    a=ACTION_SHOTS[index];b=ACTION_SHOTS[(index+1)%len(ACTION_SHOTS)]
-    t=u*u*(3-2*u)
-    delta=(b[1]-a[1]+math.pi)%(2*math.pi)-math.pi
-    angle=heading+a[1]+delta*t
-    radius=max(1,min(16,distance*(a[2]+(b[2]-a[2])*t)))
-    elevation=max(3.2,min(12,height*(a[3]+(b[3]-a[3])*t)))
-    return math.cos(angle)*radius,elevation,math.sin(angle)*radius,a[0]
+    # Keep travelling through shot boundaries instead of braking to zero at
+    # each keyframe. Monotone framing splines stay within the allowed range.
+    angle=heading-math.pi+phase*math.pi/2
+    radius=framing_spline([max(1,min(16,distance*s[2])) for s in ACTION_SHOTS],index,u)
+    elevation=framing_spline([max(3.2,min(12,height*s[3])) for s in ACTION_SHOTS],index,u)
+    return math.cos(angle)*radius,elevation,math.sin(angle)*radius,ACTION_SHOTS[index][0]
 
 def camera_move(target,tag,view,distance,height,elapsed,heading=0):
     if view=='stationary':return f'execute at {target} run rotate @e[tag={tag},limit=1] facing ~ ~0.9 ~'
@@ -432,7 +448,7 @@ class Observers:
             # Travel bearing is independent of the bot's head/look rotation.
             motion_key=(target,*token,agent.get('run'))
             if list(motion_key)!=s.get('motion_key') or jumped:
-                s.update(motion_key=list(motion_key),motion_anchor=copy.deepcopy(position),camera_heading=0,travel_heading=0)
+                s.update(motion_key=list(motion_key),motion_anchor=copy.deepcopy(position),camera_heading=0,travel_heading=0,heading_velocity=0,heading_at=self.clock())
             anchor=s.get('motion_anchor')
             if position is not None and anchor is not None:
                 dx,dz=position[0]-anchor[0],position[2]-anchor[2]
@@ -440,8 +456,8 @@ class Observers:
                     s.update(travel_heading=math.atan2(dz,dx),motion_anchor=copy.deepcopy(position))
             elif position is not None:s['motion_anchor']=copy.deepcopy(position)
             heading=s.get('camera_heading',0)
-            delta=(s.get('travel_heading',heading)-heading+math.pi)%(2*math.pi)-math.pi
-            s['camera_heading']=heading+max(-.025,min(.025,delta))
+            s['camera_heading'],s['heading_velocity']=smooth_heading(heading,s.get('travel_heading',heading),s.get('heading_velocity',0),self.clock()-s.get('heading_at',self.clock()-.05))
+            s['heading_at']=self.clock()
             s.update(last_target_position=copy.deepcopy(position),follow_run=agent.get('run'))
             camera,ret=self.tags(s)
             if not s['attached']:
