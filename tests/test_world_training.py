@@ -1,9 +1,9 @@
 from lab.world_training import WorldTraining
 
 
-def fixture(tmp_path):
+def fixture(tmp_path,copy_batch_size=1):
     commands=[];clock=[0];log=tmp_path/'console.log';log.write_text('')
-    world=WorldTraining(tmp_path/'world.json',commands.append,log,lambda:clock[0])
+    world=WorldTraining(tmp_path/'world.json',commands.append,log,lambda:clock[0],copy_batch_size=copy_batch_size)
     return world,commands,clock,log
 
 
@@ -12,7 +12,7 @@ def acknowledge_tile(world,clock,log):
     # Feed only real per-command successes, until this tile reaches cleanup.
     while world.job and world.job['phase']!='cleaning':
         if world.job['phase']=='waiting':
-            with log.open('a') as stream:stream.write(f"Successfully cloned 4096 blocks\nSet [lab_world] for #world_ack to {world.job['serial']}\n")
+            with log.open('a') as stream:stream.write('Successfully cloned 4096 blocks\n'*world.job['batch_count']+f"Set [lab_world] for #world_ack to {world.job['serial']}\n")
         else:clock[0]+=.1
         world.tick()
 
@@ -31,7 +31,7 @@ def test_memory_hold_preserves_inflight_copy_and_excludes_wait_from_timeout(tmp_
     assert not world.resume_preparation('wrong-run')
     assert world.resume_preparation(run)
     world.tick()
-    assert world.session['run']==run and world.job is job and job['phase']=='copying'
+    assert world.session['run']==run and world.job is job and job['phase']=='waiting'
     assert world.session['copy_stats']['acknowledged']==1
     assert world.session['copy_stats']['max_ack_seconds']<1
     clock[0]+=.1;world.tick()
@@ -310,13 +310,13 @@ def test_pipeline_fast_reset_keeps_only_eight_chunks_loaded(tmp_path):
     assert len(world.tile_chunks(world.job)|world.tile_chunks(world.preloaded))==8
 
 
-def test_copy_slice_ack_is_exact_and_cannot_queue_a_burst(tmp_path):
+def test_copy_slice_ack_is_exact_and_next_window_requires_a_new_ack(tmp_path):
     world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.tick();clock[0]=1;world.tick()
     log.write_text('Set [lab_world] for #world_ack to 10\n')
     world.tick();assert world.job['phase']=='waiting' and world.session['copy_stats']['acknowledged']==0
     with log.open('a') as stream:stream.write('Successfully cloned 4096 blocks\nSet [lab_world] for #world_ack to 1\n')
-    world.tick();assert world.job['phase']=='copying'
-    world.tick();assert sum(c.startswith('clone ') for c in commands)==1
+    world.tick();assert world.job['phase']=='waiting'
+    world.tick();assert sum(c.startswith('clone ') for c in commands)==2
     clock[0]+=.06;world.tick();assert sum(c.startswith('clone ') for c in commands)==2
 
 
@@ -339,3 +339,56 @@ def test_stalled_slice_stops_without_queuing_more_clones_and_releases_prefetch(t
     clock[0]=22;world.tick();assert world.session['phase']=='paused'
     assert sum(c.startswith('clone ') for c in commands)==1
     assert sum(c.startswith('forceload remove') for c in commands)==4
+
+
+def test_production_copy_window_is_two_small_clones_with_one_ordered_fence(tmp_path):
+    world,commands,clock,log=fixture(tmp_path,2);world.start({},['LabAI0']);world.tick();clock[0]=1;world.tick()
+    assert world.job['batch_count']==2
+    assert sum(c.startswith('clone ') for c in commands)==2
+    assert sum(c.startswith('scoreboard players set #world_ack') for c in commands)==1
+    # No acknowledgement means no additional work can be queued.
+    clock[0]=5;world.tick();assert sum(c.startswith('clone ') for c in commands)==2
+    log.write_text('Successfully cloned 4096 blocks\n'*2+'Set [lab_world] for #world_ack to 1\n')
+    world.tick()
+    assert world.session['copy_stats']['acknowledged']==2
+    assert world.session['copy_stats']['sent']==4
+    assert sum(c.startswith('clone ') for c in commands)==4
+    assert world.session['progress']>0
+    assert 'slices verified' in world.session['message']
+    world.tick();assert sum(c.startswith('clone ') for c in commands)==4
+
+
+def test_two_slice_window_rejects_partial_success_and_never_deploys(tmp_path):
+    world,commands,clock,log=fixture(tmp_path,2);world.start({},['LabAI0']);world.tick();clock[0]=1;world.tick()
+    log.write_text('Successfully cloned 4096 blocks\nThat position is not loaded\nSet [lab_world] for #world_ack to 1\n')
+    world.tick()
+    assert world.session['phase']=='paused' and not world.saved['templates']
+    assert world.session['copy_stats']['acknowledged']==0
+    assert sum(c.startswith('clone ') for c in commands)==2
+    assert sum(c.startswith('forceload remove') for c in commands)==4
+    assert not any(c.startswith('clear LabAI') for c in commands)
+
+
+def test_two_slice_windows_copy_full_band_once_including_short_last_window(tmp_path):
+    for width,band in [(16,[-64,192]),(32,[62,126]),(16,[60,83])]:
+        folder=tmp_path/f'{width}-{band[0]}';folder.mkdir()
+        world,commands,clock,log=fixture(folder,2);world.start({},['LabAI0'])
+        world.session['copy_y']=band;world.jobs=[(16384,17408,16384,width)];world.total=1
+        world.tick();clock[0]=1;world.tick();acknowledge_tile(world,clock,log)
+        intervals=[]
+        for command in commands:
+            if command.startswith('clone '):
+                xyz=list(map(int,command.split()[1:10]));intervals.append((xyz[1],xyz[4]+1))
+                assert (xyz[3]-xyz[0]+1)*(xyz[4]-xyz[1]+1)*(xyz[5]-xyz[2]+1)<=4096
+        assert intervals[0][0]==band[0] and intervals[-1][1]==band[1]
+        assert all(a[1]==b[0] for a,b in zip(intervals,intervals[1:]))
+        assert world.session['copy_stats']['acknowledged']==len(intervals)
+        assert world.session['copy_stats']['sent']==len(intervals)
+        assert world.session['progress']==100
+
+
+def test_copy_default_and_limits_are_bounded(tmp_path):
+    import pytest
+    assert WorldTraining(tmp_path/'world.json',lambda cmd:None,tmp_path/'log').copy_batch_size==2
+    for invalid in [0,3,True,1.5]:
+        with pytest.raises(ValueError):WorldTraining(tmp_path/'world.json',lambda cmd:None,tmp_path/'log',copy_batch_size=invalid)

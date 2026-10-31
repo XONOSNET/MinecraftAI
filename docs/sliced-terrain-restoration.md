@@ -1,5 +1,10 @@
 # Pacing terrain copies after a Minecraft watchdog stall
 
+Historical rollout notes below describe the original one-slice pacing. The
+current bounded two-slice window is documented in
+[terrain-copy-window.md](terrain-copy-window.md): the 4,096-block per-command
+limit remains, with at most 8,192 blocks in flight and every copy verified.
+
 The prior Java watchdog dump placed the server thread inside CloneCommands.clone -> Level.setBlock -> ServerLevel.sendBlockUpdated. Restoration previously submitted four 64-block-high clone commands in a burst for a full-height 16-wide tile (65,536 blocks total), or a 32,768-block command for the fast-reset path. That evidence identifies the in-progress operation, not a definitive internal Minecraft failure mechanism.
 
 Restoration now sends a single clone of at most 4,096 blocks, waits for its own successful clone response plus exact scoreboard serial acknowledgement, and yields at least 50 ms before the next slice. Tile width determines slice height; intervals cover the original vertical band without gaps or overlap. The next tile can still preload. Source/destination scope, model data, item sweeps, boundaries and chunk-ticket cleanup remain unchanged.

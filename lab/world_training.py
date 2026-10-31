@@ -33,9 +33,12 @@ SCENARIOS=[dict(id=i,name=name,description=description,spread=spread) for i,(nam
 
 
 class WorldTraining(SurvivalLessons):
-    def __init__(self,path,command,logpath,clock=time.time,staging=None,persist=None):
+    def __init__(self,path,command,logpath,clock=time.time,staging=None,persist=None,copy_batch_size=2):
         self.path=Path(path);self.command=command;self.logpath=Path(logpath);self.clock=clock
         self.staging=staging;self.persist=persist
+        # At most two small clones per acknowledgement, never a whole chunk burst.
+        if type(copy_batch_size) is not int or not 1<=copy_batch_size<=2:raise ValueError('Terrain copy batch must contain one or two slices.')
+        self.copy_batch_size=copy_batch_size
         self.saved=json.loads(self.path.read_text(encoding='utf-8')) if self.path.exists() else {'templates':{},'history':[]}
         self.session=None;self.jobs=[];self.job=None;self.preloaded=None;self.offset=0;self.serial=0;self.ui_at=0;self.ui_offset=self.logpath.stat().st_size if self.logpath.exists() else 0
 
@@ -171,16 +174,21 @@ class WorldTraining(SurvivalLessons):
     def copy_slice(self,job):
         session=self.session
         y=job.get('next_y',session['copy_y'][0])
-        # Bound a single main-thread operation to 4096 blocks. Wider fast-reset
-        # tiles use shorter vertical slices instead of larger command bursts.
-        height=min(4096//(job['width']*16),session['copy_y'][1]-y)
+        # Bound each operation to 4096 blocks and the entire in-flight window
+        # to 8192. Share one ordered fence, verifying every individual success.
+        commands=[]
+        for _ in range(self.copy_batch_size):
+            if y>=session['copy_y'][1]:break
+            height=min(4096//(job['width']*16),session['copy_y'][1]-y)
+            commands.append(f"clone {job['source']} {y} {job['z']} {job['source']+job['width']-1} {y+height-1} {job['z']+15} {job['dest']} {y} {job['z']} replace force")
+            y+=height
         self.offset=self.logpath.stat().st_size if self.logpath.exists() else 0
         self.serial+=1
-        job.update(phase='waiting',at=self.clock(),serial=self.serial,log='',next_y=y+height)
-        self.command(f"clone {job['source']} {y} {job['z']} {job['source']+job['width']-1} {y+height-1} {job['z']+15} {job['dest']} {y} {job['z']} replace force")
+        job.update(phase='waiting',at=self.clock(),serial=self.serial,log='',next_y=y,batch_count=len(commands))
+        for command in commands:self.command(command)
         self.command(f'scoreboard players set #world_ack lab_world {self.serial}')
-        stats=session.setdefault('copy_stats',dict(block_limit=4096,sent=0,acknowledged=0,max_ack_seconds=0))
-        stats['sent']+=1
+        stats=session.setdefault('copy_stats',dict(block_limit=4096,inflight_block_limit=8192,batch_size=self.copy_batch_size,sent=0,acknowledged=0,batches=0,max_ack_seconds=0))
+        stats['sent']+=len(commands);stats['batches']+=1
 
     def clear_tile_items(self,job):
         # Entity selectors see loaded chunks only. Keep both tiles force-loaded
@@ -273,19 +281,28 @@ class WorldTraining(SurvivalLessons):
             if j['phase']=='loading' and self.clock()-j['at']>=.8:
                 self.clear_tile_items(j)
                 self.copy_slice(j);return
-            if j['phase']=='copying' and self.clock()-j['at']>=.05:
-                self.copy_slice(j);return
             if j['phase']=='waiting':
                 text,self.offset=self._read(self.offset);j['log']+=text
                 if re.search(r'#world_ack to '+str(j['serial'])+r'(?!\d)',j['log']):
-                    # Exactly one slice is in flight. An acknowledgement alone
+                    # Exactly one bounded batch is in flight. An acknowledgement alone
                     # cannot stand in for successful block copying.
-                    if j['log'].count('Successfully cloned')!=1:
+                    if j['log'].count('Successfully cloned')!=j['batch_count']:
                         self.stop('Terrain copy failed; trial stopped before deploying bots. Inspect the Minecraft console.');return
-                    stats=s['copy_stats'];stats['acknowledged']+=1
+                    stats=s['copy_stats'];stats['acknowledged']+=j['batch_count']
                     stats['max_ack_seconds']=round(max(stats['max_ack_seconds'],self.clock()-j['at']),3)
+                    completed=self.total-len(self.jobs)-1
+                    fraction=(j['next_y']-s['copy_y'][0])/(s['copy_y'][1]-s['copy_y'][0])
+                    s['progress']=round(100*(completed+fraction)/self.total,1)
+                    elapsed=max(.001,self.clock()-s['started_at']-s.get('preparation_wait_seconds',0))
+                    remaining=max(0,round(elapsed*(100-s['progress'])/s['progress'])) if s['progress'] else None
+                    stats.update(elapsed_seconds=round(elapsed,1),estimated_seconds_left=remaining,slices_per_second=round(stats['acknowledged']/elapsed,2))
+                    label='Restoring saved natural terrain' if s['phase']=='restoring' else 'Saving pristine natural terrain'
+                    eta=f' · estimated {remaining//60}m {remaining%60:02d}s left' if remaining is not None and s['progress']>=2 else ''
+                    s['message']=f"{label} · {s['progress']}% · {stats['acknowledged']} slices verified{eta}"
                     if j['next_y']<s['copy_y'][1]:
-                        j.update(phase='copying',at=self.clock());return
+                        # The fence has drained the prior commands. Send the next
+                        # bounded window now, without an extra Python tick of idle.
+                        self.copy_slice(j);return
                     x0,x1,z0,z1=s['bounds'];xx=min(j['source'],j['dest']);zz=j['z']
                     end=xx+j['width']-1
                     if xx==x0:self.command(f'fill {xx} -64 {zz} {xx} 191 {zz+15} minecraft:glass')
