@@ -39,7 +39,7 @@ def select_world(baseline,candidate):
 
 class WorldLearning:
     def __init__(self,path,hooks,clock=time.time):
-        self.path=Path(path);self.h=hooks;self.clock=clock
+        self.path=Path(path);self.h=hooks;self.clock=clock;self.preparation_resume=None
         self.state=json.loads(self.path.read_text(encoding='utf-8')) if self.path.exists() else dict(enabled=False,phase='paused',round=0,history=[],restore_pending=False)
         self.state.setdefault('restore_pending',False)
         if self.state.get('enabled'):self.phase('recovering','Recovering saved learning state before beginning a fresh comparison.')
@@ -71,8 +71,13 @@ class WorldLearning:
 
     def suspend(self,cause='server'):
         if self.state.get('enabled'):
+            self.preparation_resume=None
+            if cause=='memory' and self.state['phase'] in ('baseline','demonstrating','evaluating') and self.h.get('hold_preparation',lambda run:False)(self.state.get('run')):
+                self.preparation_resume=(self.state['run'],self.state['phase'])
             self.state['recovery_cause']=cause
-            self.phase('recovering','Waiting for system memory to fall below 84%; protected models will be restored before learning resumes.' if cause=='memory' else 'Minecraft is restarting. Protected models will be restored before learning resumes.')
+            self.phase('recovering','Waiting for system memory to fall below 84%; the same terrain preparation and comparison will resume.' if self.preparation_resume else 'Waiting for system memory to fall below 84%; protected models will be restored before learning resumes.' if cause=='memory' else 'Minecraft is restarting. Protected models will be restored before learning resumes.')
+            return self.preparation_resume is not None
+        return False
 
     def begin(self,driver,phase,layout):
         options=dict(self.state['options'],driver=driver,loop=False,layout=layout)
@@ -97,6 +102,9 @@ class WorldLearning:
         if not self.h['ready']():return
         if s['phase']=='recovering':
             if job['status'] in ('running','cancelling'):return
+            continuation=self.preparation_resume;self.preparation_resume=None
+            if continuation and continuation[0]==s.get('run') and self.h.get('resume_preparation',lambda run:False)(continuation[0]):
+                self.phase(continuation[1],'Memory recovered. Resuming the same terrain preparation and comparison from its saved progress.');return
             if s.get('restore_pending'):self.h['restore']();s['restore_pending']=False
             self.phase('waiting','Recovery complete. Beginning a fresh saved-model evaluation.');return
         if s['phase']=='waiting':

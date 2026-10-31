@@ -188,9 +188,31 @@ class WorldTraining(SurvivalLessons):
         for x in (job['source'],job['dest']):
             self.command(f"kill @e[type=minecraft:item,x={x},y=-64,z={job['z']},dx={job['width']-1},dy=383,dz=15]")
 
+    def hold_preparation(self,run):
+        s=self.session
+        if not s or s['run']!=run or not s['active'] or s['phase'] not in ('snapshotting','restoring'):return False
+        if not s.get('memory_hold'):
+            s['memory_hold']=dict(at=self.clock(),message=s['message'])
+            s['message']=f"Waiting for system memory below 84%; terrain preparation held at {s['progress']}%. The same save will resume."
+        return True
+
+    def resume_preparation(self,run):
+        s=self.session
+        if not s or s['run']!=run or not s['active'] or not s.get('memory_hold'):return False
+        held=s.pop('memory_hold');elapsed=self.clock()-held['at']
+        # A clone already sent can finish during the hold. Keep its log cursor
+        # and acknowledgement, but exclude the hold from command deadlines.
+        for job in (self.job,self.preloaded):
+            if job:job['at']+=elapsed
+        for key in ('fauna_at','fauna_wait'):
+            if key in s:s[key]+=elapsed
+        s['preparation_wait_seconds']=s.get('preparation_wait_seconds',0)+elapsed
+        s['message']=held['message']
+        return True
+
     def tick(self):
         s=self.session
-        if not s:return
+        if not s or s.get('memory_hold'):return
         if s['phase'] not in ('snapshotting','restoring') and not s.get('first_night',{}).get('hostiles') and self.clock()-s.get('sweep_at',0)>1:
             x0,x1,z0,z1=s['bounds']
             for mob in ('phantom',*HOSTILES):
@@ -484,6 +506,7 @@ class WorldTraining(SurvivalLessons):
         self.jobs=[];self.job=None;self.preloaded=None
         self.cleanup_survival()
         if self.session:
+            self.session.pop('memory_hold',None)
             if self.session['active']:
                 for name in self.session['bots']:
                     try:self.park([name])

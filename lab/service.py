@@ -385,7 +385,9 @@ def watchdog():
         with lock:
             if psutil.virtual_memory().percent>90 and not curriculum.state['enabled']:
                 if world_learning.state.get('enabled') and world_learning.state.get('phase')!='recovering':
-                    world_learning.suspend('memory');world_training.stop('Waiting for system memory to recover.');training_jobs.cancel()
+                    held=world_learning.suspend('memory')
+                    if not held:world_training.stop('Waiting for system memory to recover.')
+                    training_jobs.cancel()
                 globals()['mode']='paused';event('memory_pause',{})
             lifecycle=server_control.snapshot()
             if lifecycle['ready'] and not lifecycle['busy']:practice_protection.tick(server.pid,time.time())
@@ -1077,6 +1079,7 @@ def world_learning_switch(action):
     elif action['mode']=='world':_begin_world(action['data'])
 
 world_learning=WorldLearning('data/world-learning.json',{
+    'hold_preparation':world_training.hold_preparation,'resume_preparation':world_training.resume_preparation,
     'stop_world':world_training.stop,'cancel':training_jobs.cancel,'job':training_jobs.snapshot,
     'world':lambda:world_training.session,'begin':_begin_world,'train':world_train_skill,
     'protect':protect_world_models,'restore':restore_world_models,'review':review_world_models,

@@ -17,6 +17,45 @@ def acknowledge_tile(world,clock,log):
         world.tick()
 
 
+def test_memory_hold_preserves_inflight_copy_and_excludes_wait_from_timeout(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0'])
+    world.tick();clock[0]=1;world.tick()
+    run=world.session['run'];job=world.job;queued=list(world.jobs);preloaded=world.preloaded
+    world.session['progress']=12.5
+    assert job['phase']=='waiting' and world.hold_preparation(run)
+    sent=len(commands);clock[0]+=300
+    log.write_text(f"Successfully cloned 4096 blocks\nSet [lab_world] for #world_ack to {job['serial']}\n")
+    world.tick()
+    assert len(commands)==sent and world.jobs==queued and world.preloaded is preloaded
+    assert world.session['progress']==12.5 and world.saved['templates']=={}
+    assert not world.resume_preparation('wrong-run')
+    assert world.resume_preparation(run)
+    world.tick()
+    assert world.session['run']==run and world.job is job and job['phase']=='copying'
+    assert world.session['copy_stats']['acknowledged']==1
+    assert world.session['copy_stats']['max_ack_seconds']<1
+    clock[0]+=.1;world.tick()
+    assert job['next_y']==-32 and world.session['copy_stats']['sent']==2
+
+
+def test_memory_hold_covers_fauna_ack_and_stop_revokes_resume(tmp_path):
+    world,commands,clock,log=fixture(tmp_path)
+    world.start({'mission':'first_night','night_level':2},['LabAI0'])
+    world.jobs=[];s=world.session
+    s.update(fauna_queue=[],fauna_at=-5,fauna_ack=17,fauna_wait=0,fauna_log='')
+    assert world.hold_preparation(s['run'])
+    clock[0]=120;assert world.resume_preparation(s['run'])
+    world.tick();assert s['active'] and s['fauna_wait']==120
+    assert world.hold_preparation(s['run'])
+    world.stop();assert not world.resume_preparation(s['run']) and 'memory_hold' not in s
+
+
+def test_running_trials_cannot_resume_as_preparation(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0'])
+    world.session.update(phase='running',trial_at=0)
+    assert not world.hold_preparation(world.session['run'])
+
+
 def test_world_protection_includes_zombie_villagers_and_keeps_tagged_combat_mobs(tmp_path):
     world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0'])
     world.session.update(phase='running',trial_at=0);clock[0]=2;commands.clear();world.tick()

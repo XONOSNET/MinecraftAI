@@ -24,6 +24,7 @@ def first_night_label(world,last_policy=None):
     phase=world['phase'];total=len(world['bots'])
     if phase in ('snapshotting','restoring'):
         detail=('Saving terrain' if phase=='snapshotting' else 'Restoring terrain')+' '+str(round(world.get('progress',0)))+'%'
+        if world.get('memory_hold'):detail+=' | Waiting for memory'
     elif phase!='running':detail=phase.replace('_',' ').title()
     else:
         done=sum(r.get('state')=='complete' for r in world['results'].values())

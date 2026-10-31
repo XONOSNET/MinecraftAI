@@ -73,6 +73,49 @@ def test_restart_restores_unvalidated_bundle_before_starting_another_test(tmp_pa
     recovered.suspend();assert recovered.state['recovery_cause']=='server' and 'Minecraft' in recovered.state['message']
 
 
+def test_memory_preparation_resumes_same_candidate_without_restoring_weights(tmp_path):
+    m,lab,clock=fixture(tmp_path);reach_candidate(m,lab)
+    run=m.state['run'];round=m.state['round'];weights=lab.weights
+    m.h['hold_preparation']=lambda requested:requested==run
+    resumed=[];m.h['resume_preparation']=lambda requested:resumed.append(requested) or True
+    assert m.suspend('memory')
+    lab.ready=False;m.tick();assert not resumed and m.state['phase']=='recovering'
+    lab.ready=True;m.tick()
+    assert resumed==[run] and m.state['phase']=='evaluating'
+    assert m.state['run']==run and m.state['round']==round
+    assert lab.weights==weights and lab.restores==0 and m.state['restore_pending']
+    lab.finish(0);m.tick();assert lab.restores==1
+
+
+def test_server_restart_or_lost_preparation_discards_memory_continuation(tmp_path):
+    for server_restart in (False,True):
+        root=tmp_path/str(server_restart);root.mkdir()
+        m,lab,clock=fixture(root);reach_candidate(m,lab)
+        m.h['hold_preparation']=lambda run:True
+        m.h['resume_preparation']=lambda run:False
+        assert m.suspend('memory')
+        if server_restart:m.suspend('server')
+        m.tick();assert m.state['phase']=='waiting' and lab.restores==1
+
+
+def test_service_restart_never_uses_persisted_memory_continuation(tmp_path):
+    m,lab,clock=fixture(tmp_path);reach_candidate(m,lab)
+    m.h['hold_preparation']=lambda run:True
+    m.h['resume_preparation']=lambda run:True
+    m.suspend('memory')
+    recovered=WorldLearning(m.path,lab.hooks(),lambda:clock[0])
+    recovered.tick();assert lab.restores==1 and recovered.state['phase']=='waiting'
+
+
+def test_user_stop_during_memory_hold_never_resumes_trial(tmp_path):
+    m,lab,clock=fixture(tmp_path);reach_candidate(m,lab)
+    m.h['hold_preparation']=lambda run:True
+    resumed=[];m.h['resume_preparation']=lambda run:resumed.append(run) or True
+    m.suspend('memory');m.stop();m.tick();m.tick()
+    assert not resumed and not m.state['enabled'] and m.state['phase']=='paused'
+    assert lab.restores==1 and not lab.world['active']
+
+
 def test_failed_training_and_absent_fresh_examples_never_replace_champion(tmp_path):
     m,lab,clock=fixture(tmp_path);m.tick();lab.finish(0);m.tick();lab.finish(0);m.tick()
     assert m.state['phase']=='cooldown' and lab.weights==1
