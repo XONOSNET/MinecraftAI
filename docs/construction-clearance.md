@@ -1,0 +1,11 @@
+# Clear real building obstructions during construction
+
+The evaluated run world-1793419337408926800 stopped LabAI3 when a poppy remained in a wall cell. The old wall loop handled diggable leaves locally but treated other empty-box plants as placeable air; the central placement helper retried against the unchanged poppy. Leaf handling did not consistently apply to doors, furniture or sightline obstructions.
+
+All hut placement now first clears natural obstructions in the bot's own 7-by-7 building volume, up through roof height. It handles leaves, logs, common plants/flowers and stable earth/stone, removing sightline foliage before the intended block. Door placement checks both block cells. Blocks are broken through real survival digging, using carried tools where available; placement still uses inventory items and server acknowledgement. Small offset plants get a clear-corridor reach check because a ray aimed at their cell center can miss their shape. Successful digging refreshes construction progress. Bounded alternate wall stances handle inaccessible clearing angles.
+
+The clearer refuses furniture, completed planks, other plots, unloaded surroundings, nearby liquid/falling-block hazards and anyone's supporting block. It does not bulldoze the whole terrain or fill missing resources. This helper remains shared construction assistance, not evidence that a policy independently learned excavation.
+
+A separate confirmed leave_hut defect used house-floor height for the exterior destination even when the actual ground was one block lower. It now uses the same checked homeApproach as other return/exit navigation. The other stopped bot reported no safe return route to its unfinished floor; this change does not claim to resolve that separate distant-route failure.
+
+Validation: 332 JavaScript tests passed, including clearing and safety checks. An isolated native survival fixture broke and replaced poppy, dirt and ceiling leaves with actual planks; each server-confirmed placement took 0.557s, 1.186s and 1.050s respectively. Three blocks were cleared, health remained 20, and cleanup was verified. Only the separate diagnostic account received test materials; no trial result, model or replay data was written. Evidence: logs/construction-clearance-native.json.

@@ -202,7 +202,7 @@ class HutTeacher{
     if(!remaining.length){this.phase='door';motor.pause();}
     else{
      const q=remaining.find(q=>new Vec3(q.x+.5,q.y+.5,q.z+.5).distanceTo(p.offset(0,1.62,0))<4.2&&reference(bot,q));
-     if(q){motor.pause();const occupied=bot.blockAt(new Vec3(q.x,q.y,q.z));if(occupied?.name.endsWith('_leaves')&&bot.canDigBlock(occupied)){await bot.dig(occupied);return 'Clearing leaves from hut footprint';}if(!occupied||occupied.boundingBox!=='empty')throw Error('Build plot was obstructed; stopped without clearing terrain.');try{await this.place(bot,q,null);this.lastProgress=Date.now();}catch(error){if(!String(error.message).includes('Server refused')||!require('./build_approach').retry(this,bot,q,w.bounds))throw error;this.message='Wall placement refused; checking another safe interior angle';}}
+     if(q){motor.pause();try{await this.place(bot,q,null);this.lastProgress=Date.now();}catch(error){if(!(error.code==='BUILD_OBSTRUCTED'||String(error.message).includes('Server refused'))||!require('./build_approach').retry(this,bot,q,w.bounds))throw error;this.message='Construction obstruction or refused placement; checking another safe interior angle';}}
      else{const q=remaining[0];await this.walk(bot,motor,[this.plot.x+Math.max(-1,Math.min(1,q.x-this.plot.x))+.5,this.plot.y+.1,this.plot.z+Math.max(-1,Math.min(1,q.z-this.plot.z))+.5],state,api,scan,tasks);}
      if(!this.buildApproach)this.message=`Placing hut blocks ${this.built} / ${house.total}`;
     }
@@ -223,8 +223,9 @@ class HutTeacher{
     if(now-this.secureAt>=3000){this.milestone('hut');this.phase=w.mission!=='hut'?'leave_hut':'complete';this.message='Hut verified. '+(w.mission!=='hut'?'Next: gather supplies for a chest and tools.':'Built an intact enclosed hut, closed the door and sheltered for 3 seconds.');}
    }else if(this.phase==='leave_hut'){
     const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-3));
+    const exterior=require('./world_navigation').homeApproach(this.plot,bot);
     if(door?.name.endsWith('_door')&&!door.getProperties().open&&p.z>door.position.z+.5){motor.pause();await bot.activateBlock(door);}
-    else if((Math.hypot(p.x-this.plot.x-.5,p.z-this.plot.z+4.5)>.6||Math.abs(p.y-this.plot.y)>.4))await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z-4.5],state,api,scan,tasks);
+    else if((Math.hypot(p.x-exterior[0],p.z-exterior[2])>.6||Math.abs(p.y-exterior[1])>.4))await this.walk(bot,motor,exterior,state,api,scan,tasks);
     else{motor.pause();this.supplyRun=true;this.grove=w.prepared?(await api('/world/resources',{agent:bot.username})).trees:null;this.resources=[];this.resourceAt=0;this.tree=null;this.treeApproach=null;this.pickup=null;this.ignoredTrees.clear();this.ignoredDrops.clear();this.phase='gather';this.lastProgress=now;this.message='Lesson resources ready: harvest extra wood for chest, tools and stored supplies';}
    }else if(this.phase==='supply_craft'){
     this.timing.mark(this.phase,'crafting');motor.pause();
@@ -342,6 +343,7 @@ class HutTeacher{
  async craft(bot,name,count,table){return crafting.craft(bot,name,count,table);}
  async place(bot,q,name){
   this.timing?.mark(this.phase,'building');
+  await require('./construction_clearance').prepare(this,bot,q,name);
   for(let attempt=0;attempt<2;attempt++){
    await inventorySync.sync(bot);
    const item=bot.inventory.items().find(i=>name?i.name===name:planks(i.name));if(!item)throw Error('No building material available.');
