@@ -3,6 +3,16 @@ const {Vec3}=require('vec3'),house=require('./house'),{standable,route}=require(
 const key=q=>[q.x,q.y,q.z].join(','),same=(a,b)=>a.x===b.x&&a.z===b.z;
 const finished=(b,q)=>b.blockAt(new Vec3(q.x,q.y,q.z))?.name.endsWith('_planks');
 const beside=(p,q)=>!(Math.abs(p.x-q.x-.5)<.85&&Math.abs(p.z-q.z-.5)<.85);
+function returnGoal(t,b,state){
+ const nav=require('./world_navigation'),h=t.plot,front=nav.homeApproach(h,b),occupied=[Math.floor(b.entity.position.x),Math.round(b.entity.position.y),Math.floor(b.entity.position.z)];
+ // An unfinished house has no mandatory doorway. A blocked front marker must
+ // not invalidate reachable, intact ground inside its own cleared plot.
+ if(!b.blockAt(new Vec3(Math.floor(front[0]),Math.round(front[1]),Math.floor(front[2]))))return front;
+ const corners=[[-2,-2],[2,-2],[-2,2],[2,2],[0,0]].map(([x,z])=>[h.x+x+.5,h.y+.1,h.z+z+.5]);
+ corners.sort((a,c)=>new Vec3(...a).distanceTo(b.entity.position)-new Vec3(...c).distanceTo(b.entity.position));
+ const forbidden=q=>(t.campPlots||[]).some(p=>(p.x!==h.x||p.z!==h.z)&&!nav.privatePlotCell(occupied,p)&&nav.privatePlotCell(q,p));
+ return [front,...corners].find(g=>standable(b,Math.floor(g[0]),Math.round(g[1]),Math.floor(g[2]))&&space.clearOfPlayers(b,new Vec3(...g))&&route(b,g,Math.min(192,Math.max(48,Math.ceil(new Vec3(...g).distanceTo(b.entity.position))+16)),8192,true,{bounds:state.world.bounds,reversible:true,forbidden}).reached)||null;
+}
 function stances(t,b,q,tiles,state,used=new Set()){
  const p=b.entity.position;
  // Navigation can arrive 0.4m short of a cell center. A neighboring one-cell
@@ -17,13 +27,16 @@ function stances(t,b,q,tiles,state,used=new Set()){
 async function tick(t,b,motor,state,api,scan,tasks){
  const p=b.entity.position;
  // Floor stances are local work positions, not long-distance return routes.
- // Reach the exterior first: the center floor may already contain a dug hole.
+ // Prefer the exterior, then a checked intact plot stance; skip any dug holes.
  if(Math.hypot(p.x-t.plot.x-.5,p.z-t.plot.z-.5)>6||Math.abs(p.y-t.plot.y)>1.25){
-  const goal=require('./world_navigation').homeApproach(t.plot,b);
+  const goal=t.floorReturnGoal||returnGoal(t,b,state);
+  if(!goal)throw Error('No safe return route to the unfinished house floor');
+  t.floorReturnGoal=goal;
   const moved=await t.walk(b,motor,goal,state,api,scan,tasks);
-  if(moved===false)throw Error('No safe return route to the unfinished house floor');
+  if(moved===false){t.floorReturnGoal=null;throw Error('No safe return route to the unfinished house floor');}
   t.message='Returning to the house before laying the floor';return;
  }
+ t.floorReturnGoal=null;
  const all=house.blueprint(t.plot),tiles=all.filter(q=>q.floor),remaining=tiles.filter(q=>!finished(b,q));
  t.built=house.total-all.filter(q=>q.table?b.blockAt(new Vec3(q.x,q.y,q.z))?.name!=='crafting_table':!finished(b,q)).length;
  if(!remaining.length){motor.pause();t.floorRecovery=null;t.phase='table';return;}
@@ -66,4 +79,4 @@ async function tick(t,b,motor,state,api,scan,tasks){
  }
  t.floorRecovery=null;t.lastProgress=Date.now();t.message=`Laying wooden floor ${tiles.length-remaining.length+1} / ${tiles.length}`;
 }
-module.exports={tick,stances};
+module.exports={tick,stances,returnGoal};

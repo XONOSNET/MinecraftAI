@@ -82,7 +82,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
  // Resource searches start outside. Otherwise line-of-sight and the closed
  // doorway correctly reject every outdoor candidate before a route is chosen.
  if(['night_stone','night_food','night_wool','night_forage','night_scout','night_fuel'].includes(t.phase)&&(n.leaving||require('./world_navigation').insideHome(p,t.plot))){
-  n.leaving=true;if(await t.walk(b,motor,[t.plot.x+.5,t.plot.y+.1,t.plot.z-4.5],state,api,scan,tasks)===true)n.leaving=false;t.message='Leaving the hut to search for resources';return;
+  n.leaving=true;const exterior=require('./world_navigation').homeApproach(t.plot,b);if(await t.walk(b,motor,exterior,state,api,scan,tasks)===true)n.leaving=false;t.message='Leaving the hut to search for resources';return;
  }
  if(t.phase==='night_bootstrap'){
   const pos=house.point(t.plot,'table');t.message='Making an axe early to speed up shelter harvesting';

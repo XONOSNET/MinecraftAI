@@ -29,6 +29,14 @@ test('outdoor searches finish crossing the doorway before inspecting resources',
  b.entity.position.z=-2.4;t.walk=async()=>true;
  await night.tick(t,b,{}, {world:{} });assert.equal(t.wilderness.leaving,false);assert.equal(t.phase,'night_stone');
 });
+test('all outdoor survival searches exit at the sensed ground height below a raised doorway',async()=>{
+ for(const phase of ['night_stone','night_food','night_wool','night_forage','night_scout','night_fuel']){
+  const b=bot(),t={phase,plot:{x:0,y:65,z:0},milestones:[]};b.entity.position=new Vec3(.5,65,.5);night.init(t,{});let goal;
+  t.walk=async(_b,_motor,q)=>{goal=q;return true;};
+  await night.tick(t,b,{}, {world:{}});assert.deepEqual(goal,[.5,64.1,-4.5]);assert.equal(t.wilderness.leaving,false);
+ }
+});
+
 test('resource memory is bounded and creates road edges only from adjacent physical movement',()=>{
  const b=bot(),m=new WildernessMemory();m.observe(b);b.entity.position.x=1.5;m.observe(b);
  assert.deepEqual(m.snapshot().edges,[['0,64,0','1,64,0']]);

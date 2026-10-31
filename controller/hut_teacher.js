@@ -17,7 +17,7 @@ const {scanTrees,visibleBlock}=require('./target_scan');
 const {closeDoor}=require('./door_care');
 const furnace=require('./furnace');
 const {WorldStall}=require('./world_stall');
-const {WorldNavigation,routeDoorway}=require('./world_navigation');
+const {WorldNavigation,routeDoorway,homeApproach}=require('./world_navigation');
 const survival=require('./survival');
 const firstNight=require('./first_night');
 const house=require('./house');
@@ -83,7 +83,7 @@ class HutTeacher{
  async tick(bot,motor,state,api,scan,tasks){
   const now=Date.now(),p=bot.entity.position,w=state.world,rules=forBot(bot);
   if(this.run===state.run&&now<(this.serviceRetryAt||0)){motor.pause();return this.message;}
-  if(this.run!==state.run){this.reforest=null;this.entranceCleared=0;this.plotClearing=null;this.afterPlotClear=null;this.constructionCleared=0;this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();this.dropTrack=null;this.pickupTravelGoal=null;}
+  if(this.run!==state.run){this.reforest=null;this.floorReturnGoal=null;this.entranceCleared=0;this.plotClearing=null;this.afterPlotClear=null;this.constructionCleared=0;this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();this.dropTrack=null;this.pickupTravelGoal=null;}
   if(this.run!==state.run){space.release(bot.username);require('./exploration').release(bot.username);this.resourceAccess={};this.buildAttempts=new Map();this.buildApproach=null;this.floorRecovery=null;this.treeRetry=0;this.focusBlock=null;this.lastNavigation=null;if(this.survival?.deathListener)bot.removeListener('entityDead',this.survival.deathListener);this.survival=null;this.wilderness=null;this.failureCategory=null;this.serviceFailureSince=null;this.serviceRetryAt=0;this.home=null;this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.campPlots=[];this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;this.scanCount=0;this.observedTrees=0;this.quarry=null;this.lastRecoveryReset=0;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
   if(this.phase==='survey')survey.hold(bot);else survey.release(bot);
   if(firstNight.enabled(w)&&!this.wilderness)firstNight.init(this,w);
@@ -257,8 +257,9 @@ class HutTeacher{
     motor.pause();if(this.wilderness&&!w.first_night.stations){this.phase='night_stone';}else{this.quarry=await api('/world/quarry',{agent:bot.username});this.phase='quarry_exit';}this.lastProgress=now;
    }else if(this.phase==='quarry_exit'||this.phase==='light_exit'){
     const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-3));
+    const exterior=homeApproach(this.plot,bot);
     if(door&&!door.getProperties().open&&p.z>door.position.z+.5){motor.pause();await bot.activateBlock(door);}
-    else if((Math.hypot(p.x-this.plot.x-.5,p.z-this.plot.z+4.5)>.6||Math.abs(p.y-this.plot.y)>.4))await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z-4.5],state,api,scan,tasks);
+    else if((Math.hypot(p.x-exterior[0],p.z-exterior[2])>.6||Math.abs(p.y-exterior[1])>.4))await this.walk(bot,motor,exterior,state,api,scan,tasks);
     else{motor.pause();this.phase=this.phase==='quarry_exit'?'quarry':'light_place';this.lastProgress=now;}
    }else if(this.phase==='quarry'){
     const cobble=count(bot,n=>n==='cobblestone');this.message=`Mining stone ${cobble} / ${Math.ceil(this.requiredWood(bot)/4)}`;
