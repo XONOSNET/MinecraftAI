@@ -31,6 +31,6 @@ test('an unchanged target after placement is not reported as success',async()=>{
  const {bot}=fixture({'(0, 63, 0)':'stone'}),inventory=require('../controller/inventory_sync'),{HutTeacher}=require('../controller/hut_teacher');
  const sync=inventory.sync,equip=inventory.equip;inventory.sync=async()=>{};inventory.equip=async()=>{};let calls=0;bot._placeBlockWithOptions=async()=>{calls++;};
  const t=new HutTeacher();Object.assign(t,{plot:{x:0,y:64,z:0},phase:'build',campPlots:[]});
- try{await assert.rejects(t.place(bot,{x:0,y:64,z:0},'oak_planks'),{code:'BUILD_OBSTRUCTED'});assert.equal(calls,1);}
+ try{await assert.rejects(t.place(bot,{x:0,y:64,z:0},'oak_planks'),{code:'BUILD_OBSTRUCTED'});assert.equal(calls,1);assert.deepEqual(t.lastNavigation.placement_failure.target,[0,64,0]);assert.equal(t.lastNavigation.placement_failure.rejected_faces.length,1);}
  finally{inventory.sync=sync;inventory.equip=equip;}
 });

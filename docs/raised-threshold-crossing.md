@@ -40,3 +40,20 @@ and landing probes still stop unsafe movement.
 The native fixture now tests both entry and exit. The previous controller
 entered but froze at the exit for 20 seconds. The fixed controller entered
 in 0.9 seconds and stepped down outside in 2.0 seconds at full health.
+
+## Higher approaches and threshold drift
+
+A later teacher return reached higher ground outside a lower door. The route
+had a checked descent, but doorway alignment overrode its waypoint and tried
+to move directly toward the doorway. Height changes now remain owned by the
+route on either side of door height; doorway alignment takes over only after
+landing at the sill's level.
+
+Small lateral drift on a raised threshold no longer forces a retreat toward a
+lower alignment point. Within 0.2 blocks of the open passage center, crossing
+may begin its existing lateral-centering correction. The same collision,
+support, closed-door and descent checks remain active.
+
+Wall-placement failures also now preserve the target, bot position and rejected
+support faces in the existing navigation report. This improves diagnosis of the
+remaining intermittent placement failure; it is not claimed as a separate fix.

@@ -17,7 +17,7 @@ function createDoorway(){
   // The checked route owns the climb onto a raised porch. Door alignment
   // cannot walk through a one-block riser and would otherwise cancel its jump.
   const entry=d||state;
-  if(entry&&(p.y<entry.y-.4||sensed.onGround===false)){state=null;label=null;return null;}
+  if(entry&&(Math.abs(p.y-entry.y)>.4||sensed.onGround===false)){state=null;label=null;return null;}
   // Let the checked route reach the door aisle first. Starting from a diagonal
   // can send the alignment shortcut through a neighboring house wall.
   const inAisle=d&&Math.abs(p[d.axis==='x'?'z':'x']-d.center)<.65;
@@ -28,7 +28,7 @@ function createDoorway(){
   // A checked climb can land directly on the threshold. Once centered in an
   // open doorway, continue across rather than backing off to an alignment
   // point that may be a block lower than the porch.
-  if(state.open&&state.phase==='align'&&offset*state.side<1.1&&(sensed.enclosedShelter||Math.abs(p[cross]-state.center)<.075))state.phase='cross';
+  if(state.open&&state.phase==='align'&&offset*state.side<1.1&&(sensed.enclosedShelter||Math.abs(p[cross]-state.center)<.2))state.phase='cross';
   const plan={forward:false,back:false,jump:false,sneak:false,yaw:0};
   if(now-state.started>(sensed.enclosedShelter?20000:12000)){label='Recovering: doorway blocked; waiting for reset';return {...plan,label};}
   if(state.phase==='cross'&&offset*state.side< -1.05){finished.add(state.id);state=null;label=null;return null;}

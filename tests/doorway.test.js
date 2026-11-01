@@ -47,11 +47,11 @@ test('north/south doors use the same stable cross-axis alignment',()=>{
  const a=c.update(base,sensed(d),{x:.59375,z:-.65},Math.PI,0,permissions);assert.equal(a.forward,true);assert.ok(Math.abs(Math.abs(a.targetYaw)-Math.PI)<1e-9);
 });
 
-test('a checked one-block descent to a lower doorway releases edge crouching',()=>{
+test('a higher approach leaves its checked descent to the route instead of aligning across the drop',()=>{
  const c=createDoorway(),p={x:-2,y:182,z:.59375},s={...sensed(door,()=>false),canStepDown:()=>true};
- const a=c.update(base,s,p,-Math.PI/2,0,permissions);assert.equal(a.forward,true);assert.equal(a.sneak,false);assert.match(a.label,/stepping down/);
- const b=createDoorway().update(base,{...s,canStepDown:()=>false},p,-Math.PI/2,0,permissions);assert.equal(b.forward,false);
- const high=createDoorway().update(base,s,{...p,y:184},-Math.PI/2,0,permissions);assert.equal(high.forward,false);
+ const a=c.update(base,s,p,-Math.PI/2,0,permissions);assert.equal(a,null);assert.equal(c.active(),false);
+ const b=createDoorway().update(base,{...s,canStepDown:()=>false},p,-Math.PI/2,0,permissions);assert.equal(b,null);
+ const high=createDoorway().update(base,s,{...p,y:184},-Math.PI/2,0,permissions);assert.equal(high,null);
 });
 
 test('a door-frame snag corrects lateral drift without turning back to the entry point',()=>{
@@ -84,6 +84,13 @@ test('threshold shortcut keeps obstruction checks and does not cross a closed do
  assert.equal(blocked.forward,false);
  const closed=createDoorway().update(base,sensed({...door,open:false}),p,Math.PI/2,0,permissions);
  assert.equal(closed.targetYaw,Math.PI/2);assert.match(closed.label,/lining up/);
+});
+
+test('slight threshold drift centers laterally instead of retreating off a raised sill',()=>{
+ const c=createDoorway(),p={x:.13,y:181,z:door.center+.102};
+ const a=c.update(base,sensed(door,(heading,distance)=>Math.abs(heading)<.1&&distance<.2),p,0,0,permissions);
+ assert.match(a.label,/centering in doorway/);assert.equal(a.forward,true);assert.ok(Math.abs(a.targetYaw)<.01);
+ const blocked=createDoorway().update(base,sensed(door,()=>false),p,0,0,permissions);assert.equal(blocked.forward,false);
 });
 
 test('a route-checked lower landing allows an upright doorway exit, with drop probes still enforced',()=>{

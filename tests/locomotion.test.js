@@ -22,7 +22,7 @@ test('travel looks smoothly above and below the horizon without interfering with
 });
 
 test('a safe doorway back-off is not blocked by the inward route corridor',()=>{
- const {Vec3}=require('vec3');let now=0;const controls={},bot={entity:{yaw:Math.atan2(.1,.35),pitch:0,onGround:true,position:new Vec3(.6,70,-.3)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,async look(y,p){this.entity.yaw=y;this.entity.pitch=p;}};
+ const {Vec3}=require('vec3');let now=0;const controls={},bot={entity:{yaw:Math.atan2(.25,.35),pitch:0,onGround:true,position:new Vec3(.75,70,-.3)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,async look(y,p){this.entity.yaw=y;this.entity.pitch=p;}};
  const motor=createMotor(bot,permissions,{clock:()=>now}),task={kind:'expedition',safe_walk:true,strict_ground:true,route_corridor:[[.5,70,-.3],[.5,70,.5],[.5,70,2]]};
  const sensed={...safe,canWalk:()=>true,canStepDown:()=>true,doorway:{id:'0,70,0',axis:'z',plane:.5,center:.5,open:true,y:70}};
  motor.command(0,task,sensed,0);now=50;motor.tick();assert.equal(controls.forward,true);assert.match(motor.status(),/lining up doorway/);
