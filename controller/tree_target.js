@@ -4,7 +4,7 @@ const body=require('./resource_body');
 function chooseTree(bot,targets,previous,surface,run,previousApproach=null){
  const groups=new Map(),p=bot.entity.position;
  for(const v of targets){const id=v.x+','+v.z;if(!groups.has(id))groups.set(id,[]);groups.get(id).push(v);}
- if(groups.has(previous)&&!space.busy(bot,run,groups.get(previous)[0].offset(.5,0,.5))&&standingTarget(bot,groups.get(previous)))return {key:previous,targets:groups.get(previous),approach:[p.x,p.y+.1,p.z]};
+ if(groups.has(previous)&&!space.busy(bot,run,groups.get(previous)[0].offset(.5,0,.5))&&standingTarget(bot,groups.get(previous)))return {key:previous,targets:groups.get(previous),approach:[Math.floor(p.x)+.5,Math.round(p.y)+.1,Math.floor(p.z)+.5]};
  if(previousApproach&&groups.has(previous)&&!space.busy(bot,run,groups.get(previous)[0].offset(.5,0,.5))&&groups.get(previous).some(b=>withinReach(bot,b,new Vec3(...previousApproach))))return {key:previous,targets:groups.get(previous),approach:previousApproach};
  const ordered=[...groups].filter(([,blocks])=>!space.busy(bot,run,blocks[0].offset(.5,0,.5))).sort((a,b)=>Math.hypot(a[1][0].x+.5-p.x,a[1][0].z+.5-p.z)-Math.hypot(b[1][0].x+.5-p.x,b[1][0].z+.5-p.z));
  ordered.sort((a,b)=>Number(b[0]===previous)-Number(a[0]===previous));
