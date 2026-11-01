@@ -19,7 +19,7 @@ function priority(b,t,w){
  if(t.phase==='night_recover'&&n.resume&&needsHealing&&b.health>=12&&!threat&&!meals(b)&&b.inventory.items().some(i=>i.name.endsWith('_axe')))return {kind:'recovery forage',reason:'Health regeneration requires food; gather provisions before recovering'};
  return {kind:handles(t.phase)?t.phase.replace('night_','').replaceAll('_',' '):t.phase.replaceAll('_',' '),reason:sheltered?'Develop and provision the home':'Gather enough materials for a secure shelter'};
 }
-async function interrupt(t,b,motor,state){
+async function interrupt(t,b,motor,state,api,scan){
  const n=t.wilderness,p=priority(b,t,state.world);n.priority=p.kind;n.reason=p.reason;
  const time=b.time?.timeOfDay;if(time>=13000&&time<23000)n.nightSeen=true;
  if(t.phase==='night_hold')nightSleep.observe(t,b);
@@ -27,6 +27,7 @@ async function interrupt(t,b,motor,state){
  // Keep a sleeping bot still. Awake bots watch from shelter if monsters prevent bed use.
  if(b.isSleeping)return false;
  if(p.kind==='eat'||p.kind==='eat raw'){motor.pause();await inventory.equip(b,(p.kind==='eat'?FOOD:SAFE_RAW).find(n=>count(b,n)));await b.consume();n.foodConsumed++;t.lastProgress=Date.now();return true;}
+ if(await require('./survival_defense').tick(t,b,motor,state,api,scan))return true;
  if(p.kind==='retreat'&&!(t.phase==='night_hold'&&b.health>=12)&&!['night_retreat','night_recover'].includes(t.phase)){n.resume=t.phase;n.recoveries++;t.phase='night_retreat';t.path=[];t.navigator.lastPlan=-Infinity;return true;}
  if(p.kind==='resume'&&['night_retreat','night_recover'].includes(t.phase)){t.phase=n.resume;delete n.resume;t.lastProgress=Date.now();return true;}
  if(p.kind==='recovery forage'){
@@ -205,6 +206,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
  else if(t.phase==='night_retreat')await move(home,'recover');
  else if(t.phase==='night_recover'){
   motor.pause();const d=door();if(d?.getProperties().open&&!await closeDoor(b,d))return;t.message='Sheltered recovery · health '+b.health+' / 20';
+  if(b.health<12&&b.food<18&&!meals(b)&&!SAFE_RAW.some(name=>count(b,name))){t.failureCategory='food_exhausted';throw Error('Cannot regenerate health below food 18; no safe recovery food remains and health is too low for foraging');}
   if(!meals(b)&&b.food<10){t.failureCategory='food_exhausted';throw Error('Insufficient food to recover safely');}
  }else if(t.phase==='night_hold'){
   motor.pause();const d=door();if(d?.getProperties().open){if(b.isSleeping){await nightSleep.wake(t,b,motor);return;}t.message='Securing the shelter door before bed';await closeDoor(b,d);return;}

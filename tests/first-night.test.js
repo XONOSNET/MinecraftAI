@@ -64,6 +64,13 @@ test('recovery food trip returns home before resuming its original lesson',async
  await night.interrupt(t,b,{},state);assert.equal(t.phase,'chest');assert.equal(t.wilderness.resume,undefined);
 });
 
+test('critically injured recovery without food ends with an explicit food failure instead of waiting indefinitely',async()=>{
+ const b=bot(),t={phase:'night_recover',plot:{x:0,y:64,z:0},milestones:['hut']};night.init(t,{});b.health=6.3;b.food=14;
+ const blockAt=b.blockAt;b.blockAt=p=>({...blockAt(p),getProperties:()=>({open:false})});
+ await assert.rejects(night.tick(t,b,{pause(){}},{world:{first_night:{}}}),/Cannot regenerate/);assert.equal(t.failureCategory,'food_exhausted');
+ b.food=18;await night.tick(t,b,{pause(){}},{world:{first_night:{}}});assert.equal(t.phase,'night_recover','genuine regeneration remains allowed');
+});
+
 test('resource memory is bounded and creates road edges only from adjacent physical movement',()=>{
  const b=bot(),m=new WildernessMemory();m.observe(b);b.entity.position.x=1.5;m.observe(b);
  assert.deepEqual(m.snapshot().edges,[['0,64,0','1,64,0']]);

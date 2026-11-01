@@ -109,7 +109,7 @@ class HutTeacher{
     else{let destination=spawn;if(w.prepared){const camp=await api('/world/camp',{agent:bot.username,position:spawn});this.campPlots=camp.plots;this.plot=camp.plots[w.index];this.grove=camp.groves[w.index]?.length?camp.groves[w.index]:null;destination=camp.spawn;}await api('/world/spawn',{agent:bot.username,position:destination});this.afterPlotClear='gather';this.phase='clear_plot';survey.release(bot);this.settle=now+1500;if(this.wilderness){this.wilderness.memory.remember('home',[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5]);}}
    }else if(now<this.settle){motor.pause();this.message='Settling on natural ground';}
    else if(this.resourceAccess?.column?.length){await this.workElevated(bot,motor,state,api,scan,tasks);}
-   else if(this.wilderness&&!['complete','stopped'].includes(this.phase)&&await firstNight.interrupt(this,bot,motor,state)){/* safety priority handled */}
+   else if(this.wilderness&&!['complete','stopped'].includes(this.phase)&&await firstNight.interrupt(this,bot,motor,state,api,scan)){/* safety priority handled */}
    else if(this.phase==='clear_plot'){if(await require('./plot_clearance').tick(this,bot,motor,state,api,scan,tasks)){this.phase=this.afterPlotClear||'gather';this.afterPlotClear=null;this.lastProgress=Date.now();}}
    else if(firstNight.handles(this.phase)){await firstNight.tick(this,bot,motor,state,api,scan,tasks,surface);}
    else if(this.phase==='gather'){
