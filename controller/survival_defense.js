@@ -1,10 +1,10 @@
 // Close hostile encounters reuse the combat specialist before a hut is available.
 const combat=require('./combat');
-const HOSTILES=new Set(['zombie','zombie_villager','husk','drowned','skeleton','stray','bogged','witch','pillager','vindicator','cave_spider','silverfish','endermite']);
+const HOSTILES=new Set(['zombie','zombie_villager','husk','drowned','skeleton','stray','bogged','witch','pillager','vindicator','spider','cave_spider','silverfish','endermite']);
 const WEAPONS=['netherite_sword','diamond_sword','iron_sword','netherite_axe','diamond_axe','iron_axe','stone_axe','stone_sword','wooden_axe','wooden_sword','golden_axe','golden_sword'];
 function target(t,b,w){
  if(require('./shelter_policy').wantsCover(b,w)||t.wilderness?.shelterWatch)return null;
- if(!w.first_night?.hostiles||t.milestones.includes('hut')||b.isSleeping)return null;
+ if(!w.first_night?.hostiles||b.isSleeping)return null;
  const bounds=w.bounds,p=b.entity.position;
  const enemies=Object.values(b.entities).filter(e=>e.isValid!==false&&HOSTILES.has(e.name)&&e.position&&e.position.x>bounds[0]&&e.position.x<bounds[1]&&e.position.z>bounds[2]&&e.position.z<bounds[3]&&e.position.distanceTo(p)<=4.5&&combat.visible(b,e));
  return enemies.find(e=>e.id===t.wilderness.defense?.target_id)||enemies.sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p))[0]||null;
@@ -28,7 +28,7 @@ async function tick(t,b,motor,state,api,scan){
   if(action===5||action===6)motor.pause();
   if(await combat.interact(b,task,sensed,runtime,action,{combat_practice:true,jump:false})&&action===6)t.lastProgress=Date.now();
  }
- t.wilderness.priority='Defending';t.wilderness.reason='Nearby '+enemy.name+' before shelter is ready';t.message='Defending against '+enemy.name+' · '+(sensed.gear.weapon?'combat action '+action:'equipping carried weapon');
+ t.wilderness.priority='Defending';t.wilderness.reason=require('./shelter_policy').assess(b,state.world).reason;t.message='Defending against '+enemy.name+' · '+(sensed.gear.weapon?'combat action '+action:'equipping carried weapon');
  return true;
 }
 module.exports={target,tick};

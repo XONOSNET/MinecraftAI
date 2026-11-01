@@ -15,7 +15,9 @@ function priority(b,t,w){
  const needsHealing=b.health<18&&b.food<18;
  if(meals(b)&&(b.food<=16||needsHealing))return {kind:'eat',reason:'Restore hunger before continuing'};
  if((b.food<=10||n.resume&&needsHealing)&&SAFE_RAW.some(name=>count(b,name)))return {kind:'eat raw',reason:'Emergency food while cooking is unavailable'};
- if(shelterPolicy.wantsCover(b,w)||n.shelterWatch&&shelterPolicy.danger(b))return {kind:sheltered?'retreat':'seek cover',reason:'Shelter first: wait for daylight and a clear area before working without protective equipment'};
+ const risk=shelterPolicy.assess(b,w);
+ if(risk.mode==='cover'||n.shelterWatch&&shelterPolicy.danger(b))return {kind:sheltered?'retreat':'seek cover',reason:risk.mode==='cover'?risk.reason:'Sheltered: wait for daylight and a clear area'};
+ if(risk.mode==='fight')return {kind:'defend',reason:risk.reason};
  if(t.phase==='night_seek_cover')return {kind:'resume',reason:'Daylight and a clear area allow work to resume'};
  if(sheltered&&(b.health<12||threat))return {kind:'retreat',reason:threat?'Visible '+threat.name+' nearby':'Recover health inside the hut'};
  if(n.resume&&b.health>=18&&!threat)return {kind:'resume',reason:'Safe to continue the interrupted task'};
@@ -33,6 +35,7 @@ async function interrupt(t,b,motor,state,api,scan){
  if(p.kind==='eat'||p.kind==='eat raw'){motor.pause();await inventory.equip(b,(p.kind==='eat'?FOOD:SAFE_RAW).find(n=>count(b,n)));await b.consume();n.foodConsumed++;t.lastProgress=Date.now();return true;}
  if(p.kind==='seek cover'||p.kind==='retreat'&&shelterPolicy.wantsCover(b,state.world))n.shelterWatch=true;
  if(n.shelterWatch&&!shelterPolicy.danger(b))n.shelterWatch=false;
+ if(p.kind==='defend'&&await require('./survival_defense').tick(t,b,motor,state,api,scan))return true;
  if(await require('./emergency_burrow').tick(t,b,motor,state,api,scan,require('./tasks')))return true;
  if(p.kind==='seek cover'){
   // Retry verified refuge selection; never fall through to harvesting or combat.

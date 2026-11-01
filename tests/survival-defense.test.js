@@ -24,8 +24,14 @@ test('defense refuses fists and can equip a carried axe when armor is worn',asyn
  const f=fixture();f.b.heldItem=null;f.b.inventory.items=()=>[];assert.equal(await defense.tick(f.t,f.b,f.motor,f.state,async(_p,d)=>({action:d.teacher}),f.scan),false);assert.equal(f.hits(),0);
  const g=fixture();g.b.heldItem={name:'oak_log'};await defense.tick(g.t,g.b,g.motor,g.state,async(_p,d)=>({action:d.teacher}),g.scan);assert.equal(g.b.heldItem.name,'wooden_axe');assert.equal(g.hits(),0,'equipping does not count as a hit');
 });
-test('defense ignores protected levels, safe shelters, animals, neutral mobs, distant and occluded targets',()=>{
- for(const mode of ['protected','sheltered','sleeping','animal','neutral','distant','wall','outside']){
+
+test('daylight self-defense actually attacks with fists instead of requiring equipment',async()=>{
+ const f=fixture();f.b.time={timeOfDay:6000};f.b.heldItem=null;f.b.inventory.items=()=>[];f.b.inventory.slots=[];
+ assert.equal(await defense.tick(f.t,f.b,f.motor,f.state,async(_p,d)=>({action:d.teacher}),f.scan),true);
+ assert.equal(f.hits(),1);assert.equal(f.b.heldItem,null);
+});
+test('defense ignores protected levels, sleeping bots, animals, neutral mobs, distant and occluded targets',()=>{
+ for(const mode of ['protected','sleeping','animal','neutral','distant','wall','outside']){
   const f=fixture();if(mode==='protected')f.state.world.first_night.hostiles=false;if(mode==='sheltered')f.t.milestones.push('hut');if(mode==='sleeping')f.b.isSleeping=true;
   if(mode==='animal')f.enemy.name='sheep';if(mode==='neutral')f.enemy.name='enderman';if(mode==='distant')f.enemy.position.z=-8;if(mode==='outside')f.state.world.bounds=[0,10,0,10];
   if(mode==='wall')f.b.world.raycast=()=>({intersect:new Vec3(.5,65,-.5)});

@@ -8,11 +8,30 @@ function fixture(){
 test('unprotected bots seek shelter before damage, including a night with no visible enemy',()=>{
  const {b,state}=fixture();assert.equal(policy.wantsCover(b,state.world),true);
  b.time.timeOfDay=6000;assert.equal(policy.wantsCover(b,state.world),false);
- b.entities.s={name:'skeleton',position:new Vec3(20,64,0)};assert.equal(policy.wantsCover(b,state.world),true);
- b.inventory.items=()=>[{name:'wooden_axe'}];assert.equal(policy.wantsCover(b,state.world),true,'a weapon alone does not provide armor');
+ b.entities.s={name:'skeleton',position:new Vec3(16,64,0)};assert.equal(policy.wantsCover(b,state.world),true);
+ b.time.timeOfDay=14000;b.inventory.items=()=>[{name:'wooden_axe'}];assert.equal(policy.wantsCover(b,state.world),true,'a weapon alone does not provide armor for nighttime work');
  b.inventory.slots[5]={name:'leather_helmet'};assert.equal(policy.wantsCover(b,state.world),false);
  b.inventory.items=()=>[];assert.equal(policy.wantsCover(b,state.world),true,'armor alone is not a weapon');
  state.world.first_night.hostiles=false;assert.equal(policy.wantsCover(b,state.world),false);
+});
+
+test('daytime lone attackers trigger unarmed self-defense even when a hut exists',async ctx=>{
+ const {b,t,state}=fixture();b.time.timeOfDay=6000;b.entities.z={name:'zombie',position:new Vec3(2,64,0)};
+ assert.equal(policy.assess(b,state.world).mode,'fight');assert.equal(night.priority(b,t,state.world).kind,'defend');
+ let defended=0;ctx.mock.method(require('../controller/survival_defense'),'tick',async()=>{defended++;return true;});
+ ctx.mock.method(burrow,'tick',async()=>{throw Error('Manageable daylight fight must precede excavation');});
+ assert.equal(await night.interrupt(t,b,{pause(){}},state),true);assert.equal(defended,1);assert.equal(t.phase,'gather');
+});
+test('underground assessment distinguishes a lone enemy, groups, ranged threats and equipment',()=>{
+ const {b,state}=fixture();b.blockAt=()=>({name:'stone'});b.entities.z={name:'zombie',position:new Vec3(2,64,0)};
+ let risk=policy.assess(b,state.world);assert.equal(risk.underground,true);assert.equal(risk.mode,'fight','a manageable cave encounter is not decided by surface time');
+ b.entities.z2={name:'zombie',position:new Vec3(3,64,0)};assert.equal(policy.assess(b,state.world).mode,'cover');
+ b.inventory.items=()=>[{name:'stone_sword'}];assert.equal(policy.assess(b,state.world).mode,'fight');
+ b.entities.z3={name:'zombie',position:new Vec3(4,64,0)};assert.equal(policy.assess(b,state.world).mode,'cover');
+ b.entities={s:{name:'skeleton',position:new Vec3(10,64,0)}};b.inventory.items=()=>[];assert.equal(policy.assess(b,state.world).mode,'cover');
+ b.inventory.items=()=>[{name:'stone_sword'}];b.health=10;assert.equal(policy.assess(b,state.world).mode,'cover');
+ b.blockAt=()=>({name:'oak_leaves'});assert.equal(policy.underground(b),false);
+ b.blockAt=()=>({name:'oak_planks'});assert.equal(policy.underground(b),false);
 });
 test('house retreat stays latched through night, equipment changes and daylight threats, then resumes',async ctx=>{
  const {b,t,state}=fixture();ctx.mock.method(burrow,'tick',async()=>false);
