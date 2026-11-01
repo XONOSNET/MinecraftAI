@@ -8,6 +8,7 @@ function retry(t,bot,q,bounds){
   const x=t.plot.x+dx,z=t.plot.z+dz,goal=[x+.5,t.plot.y+.1,z+.5];
   if(used.has(x+','+z)||!standable(bot,x,t.plot.y,z)||!space.clearOfPlayers(bot,new Vec3(...goal)))continue;
   if(new Vec3(...goal).offset(0,1.62,0).distanceTo(new Vec3(q.x+.5,q.y+.5,q.z+.5))>4.2)continue;
+  if(!require('./placement_reference').reference(bot,q,{standing:new Vec3(...goal)}))continue;
   if(route(bot,goal,12,512,true,{bounds,reversible:true}).reached)candidates.push(goal);
  }
  candidates.sort((a,b)=>new Vec3(...a).distanceTo(new Vec3(q.x,q.y,q.z))-new Vec3(...b).distanceTo(new Vec3(q.x,q.y,q.z)));

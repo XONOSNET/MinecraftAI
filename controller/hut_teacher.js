@@ -75,9 +75,7 @@ const blueprint=house.blueprint;
 function secureInterior(bot,plot){const p=bot.entity.position;return bot.entity.onGround===true&&Math.abs(p.y-plot.y)<.4&&Math.abs(p.x-plot.x-.5)<2.15&&Math.abs(p.z-plot.z-.5)<2.15;}
 function matches(bot,p){const name=bot.blockAt(new Vec3(p.x,p.y,p.z))?.name||'';return p.table?name==='crafting_table':planks(name);}
 function intact(bot,plot){return blueprint(plot).every(p=>matches(bot,p));}
-function reference(bot,p){for(const [dx,dy,dz] of [[0,-1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0]]){
- const b=bot.blockAt(new Vec3(p.x+dx,p.y+dy,p.z+dz));if(b&&b.boundingBox==='block'&&!['crafting_table','chest','barrel'].includes(b.name)&&!b.name.endsWith('_door'))return {block:b,face:new Vec3(-dx,-dy,-dz)};
-}return null;}
+const {reference}=require('./placement_reference');
 class HutTeacher{
  constructor(){this.run=null;this.navigator=new WorldNavigation();}
  async tick(bot,motor,state,api,scan,tasks){
@@ -204,7 +202,7 @@ class HutTeacher{
     else{
      const q=remaining.find(q=>new Vec3(q.x+.5,q.y+.5,q.z+.5).distanceTo(p.offset(0,1.62,0))<4.2&&reference(bot,q));
      if(q){motor.pause();try{await this.place(bot,q,null);this.lastProgress=Date.now();}catch(error){if(!(error.code==='BUILD_OBSTRUCTED'||String(error.message).includes('Server refused'))||!require('./build_approach').retry(this,bot,q,w.bounds))throw error;this.message='Construction obstruction or refused placement; checking another safe interior angle';}}
-     else{const q=remaining[0];await this.walk(bot,motor,[this.plot.x+Math.max(-1,Math.min(1,q.x-this.plot.x))+.5,this.plot.y+.1,this.plot.z+Math.max(-1,Math.min(1,q.z-this.plot.z))+.5],state,api,scan,tasks);}
+     else{const target=remaining.find(q=>require('./build_approach').retry(this,bot,q,w.bounds));if(!target)throw Error('No safe interior stance can reach the remaining wall or roof faces');this.message='Moving to a verified visible face for the remaining hut blocks';}
      if(!this.buildApproach)this.message=`Placing hut blocks ${this.built} / ${house.total}`;
     }
     }
@@ -354,13 +352,15 @@ class HutTeacher{
  async place(bot,q,name){
   this.timing?.mark(this.phase,'building');
   await require('./construction_clearance').prepare(this,bot,q,name);
-  for(let attempt=0;attempt<2;attempt++){
+  const rejected=new Set();
+  for(let attempt=0;attempt<6;attempt++){
    await inventorySync.sync(bot);
    const item=bot.inventory.items().find(i=>name?i.name===name:planks(i.name));if(!item)throw Error('No building material available.');
-   const ref=reference(bot,q);if(!ref)throw Error('No reachable supporting face for placement.');
+   const ref=reference(bot,q,{exclude:rejected});if(!ref){const error=Error('No reachable supporting face for placement.');error.code='BUILD_OBSTRUCTED';throw error;}
    await inventorySync.equip(bot,item.name,{synced:true});
-   try{await aim(bot,ref.block.position.offset(.5+ref.face.x*.5,.5+ref.face.y*.5,.5+ref.face.z*.5));await bot._placeBlockWithOptions(ref.block,ref.face,{swingArm:'right',forceLook:'ignore'});return;}catch(error){if(attempt||!String(error.message).includes('Server refused'))throw error;await new Promise(r=>setTimeout(r,150));}
+   try{await aim(bot,ref.point);await bot._placeBlockWithOptions(ref.block,ref.face,{swingArm:'right',forceLook:'ignore',delta:ref.delta});if(bot.blockAt(new Vec3(q.x,q.y,q.z))?.name!==item.name)throw Error('Server refused to confirm '+item.name+' at '+new Vec3(q.x,q.y,q.z));return;}catch(error){if(!String(error.message).includes('Server refused'))throw error;rejected.add(ref.key);await new Promise(r=>setTimeout(r,150));}
   }
+  const error=Error('Server refused all reachable supporting faces');error.code='BUILD_OBSTRUCTED';throw error;
  }
 
  async buildFloor(bot,motor,state,api,scan,tasks){
