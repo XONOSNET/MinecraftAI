@@ -4,7 +4,7 @@ const inventory=require('./inventory_sync'),access=require('./resource_access'),
 const EARTH=new Set(['dirt','grass_block','coarse_dirt','rooted_dirt','podzol','mycelium']);
 const SOLID=new Set([...EARTH,'stone','granite','diorite','andesite','deepslate','tuff','cobblestone']);
 const DANGER=new Set(['water','lava','sand','red_sand','gravel','fire','soul_fire','magma_block']);
-const MOBS=new Set(['skeleton','stray','bogged','zombie','husk','drowned','zombie_villager','creeper','witch','pillager','vindicator']);
+const MOBS=new Set(['skeleton','stray','bogged','zombie','husk','drowned','zombie_villager','creeper','witch','pillager','vindicator','spider','cave_spider','phantom','silverfish','endermite']);
 const ARCHERS=new Set(['skeleton','stray','bogged','pillager']),claims=new Map();
 function alive(b,e){const index=b.registry?.entitiesByName?.[e.name]?.metadataKeys?.indexOf('health'),health=typeof index==='number'&&index>=0?e.metadata?.[index]:undefined;return e.isValid!==false&&(typeof health!=='number'||health>0);}
 function threats(b,standing=b.entity.position){
@@ -37,6 +37,7 @@ function find(t,b,state){
  let checked=0;
  for(const [x,z] of offsets)for(const dy of [0,1,-1,2,-2]){
   const feet=base.offset(x,dy,z),goal=[feet.x+.5,feet.y+.1,feet.z+.5];
+  if(Date.now()<(t.wilderness.burrowRejected?.get(feet.toString())||0))continue;
   if(enemies.some(e=>e.position.distanceTo(new Vec3(...goal))<12))continue;
   if(!site(t,b,feet,state.world))continue;
   if(space.busy(b,state.run,feet.offset(.5,0,.5)))continue;
@@ -57,22 +58,27 @@ async function tick(t,b,motor,state,api,scan,tasks){
  const n=t.wilderness,w=state.world,now=Date.now();let s=n.burrow;
  if(!s){
   if(!w.first_night?.hostiles||b.isSleeping||b.health<=6)return false;
-  const enemies=threats(b),need=enemies.some(e=>ARCHERS.has(e.name)&&b.health<19||b.health<=16&&e.position.distanceTo(b.entity.position)<10);
-  if(!need||t.milestones.includes('hut')&&b.entity.position.distanceTo(new Vec3(t.plot.x+.5,t.plot.y,t.plot.z+.5))<12)return false;
+ const shelterPolicy=require('./shelter_policy'),enemies=threats(b),proactive=shelterPolicy.wantsCover(b,w),need=proactive||enemies.some(e=>ARCHERS.has(e.name)&&b.health<19||b.health<=16&&e.position.distanceTo(b.entity.position)<10);
+  if(!need||t.milestones.includes('hut')&&(proactive||b.entity.position.distanceTo(new Vec3(t.plot.x+.5,t.plot.y,t.plot.z+.5))<12))return false;
   if(now<(n.burrowSearchAt||0))return false;n.burrowSearchAt=now+2500;
   const feet=find(t,b,state);if(!feet){n.burrow_status='No safe dry earth refuge found; refusing sand, water or unsupported ground';return false;}
   for(const [key,c] of claims)if(c.run!==state.run)claims.delete(key);
   claims.set(b.username,{run:state.run,owner:b.username,x:feet.x,z:feet.z});
   const offsets=[[1,0],[-1,0],[0,1],[0,-1]].filter(([x,z])=>b.blockAt(feet.offset(x,0,z))?.name==='air');
-  offsets.sort((a,c)=>feet.offset(a[0]+.5,0,a[1]+.5).distanceTo(enemies[0].position)-feet.offset(c[0]+.5,0,c[1]+.5).distanceTo(enemies[0].position));
-  s=n.burrow={feet:feet.toArray(),cap:feet.toArray(),lip:feet.offset(offsets[0][0],0,offsets[0][1]).toArray(),stage:'approach',resume:t.phase,at:now,progressAt:now,reason:'Taking cover from '+enemies[0].name};
+  if(enemies.length)offsets.sort((a,c)=>feet.offset(a[0]+.5,0,a[1]+.5).distanceTo(enemies[0].position)-feet.offset(c[0]+.5,0,c[1]+.5).distanceTo(enemies[0].position));
+  s=n.burrow={feet:feet.toArray(),cap:feet.toArray(),lip:feet.offset(offsets[0][0],0,offsets[0][1]).toArray(),stage:'approach',resume:n.coverResume||t.phase,at:now,progressAt:now,reason:enemies.length?'Taking cover from '+enemies[0].name:'Taking cover before night-time work without protective equipment'};
+  delete n.coverResume;
   t.phase='night_burrow';t.path=[];t.navigator.lastPlan=-Infinity;
  }
  const feet=new Vec3(...s.feet),cap=new Vec3(...s.cap),p=b.entity.position;
  n.priority='Emergency shelter';n.reason=s.reason;
  if(s.stage!=='hidden'&&now-s.progressAt>30000)throw Error('Emergency burrow work made no physical progress for 30 seconds');
  if(s.stage==='approach'){
-  if(await t.walk(b,motor,[feet.x+.5,feet.y+.1,feet.z+.5],state,api,scan,tasks)===false)throw Error('Emergency refuge approach is blocked');
+  if(await t.walk(b,motor,[feet.x+.5,feet.y+.1,feet.z+.5],state,api,scan,tasks)===false){
+   n.burrowRejected??=new Map();n.burrowRejected.set(feet.toString(),now+30000);
+   n.burrow=null;claims.delete(b.username);t.phase=s.resume;n.burrowSearchAt=0;t.path=[];t.navigator.lastPlan=-Infinity;
+   t.message='Blocked refuge route: seeking another safe earth patch';return true;
+  }
   if(Math.hypot(p.x-feet.x-.5,p.z-feet.z-.5)<.45&&Math.abs(p.y-feet.y)<.2){
    if(threats(b).some(e=>e.position.distanceTo(p)<8)){n.burrow=null;claims.delete(b.username);t.phase=s.resume;n.burrowSearchAt=0;t.message='Threat too close to excavate: seeking a more distant earth refuge';return true;}
    if(!site(t,b,feet,w))throw Error('Emergency refuge terrain changed; refusing excavation');
@@ -148,4 +154,21 @@ async function tick(t,b,motor,state,api,scan,tasks){
  }
  return true;
 }
-module.exports={EARTH,walls,site,find,sealed,report,tick};
+async function seek(t,b,motor,state,api,scan,tasks){
+ const n=t.wilderness,p=b.entity.position,enemies=require('./shelter_policy').threats(b),now=Date.now();
+ if(now>=(n.coverEscapeAt||0)){
+  n.coverEscapeAt=now+2500;n.coverEscape=null;
+  const choices=[];
+  for(let x=-8;x<=8;x+=4)for(let z=-8;z<=8;z+=4)for(const dy of [0,1,-1]){
+   const q=p.floored().offset(x,dy,z),g=[q.x+.5,q.y+.1,q.z+.5];
+   if(!enemies.length||!standable(b,q.x,q.y,q.z))continue;
+   const clearance=Math.min(...enemies.map(e=>e.position.distanceTo(new Vec3(...g))));
+   if(clearance<=Math.min(...enemies.map(e=>e.position.distanceTo(p)))+2)continue;
+   choices.push({g,clearance});
+  }
+  for(const c of choices.sort((a,b)=>b.clearance-a.clearance).slice(0,6))if(route(b,c.g,24,2048,true,{bounds:state.world.bounds,reversible:true}).reached){n.coverEscape=c.g;break;}
+ }
+ if(n.coverEscape)await t.walk(b,motor,n.coverEscape,state,api,scan,tasks);else motor.pause();
+ t.message='Seeking safe earth cover; refusing exposed work or combat'+(n.burrow_status?' · '+n.burrow_status:'');
+}
+module.exports={EARTH,walls,site,find,sealed,report,tick,seek};

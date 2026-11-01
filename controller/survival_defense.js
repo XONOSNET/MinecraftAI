@@ -3,6 +3,7 @@ const combat=require('./combat');
 const HOSTILES=new Set(['zombie','zombie_villager','husk','drowned','skeleton','stray','bogged','witch','pillager','vindicator','cave_spider','silverfish','endermite']);
 const WEAPONS=['netherite_sword','diamond_sword','iron_sword','netherite_axe','diamond_axe','iron_axe','stone_axe','stone_sword','wooden_axe','wooden_sword','golden_axe','golden_sword'];
 function target(t,b,w){
+ if(require('./shelter_policy').wantsCover(b,w)||t.wilderness?.shelterWatch)return null;
  if(!w.first_night?.hostiles||t.milestones.includes('hut')||b.isSleeping)return null;
  const bounds=w.bounds,p=b.entity.position;
  const enemies=Object.values(b.entities).filter(e=>e.isValid!==false&&HOSTILES.has(e.name)&&e.position&&e.position.x>bounds[0]&&e.position.x<bounds[1]&&e.position.z>bounds[2]&&e.position.z<bounds[3]&&e.position.distanceTo(p)<=4.5&&combat.visible(b,e));
@@ -12,8 +13,8 @@ async function tick(t,b,motor,state,api,scan){
  if(!api||!scan)return false;
  const enemy=target(t,b,state.world);if(!enemy)return false;
  const runtime=t.wilderness.defense??={},items=b.inventory.items(),weapon=WEAPONS.find(name=>items.some(i=>i.name===name))||b.heldItem?.name;
- // No supplies are granted: fists or the carried item remain usable before
- // the first axe. Ordinary cooldown, range, line-of-sight and equipment gates apply.
+ // No supplies are granted. Unprotected bots seek cover instead; eligible
+ // combat still respects cooldown, range, line of sight and equipment gates.
  const minY=b.game?.minY??-64,maxY=minY+(b.game?.height??384)-1;
  const task={kind:'combat',mobs:[enemy.name],mob_label:'',target_id:enemy.id,bounds:state.world.bounds,min_y:minY,max_y:maxY,weapon,kill_target:1,critical_hits:false,safe_walk:true,strict_ground:true,avoid_players:true};
  runtime.target_id=enemy.id;

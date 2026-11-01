@@ -20,6 +20,15 @@ test('burrows avoid occupied land, private plots and the trial boundary',()=>{
 test('search leaves a sandy starting column for nearby verified dirt instead of digging sand',()=>{
  const f=fixture();f.cells.set(new Vec3(0,64,0).toString(),'sand');const found=burrow.find(f.t,f.b,f.state);assert.ok(found);assert.ok(found.x!==0||found.z!==0);assert.equal(burrow.site(f.t,f.b,found,f.state.world),true);
 });
+
+test('unarmed full-health bots proactively dig before enemies arrive and retry blocked approaches',async()=>{
+ const f=fixture();f.b.health=20;f.b.entities={};f.t.walk=async()=>false;
+ assert.equal(await burrow.tick(f.t,f.b,f.motor,f.state),true);
+ assert.equal(f.t.wilderness.burrow,null);assert.equal(f.t.phase,'gather');assert.equal(f.t.wilderness.burrowRejected.size,1);
+ f.t.walk=async()=>undefined;await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.phase,'night_burrow');assert.equal(f.t.wilderness.burrow.stage,'approach');
+ assert.match(f.t.wilderness.burrow.reason,/before night-time work/);
+});
 test('refuge selection keeps distance from attackers and refuses excavation when a mob catches up',async()=>{
  const f=fixture();f.b.entities.s.position.x=5;const found=burrow.find(f.t,f.b,f.state);assert.ok(found);assert.ok(found.offset(.5,0,.5).distanceTo(f.b.entities.s.position)>=12);
  f.t.phase='night_burrow';f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],lip:[1,64,0],stage:'approach',resume:'gather',progressAt:Date.now()};

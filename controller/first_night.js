@@ -2,6 +2,7 @@
 const {Vec3}=require('vec3'),{WildernessMemory}=require('./wilderness_memory'),{standable,route}=require('./field_navigation'),{visibleBlock}=require('./target_scan'),inventory=require('./inventory_sync'),furnace=require('./furnace'),house=require('./house'),{closeDoor}=require('./door_care'),combat=require('./combat');
 const livestock=require('./first_night_livestock'),{Exploration}=require('./exploration'),resourceConfig=require('../config/world-resources.json'),resourceScan=require('./resource_scan');
 const nightSleep=require('./night_sleep');
+const shelterPolicy=require('./shelter_policy');
 const RAW={beef:'cooked_beef',porkchop:'cooked_porkchop',mutton:'cooked_mutton',chicken:'cooked_chicken',rabbit:'cooked_rabbit'},FOOD=['cooked_beef','cooked_porkchop','cooked_mutton','cooked_chicken','cooked_rabbit','apple','bread'],ANIMALS=['cow','pig','sheep','chicken','rabbit'];
 const SAFE_RAW=['beef','porkchop','mutton','rabbit'];
 const HOSTILES=new Set(['zombie','zombie_villager','husk','drowned','skeleton','stray','bogged','creeper','spider','cave_spider','witch','pillager','vindicator','enderman']);
@@ -14,6 +15,8 @@ function priority(b,t,w){
  const needsHealing=b.health<18&&b.food<18;
  if(meals(b)&&(b.food<=16||needsHealing))return {kind:'eat',reason:'Restore hunger before continuing'};
  if((b.food<=10||n.resume&&needsHealing)&&SAFE_RAW.some(name=>count(b,name)))return {kind:'eat raw',reason:'Emergency food while cooking is unavailable'};
+ if(shelterPolicy.wantsCover(b,w)||n.shelterWatch&&shelterPolicy.danger(b))return {kind:sheltered?'retreat':'seek cover',reason:'Shelter first: wait for daylight and a clear area before working without protective equipment'};
+ if(t.phase==='night_seek_cover')return {kind:'resume',reason:'Daylight and a clear area allow work to resume'};
  if(sheltered&&(b.health<12||threat))return {kind:'retreat',reason:threat?'Visible '+threat.name+' nearby':'Recover health inside the hut'};
  if(n.resume&&b.health>=18&&!threat)return {kind:'resume',reason:'Safe to continue the interrupted task'};
  if(t.phase==='night_recover'&&n.resume&&needsHealing&&b.health>=12&&!threat&&!meals(b)&&b.inventory.items().some(i=>i.name.endsWith('_axe')))return {kind:'recovery forage',reason:'Health regeneration requires food; gather provisions before recovering'};
@@ -28,7 +31,17 @@ async function interrupt(t,b,motor,state,api,scan){
  // Keep a sleeping bot still. Awake bots watch from shelter if monsters prevent bed use.
  if(b.isSleeping)return false;
  if(p.kind==='eat'||p.kind==='eat raw'){motor.pause();await inventory.equip(b,(p.kind==='eat'?FOOD:SAFE_RAW).find(n=>count(b,n)));await b.consume();n.foodConsumed++;t.lastProgress=Date.now();return true;}
+ if(p.kind==='seek cover'||p.kind==='retreat'&&shelterPolicy.wantsCover(b,state.world))n.shelterWatch=true;
+ if(n.shelterWatch&&!shelterPolicy.danger(b))n.shelterWatch=false;
  if(await require('./emergency_burrow').tick(t,b,motor,state,api,scan,require('./tasks')))return true;
+ if(p.kind==='seek cover'){
+  // Retry verified refuge selection; never fall through to harvesting or combat.
+  // Move away from visible threats only over a checked reversible route.
+  n.coverResume??=t.phase;t.phase='night_seek_cover';
+  await require('./emergency_burrow').seek(t,b,motor,state,api,scan,require('./tasks'));
+  return true;
+ }
+ if(t.phase==='night_seek_cover'){t.phase=n.coverResume||'gather';delete n.coverResume;t.path=[];t.navigator.lastPlan=-Infinity;return true;}
  if(await require('./survival_defense').tick(t,b,motor,state,api,scan))return true;
  if(p.kind==='retreat'&&!(t.phase==='night_hold'&&b.health>=12)&&!['night_retreat','night_recover'].includes(t.phase)){n.resume=t.phase;n.recoveries++;t.phase='night_retreat';t.path=[];t.navigator.lastPlan=-Infinity;return true;}
  if(p.kind==='resume'&&['night_retreat','night_recover'].includes(t.phase)){t.phase=n.resume;delete n.resume;t.lastProgress=Date.now();return true;}
@@ -208,6 +221,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
  else if(t.phase==='night_retreat')await move(home,'recover');
  else if(t.phase==='night_recover'){
   motor.pause();const d=door();if(d?.getProperties().open&&!await closeDoor(b,d))return;t.message='Sheltered recovery · health '+b.health+' / 20';
+  if(n.shelterWatch){t.message='Sheltered: waiting for daylight and nearby monsters to clear';return;}
   if(b.health<12&&b.food<18&&!meals(b)&&!SAFE_RAW.some(name=>count(b,name))){t.failureCategory='food_exhausted';throw Error('Cannot regenerate health below food 18; no safe recovery food remains and health is too low for foraging');}
   if(!meals(b)&&b.food<10){t.failureCategory='food_exhausted';throw Error('Insufficient food to recover safely');}
  }else if(t.phase==='night_hold'){
