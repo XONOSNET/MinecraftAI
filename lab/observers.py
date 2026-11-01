@@ -339,9 +339,10 @@ class Observers:
             self.name_tags[name]=(display,agent.get('entity_id'))
     def update_roster(self,online,agents,mode):
         now=self.clock()
-        if now-getattr(self,'roster_at',-100)<1:return
-        self.roster_at=now
-        active=any(s.get('enabled') and s['player'] in online for s in self.sessions.values())
+        watched={s['target'] for s in self.sessions.values() if s.get('enabled') and s['player'] in online}
+        if now-getattr(self,'roster_at',-100)<1 and watched==getattr(self,'roster_watched',None):return
+        self.roster_at=now;self.roster_watched=watched
+        active=bool(watched)
         if not active:
             if getattr(self,'roster_ready',False):self.command('scoreboard objectives remove lab_bots');self.roster_ready=False
             return
@@ -367,12 +368,13 @@ class Observers:
             if (mode in ('evaluate','untrained','random','heuristic') or getattr(self,'progress_context',{}).get('phase')=='queued_teacher') and a.get('trial_completed',0)>=getattr(self,'progress_context',{}).get('episodes',3):activity='Done; waiting'
             world=getattr(self,'progress_context',{}).get('world')
             if world and getattr(self,'progress_context',{}).get('job',{}).get('status') not in ('running','cancelling'):activity=world['results'].get(name,{}).get('phase',world['phase']).title()
-            row=f"{a.get('display_name') or name}: {activity}"
+            color='gold' if name in watched else 'aqua'
+            row=(a.get('display_name') or name,activity,color)
             previous=self.roster_rows.get(name)
             if previous==row:continue
             holder=f'lab_row_{index}'
             self.command(f'scoreboard players set {holder} lab_bots {100-index}')
-            self.command(f'scoreboard players display name {holder} lab_bots '+json.dumps({'text':a.get('display_name') or name,'color':'aqua','extra':[{'text':': '+activity,'color':'white'}]}))
+            self.command(f'scoreboard players display name {holder} lab_bots '+json.dumps({'text':a.get('display_name') or name,'color':color,'extra':[{'text':': '+activity,'color':'white'}]}))
             self.roster_rows[name]=row
     def release(self,s,online,mode_restore=True):
         self.clear_hud(s)
@@ -420,7 +422,6 @@ class Observers:
         self.camera_mode=mode
         self.pause_reason=pause_reason
         self.update_names(agents)
-        self.update_roster(online,agents,mode)
         for s in self.sessions.values():
             owner=s['player']
             if not s['enabled']:
@@ -503,3 +504,4 @@ class Observers:
                 s['message']=f"Action camera: {s['camera_shot']}. Smooth automatic shots follow {target} between simulations."
             if s.get('cycle_enabled') and s.get('cycle_waiting'):s['message']+=' No active bots remain; holding this bot until trials resume.'
             self.update_hud(s,agent,mode)
+        self.update_roster(online,agents,mode)

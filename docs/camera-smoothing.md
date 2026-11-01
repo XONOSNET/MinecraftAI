@@ -9,3 +9,11 @@ Native display teleport interpolation increased from two to four ticks (100 to 2
 Validation: all 299 Python tests passed, including frame continuity, nonzero/continuous velocity at shot boundaries, bounded framing at short/long camera distances, eased heading limits/wrap, transfer handling and independent worker behavior. After deployment, the native six-view switch test passed with downward torso-facing spawn rotations (docs/camera-initial-angle-check.json). Perceived smoothness still depends on client frame rate and network delivery; protocol tests cannot judge the stream's appearance.
 
 Applying the Python service change required a standard lab restart. Models, learning options and observer preferences were preserved, eight agents reconnected and automatic world learning resumed at the existing site/support level. No motor or policy code changed.
+
+## Selected bot in the activity sidebar
+
+The name of a bot selected by an online, enabled spectator session is gold in the right-hand AI activity list. Other names remain aqua (teal), and actions remain white. Automatic cycling and manual changes refresh both the previous and newly selected rows, even if their actions have not changed. Selection changes bypass the normal one-second activity refresh limit, and automatic selection is resolved before updating the list.
+
+The vanilla scoreboard sidebar is shared: if several viewers follow different bots, each watched bot is highlighted for everyone. Offline and stopped spectator sessions do not highlight a bot.
+
+Validation: 313 Python tests passed, including automatic cycling, rapid manual selection, restoring the previous color, unchanged-row suppression and multiple/offline/disabled viewers.

@@ -272,6 +272,43 @@ def test_camera_cycle_uses_interval_and_skips_offline_bots(tmp_path):
     tick();assert o.sessions['Xonosnet']['target']=='LabAI2' and o.sessions['Xonosnet']['cycle_at']==161
 
 
+def test_roster_highlight_tracks_camera_without_activity_change(tmp_path):
+    import json
+    now=[100.];commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0','view':'orbit','cycle_enabled':True,'cycle_seconds':30},['Xonosnet'])
+    agents={f'LabAI{i}':{'connected':True,'last_seen':100,'entity_id':i+1,'display_name':name,'action':4} for i,name in enumerate(('AmberRobin','BirchBadger'))}
+    def tick():o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':now[0]}},agents,True,'teacher')
+    def row(index):
+        prefix=f'scoreboard players display name lab_row_{index} lab_bots '
+        return json.loads(next(c[len(prefix):] for c in reversed(commands) if c.startswith(prefix)))
+    tick()
+    assert row(0)['color']=='gold' and row(1)['color']=='aqua'
+    commands.clear();now[0]=131
+    for a in agents.values():a['last_seen']=131
+    tick()
+    assert o.sessions['Xonosnet']['target']=='LabAI1'
+    assert row(0)['color']=='aqua' and row(1)['color']=='gold'
+    assert row(1)['extra']==[{'text':': Wait','color':'white'}]
+    # A manual switch also bypasses the normal one-second activity throttle.
+    commands.clear();now[0]+=.1;o.sessions['Xonosnet'].update(target='LabAI0',cycle_at=200)
+    tick()
+    assert row(0)['color']=='gold' and row(1)['color']=='aqua'
+    # Unchanged selection and activity do not resend scoreboard rows.
+    commands.clear();now[0]+=2;tick()
+    assert not any(c.startswith('scoreboard players display name') for c in commands)
+
+
+def test_roster_highlights_only_online_enabled_observers(tmp_path):
+    import json
+    commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:100)
+    for owner,target in [('Xonosnet','LabAI0'),('ViewerTwo','LabAI1'),('OfflineViewer','LabAI2'),('StoppedViewer','LabAI3')]:
+        o.start({'player':owner,'target':target},[owner])
+    o.sessions['StoppedViewer']['enabled']=False
+    o.update_roster(['Xonosnet','ViewerTwo','StoppedViewer'],{},'paused')
+    colors=[json.loads(c.split(' lab_bots ',1)[1])['color'] for c in commands if c.startswith('scoreboard players display name')]
+    assert colors[:4]==['gold','gold','aqua','aqua']
+
+
 @pytest.mark.parametrize('view',['orbit','side','trail','overhead','first_person','stationary','action'])
 def test_bot_cycling_is_independent_of_view(tmp_path,view):
     o=Observers(tmp_path/'camera',lambda cmd:None,lambda:100)
