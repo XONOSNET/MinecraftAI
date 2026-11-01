@@ -3,6 +3,15 @@ const {Vec3}=require('vec3'),house=require('./house'),{standable,route}=require(
 const key=q=>[q.x,q.y,q.z].join(','),same=(a,b)=>a.x===b.x&&a.z===b.z;
 const finished=(b,q)=>b.blockAt(new Vec3(q.x,q.y,q.z))?.name.endsWith('_planks');
 const beside=(p,q)=>!(Math.abs(p.x-q.x-.5)<.85&&Math.abs(p.z-q.z-.5)<.85);
+const FOUNDATION=new Set(['grass_block','dirt','stone','coarse_dirt','rooted_dirt','podzol','mycelium','moss_block','granite','diorite','andesite','sand','red_sand','gravel']);
+function safeFoundation(b,block){
+ if(!block||!FOUNDATION.has(block.name))return false;
+ const q=block.position,below=b.blockAt(q.offset(0,-1,0)),above=b.blockAt(q.offset(0,1,0));
+ // Replace only an exposed top layer over intact dry support. Sand beside
+ // the tile is safe; digging underneath a falling column or into water is not.
+ if(below?.boundingBox!=='block'||['magma_block','campfire','soul_campfire'].includes(below.name)||above?.boundingBox!=='empty')return false;
+ return [[0,-1,0],[0,1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]].every(([x,y,z])=>{const v=b.blockAt(q.offset(x,y,z));return v&&!['water','lava','fire','soul_fire'].includes(v.name);});
+}
 function returnGoal(t,b,state){
  const nav=require('./world_navigation'),h=t.plot,front=nav.homeApproach(h,b),occupied=[Math.floor(b.entity.position.x),Math.round(b.entity.position.y),Math.floor(b.entity.position.z)];
  // An unfinished house has no mandatory doorway. A blocked front marker must
@@ -63,7 +72,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
  if(space.players(b).some(v=>Math.abs(v.y-(q.y+1))<2&&Math.abs(v.x-q.x-.5)<.85&&Math.abs(v.z-q.z-.5)<.85)){t.message='Waiting for another player to clear the floor tile';return;}
  const block=b.blockAt(new Vec3(q.x,q.y,q.z));
  if(block?.boundingBox!=='empty'){
-  if(!block||!['grass_block','dirt','stone','coarse_dirt','rooted_dirt','granite','diorite','andesite'].includes(block.name))throw Error('Floor foundation is obstructed');
+  if(!safeFoundation(b,block))throw Error('Floor foundation is obstructed or unsafe: '+(block?.name||'unloaded')+' at '+[q.x,q.y,q.z].join(','));
   await b.dig(block);
  }
  // Digging can take time; recheck the body before sending a placement packet.
@@ -79,4 +88,4 @@ async function tick(t,b,motor,state,api,scan,tasks){
  }
  t.floorRecovery=null;t.lastProgress=Date.now();t.message=`Laying wooden floor ${tiles.length-remaining.length+1} / ${tiles.length}`;
 }
-module.exports={tick,stances,returnGoal};
+module.exports={tick,stances,returnGoal,safeFoundation};

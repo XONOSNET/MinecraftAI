@@ -20,6 +20,28 @@ test('moving and airborne builders settle without digging or placing',async()=>{
  for(const mode of ['moving','airborne']){const {t,b,state,motor}=fixture();if(mode==='moving')b.entity.velocity.x=.1;else b.entity.onGround=false;
  t.place=async()=>assert.fail('must settle first');b.dig=async()=>assert.fail('must settle first');await t.buildFloor(b,motor,state);assert.match(t.message,/Settling/);}
 });
+
+test('floor builder replaces supported beach sand with a verified wooden floor',async()=>{
+ for(const material of ['sand','red_sand','gravel','podzol']){
+  const {t,b,map,state,motor}=fixture();map.set('1,63,0',material);let dug=0,placed=0;
+  b.dig=async block=>{dug++;assert.equal(block.name,material);map.delete('1,63,0');};
+  t.place=async(_b,q)=>{placed++;assert.equal(map.has('1,63,0'),false);map.set([q.x,q.y,q.z].join(','),'oak_planks');};
+  await t.buildFloor(b,motor,state);assert.equal(dug,1);assert.equal(placed,1);assert.equal(map.get('1,63,0'),'oak_planks');
+ }
+});
+
+test('floor digging rejects water, unsupported ground, falling columns and player construction',()=>{
+ const {safeFoundation}=require('../controller/floor_builder');
+ for(const hazard of ['water','lava','unloaded','unsupported','falling','construction']){
+  const {b,map}=fixture();map.set('1,63,0',hazard==='construction'?'chest':'sand');
+  if(['water','lava','unloaded'].includes(hazard)){
+   const original=b.blockAt;b.blockAt=p=>p.equals(new Vec3(2,63,0))?(hazard==='unloaded'?null:{name:hazard,position:p,boundingBox:'empty'}):original(p);
+  }
+  if(hazard==='unsupported'){const original=b.blockAt;b.blockAt=p=>p.equals(new Vec3(1,62,0))?{name:'air',position:p,boundingBox:'empty'}:original(p);}
+  if(hazard==='falling')map.set('1,64,0','sand');
+  assert.equal(safeFoundation(b,b.blockAt(new Vec3(1,63,0))),false,hazard);
+ }
+});
 test('floor work waits for a player occupying the target and propagates real inventory failures',async()=>{
  const {t,b,state,motor}=fixture();b.players.other={username:'other',entity:{id:2,position:new Vec3(1.5,64,.5)}};t.place=async()=>assert.fail('player is on tile');await t.buildFloor(b,motor,state);assert.match(t.message,/another player/);
  b.players={};t.place=async()=>{throw Error('No building material available.');};await assert.rejects(t.buildFloor(b,motor,state),/No building material/);assert.equal(t.floorRecovery,undefined);
