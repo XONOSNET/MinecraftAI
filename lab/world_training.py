@@ -196,6 +196,13 @@ class WorldTraining(SurvivalLessons):
         for x in (job['source'],job['dest']):
             self.command(f"kill @e[type=minecraft:item,x={x},y=-64,z={job['z']},dx={job['width']-1},dy=383,dz=15]")
 
+    def reset_hostiles(self,bounds):
+        s=self.session
+        if not s or not s.get('first_night',{}).get('hostiles') or s['phase'] not in ('snapshotting','restoring'):return
+        x0,x1,z0,z1=bounds
+        for mob in ('phantom',*HOSTILES):
+            self.command(f'kill @e[type=minecraft:{mob},tag=!lab_combat,x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}]')
+
     def hold_preparation(self,run):
         s=self.session
         if not s or s['run']!=run or not s['active'] or s['phase'] not in ('snapshotting','restoring'):return False
@@ -254,6 +261,12 @@ class WorldTraining(SurvivalLessons):
                     self.force_tile(self.preloaded,'remove');self.preloaded=None
                 if not self.jobs:
                     if s.get('first_night') and not self.prepare_fauna():return
+                    if s.get('first_night',{}).get('hostiles'):
+                        if 'hostiles_reset_at' not in s:
+                            self.reset_hostiles(s['bounds']);s['hostiles_reset_at']=self.clock();return
+                        # Allow killed entities and their drops to settle before
+                        # the existing final item sweep and bot deployment.
+                        if self.clock()-s['hostiles_reset_at']<.25:return
                     template=self.saved['templates'].setdefault(s['template'],{})
                     template.update(bounds=s['bounds'],resource_margin=s.get('resource_margin',0),saved_at=self.clock());self.save()
                     s.update(phase='running',message=(('Survival progression: '+s['mission']+'. ') if s['mission'] in ADVANCED else '')+('Stone-age lessons running: settlement, mining, stone tools, furnace, charcoal and lighting.' if s['mission']=='stone_age' else 'Settlement lessons running: hut, chest, tools and stored supplies.' if s['mission']=='settlement' else 'Survival lessons running: '+s['mission']+'.' if s['mission'] in ADVANCED else 'Hut trial running.')+' Movement and harvesting follow the selected driver. Recipes and building use scripted helpers.',progress=100,trial_at=self.clock(),reset_seconds=round(self.clock()-s['started_at'],1))
@@ -279,6 +292,10 @@ class WorldTraining(SurvivalLessons):
                 if not warmed:return
             j=self.job
             if j['phase']=='loading' and self.clock()-j['at']>=.8:
+                # Cloning blocks does not reset entities. Clear old hostiles
+                # from the destination while this tile is still loaded; leave
+                # the snapshot source and all running-trial spawning alone.
+                if s['phase']=='restoring':self.reset_hostiles([j['dest'],j['dest']+j['width'],j['z'],j['z']+16])
                 self.clear_tile_items(j)
                 self.copy_slice(j);return
             if j['phase']=='waiting':

@@ -35,6 +35,38 @@ def test_reserved_assessments_require_student_and_never_persist_memory(tmp_path)
     assert not world.saved.get('first_night_memory')
     assert readiness(world.saved['history'])['completed']==1
 
+
+def test_night_three_reset_clears_only_loaded_destination_hostiles_before_copy(tmp_path):
+    world,commands,clock,log=fixture(tmp_path)
+    world.start(dict(mission='first_night',night_level=3),['LabAI0'])
+    world.session['phase']='restoring';world.tick();job=world.job.copy();commands.clear();clock[0]=1;world.tick()
+    sweeps=[c for c in commands if c.startswith('kill @e[type=minecraft:') and 'tag=!lab_combat' in c]
+    assert len(sweeps)==21
+    assert all(f"x={job['dest']},y=-64,z={job['z']},dx={job['width']-1},dy=383,dz=15" in c for c in sweeps)
+    assert commands.index(sweeps[-1])<next(i for i,c in enumerate(commands) if c.startswith('clone '))
+    assert not any('type=minecraft:sheep' in c or 'type=minecraft:player' in c for c in sweeps)
+
+
+def test_night_three_final_hostile_reset_waits_for_drops_then_deploys_without_running_sweeps(tmp_path):
+    world,commands,clock,log=fixture(tmp_path)
+    world.start(dict(mission='first_night',night_level=3),['LabAI0']);s=world.session;world.jobs=[];world.prepare_fauna=lambda:True;commands.clear()
+    world.tick();assert s['phase']!='running';assert s['hostiles_reset_at']==0
+    sweeps=[c for c in commands if c.startswith('kill @e[type=minecraft:')];assert len(sweeps)==21
+    x0,x1,z0,z1=s['bounds'];assert all(f'x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}' in c for c in sweeps)
+    assert not any(c.startswith('gamemode survival') for c in commands)
+    commands.clear();clock[0]=.1;world.tick();assert s['phase']!='running';assert not commands
+    clock[0]=.3;world.tick();assert s['phase']=='running'
+    assert commands.index(next(c for c in commands if c.startswith('kill @e[type=minecraft:item,')))<commands.index('gamemode survival LabAI0')
+    commands.clear();clock[0]=2;world.tick();assert not any('type=minecraft:zombie' in c for c in commands)
+
+
+def test_hostile_reset_does_not_touch_snapshot_sources_or_active_trials(tmp_path):
+    world,commands,clock,log=fixture(tmp_path)
+    world.start(dict(mission='first_night',night_level=3),['LabAI0']);world.tick();commands.clear();clock[0]=1;world.tick()
+    assert not any('tag=!lab_combat' in c for c in commands),'snapshot tiles must not clear their source entities'
+    for phase in ('running','paused'):
+        world.session['phase']=phase;commands.clear();world.reset_hostiles(world.session['bounds']);assert not commands
+
 def test_memory_rejects_bad_coordinates_and_caps_size():
     bounds=[0,128,0,128]
     m=clean_memory(dict(resources=[{'kind':'wood','position':[10,64,10]},{'kind':'wood','position':[500,64,10]},{'kind':'food','position':[10,float('nan'),10]}],roads=[[10.5,64.1,10.5],[11.5,64.1,10.5]],edges=[['10,64,10','11,64,10'],['10,64,10','999,64,10']]),bounds)
