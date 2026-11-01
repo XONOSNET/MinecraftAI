@@ -227,7 +227,28 @@ def test_world_shelter_watch_uses_third_bar_and_keeps_counting_after_morning(tmp
     now[0]=103;a['last_seen']=103;o.update_hud(o.sessions['Xonosnet'],a,'evaluate')
     assert '2:02 remaining' in cache[prefix+'name']
     now[0]=226;a['last_seen']=226;o.update_hud(o.sessions['Xonosnet'],a,'evaluate')
+    assert cache[prefix+'visible']==prefix+'visible true'
+    assert '0:00 | Morning verified' in cache[prefix+'name']
+    assert cache[prefix+'value']==prefix+'value 0'
+    # A confirmed completion, rather than the local timer, hides the bar.
+    now[0]+=2;result.update(state='complete',phase='complete');o.update_hud(o.sessions['Xonosnet'],a,'evaluate')
     assert cache[prefix+'visible']==prefix+'visible false'
+
+
+@pytest.mark.parametrize('seconds,updated',[(0,100),(2,95)])
+def test_shelter_watch_stays_visible_at_zero_while_waiting_for_dawn(tmp_path,seconds,updated):
+    commands=[];o=Observers(tmp_path/'hud',commands.append,lambda:100,settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    sleep={'status':'Sleeping in home bed · waiting for morning','night_seen':True,'morning_seen':False,
+           'watch_seconds_left':seconds,'watch_seconds_total':300,'watch_updated_at':updated}
+    o.progress_context={'world':{'phase':'running','round':1,'name':'Camp','message':'Testing','bots':['LabAI0'],
+        'results':{'LabAI0':{'phase':'night_hold','state':'working','wilderness':{'sleep':sleep}}}}}
+    o.update_hud(o.sessions['Xonosnet'],{'connected':True,'last_seen':100,'entity_id':1},'evaluate')
+    cache=o.hud_commands['Xonosnet'];prefix='bossbar set lab:observer_xonosnet_state '
+    assert cache[prefix+'visible']==prefix+'visible true'
+    assert cache[prefix+'color']==prefix+'color purple'
+    assert cache[prefix+'value']==prefix+'value 0'
+    assert '0:00' in cache[prefix+'name'] and 'waiting for morning' in cache[prefix+'name']
 
 
 @pytest.mark.parametrize('phase,state,world_phase,mode,fresh',[

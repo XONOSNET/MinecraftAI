@@ -296,9 +296,12 @@ class Observers:
             left=sleep.get('watch_seconds_left');duration=sleep.get('watch_seconds_total');updated=sleep.get('watch_updated_at')
             if fresh and mode!='paused' and world.get('phase')=='running' and result.get('phase')=='night_hold' and result.get('state')=='working' and type(left) in (int,float) and type(duration) in (int,float) and math.isfinite(left) and math.isfinite(duration) and duration>0:
                 if type(updated) in (int,float) and math.isfinite(updated):left-=max(0,now-updated)
-                left=max(0,math.ceil(left));watch_visible=left>0
+                # The minimum watch can expire before dawn or server-confirmed
+                # waking. Keep its status visible until the lesson actually ends.
+                left=max(0,math.ceil(left));watch_visible=True
                 route_visible=watch_visible;route_progress=max(0,min(100,round(100*left/duration)))
                 lines['state']=f"{display_name} | Shelter watch | {left//60}:{left%60:02d} remaining"
+                if left==0:lines['state']=f"{display_name} | Shelter watch | 0:00 | "+str(sleep.get('status') or 'Waiting for survival confirmation')[:100]
         if context.get('stage'):
             lines={'stage':((context.get('label')+' | ') if context.get('label') else (f"Review {context['round']} | " if context.get('round') else ''))+f"Stage {context['stage']} of {context['stages']} | {context['stage_name']}",**lines}
         if world:

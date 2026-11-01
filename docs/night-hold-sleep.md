@@ -35,8 +35,9 @@ remains to be observed. No training data or global time is written by the fixtur
 
 While watching a bot in `night_hold`, a third purple bossbar displays its name
 and remaining shelter-watch time as minutes and seconds. It shrinks toward
-zero and disappears once the countdown is up, even if the bot is still waiting
-for dawn or another survival condition. It also hides when switching to a bot
+zero. If the timer expires before the lesson finishes, the bar stays visible
+at `0:00` and shows the reported sleep/watch status (for example, waiting for
+morning). It hides when switching to a bot
 outside the watch, on completion/stop, while paused/training, during restoration,
 or when bot telemetry is unavailable. Sleeping through the night does not reset
 or bypass the watch timer.
@@ -47,8 +48,17 @@ the visible countdown moving between reports. It reuses the otherwise hidden
 third status bar, with the existing route/stall display available outside the
 shelter watch; stopping observation removes all bars.
 
-Validation of this HUD addition: 311 Python and 364 JavaScript tests pass. A
+Original validation of this HUD addition: 311 Python and 364 JavaScript tests passed. A
 diagnostic Minecraft client received the actual bossbar packets, verified the
 watch label and decreasing fill, then verified the bar disappeared on expiry.
 Its temporary bars and operator privilege were removed afterward. Evidence:
 `logs/watch-hud-native.json`. No production survival results were fabricated.
+
+November 1 countdown visibility fix: live inspection found the selected bot and
+two other bots still sleeping in `night_hold` with zero seconds left, while
+another bot still had 100 seconds remaining. The old expiry rule explained the
+intermittent disappearance. Updated HUD tests cover both a reported zero and
+timestamp interpolation reaching zero before dawn, and confirmed completion
+hiding the bar. All 315 Python tests passed. This display-only fix is committed
+for the next normal lab restart; the running service and current trial were
+left uninterrupted. Survival criteria and controller behavior are unchanged.
