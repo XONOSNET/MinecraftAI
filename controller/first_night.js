@@ -137,8 +137,8 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(await pickup(t,b,motor,state,api,scan,tasks,wool?['white_wool']:Object.keys(RAW).concat(FOOD)))return;
   const selection=require('./hunt_targets').choose(t,b,state,approaches,now),animal=selection.animal;
   n.livestock_status={...selection.status,wool:count(b,'white_wool'),wool_target:3};
-  if(animal){let huntMessage=null;delete n.noResourceAt;if(n.animal!==animal.id){n.animalGoal=null;n.animalPlanAt=0;}n.animal=animal.id;n.memory.remember('food',animal.position);if(livestock.whiteSheep(b,animal))n.memory.remember('wool',animal.position);const distance=animal.position.distanceTo(p);
-   if(distance>4.5||Math.abs(animal.position.y-p.y)>.6||!combat.visible(b,animal)){
+  if(animal){let huntMessage=null;delete n.noResourceAt;if(n.animal!==animal.id){n.animalGoal=null;n.animalPlanAt=0;}n.animal=animal.id;n.memory.remember('food',animal.position);if(livestock.whiteSheep(b,animal))n.memory.remember('wool',animal.position);
+   if(!require('./hunt_targets').inHuntRange(b,animal,combat.visible(b,animal))){
     const goal=selection.goal;
     if(!goal||await t.walk(b,motor,goal,state,api,scan,tasks,{hunting:true})===false){require('./hunt_targets').defer(n,b,animal,now);require('./hunt_targets').release(b.username);n.animal=null;n.huntApproach=null;t.message='Animal approach blocked; checking another reachable target';}
    }else{

@@ -59,3 +59,13 @@ test('provisioned shelter watch verifies actual enclosure before crediting survi
  await assert.rejects(()=>night.tick(t,b,{pause(){}},{world:{first_night:{hold_seconds:0}}}),/Shelter/);
  assert.notEqual(t.phase,'complete');
 });
+
+test('First Night attacks an in-reach sheep above its reached approach rather than walking to the same stance',async()=>{
+ const b=bot(),hunt=require('../controller/hunt_targets'),combat=require('../controller/combat'),old={choose:hunt.choose,observe:combat.observe,teacher:combat.teacher,interact:combat.interact};
+ b.registry=require('prismarine-registry')('1.21.4');const metadata=[];metadata[b.registry.entitiesByName.sheep.metadataKeys.indexOf('wool')]=0;
+ const e={id:1,name:'sheep',position:new Vec3(1.5,65,.5),metadata};b.entities={e};
+ let attacks=0,walks=0;const t={phase:'night_wool',plot:{x:-10,y:64,z:-10},milestones:[],walk:async()=>{walks++;return true;}};night.init(t,{});
+ hunt.choose=()=>({animal:e,goal:[.5,64.1,.5],status:{}});combat.observe=()=>({angle:0,extra:[],metrics:{},gear:{weapon:true}});combat.teacher=()=>6;combat.interact=async()=>{attacks++;return true;};
+ try{await night.tick(t,b,{pause(){},command(){}},{run:'ledge',world:{bounds:[-30,30,-30,30],first_night:{stations:false}}},async()=>({action:6}),()=>({pooled:[],hits:[],proximity:{}}),{});assert.equal(attacks,1);assert.equal(walks,0);}
+ finally{hunt.choose=old.choose;combat.observe=old.observe;combat.teacher=old.teacher;combat.interact=old.interact;}
+});

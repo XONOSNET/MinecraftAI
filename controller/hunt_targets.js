@@ -2,6 +2,12 @@
 const {Vec3}=require('vec3'),combat=require('./combat'),livestock=require('./first_night_livestock'),{route}=require('./field_navigation');
 const claims=new Map(),animals=new Set(['cow','pig','sheep','chicken','rabbit']);
 const key=(run,e)=>run+':'+(e.uuid||e.id);
+function inHuntRange(b,e,sight){
+ const p=b.entity.position,distance=e.position.distanceTo(p);
+ // A checked approach may finish below an animal on a one-block ledge.
+ // Let the combat controller strike a visible animal already in melee reach.
+ return !!sight&&distance<=4.5&&(Math.abs(e.position.y-p.y)<=.6||distance<=2.7);
+}
 function release(owner){for(const [id,c] of claims)if(c.owner===owner)claims.delete(id);}
 function defer(n,b,e,now=Date.now()){
  n.rejectedAnimals??=new Map();n.rejectedAnimals.set(e.id,{until:now+8000,animal:e.position.clone(),bot:b.entity.position.clone()});
@@ -36,7 +42,7 @@ function choose(t,b,state,approaches,now=Date.now()){
  if(locked&&(!nearest||nearest.e.id===locked.e.id||locked.sight&&(locked.distance<=6||nearest.distance>locked.distance*.6||locked.distance-nearest.distance<4))){candidates.splice(candidates.indexOf(locked),1);candidates.unshift(locked);}
  let selected=null,goal=null;
  for(const c of candidates.slice(0,3)){
-  const e=c.e,local=c.distance<=4.5&&Math.abs(e.position.y-p.y)<=.6&&c.sight;
+  const e=c.e,local=inHuntRange(b,e,c.sight);
   if(local){selected=e;break;}
   const cached=n.huntApproach;
   if(cached?.id===e.id&&now-cached.at<750&&e.position.distanceTo(cached.animal)<.75&&p.distanceTo(cached.bot)<3){selected=e;goal=cached.goal;break;}
@@ -50,4 +56,4 @@ function choose(t,b,state,approaches,now=Date.now()){
  const reasons=Object.entries(skipped).map(([reason,count])=>count+' '+reason).join('; ');
  return {animal:selected,goal,status:{resource:wool?'wool':'food',state:selected?'pursuing':'searching',loaded_white_sheep:white,eligible_targets:candidates.length,remembered_patches:n.memory.resources.filter(r=>r.kind===(wool?'wool':'food')).length,rejected_targets:n.rejectedAnimals?.size||0,skipped,selection_reason:selected?(selected.id!==n.animal?'Selected nearby reachable '+selected.name:'Continuing reachable '+selected.name):(reasons||'No suitable animals loaded nearby')}};
 }
-module.exports={choose,defer,release,deferred};
+module.exports={choose,defer,release,deferred,inHuntRange};

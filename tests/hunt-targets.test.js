@@ -33,3 +33,15 @@ test('sheep ownership, color and lamb restrictions remain enforced',()=>{
  const {b,t,state,approaches}=setup();state.world.first_night.stations=true;const e=sheep(1,2);e.metadata[2]='FirstNightother';b.entities={e};assert.equal(hunt.choose(t,b,state,approaches).animal,null);
  state.world.first_night.stations=false;e.metadata[registry.entitiesByName.sheep.metadataKeys.indexOf('baby')]=true;assert.equal(hunt.choose(t,b,state,approaches).status.skipped['not an adult unsheared white sheep'],1);
 });
+
+test('a visible sheep on a nearby ledge engages from the reached stance instead of requesting another route',()=>{
+ const {b,t,state}=setup('ledge'),e=sheep(8,1);e.position.y=65;b.entities={e};let requested=false;
+ const choice=hunt.choose(t,b,state,()=>{requested=true;return [];});
+ assert.equal(choice.animal.id,e.id);assert.equal(choice.goal,null);assert.equal(requested,false);assert.equal(hunt.inHuntRange(b,e,true),true);hunt.release(b.username);
+});
+
+test('vertical hunting still requires sight and melee reach while distant level targets retain chase range',()=>{
+ const {b}=setup(),e=sheep(9,1);e.position.y=65;
+ assert.equal(hunt.inHuntRange(b,e,false),false);e.position.x=3.5;assert.equal(hunt.inHuntRange(b,e,true),false);
+ e.position.y=64;assert.equal(hunt.inHuntRange(b,e,true),true);e.position.x=6.5;assert.equal(hunt.inHuntRange(b,e,true),false);
+});
