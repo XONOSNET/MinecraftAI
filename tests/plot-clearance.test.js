@@ -40,3 +40,21 @@ test('an unloaded part of the house volume cannot be declared clear',async()=>{
  assert.equal(plot.scan(f.t,f.b).unloaded,true);
  assert.equal(await plot.tick(f.t,f.b,f.motor,f.state),false);assert.match(f.t.message,/load/);
 });
+
+test('plot clearing returns from distant gathering before scanning local work faces',async()=>{
+ const f=fixture({'(1, 65, 0)':'oak_leaves'});f.state.world.bounds=[-100,100,-100,100];f.b.entity.position=new Vec3(70.5,64,.5);
+ let moved;f.t.walk=async(_b,_m,goal)=>{moved=goal;return undefined;};
+ assert.equal(await plot.tick(f.t,f.b,f.motor,f.state),false);
+ assert.ok(moved&&Math.abs(moved[0])<4&&Math.abs(moved[2])<6);assert.match(f.t.message,/Returning/);
+ assert.equal(f.t.plotClearing.blockedAt,null);
+ f.b.entity.position=new Vec3(...moved);f.t.walk=async(_b,_m,goal)=>{assert.ok(Math.hypot(goal[0]-.5,goal[2]-.5)<5);f.b.entity.position=new Vec3(...goal);return true;};
+ const original=clearance.clear;clearance.clear=async(_t,_b,q)=>{f.cells.set(q.position.toString(),'air');return true;};
+ try{for(let i=0;i<8&&plot.scan(f.t,f.b).pending.length;i++)await plot.tick(f.t,f.b,f.motor,f.state);assert.equal(plot.scan(f.t,f.b).pending.length,0);assert.equal(f.t.plotReturnGoal,null);}finally{clearance.clear=original;}
+});
+
+test('distant plot clearing approaches an unloaded home instead of waiting indefinitely',async()=>{
+ const f=fixture();f.b.entity.position.x=70;const original=f.b.blockAt;f.b.blockAt=p=>p.x<10?null:original(p);
+ let goal;f.t.walk=async(_b,_m,g)=>{goal=g;};await plot.tick(f.t,f.b,f.motor,f.state);
+ assert.deepEqual(goal,[.5,64.1,-4.5]);assert.match(f.t.message,/Returning/);
+ f.t.walk=async()=>false;await assert.rejects(plot.tick(f.t,f.b,f.motor,f.state),/return route/);
+});

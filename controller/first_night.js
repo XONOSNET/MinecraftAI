@@ -11,10 +11,12 @@ const inside=(p,b)=>p.x>b[0]+2&&p.x<b[1]-3&&p.z>b[2]+2&&p.z<b[3]-3;
 function init(t,w){t.wilderness={exploration:new Exploration(),memory:new WildernessMemory(w.memory||{}),priority:'Survey',reason:'Locate a safe home and nearby resources',searches:0,recoveries:0,foodConsumed:0,attacked:0};}
 function priority(b,t,w){
  const n=t.wilderness,sheltered=t.milestones.includes('hut'),threat=Object.values(b.entities).find(e=>HOSTILES.has(e.name)&&e.isValid!==false&&e.position.distanceTo(b.entity.position)<10&&combat.visible(b,e));
- if(meals(b)&&b.food<=16)return {kind:'eat',reason:'Restore hunger before continuing'};
- if(b.food<=10&&SAFE_RAW.some(name=>count(b,name)))return {kind:'eat raw',reason:'Emergency food while cooking is unavailable'};
+ const needsHealing=b.health<18&&b.food<18;
+ if(meals(b)&&(b.food<=16||needsHealing))return {kind:'eat',reason:'Restore hunger before continuing'};
+ if((b.food<=10||n.resume&&needsHealing)&&SAFE_RAW.some(name=>count(b,name)))return {kind:'eat raw',reason:'Emergency food while cooking is unavailable'};
  if(sheltered&&(b.health<12||threat))return {kind:'retreat',reason:threat?'Visible '+threat.name+' nearby':'Recover health inside the hut'};
  if(n.resume&&b.health>=18&&!threat)return {kind:'resume',reason:'Safe to continue the interrupted task'};
+ if(t.phase==='night_recover'&&n.resume&&needsHealing&&b.health>=12&&!threat&&!meals(b)&&b.inventory.items().some(i=>i.name.endsWith('_axe')))return {kind:'recovery forage',reason:'Health regeneration requires food; gather provisions before recovering'};
  return {kind:handles(t.phase)?t.phase.replace('night_','').replaceAll('_',' '):t.phase.replaceAll('_',' '),reason:sheltered?'Develop and provision the home':'Gather enough materials for a secure shelter'};
 }
 async function interrupt(t,b,motor,state){
@@ -27,6 +29,10 @@ async function interrupt(t,b,motor,state){
  if(p.kind==='eat'||p.kind==='eat raw'){motor.pause();await inventory.equip(b,(p.kind==='eat'?FOOD:SAFE_RAW).find(n=>count(b,n)));await b.consume();n.foodConsumed++;t.lastProgress=Date.now();return true;}
  if(p.kind==='retreat'&&!(t.phase==='night_hold'&&b.health>=12)&&!['night_retreat','night_recover'].includes(t.phase)){n.resume=t.phase;n.recoveries++;t.phase='night_retreat';t.path=[];t.navigator.lastPlan=-Infinity;return true;}
  if(p.kind==='resume'&&['night_retreat','night_recover'].includes(t.phase)){t.phase=n.resume;delete n.resume;t.lastProgress=Date.now();return true;}
+ if(p.kind==='recovery forage'){
+  n.forageResume='night_retreat';t.phase='night_forage';t.path=[];t.navigator.lastPlan=-Infinity;
+  t.message=p.reason;return true;
+ }
  if(b.food<=10&&!['night_food','night_wool','night_forage','night_retreat','night_recover'].includes(t.phase)&&b.inventory.items().some(i=>i.name.endsWith('_axe'))&&!n.forageResume){n.forageResume=t.phase;t.phase='night_forage';return true;}
  return false;
 }

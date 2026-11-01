@@ -6,6 +6,14 @@ test('camp routes go around another home even when its open interior would be sh
  assert.equal(plan.blocked,false);assert.ok(plan.path.every(q=>!privatePlotCell([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])],other)));
  assert.ok(plan.path.some(q=>q[2]<-3||q[2]>4));
 });
+
+test('construction routes may enter their own work border but still avoid neighboring plots',()=>{
+ const b=flat(),own={x:0,y:64,z:0},other={x:10,y:64,z:0},options={plot:own,plots:[own,other],bounds:[-30,30,-30,30]};
+ assert.equal(new WorldNavigation().plan(b,[3.5,64.1,-2.5],options).blocked,true,'border is normally private');
+ assert.equal(new WorldNavigation().plan(b,[3.5,64.1,-2.5],{...options,constructionWork:true}).blocked,false);
+ const plan=new WorldNavigation().plan(b,[16.5,64.1,.5],{...options,constructionWork:true});
+ assert.equal(plan.blocked,false);assert.ok(plan.path.every(q=>!privatePlotCell([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])],other)));
+});
 test('a bot already in a foreign room commits to that exit through the threshold',()=>{
  const b=flat(),own={x:0,y:64,z:0},other={x:10,y:64,z:0},nav=new WorldNavigation();b.entity.position=new Vec3(10.5,64,.5);
  const original=b.blockAt;b.blockAt=p=>p.x===10&&p.y===64&&p.z===-3?{name:'oak_door',position:p,getProperties:()=>({open:true})}:original(p);

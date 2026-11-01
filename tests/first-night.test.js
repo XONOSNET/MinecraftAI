@@ -37,6 +37,33 @@ test('all outdoor survival searches exit at the sensed ground height below a rai
  }
 });
 
+test('recovery at food 17 eats carried meals or safely forages instead of waiting for impossible regeneration',async()=>{
+ const b=bot(),t={phase:'night_recover',milestones:['hut'],navigator:{},path:[]};night.init(t,{});t.wilderness.resume='chest';
+ b.health=16;b.food=17;b.inventory.items=()=>[{name:'wooden_axe',count:1}];
+ assert.equal(night.priority(b,t,{}).kind,'recovery forage');
+ await night.interrupt(t,b,{}, {world:{}});assert.equal(t.phase,'night_forage');assert.equal(t.wilderness.resume,'chest');assert.equal(t.wilderness.forageResume,'night_retreat');
+ t.phase='night_recover';b.inventory.items=()=>[{name:'cooked_beef',count:1}];assert.equal(night.priority(b,t,{}).kind,'eat');
+ b.inventory.items=()=>[{name:'mutton',count:1}];assert.equal(night.priority(b,t,{}).kind,'eat raw');
+ b.inventory.items=()=>[{name:'chicken',count:1}];assert.notEqual(night.priority(b,t,{}).kind,'eat raw');
+});
+
+test('recovery forage never sends a badly injured or visibly threatened bot outside',()=>{
+ const b=bot(),t={phase:'night_recover',milestones:['hut']};night.init(t,{});t.wilderness.resume='chest';b.food=17;b.inventory.items=()=>[{name:'wooden_axe',count:1}];
+ b.health=9;assert.equal(night.priority(b,t,{}).kind,'retreat');
+ b.health=16;b.entities={z:{name:'zombie',position:new Vec3(3,64,0)}};assert.equal(night.priority(b,t,{}).kind,'retreat');
+ b.entities={};b.food=18;assert.notEqual(night.priority(b,t,{}).kind,'recovery forage');
+ b.health=18;assert.equal(night.priority(b,t,{}).kind,'resume');
+});
+
+test('recovery food trip returns home before resuming its original lesson',async()=>{
+ const b=bot(),t={phase:'night_forage',plot:{x:0,y:64,z:0},milestones:['hut'],navigator:{},walk:async()=>true};
+ night.init(t,{});Object.assign(t.wilderness,{resume:'chest',forageResume:'night_retreat'});b.entity.position=new Vec3(12,64,.5);b.inventory.items=()=>[{name:'mutton',count:2}];
+ const state={world:{first_night:{},bounds:[-30,30,-30,30]}};
+ await night.tick(t,b,{pause(){}},state);assert.equal(t.phase,'night_retreat');assert.equal(t.wilderness.resume,'chest');
+ await night.tick(t,b,{pause(){}},state);assert.equal(t.phase,'night_recover');
+ await night.interrupt(t,b,{},state);assert.equal(t.phase,'chest');assert.equal(t.wilderness.resume,undefined);
+});
+
 test('resource memory is bounded and creates road edges only from adjacent physical movement',()=>{
  const b=bot(),m=new WildernessMemory();m.observe(b);b.entity.position.x=1.5;m.observe(b);
  assert.deepEqual(m.snapshot().edges,[['0,64,0','1,64,0']]);

@@ -64,7 +64,7 @@ class WorldNavigation{
   if(!this.exitPlot){const h=plots.find(h=>!samePlot(h,plot)&&insideHome(p,h));if(h)this.exitPlot=h;}
   return this.exitPlot||plot;
  }
- plan(bot,goal,{plot=null,plots=[],bounds,now=Date.now(),memory=null}={}){
+ plan(bot,goal,{plot=null,plots=[],bounds,now=Date.now(),memory=null,constructionWork=false}={}){
   const p=bot.entity.position,portal=this.portalFor(bot,goal,plot,plots),foreign=!!this.exitPlot;
   const exitDoor=foreign?bot.blockAt(new Vec3(portal.x,portal.y,portal.z-3)):null;
   const exitClosed=exitDoor?.name.endsWith('_door')&&!exitDoor.getProperties().open;
@@ -75,7 +75,7 @@ class WorldNavigation{
   // Always allow departure from that occupied plot; the narrower room test
   // otherwise marks every neighboring start cell forbidden and traps it.
   const occupied=[Math.floor(p.x),Math.round(p.y),Math.floor(p.z)];
-  const permitted=plots.filter(h=>samePlot(h,this.exitPlot)||privatePlotCell(occupied,h)||samePlot(h,plot)&&insideHome(new Vec3(...goal),h));
+  const permitted=plots.filter(h=>samePlot(h,this.exitPlot)||privatePlotCell(occupied,h)||samePlot(h,plot)&&(constructionWork||insideHome(new Vec3(...goal),h)));
   const forbidden=q=>plots.some(h=>!permitted.some(a=>samePlot(a,h))&&privatePlotCell(q,h));
   if(key!==this.destination){this.destination=key;this.path=[];this.best=Infinity;this.progressAt=now;this.lastPlan=-Infinity;this.blocked=false;}
   const previous=this.lastPosition;this.lastPosition=[p.x,p.y,p.z];
