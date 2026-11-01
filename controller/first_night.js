@@ -20,6 +20,7 @@ function priority(b,t,w){
  return {kind:handles(t.phase)?t.phase.replace('night_','').replaceAll('_',' '):t.phase.replaceAll('_',' '),reason:sheltered?'Develop and provision the home':'Gather enough materials for a secure shelter'};
 }
 async function interrupt(t,b,motor,state,api,scan){
+ if(t.wilderness.burrow)return require('./emergency_burrow').tick(t,b,motor,state,api,scan,require('./tasks'));
  const n=t.wilderness,p=priority(b,t,state.world);n.priority=p.kind;n.reason=p.reason;
  const time=b.time?.timeOfDay;if(time>=13000&&time<23000)n.nightSeen=true;
  if(t.phase==='night_hold')nightSleep.observe(t,b);
@@ -27,6 +28,7 @@ async function interrupt(t,b,motor,state,api,scan){
  // Keep a sleeping bot still. Awake bots watch from shelter if monsters prevent bed use.
  if(b.isSleeping)return false;
  if(p.kind==='eat'||p.kind==='eat raw'){motor.pause();await inventory.equip(b,(p.kind==='eat'?FOOD:SAFE_RAW).find(n=>count(b,n)));await b.consume();n.foodConsumed++;t.lastProgress=Date.now();return true;}
+ if(await require('./emergency_burrow').tick(t,b,motor,state,api,scan,require('./tasks')))return true;
  if(await require('./survival_defense').tick(t,b,motor,state,api,scan))return true;
  if(p.kind==='retreat'&&!(t.phase==='night_hold'&&b.health>=12)&&!['night_retreat','night_recover'].includes(t.phase)){n.resume=t.phase;n.recoveries++;t.phase='night_retreat';t.path=[];t.navigator.lastPlan=-Infinity;return true;}
  if(p.kind==='resume'&&['night_retreat','night_recover'].includes(t.phase)){t.phase=n.resume;delete n.resume;t.lastProgress=Date.now();return true;}
@@ -220,5 +222,5 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(left===0&&b.health>=12&&b.food>=10&&n.sleep.morning_seen&&!b.isSleeping){t.milestone('survived');t.phase='complete';t.message='First Night complete: morning verified after a safe, provisioned shelter watch';}
  }
 }
-function report(t){const n=t.wilderness;return n?{priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,livestock:n.livestock_status||null,scouting:n.scoutPlanning?{checked:n.scoutPlanning.checked,total:n.scoutPlanning.goals.length,landmark:n.scoutLandmark||null}:null,night_seen:!!n.nightSeen,sleep:n.sleep?{status:n.sleep.status,night_seen:!!n.sleep.night_seen,morning_seen:!!n.sleep.morning_seen,watch_seconds_left:n.sleep.watch_seconds_left,watch_seconds_total:n.sleep.watch_seconds_total,watch_updated_at:n.sleep.watch_updated_at}:null,exploration:n.exploration?.snapshot(t.last||{x:0,z:0},t.plot),memory:n.memory.snapshot()}:null;}
+function report(t){const n=t.wilderness;return n?{priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,burrow:require('./emergency_burrow').report(t),livestock:n.livestock_status||null,scouting:n.scoutPlanning?{checked:n.scoutPlanning.checked,total:n.scoutPlanning.goals.length,landmark:n.scoutLandmark||null}:null,night_seen:!!n.nightSeen,sleep:n.sleep?{status:n.sleep.status,night_seen:!!n.sleep.night_seen,morning_seen:!!n.sleep.morning_seen,watch_seconds_left:n.sleep.watch_seconds_left,watch_seconds_total:n.sleep.watch_seconds_total,watch_updated_at:n.sleep.watch_updated_at}:null,exploration:n.exploration?.snapshot(t.last||{x:0,z:0},t.plot),memory:n.memory.snapshot()}:null;}
 module.exports={enabled,handles,init,priority,interrupt,explore,tick,report,approaches,meals,RAW,FOOD};

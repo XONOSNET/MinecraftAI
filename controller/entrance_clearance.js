@@ -12,6 +12,13 @@ function scan(t,b){
  return pending.sort((a,c)=>a.position.distanceTo(b.entity.position)-c.position.distanceTo(b.entity.position));
 }
 function options(t,state){return {bounds:state.world.bounds,plots:(t.campPlots||[]).filter(h=>h&&(h.x!==t.plot.x||h.z!==t.plot.z))};}
+async function resume(t,goal,walk){
+ const work=t.entranceApproach;if(!work)return null;
+ if(work.phase!==t.phase||work.goal.some((v,i)=>v!==goal[i])){t.entranceApproach=null;return null;}
+ const moved=await walk(work.stance);
+ if(moved===true||moved===false)t.entranceApproach=null;
+ return {moved};
+}
 async function tick(t,b,motor,goal,state,walk){
  const h=t.plot,p=b.entity.position;
  if(!h||Math.hypot(goal[0]-h.x-.5,goal[2]-h.z-.5)>7||Math.hypot(p.x-h.x-.5,p.z-h.z-.5)>10)return false;
@@ -34,7 +41,9 @@ async function tick(t,b,motor,goal,state,walk){
  if(p.distanceTo(new Vec3(...stance))<.5)return false;
  const route=require('./field_navigation').route(b,stance,16,1024,true,{bounds:state.world.bounds,reversible:true});
  if(!route.reached)return false;
- if(await walk(stance)===false)return false;
+ const moved=await walk(stance);
+ if(moved===false)return false;
+ if(moved!==true)t.entranceApproach={stance:[...stance],goal:[...goal],phase:t.phase};
  t.message='Approaching foliage blocking the home entrance';return true;
 }
-module.exports={scan,tick};
+module.exports={scan,tick,resume};

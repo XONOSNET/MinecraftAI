@@ -1,5 +1,12 @@
 # Safe entrance canopy clearance
 
+November 1 update: OakToad's gathering route recorded over 400 replans while
+alternating a blocked resource goal and a short entrance-clearing approach.
+The approach is now retained across movement ticks until it arrives or fails.
+A change of lesson, original goal or trial cancels it. This prevents the original
+blocked route from discarding the detour on every update. Multi-tick persistence
+and cancellation regressions are included in the 411 passing JavaScript tests.
+
 October 31's midday check found LabAI0 repeatedly stopping in `leave_hut`, even
 on a teacher pass. Native inspection of its completed house showed an open
 door, a one-block lower exterior, and spruce leaves immediately over that

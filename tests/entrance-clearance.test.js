@@ -23,6 +23,25 @@ test('moves to a safe indoor work stance rather than giving up at a blocked exte
  const result=await entrance.tick(t,b,motor,[.5,64.1,-4.5],state,async goal=>{stance=goal;return true;});
  assert.equal(result,true);assert.deepEqual(stance,[.5,65.1,-1.5]);
 });
+
+test('multi-tick entrance approaches persist until arrival without reselecting the blocked original route',async()=>{
+ const {cells,t,b,motor,state}=fixture();cells.set(new Vec3(0,66,-4).toString(),'spruce_leaves');
+ const goal=[.5,64.1,-4.5],calls=[];
+ await entrance.tick(t,b,motor,goal,state,async g=>{calls.push(g);return undefined;});
+ assert.deepEqual(t.entranceApproach.stance,[.5,65.1,-1.5]);
+ for(let i=0;i<3;i++){
+  const resumed=await entrance.resume(t,goal,async g=>{calls.push(g);return undefined;});assert.ok(resumed);assert.ok(t.entranceApproach);
+ }
+ assert.ok(calls.every(g=>g[2]===-1.5),'only the committed work stance is requested');
+ assert.deepEqual(await entrance.resume(t,goal,async()=>true),{moved:true});assert.equal(t.entranceApproach,null);
+});
+
+test('entrance detours cancel on a changed goal, lesson or failed route',async()=>{
+ const {t}=fixture(),goal=[.5,64.1,-4.5],work={goal,stance:[.5,65.1,-1.5],phase:t.phase};
+ t.entranceApproach=work;assert.equal(await entrance.resume(t,[10,64,10],async()=>assert.fail('stale goal')),null);assert.equal(t.entranceApproach,null);
+ t.entranceApproach=work;t.phase='night_retreat';assert.equal(await entrance.resume(t,goal,async()=>assert.fail('stale phase')),null);
+ t.phase=work.phase;t.entranceApproach=work;assert.deepEqual(await entrance.resume(t,goal,async()=>false),{moved:false});assert.equal(t.entranceApproach,null);
+});
 test('real leaf removal restores planning and records actual work without placing resources',async ctx=>{
  const {cells,t,b,motor,state,walk}=fixture();b.entity.position.z=-1.5;const p=new Vec3(0,66,-4);cells.set(p.toString(),'spruce_leaves');
  ctx.mock.method(access,'dig',async(bot,block,{validate})=>{assert.ok(validate(block));cells.set(block.position.toString(),'air');return true;});
