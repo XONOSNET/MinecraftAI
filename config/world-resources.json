@@ -4,6 +4,7 @@
   "frontier_route_budget": 8,
   "frontier_retry_seconds": 90,
   "empty_search_seconds": 90,
-  "livestock_replenish_seconds": 120,
-  "livestock_caps": {"sheep": 24, "cow": 12, "pig": 8, "chicken": 12}
+  "livestock_replenish_seconds": 60,
+  "sheep_births_per_wave": 8,
+  "livestock_caps": {"sheep": 32, "cow": 12, "pig": 8, "chicken": 12}
 }

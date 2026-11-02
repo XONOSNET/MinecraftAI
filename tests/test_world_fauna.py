@@ -18,12 +18,12 @@ def test_walked_sheep_replenishment_keeps_population_and_successful_wave_caps():
     from lab.world_fauna import replenish_commands
     commands=replenish_commands([0,160,0,160],[],0,dict(sheep=24),[(20,65,20),(30,66,30),(40,65,40)])
     summons=[c for c in commands if 'run summon' in c]
-    assert len(summons)==7
+    assert len(summons)==27
     assert sum('positioned over' not in c for c in summons)==3
     assert all('matches ..1 if score #fauna_sheep lab_world matches ..23' in c for c in summons)
     assert all('unless entity @a[distance=..8]' in c and 'unless entity @e[type=minecraft:sheep,distance=..6]' in c for c in summons)
     assert all(c.count('#minecraft:animals_spawnable_on')==1 and 'Age:0' in c for c in summons)
-    assert sum('tag=lab_refill_new' in c and 'execute store result' in c for c in commands)==7
+    assert sum('tag=lab_refill_new' in c and 'execute store result' in c for c in commands)==27
     assert not any('store success' in c for c in commands)
 
 
@@ -51,14 +51,14 @@ def test_unprepared_wilderness_uses_reported_roads_and_keeps_births_outside_repo
     summons=[c for c in commands if 'run summon minecraft:sheep' in c]
     assert any('positioned 16460.5 65 16464.5' in c for c in summons)
     assert not any('positioned 16460.5 65 16440.5' in c for c in summons)
-    assert all('matches ..1 if score #fauna_sheep lab_world matches ..23' in c for c in summons)
+    assert all('matches ..7 if score #fauna_sheep lab_world matches ..31' in c for c in summons)
 
 
 def test_replenishment_is_bounded_surface_checked_and_avoids_house_plots():
     from lab.world_fauna import replenish_commands
     commands=replenish_commands([0,128,0,128],[dict(x=10,z=10)],0,dict(sheep=24,cow=12))
     summons=[c for c in commands if 'run summon' in c]
-    assert len(summons)==6
+    assert len(summons)==26
     assert all('positioned over motion_blocking_no_leaves' in c and 'unless entity @a[distance=..8]' in c for c in summons)
     assert all('if block ~ ~1 ~ minecraft:air' in c for c in summons)
     assert all(c.count('#minecraft:animals_spawnable_on')==(1 if 'summon minecraft:sheep' in c else 5) for c in summons)
@@ -73,12 +73,26 @@ def test_periodic_fauna_runs_only_during_active_natural_training_with_a_cooldown
     world.start(dict(mission='first_night',night_level=1),['LabAI0'])
     world.session.update(phase='running',trial_at=0);commands.clear()
     clock[0]=29;world.tick();assert not any('lab_replenished_fauna' in c for c in commands)
-    clock[0]=30;world.tick();assert sum('lab_replenished_fauna' in c for c in commands)==10
-    commands.clear();clock[0]=149;world.tick();assert not any('lab_replenished_fauna' in c for c in commands)
-    clock[0]=150;world.tick();assert sum('lab_replenished_fauna' in c for c in commands)==10
+    clock[0]=30;world.tick();assert sum('lab_replenished_fauna' in c for c in commands)==30
+    commands.clear();clock[0]=89;world.tick();assert not any('lab_replenished_fauna' in c for c in commands)
+    clock[0]=90;world.tick();assert sum('lab_replenished_fauna' in c for c in commands)==30
     assert world.session['fauna_replenishment']['waves']==2
+    assert world.session['fauna_replenishment']['caps']['sheep']==32
+    assert world.session['fauna_replenishment']['sheep_births_per_wave']==8
     commands.clear();world.session['assessment']=True;clock[0]=300;world.tick();assert not any('lab_replenished_fauna' in c for c in commands)
     world.session.update(assessment=False,active=False);clock[0]=500;world.tick();assert not any('lab_replenished_fauna' in c for c in commands)
+
+
+def test_larger_sheep_waves_keep_both_population_and_per_wave_guards():
+    import pytest
+    from lab.world_fauna import replenish_commands
+    roads=[(20+i*8,65,30) for i in range(20)]
+    commands=replenish_commands([0,256,0,128],[],0,dict(sheep=32),roads,sheep_births=8)
+    births=[c for c in commands if 'run summon minecraft:sheep' in c]
+    assert len(births)==40 and sum('positioned over' not in c for c in births)==16
+    assert all('matches ..7 if score #fauna_sheep lab_world matches ..31' in c for c in births)
+    for invalid in [0,33,True,2.5]:
+        with pytest.raises(ValueError):replenish_commands([0,128,0,128],[],0,dict(sheep=32),sheep_births=invalid)
 
 def test_fauna_restores_original_positions_without_reusing_entity_uuids():
     capture=fauna_commands([0,128,0,128],'1-128',True)

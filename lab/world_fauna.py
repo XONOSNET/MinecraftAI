@@ -33,11 +33,12 @@ def walked_pastures(session):
     return result
 
 
-def replenish_commands(bounds,plots,wave,caps,pastures=None):
+def replenish_commands(bounds,plots,wave,caps,pastures=None,sheep_births=2):
     """Bounded population maintenance on real grassy surface positions."""
     x0,x1,z0,z1=bounds
     area=f'x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}'
-    points=[(x,z) for x in range(x0+10,x1-9,16) for z in range(z0+10,z1-9,16)
+    if type(sheep_births) is not int or not 1<=sheep_births<=32:raise ValueError('Invalid sheep birth limit')
+    points=[(x,z) for x in range(x0+10,x1-9,8) for z in range(z0+10,z1-9,8)
             if not any(abs(x-h['x'])<8 and abs(z-h['z'])<8 for h in plots)]
     commands=[]
     if not points:return commands
@@ -52,15 +53,15 @@ def replenish_commands(bounds,plots,wave,caps,pastures=None):
             candidates=list(pastures or [])
             # Regional fallback checks the actual surface, including beyond old roads.
             samples=[]
-            for j in range(min(8,len(candidates))):
+            for j in range(min(16,len(candidates))):
                 x,y,z=candidates[(wave*7+j)%len(candidates)];samples.append(f'positioned {x+.5} {y} {z+.5}')
-            for j in range(4):
+            for j in range(min(24,len(points))):
                 x,z=points[(wave*17+j*7)%len(points)];samples.append(f'positioned {x+.5} 0 {z+.5} positioned over motion_blocking_no_leaves')
             for position in samples:
                 commands.extend([
                     f'scoreboard players set {score} lab_world 0',
                     f'execute store result score {score} lab_world run execute if entity @e[type=minecraft:sheep,{area}]',
-                    f'execute if score {wave_score} lab_world matches ..1 if score {score} lab_world matches ..{cap-1} {position} if block ~ ~-1 ~ #minecraft:animals_spawnable_on if block ~ ~ ~ minecraft:air if block ~ ~1 ~ minecraft:air unless entity @a[distance=..8] unless entity @e[type=minecraft:sheep,distance=..6] run summon minecraft:sheep ~ ~ ~ {{Tags:["lab_natural_fauna","lab_replenished_fauna","lab_refill_new"],PersistenceRequired:1b,Color:0b,Age:0}}',
+                    f'execute if score {wave_score} lab_world matches ..{sheep_births-1} if score {score} lab_world matches ..{cap-1} {position} if block ~ ~-1 ~ #minecraft:animals_spawnable_on if block ~ ~ ~ minecraft:air if block ~ ~1 ~ minecraft:air unless entity @a[distance=..8] unless entity @e[type=minecraft:sheep,distance=..6] run summon minecraft:sheep ~ ~ ~ {{Tags:["lab_natural_fauna","lab_replenished_fauna","lab_refill_new"],PersistenceRequired:1b,Color:0b,Age:0}}',
                     f'scoreboard players set {wave_score} lab_world 0',
                     f'execute store result score {wave_score} lab_world run execute if entity @e[type=minecraft:sheep,tag=lab_refill_new,{area}]'])
             commands.extend([f'scoreboard players set {score} lab_world 0',

@@ -236,7 +236,7 @@ class WorldTraining(SurvivalLessons):
         if not s['active']:return
         if s['phase']=='running' and s.get('first_night') and not s['first_night'].get('stations') and not s.get('assessment'):
             interval=RESOURCE_CONFIG.get('livestock_replenish_seconds',120)
-            refill=s.setdefault('fauna_replenishment',dict(waves=0,next_at=s.get('trial_at',self.clock())+30,interval_seconds=interval,caps=RESOURCE_CONFIG.get('livestock_caps',{})))
+            refill=s.setdefault('fauna_replenishment',dict(waves=0,next_at=s.get('trial_at',self.clock())+30,interval_seconds=interval,caps=RESOURCE_CONFIG.get('livestock_caps',{}),sheep_births_per_wave=RESOURCE_CONFIG.get('sheep_births_per_wave',2)))
             if refill.get('pending_counts'):
                 text,refill['log_offset']=self._read(refill['log_offset'])
                 refill['count_log']=(refill.get('count_log','')+text)[-16384:]
@@ -251,7 +251,7 @@ class WorldTraining(SurvivalLessons):
             if self.clock()>=refill['next_at']:
                 pastures=walked_pastures(s)
                 refill.update(log_offset=self.logpath.stat().st_size if self.logpath.exists() else 0,pending_counts=True,count_log='',count_error=None)
-                for command in replenish_commands(s['bounds'],house_plots(s),refill['waves'],refill['caps'],pastures):self.command(command)
+                for command in replenish_commands(s['bounds'],house_plots(s),refill['waves'],refill['caps'],pastures,RESOURCE_CONFIG.get('sheep_births_per_wave',2)):self.command(command)
                 refill.update(waves=refill['waves']+1,next_at=self.clock()+interval,last_at=self.clock())
                 refill.update(sheep_placement='walked grass candidates' if pastures else 'regional grass candidates',walked_pastures=len(pastures))
         if s['phase'] in ('snapshotting','restoring'):
