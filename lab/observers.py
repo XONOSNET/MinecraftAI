@@ -149,7 +149,7 @@ class Observers:
     def next_bot(self,owner,agents):
         owner=player_name(owner)
         s=next((v for k,v in self.sessions.items() if k.casefold()==owner.casefold()),None)
-        if not s or not s.get('enabled') or not s.get('cycle_enabled'):raise ValueError('Enable Cycle bots before using Next AI')
+        if not s or not s.get('enabled'):raise ValueError('Start following a bot before using Next AI')
         self.cycle_target(s,agents)
         self.save();return copy.deepcopy(s)
 

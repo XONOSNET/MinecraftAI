@@ -11,8 +11,7 @@ def install_camera_pack(path):
     for key,tag,_ in BINDINGS:
         predicate='{condition:"minecraft:entity_properties",entity:"this",predicate:{type_specific:{type:"minecraft:player",input:{'+key+':true}}}}'
         held='lab_cam_space_held' if key=='jump' else 'lab_cam_'+tag+'_held'
-        gate='if entity @s[tag=lab_cam_cycle] ' if key=='jump' else ''
-        edge=f'execute {gate}if predicate {predicate} unless entity @s[tag={held}] run tag @s add '
+        edge=f'execute if predicate {predicate} unless entity @s[tag={held}] run tag @s add '
         lines.extend([edge+'lab_cam_event',edge+'lab_cam_'+tag,f'execute if predicate {predicate} run tag @s add {held}',f'execute unless predicate {predicate} run tag @s remove {held}'])
     events=['lab_cam_event']+['lab_cam_'+tag for _,tag,_ in BINDINGS]
     held=['lab_cam_space_held']+['lab_cam_'+tag+'_held' for key,tag,_ in BINDINGS if key!='jump']
@@ -56,7 +55,7 @@ class CameraInput:
             if owner not in active:continue
             try:
                 if tag=='advance':
-                    if owner in cycling:observers.next_bot(owner,agents)
+                    observers.next_bot(owner,agents)
                 else:observers.adjust(owner,key)
             except ValueError:pass
             if not self.pack:self.command(f'tag {owner} remove lab_cam_advance')
@@ -76,7 +75,7 @@ class CameraInput:
                 self.command('execute as @a[tag=lab_camera_controls,tag=lab_cam_event] run function lab_camera:consume')
         else:
             predicate='{condition:"minecraft:entity_properties",entity:"this",predicate:{type_specific:{type:"minecraft:player",input:{jump:true}}}}'
-            for owner in cycling:
+            for owner in active:
                 self.command(f'execute as {owner} if predicate {predicate} unless entity @s[tag=lab_cam_space_held] run tag @s add lab_cam_advance')
                 self.command(f'execute as {owner} if predicate {predicate} run tag @s add lab_cam_space_held')
                 self.command(f'execute as {owner} unless predicate {predicate} run tag @s remove lab_cam_space_held')

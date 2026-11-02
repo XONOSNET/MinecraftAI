@@ -51,3 +51,27 @@ def test_generated_names_migrate_persist_and_remain_unique():
     assert second.get('LabAI0')['display_name']==names[0]
     assert second.get('LabAI0')['tracked_since']==123
     assert len({second.get(f'LabAI{i}')['display_name'] for i in range(10)})==10
+
+
+def test_space_advances_with_automatic_cycling_off_and_stays_scoped(tmp_path):
+    path=tmp_path/'console';path.write_text('');commands=[];pack=tmp_path/'pack'
+    reader=CameraInput(path,commands.append,pack)
+    class Observers:
+        sessions={'Xonosnet':{'player':'Xonosnet','enabled':True,'cycle_enabled':False}}
+        advances=[]
+        def next_bot(self,owner,agents):self.advances.append(owner)
+    o=Observers();reader.tick(o,['Xonosnet'],{})
+    source=(pack/'data/lab_camera/function/input.mcfunction').read_text()
+    assert 'execute if predicate' in source and 'if entity @s[tag=lab_cam_cycle]' not in source
+    assert 'unless entity @s[tag=lab_cam_space_held]' in source
+    with path.open('a') as f:f.write('[12:00:00 INFO]: Xonosnet has 3 tags: lab_camera_controls, lab_cam_event, lab_cam_advance\n[12:00:00 INFO]: Stranger has 1 tags: lab_cam_advance\n')
+    reader.tick(o,['Xonosnet'],{});reader.tick(o,['Xonosnet'],{})
+    assert o.advances==['Xonosnet']
+
+
+def test_legacy_space_detection_is_enabled_for_manual_followers(tmp_path):
+    path=tmp_path/'console';path.write_text('');commands=[];reader=CameraInput(path,commands.append)
+    class Observers:
+        sessions={'Xonosnet':{'player':'Xonosnet','enabled':True,'cycle_enabled':False}}
+    reader.tick(Observers(),['Xonosnet'],{})
+    assert any('execute as Xonosnet if predicate' in c and 'jump:true' in c for c in commands)

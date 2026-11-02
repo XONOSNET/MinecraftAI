@@ -601,3 +601,14 @@ def test_unchanged_hud_values_are_not_resent_every_second(tmp_path):
     o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':agent},True)
     commands.clear();now[0]+=1.1;o.update_hud(o.sessions['Xonosnet'],agent,'paused')
     assert not any(c.startswith('bossbar ') for c in commands)
+
+
+def test_manual_next_bot_preserves_view_and_does_not_enable_automatic_cycle(tmp_path):
+    o=Observers(tmp_path/'camera',lambda c:None,lambda:100)
+    o.start({'player':'Xonosnet','target':'LabAI0','view':'orbit','cycle_enabled':False},['Xonosnet'])
+    agents={f'LabAI{i}':dict(connected=True,last_seen=100,trial_completed=0) for i in range(3)}
+    assert o.next_bot('Xonosnet',agents)['target']=='LabAI1'
+    s=o.next_bot('Xonosnet',agents)
+    assert s['target']=='LabAI2' and s['view']=='orbit' and s['cycle_enabled'] is False
+    o.sessions['Xonosnet']['enabled']=False
+    with pytest.raises(ValueError):o.next_bot('Xonosnet',agents)

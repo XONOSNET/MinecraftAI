@@ -17,3 +17,13 @@ The name of a bot selected by an online, enabled spectator session is gold in th
 The vanilla scoreboard sidebar is shared: if several viewers follow different bots, each watched bot is highlighted for everyone. Offline and stopped spectator sessions do not highlight a bot.
 
 Validation: 313 Python tests passed, including automatic cycling, rapid manual selection, restoring the previous color, unchanged-row suppression and multiple/offline/disabled viewers.
+
+
+## Manual next-bot input
+
+While following, Space/Jump selects the next eligible bot whether or not
+**Cycle bots** is checked. The checkbox controls timed switching only. The
+camera view, distance, height and active-bot filter remain unchanged. Held
+Space triggers once until released; input from players who are not following
+is ignored. Next AI and the dashboard Space shortcut use the same rule.
+If no eligible bots remain, manual switching holds the current target.
