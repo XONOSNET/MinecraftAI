@@ -75,6 +75,16 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   m=n.mine=start(t,b,state,resource);
   if(!m){t.message='Looking for a dry, supported staircase entrance outside house plots';return {handled:false};}
  }
+ // Shelter/combat can interrupt any mining stage and bring the bot all the
+ // way home. The protected house footprint is outside every allowed mine.
+ // Retire that trip before inspecting stale underground hazards. The done
+ // branch still checks real inventory before awarding any resource progress.
+ const p=b.entity.position,h=t.plot;
+ if(!['done','approach'].includes(m.stage)&&h&&b.entity.onGround===true&&
+    Math.abs(Math.floor(p.x)-h.x)<=5&&Math.abs(Math.floor(p.z)-h.z)<=5&&Math.abs(p.y-h.y)<.5&&
+    Math.hypot(p.x-m.entry[0]-.5,p.z-m.entry[2]-.5)>8&&nav.standable(b,Math.floor(p.x),Math.round(p.y),Math.floor(p.z))){
+  m.stage='done';m.reason='Interrupted mining trip ended safely at home; rechecking collected supplies';claims.delete(b.username);
+ }
  t.message='Staircase mine: '+m.stage+' · Y '+Math.floor(b.entity.position.y)+' → '+m.target_y+' · '+m.steps+' steps';
  if(m.stage==='done'){
   if(count(b,'cobblestone')>=amount)return {handled:true,done:true};

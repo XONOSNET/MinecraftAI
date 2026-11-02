@@ -124,3 +124,17 @@ test('a mine exit waits through an airborne frame and retains failure for a genu
  f.b.entity.onGround=true;f.b.blockAt=p=>({position:p,name:'stone',boundingBox:'block'});
  await assert.rejects(mine.tick(f.t,f.b,f.motor,f.state),/return stair is obstructed/);assert.equal(m.stage,'exit');
 });
+
+test('home retreat retires a stale flooded mine in every working stage but requires actual stone',async()=>{
+ for(const stage of ['dig','descend','water_retreat','exit']){
+  const f=fixture();f.t.plot={x:0,y:64,z:5};
+  f.b.entity.position=new Vec3(.5,64,.5);
+  const m=f.t.wilderness.mine={stage,entry:[20,64,0],path:[[20,64,0],[21,63,0]],steps:1,flooded:[],exitIndex:1};
+  f.cells.set(new Vec3(21,63,0).toString(),'water');f.t.lastProgress=123;
+  const r=await mine.tick(f.t,f.b,f.motor,f.state);
+  assert.equal(r.handled,false,stage);assert.equal(r.done,undefined);assert.equal(f.t.wilderness.mine,null);assert.equal(f.items.cobblestone,undefined);assert.equal(f.t.lastProgress,123);assert.match(m.reason,/ended safely at home/);
+ }
+ const f=fixture();f.t.plot={x:0,y:64,z:0};f.items.cobblestone=16;
+ f.t.wilderness.mine={stage:'dig',entry:[20,64,0],path:[[20,64,0]],steps:0};
+ assert.equal((await mine.tick(f.t,f.b,f.motor,f.state)).done,true);
+});
