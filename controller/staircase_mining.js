@@ -90,6 +90,16 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   return {handled:true};
  }
  if(m.stage==='exit'){
+  // Survival interruptions can carry the bot home while this cursor still
+  // points into the mine. Reconnect to the entrance through sensed terrain
+  // rather than demanding that it revisit a now-obstructed lower landing.
+  // A physics tick in mid-jump is not evidence that a return route failed.
+  if(b.entity.onGround===false&&!b.entity.isInWater){motor.pause();t.message='Mine exit: waiting to land before checking the return route';return {handled:true};}
+  const old=new Vec3(...m.path[m.exitIndex]);
+  if(m.exitIndex>0&&(b.entity.position.distanceTo(old)>3||!nav.standable(b,old.x,old.y,old.z))){
+   const radius=Math.min(192,Math.max(24,Math.ceil(b.entity.position.distanceTo(home))+8));
+   if(nav.route(b,point(home),radius,8192,true,{bounds:state.world.bounds,reversible:true}).reached)m.exitIndex=0;
+  }
   const q=new Vec3(...m.path[m.exitIndex]);
   if(!nav.standable(b,q.x,q.y,q.z))throw Error('Recorded mine return stair is obstructed or unsafe');
   const arrived=await t.walk(b,motor,point(q),state,api,scan,tasks);

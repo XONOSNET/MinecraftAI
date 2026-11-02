@@ -106,3 +106,21 @@ test('a temporarily occupied return stair yields without abandoning the mine or 
  f.b.players={};await assert.rejects(mine.tick(f.t,f.b,f.motor,f.state),/Unable to climb/);
  f.t.walk=async()=>true;await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.stage,'done');
 });
+
+test('an interrupted mine exit reconnects from the surface instead of revisiting an obstructed lower stair',async()=>{
+ const f=fixture(),m=f.t.wilderness.mine={stage:'exit',entry:[0,64,0],path:[[0,64,0],[1,63,0],[2,62,0]],exitIndex:2};
+ f.b.entity.position=new Vec3(10.5,64,.5);f.t.lastProgress=123;let destination;
+ f.t.walk=async(_b,_m,g)=>{destination=g;return undefined;};
+ await mine.tick(f.t,f.b,f.motor,f.state);assert.deepEqual(destination,[.5,64.1,.5]);assert.equal(m.exitIndex,0);assert.equal(m.stage,'exit');assert.equal(f.t.lastProgress,123);
+ f.t.walk=async(_b,_m,g)=>{f.b.entity.position=new Vec3(...g);return true;};
+ await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.stage,'done');assert.equal(f.items.cobblestone,undefined,'returning does not create mined supplies');
+});
+
+test('a mine exit waits through an airborne frame and retains failure for a genuinely blocked staircase',async()=>{
+ const f=fixture(),m=f.t.wilderness.mine={stage:'exit',entry:[0,64,0],path:[[0,64,0],[1,63,0]],exitIndex:1};
+ f.b.entity.position=new Vec3(1.5,64.001,.5);f.b.entity.onGround=false;f.t.lastProgress=123;
+ f.t.walk=async()=>{throw Error('cannot plan while airborne');};
+ await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.exitIndex,1);assert.equal(f.t.lastProgress,123);assert.match(f.t.message,/waiting to land/);
+ f.b.entity.onGround=true;f.b.blockAt=p=>({position:p,name:'stone',boundingBox:'block'});
+ await assert.rejects(mine.tick(f.t,f.b,f.motor,f.state),/return stair is obstructed/);assert.equal(m.stage,'exit');
+});
