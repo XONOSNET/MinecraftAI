@@ -28,7 +28,7 @@ def test_status_encodes_outside_control_lock_freezes_bots_and_reuses_bounded_cac
         world_training=NS(session=None,saved={'history':[]}),world_learning=NS(state={'history':[]}),
         world_view=world_view,learning_view=learning_view,compact_status=compact_status,SCENARIOS=[],LEVELS=[],readiness=lambda _: {},
         evolution=NS(snapshot=lambda *a,**kw:{'history':[]}),active_skill=lambda:'navigation',
-        vision_lines=NS(settings={}),harvest_markers=NS(settings={}),behavior_rules=snapshot,
+        vision_lines=NS(settings={}),harvest_markers=NS(settings={}),bot_lights=NS(enabled=False,positions=set()),behavior_rules=snapshot,
         practice_protection=snapshot,AGENT_COUNT=1,trial_limit=lambda:3,observers=NS(snapshot=lambda:{},motion_stats={}),persistence=NS(snapshot=lambda:{}),
         psutil=NS(virtual_memory=lambda:memory,cpu_count=lambda:1),mode='paused',run='test',agents=agents,
         learning_context=lambda:(NS(parameters_count=4),None,[]),practice=None,server_alive=lambda:True,

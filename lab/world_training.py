@@ -270,7 +270,7 @@ class WorldTraining(SurvivalLessons):
                     template=self.saved['templates'].setdefault(s['template'],{})
                     template.update(bounds=s['bounds'],resource_margin=s.get('resource_margin',0),saved_at=self.clock());self.save()
                     s.update(phase='running',message=(('Survival progression: '+s['mission']+'. ') if s['mission'] in ADVANCED else '')+('Stone-age lessons running: settlement, mining, stone tools, furnace, charcoal and lighting.' if s['mission']=='stone_age' else 'Settlement lessons running: hut, chest, tools and stored supplies.' if s['mission']=='settlement' else 'Survival lessons running: '+s['mission']+'.' if s['mission'] in ADVANCED else 'Hut trial running.')+' Movement and harvesting follow the selected driver. Recipes and building use scripted helpers.',progress=100,trial_at=self.clock(),reset_seconds=round(self.clock()-s['started_at'],1))
-                    if s.get('first_night'):s['message']='First Night · '+s['first_night']['name']+'. '+s['first_night']['description']+' Recipes, construction, route planning and carried lights remain assisted.'
+                    if s.get('first_night'):s['message']='First Night · '+s['first_night']['name']+'. '+s['first_night']['description']+' Recipes, construction and route planning remain assisted.'
                     x0,x1,z0,z1=s['bounds']
                     self.command(f'kill @e[type=minecraft:item,x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}]')
                     for name in s['bots']:

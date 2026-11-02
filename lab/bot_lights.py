@@ -1,17 +1,31 @@
 """Vanilla moving light sources, owned by invisible marker entities."""
+import json
+from pathlib import Path
 import math
 import time
 from .config import is_agent
 
 
 class BotLights:
-    def __init__(self,command,clock=time.time):
+    def __init__(self,command,clock=time.time,config_path=None):
         self.command=command;self.clock=clock;self.at=0;self.sweep_at=0;self.positions=None
+        self.config_path=Path(config_path) if config_path else None;self.enabled=True;self.settings_at=-float("inf")
 
     def tick(self,agents,ready):
         now=self.clock()
         if not ready or now-self.at<.25:return
-        self.at=now;positions=set()
+        self.at=now
+        if self.config_path and now-self.settings_at>=1:
+            self.settings_at=now
+            try:
+                value=json.loads(self.config_path.read_text(encoding='utf-8')).get('enabled',False)
+                self.enabled=value is True
+            except (OSError,ValueError,AttributeError):self.enabled=False
+        if not self.enabled:
+            if self.positions is None or self.positions or now-self.sweep_at>=2:
+                self.update(set());self.positions=set();self.sweep_at=now
+            return
+        positions=set()
         for name,a in agents.items():
             p=a.get('position',[])
             if not is_agent(name) or not a.get('connected') or now-a.get('last_seen',0)>8:continue

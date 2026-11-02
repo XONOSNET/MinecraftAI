@@ -43,3 +43,26 @@ def test_one_moving_bot_does_not_rebuild_every_other_lamp():
     assert not any('lab_lamp_4_71_0' in c for c in commands)
     commands.clear();now[0]+=2;lights.tick(agents,True)
     assert any('tag=!lab_light_current' in c for c in commands)
+
+
+
+def test_disabled_setting_clears_owned_lights_and_stays_off_when_bots_move(tmp_path):
+    path=tmp_path/'lights.json';path.write_text('{"enabled": true}')
+    now=[100.];commands=[];lights=BotLights(commands.append,lambda:now[0],config_path=path)
+    agents={'LabAI0':dict(position=[0,70,0],connected=True,last_seen=100)}
+    lights.tick(agents,True);assert lights.positions
+    commands.clear();path.write_text('{"enabled": false}');now[0]+=1.1;lights.tick(agents,True)
+    assert lights.enabled is False and lights.positions==set()
+    assert any('minecraft:air' in c and 'lab_bot_light' in c for c in commands)
+    agents['LabAI0']['position']=[3,70,3];now[0]+=3;lights.tick(agents,True)
+    assert not any('summon' in c for c in commands)
+    assert all('setblock' not in c or 'minecraft:air' in c for c in commands)
+
+
+def test_light_setting_reloads_without_a_service_restart_and_invalid_settings_stay_off(tmp_path):
+    path=tmp_path/'lights.json';path.write_text('broken')
+    now=[100.];commands=[];lights=BotLights(commands.append,lambda:now[0],config_path=path)
+    agents={'LabAI0':dict(position=[0,70,0],connected=True,last_seen=100)}
+    lights.tick(agents,True);assert not lights.enabled
+    commands.clear();path.write_text('{"enabled": true}');now[0]+=1.1;lights.tick(agents,True)
+    assert lights.enabled and any('summon' in c for c in commands)
