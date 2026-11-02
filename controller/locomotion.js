@@ -64,6 +64,9 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
   command(action,task,sensed,angle){
    if(!Number.isFinite(angle)||!Number.isFinite(bot.entity?.yaw)){clear();return 'Waiting for valid orientation';}
    stalled=false;
+   if(task?.water_route&&task.waypoints?.length){
+    recovery.reset();doorway.reset();strafe.reset();plan={waterGoal:task.waypoints[0],waterMove:[0,3].includes(action),label:'Following checked water crossing'};expires=clock()+1500;paused=false;return plan.label;
+   }
    if(legacy){applyMotion(bot,action,permissions,task);return null;}
    plan=motorPlan(action,permissions,task,{...sensed,inWater:!!bot.entity?.isInWater},angle,!!bot.getControlState('forward'));
    if(task?.stationary_work){recovery.reset();doorway.reset();strafe.reset();plan.forward=false;plan.jump=false;}
@@ -140,7 +143,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
   },
   pause:clear,
   passageActive:()=>doorway.active(),
-  status(){return stalled?'Waiting for policy response':doorway.active()?doorway.label():recovery.active()?recovery.label():plan?.side&&(bot.getControlState('left')||bot.getControlState('right'))?plan.label:plan?.sprint&&bot.getControlState('sprint')?'Sprinting on clear ground':null;},
+  status(){return stalled?'Waiting for policy response':plan?.waterGoal?plan.label:doorway.active()?doorway.label():recovery.active()?recovery.label():plan?.side&&(bot.getControlState('left')||bot.getControlState('right'))?plan.label:plan?.sprint&&bot.getControlState('sprint')?'Sprinting on clear ground':null;},
   diagnostic(){return {label:plan?.label||null,paused,expired:stalled||!paused&&clock()>expires,ground_safe:groundSafe,precise_focus:!!plan?.preciseFocus,recovering:recovery.active(),doorway:doorway.active(),controls:Object.fromEntries(['forward','back','left','right','jump','sneak','sprint'].map(k=>[k,!!bot.getControlState(k)]))};},
   lockLook(value){lookLocked=value;},
   tick(){
@@ -160,6 +163,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     if(!paused){plan=null;targetYaw=null;paused=true;stalled=true;}
     pauseMotion(bot,permissions);applyPose(bot,!!bot.getControlState('sneak'));return;
    }
+   if(plan?.waterGoal){require('./water_navigation').drive(bot,plan.waterGoal,{...permissions,move:permissions.move&&plan.waterMove});return;}
    let forward=!!plan.forward;
    // Policy replies can arrive late; recheck support while holding an intention.
    if(forward&&plan.safeWalk&&bot.blockAt&&bot.entity.onGround!==false&&!(plan.stepLevel&&bot.entity.position.y<plan.stepLevel-.3)){

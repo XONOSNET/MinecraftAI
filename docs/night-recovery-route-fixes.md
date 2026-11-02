@@ -29,3 +29,9 @@ Read-only inspection of the existing production terrain verified the return
 routes and rejected shoreline site. No production blocks, supplies, health or
 success criteria were changed. Native probes were returned to staging and quit.
 The ordinary death, boundary, lesson, stationary and time-budget rules remain.
+
+
+The subsequent water-navigation update supersedes blanket shoreline rejection:
+plots can use a checked source-water exit, and travel can wade/swim to a verified
+bank. See [water-navigation.md](water-navigation.md) for current conditions and
+limits. Dry building and mining requirements remain in place.

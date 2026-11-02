@@ -50,7 +50,7 @@ function usableEntrance(bot,h){
  // A flat room is insufficient when its only doorway opens onto water or a cliff.
  let previous=h.y;
  for(const dz of [-4,-5]){
-  const y=[previous,previous-1,previous+1].find(y=>standable(bot,h.x,y,h.z+dz));
+  const y=[previous,previous-1,previous+1].find(y=>standable(bot,h.x,y,h.z+dz)||require('./water_navigation').cell(bot,h.x,y,h.z+dz));
   if(y===undefined)return false;previous=y;
  }
  return true;
@@ -524,7 +524,7 @@ class HutTeacher{
   const cue=planned.cue;if(!this.inside(new Vec3(...cue),state.world.bounds)){motor.pause();throw Error('Planned route reached the trial boundary.');}
   const passage=routeDoorway(bot,planned.portal,planned.path,goal);
   const skill=this.phase==='enter'?'shelter':'expedition';
-  const task={hunting:!!intent.hunting,kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],safety_focus:[...cue],bounds:state.world.bounds,actual_doors:[],allow_water:false,coverage_target:100,quick_look:true,safe_walk:true,strict_ground:true,auto_step:true,route_corridor:planned.corridor,avoid_players:true,navigation_lock:state.world.driver==='teacher',center_route:!!cue.centering,travel_sprint:!['floor','table','build','door','enter'].includes(this.phase),sprint_path:planned.path};
+  const task={water_route:planned.water_route,hunting:!!intent.hunting,kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],safety_focus:[...cue],bounds:state.world.bounds,actual_doors:[],allow_water:!!planned.water_route,coverage_target:100,quick_look:true,safe_walk:true,strict_ground:true,auto_step:true,route_corridor:planned.corridor,avoid_players:true,navigation_lock:state.world.driver==='teacher',center_route:!!cue.centering,travel_sprint:!['floor','table','build','door','enter'].includes(this.phase),sprint_path:planned.path};
   const desired=Math.atan2(-(cue[0]-p.x),-(cue[2]-p.z)),angle=Math.atan2(Math.sin(desired-bot.entity.yaw),Math.cos(desired-bot.entity.yaw));
   const sensedScan=scan(bot,{goalYaw:desired}),sensed=tasks.observeTask(bot,task,sensedScan,this.runtime);
   const obs=[...sensedScan.pooled,Math.sin(angle),Math.cos(angle),Math.min(p.distanceTo(new Vec3(...goal))/32,1),bot.health/20,bot.food/20,bot.entity.onGround?1:0,...sensed.extra];

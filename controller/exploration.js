@@ -1,5 +1,5 @@
 // Bounded, per-bot survey memory with shared destination reservations only.
-const {Vec3}=require('vec3'),{route}=require('./field_navigation'),cfg=require('../config/world-resources.json');
+const {Vec3}=require('vec3'),{travelRoute:route}=require('./field_navigation'),cfg=require('../config/world-resources.json');
 const claims=new Map(),key=p=>Math.floor(p[0]/cfg.frontier_cell_size)+','+Math.floor(p[2]/cfg.frontier_cell_size);
 class Exploration{
  constructor(){this.visits=new Map();this.depleted=new Map();this.rejected=new Map();this.tests=0;this.cycles=0;this.state='Searching';this.goal=null;}

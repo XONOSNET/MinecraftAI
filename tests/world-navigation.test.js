@@ -272,7 +272,8 @@ test('home approaches fall back to dry exterior ground when the preferred marker
 test('new house plots require a usable exit apron beyond the flat room',()=>{
  const {usableEntrance}=require('../controller/hut_teacher'),h={x:0,y:64,z:0};
  assert.equal(usableEntrance(fixture(),h),true);
- const b=fixture({'0,63,-5':'water'});assert.equal(usableEntrance(b,h),false,'a shoreline exit is not a safe house site');
+ const b=fixture({'0,63,-5':'water'});assert.equal(usableEntrance(b,h),true,'source-water shoreline is a valid transit site');
+ assert.equal(usableEntrance(fixture({'0,63,-5':'lava'}),h),false,'lava is not an acceptable exit');
 });
 
 test('a long loaded route advances a verified prefix after exhausting its search budget',()=>{

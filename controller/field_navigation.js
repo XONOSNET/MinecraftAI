@@ -15,7 +15,9 @@ function standable(bot,x,y,z){
 }
 function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
  const blocks=new Map(),stands=new Map();const terrain={blockAt(p){const key=p.x+','+p.y+','+p.z;if(!blocks.has(key))blocks.set(key,bot.blockAt(p));return blocks.get(key);}};
- const stand=(x,y,z)=>{const key=x+','+y+','+z;if(!stands.has(key))stands.set(key,standable(terrain,x,y,z));return stands.get(key);};
+ const waterCells=new Map(),waterBot=Object.create(bot);waterBot.blockAt=terrain.blockAt;
+ const transit=(x,y,z)=>{const key=x+','+y+','+z;if(!waterCells.has(key))waterCells.set(key,require('./water_navigation').cell(waterBot,x,y,z));return waterCells.get(key);};
+ const stand=(x,y,z)=>{const key=x+','+y+','+z;if(!stands.has(key))stands.set(key,options.allowWater?!!transit(x,y,z):standable(terrain,x,y,z));return stands.get(key);};
  const others=avoidPlayers?space.players(bot):[];
  const p=bot.entity.position;let start=[Math.floor(p.x),Math.round(p.y),Math.floor(p.z)];const key=n=>n.join(',');let escape=null;
  if(!stand(...start)){
@@ -46,9 +48,9 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
    if(Math.abs(next[0]-start[0])>radius||Math.abs(next[2]-start[2])>radius||!stand(...next))continue;
    if(others.length&&!space.stepClear(key(n)===key(start)&&!escape?p:{x:n[0]+.5,y:n[1],z:n[2]+.5},{x:next[0]+.5,y:next[1],z:next[2]+.5},others,require('./behavior').forBot(bot).player_clearance))continue;
    // An ascending jump also needs clearance above the departure block.
-   if(dy===1){const over=terrain.blockAt(new Vec3(n[0],n[1]+2,n[2]));if(!safe(over)||over.boundingBox!=='empty')continue;}
+   if(dy===1&&!(options.allowWater&&bot.blockAt(new Vec3(...n))?.name==='water')){const over=terrain.blockAt(new Vec3(n[0],n[1]+2,n[2]));if(!safe(over)||over.boundingBox!=='empty')continue;}
    if(options.reversible&&dy===-1){const over=terrain.blockAt(new Vec3(next[0],next[1]+2,next[2]));if(!passable(over))continue;}
-   const k=key(next),ng=g+1+(dy!==0?.4:0);
+   const k=key(next),ng=g+(options.allowWater?transit(...next).cost:1)+(dy!==0?.4:0);
    if(ng<(costs.get(k)??Infinity)){costs.set(k,ng);parent.set(k,n);push({n:next,g:ng,f:ng+distance(next)});}break;
   }
  }
@@ -65,7 +67,7 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
   const next=path[0],descending=next[1]-p.y<-.6&&next[1]-p.y> -1.2;
   const heading=Math.atan2(-(next[0]-p.x),-(next[2]-p.z));
   const directDescent=descending&&require('./perception').proximity(bot,{recovery:false}).canStepDown(heading,Math.min(.75,Math.hypot(next[0]-p.x,next[2]-p.z)));
-  if(adjacentWall||adjacentDrop&&!directDescent){const center=[start[0]+.5,start[1]+.1,start[2]+.5];
+  if(!options.allowWater&&(adjacentWall||adjacentDrop&&!directDescent)){const center=[start[0]+.5,start[1]+.1,start[2]+.5];
    if(!others.length||space.stepClear(p,{x:center[0],y:center[1],z:center[2]},others,require('./behavior').forBot(bot).player_clearance)){center.centering=true;path.unshift(center);}
   }
  }
@@ -77,4 +79,9 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
  }
  return {path,expanded,reached,budget_exhausted:expanded>=maxNodes,message:path.length?'Following a safe route through loaded terrain':'No safe route in loaded terrain; holding position'};
 }
-module.exports={standable,route};
+function travelRoute(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
+ const dry=route(bot,goal,radius,maxNodes,avoidPlayers,options);if(dry.reached)return dry;
+ const wet=route(bot,goal,radius,maxNodes,avoidPlayers,{...options,allowWater:true});
+ return wet.reached&&require('./water_navigation').validRoute(bot,wet.path,goal)?{...wet,water_route:true}:dry;
+}
+module.exports={standable,route,travelRoute};

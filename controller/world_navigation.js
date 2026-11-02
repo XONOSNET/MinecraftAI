@@ -30,6 +30,7 @@ function homeApproach(plot,bot=null){
   for(const [dx,dz] of [[0,0],[0,1],[-1,0],[1,0],[-1,1],[1,1],[0,-1],[-2,0],[2,0]])
    for(const y of [plot.y,plot.y-1,plot.y+1])if(standable(bot,x+dx,y,z+dz))return [x+dx+.5,y+.1,z+dz+.5];
  }
+ if(bot)for(const y of [plot.y,plot.y-1,plot.y+1])if(require('./water_navigation').cell(bot,x,y,z)?.wet===false)return [x+.5,y+.1,z+.5];
  return [x+.5,plot.y+.1,z+.5];
 }
 function samePlot(a,b){return !!a&&!!b&&a.x===b.x&&a.y===b.y&&a.z===b.z;}
@@ -87,8 +88,8 @@ class WorldNavigation{
   const previous=this.lastPosition;this.lastPosition=[p.x,p.y,p.z];
   // A waypoint crossed in midair is still the landing target. Advancing or
   // replanning before touchdown can replace it with an unsupported start cell.
-  while(bot.entity.onGround!==false&&this.path.length&&Math.abs(this.path[0][1]-p.y)<.4){
-   const q=this.path[0],near=Math.hypot(q[0]-p.x,q[2]-p.z)<(q.centering ? .15 : .4);
+  while((bot.entity.onGround!==false||this.waterRoute&&bot.entity.isInWater)&&this.path.length&&Math.abs(this.path[0][1]-p.y)<(this.waterRoute?1.4:.4)){
+   const q=this.path[0],near=Math.hypot(q[0]-p.x,q[2]-p.z)<(this.waterRoute ? .45 : q.centering ? .15 : .4);
    const crossed=previous&&Math.abs(previous[1]-p.y)<.4&&Math.hypot(previous[0]-p.x,previous[2]-p.z)<=4&&segmentDistance({x:q[0],z:q[2]},previous,[p.x,p.y,p.z])<.12;
    // Momentum can pass a landing center before the first grounded reply.
    // Continue only a clear straight leg; retain precise centering at corners.
@@ -96,7 +97,7 @@ class WorldNavigation{
   }
   const corridor=[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,3)];
   const offRoute=this.path.length&&corridorDistance(p,corridor)>.85;
-  const invalid=this.path.slice(0,3).some(q=>forbidden([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])])||!standable(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])));
+  const invalid=this.path.slice(0,3).some(q=>forbidden([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])])||!(this.waterRoute?require('./water_navigation').cell(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])):standable(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2]))));
   // Keep a valid route while making progress. Periodic shortest-path swaps
   // around moving neighbors were sending bots between opposite house aisles.
   const due=now-this.lastPlan>=forBot(bot).route_replan_ms&&(!this.path.length||this.blocked||now-this.progressAt>2500);
@@ -114,6 +115,11 @@ class WorldNavigation{
    const unknown=!bot.blockAt(new Vec3(Math.floor(target[0]),Math.round(target[1]),Math.floor(target[2])));
    const end=planned.path.at(-1),gain=end?Math.hypot(target[0]-p.x,target[2]-p.z)-Math.hypot(target[0]-end[0],target[2]-end[2]):0;
    if(!planned.reached&&!planned.waiting_for_ground&&(unknown||planned.budget_exhausted&&standable(bot,Math.floor(target[0]),Math.round(target[1]),Math.floor(target[2])))&&planned.path.length>=4&&gain>=4){planned={...planned,reached:true,partial:true,path:planned.path.slice(0,12)};this.best=Infinity;}
+   this.waterRoute=false;
+   if(!planned.reached||planned.partial||bot.entity.isInWater){
+    const wet=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden,allowWater:true});
+    if(wet.reached&&require('./water_navigation').validRoute(bot,wet.path,target)){planned=wet;this.waterRoute=true;}
+   }
    this.path=planned.reached?planned.path:[];this.blocked=!planned.reached;
    this.partial=!!planned.partial;
    this.waiting=!!planned.waiting_for_ground;
@@ -122,7 +128,7 @@ class WorldNavigation{
   }else this.replanned=false;
   // Replace tiny grid zigzags with a short, body-safe direct leg. Remove the
   // bypassed cells so the follower never turns back to visit old grid corners.
-  const smooth=require('./route_smoothing').smoothCue(bot,p,this.path,{bounds,forbidden});
+  const smooth=this.waterRoute?this.path[0]:require('./route_smoothing').smoothCue(bot,p,this.path,{bounds,forbidden});
   const skipped=this.path.indexOf(smooth);
   if(skipped>0){this.path.splice(0,skipped);this.anchor=[p.x,p.y,p.z];}
   let remaining=0,from=[p.x,p.y,p.z];for(const point of this.path){remaining+=Math.hypot(point[0]-from[0],point[2]-from[2])+Math.abs(point[1]-from[1])*.4;from=point;}
@@ -130,10 +136,10 @@ class WorldNavigation{
   if(!this.blocked&&(remaining<this.best-.75||arrived)){this.best=remaining;this.progressAt=now;}
   const idle=Math.max(0,(now-this.progressAt)/1000),timeout=forBot(bot).stationary_timeout_seconds;
   this.status={home,target:[...target],partial_route:!!this.partial,route_intent:foreign?'Exit neighboring house':plot&&insideHome(new Vec3(...goal),plot)?'Return to own house':'Travel outside private houses',state:this.waiting&&this.blocked?'landing':this.blocked?'blocked':arrived?'arrived':'following',height_delta:Math.round(((home||target)[1]-p.y)*10)/10,
-   route_complete:!this.blocked,remaining_blocks:Math.round(remaining*10)/10,waypoints:this.path.length,no_progress_seconds:Math.floor(idle),reset_seconds:Math.max(0,Math.ceil(timeout-idle)),expanded:this.expanded||0};
+   water_route:!!this.waterRoute,route_complete:!this.blocked,remaining_blocks:Math.round(remaining*10)/10,waypoints:this.path.length,no_progress_seconds:Math.floor(idle),reset_seconds:Math.max(0,Math.ceil(timeout-idle)),expanded:this.expanded||0};
   if(idle>=timeout)throw Error('No route progress for '+timeout+' seconds; ended this attempt instead of circling.');
   this.status.smoothed_waypoints=skipped>0?skipped:0;
-  return {path:this.path,cue:smooth||travelCue(p,this.path)||target,corridor:[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,5)],blocked:this.blocked,arrived,message:this.reason,portal};
+  return {water_route:!!this.waterRoute,path:this.path,cue:smooth||travelCue(p,this.path)||target,corridor:[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,5)],blocked:this.blocked,arrived,message:this.reason,portal};
  }
 }
 module.exports={WorldNavigation,homeApproach,approachGoal,corridorDistance,insideHome,crossingHome,routeDoorway,privatePlotCell,travelCue};

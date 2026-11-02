@@ -1,5 +1,5 @@
 // Small explicit survival planner. Skill policies still choose movement/harvesting.
-const {Vec3}=require('vec3'),{WildernessMemory}=require('./wilderness_memory'),{standable,route}=require('./field_navigation'),{visibleBlock}=require('./target_scan'),inventory=require('./inventory_sync'),furnace=require('./furnace'),house=require('./house'),{closeDoor}=require('./door_care'),combat=require('./combat');
+const {Vec3}=require('vec3'),{WildernessMemory}=require('./wilderness_memory'),{standable,travelRoute:route}=require('./field_navigation'),{visibleBlock}=require('./target_scan'),inventory=require('./inventory_sync'),furnace=require('./furnace'),house=require('./house'),{closeDoor}=require('./door_care'),combat=require('./combat');
 const livestock=require('./first_night_livestock'),{Exploration}=require('./exploration'),resourceConfig=require('../config/world-resources.json'),resourceScan=require('./resource_scan');
 const nightSleep=require('./night_sleep');
 const shelterPolicy=require('./shelter_policy');

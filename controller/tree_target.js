@@ -1,4 +1,4 @@
-const {route}=require('./field_navigation'),space=require('./resource_space'),{Vec3}=require('vec3'),{withinReach}=require('./resource_target');
+const {travelRoute:route}=require('./field_navigation'),space=require('./resource_space'),{Vec3}=require('vec3'),{withinReach}=require('./resource_target');
 const body=require('./resource_body');
 // Choose once from a bounded set of reachable trees, then retain the trunk lock.
 function chooseTree(bot,targets,previous,surface,run,previousApproach=null){
