@@ -58,9 +58,9 @@ test('recovery at food 17 eats carried meals or safely forages instead of waitin
  b.inventory.items=()=>[{name:'chicken',count:1}];assert.notEqual(night.priority(b,t,{}).kind,'eat raw');
 });
 
-test('recovery forage never sends a badly injured or visibly threatened bot outside',()=>{
+test('hungry injured bots can forage in safety while visible threats still require shelter',()=>{
  const b=bot(),t={phase:'night_recover',milestones:['hut']};night.init(t,{});t.wilderness.resume='chest';b.food=17;b.inventory.items=()=>[{name:'wooden_axe',count:1}];
- b.health=9;assert.equal(night.priority(b,t,{}).kind,'retreat');
+ b.health=9;assert.equal(night.priority(b,t,{}).kind,'recovery forage');
  b.health=16;b.entities={z:{name:'zombie',position:new Vec3(3,64,0)}};assert.equal(night.priority(b,t,{}).kind,'retreat');
  b.entities={};b.food=18;assert.notEqual(night.priority(b,t,{}).kind,'recovery forage');
  b.health=18;assert.equal(night.priority(b,t,{}).kind,'resume');
@@ -75,10 +75,13 @@ test('recovery food trip returns home before resuming its original lesson',async
  await night.interrupt(t,b,{},state);assert.equal(t.phase,'chest');assert.equal(t.wilderness.resume,undefined);
 });
 
-test('critically injured recovery without food ends with an explicit food failure instead of waiting indefinitely',async()=>{
- const b=bot(),t={phase:'night_recover',plot:{x:0,y:64,z:0},milestones:['hut']};night.init(t,{});b.health=6.3;b.food=14;
+test('critical health and hunger do not terminate a survival attempt before actual death',async()=>{
+ const b=bot(),t={phase:'night_recover',plot:{x:0,y:64,z:0},milestones:['hut'],navigator:{}};night.init(t,{});t.wilderness.resume='night_stone';b.health=6.3;b.food=14;
  const blockAt=b.blockAt;b.blockAt=p=>({...blockAt(p),getProperties:()=>({open:false})});
- await assert.rejects(night.tick(t,b,{pause(){}},{world:{first_night:{}}}),/Cannot regenerate/);assert.equal(t.failureCategory,'food_exhausted');
+ for(const food of [14,0]){b.food=food;await night.tick(t,b,{pause(){}},{world:{first_night:{}}});assert.equal(t.phase,'night_recover');assert.equal(t.failureCategory,undefined);}
+ b.food=14;b.inventory.items=()=>[{name:'wooden_axe',count:1}];await night.interrupt(t,b,{}, {world:{}});assert.equal(t.phase,'night_forage');
+ assert.equal(night.priority(b,t,{}).kind,'forage','low health must not bounce a hungry forager straight back home');
+ t.phase='night_recover';
  b.food=18;await night.tick(t,b,{pause(){}},{world:{first_night:{}}});assert.equal(t.phase,'night_recover','genuine regeneration remains allowed');
 });
 

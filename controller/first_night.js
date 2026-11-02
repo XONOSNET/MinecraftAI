@@ -19,9 +19,9 @@ function priority(b,t,w){
  if(risk.mode==='cover'||n.shelterWatch&&shelterPolicy.danger(b))return {kind:sheltered?'retreat':'seek cover',reason:risk.mode==='cover'?risk.reason:'Sheltered: wait for daylight and a clear area'};
  if(risk.mode==='fight')return {kind:'defend',reason:risk.reason};
  if(t.phase==='night_seek_cover')return {kind:'resume',reason:'Daylight and a clear area allow work to resume'};
- if(sheltered&&(b.health<12||threat))return {kind:'retreat',reason:threat?'Visible '+threat.name+' nearby':'Recover health inside the hut'};
+ if(sheltered&&(b.health<12&&b.food>=18||threat))return {kind:'retreat',reason:threat?'Visible '+threat.name+' nearby':'Recover health inside the hut'};
  if(n.resume&&b.health>=18&&!threat)return {kind:'resume',reason:'Safe to continue the interrupted task'};
- if(t.phase==='night_recover'&&n.resume&&needsHealing&&b.health>=12&&!threat&&!meals(b))return b.inventory.items().some(i=>i.name.endsWith('_axe'))?
+ if(t.phase==='night_recover'&&n.resume&&needsHealing&&!threat&&!meals(b))return b.inventory.items().some(i=>i.name.endsWith('_axe'))?
   {kind:'recovery forage',reason:'Health regeneration requires food; gather provisions before recovering'}:
   {kind:'recovery supplies',reason:'Recovery needs food and a hunting tool; resume the interrupted supply lesson in daylight'};
  return {kind:handles(t.phase)?t.phase.replace('night_','').replaceAll('_',' '):t.phase.replaceAll('_',' '),reason:sheltered?'Develop and provision the home':'Gather enough materials for a secure shelter'};
@@ -232,8 +232,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
  else if(t.phase==='night_recover'){
   motor.pause();const d=door();if(d?.getProperties().open&&!await closeDoor(b,d))return;t.message='Sheltered recovery · health '+b.health+' / 20';
   if(n.shelterWatch){t.message='Sheltered: waiting for daylight and nearby monsters to clear';return;}
-  if(b.health<12&&b.food<18&&!meals(b)&&!SAFE_RAW.some(name=>count(b,name))){t.failureCategory='food_exhausted';throw Error('Cannot regenerate health below food 18; no safe recovery food remains and health is too low for foraging');}
-  if(!meals(b)&&b.food<10){t.failureCategory='food_exhausted';throw Error('Insufficient food to recover safely');}
+  if(b.food<18&&!meals(b))t.message='Recovery needs food; waiting for a safe opportunity to forage';
  }else if(t.phase==='night_hold'){
   motor.pause();const d=door();if(d?.getProperties().open){if(b.isSleeping){await nightSleep.wake(t,b,motor);return;}t.message='Securing the shelter door before bed';await closeDoor(b,d);return;}
   if(!d?.name.endsWith('_door')||d.getProperties().open!==false)throw Error('Shelter door did not verify closed');

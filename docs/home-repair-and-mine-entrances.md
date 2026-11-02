@@ -17,6 +17,12 @@ falling blocks or water can be abandoned when the bot is still standing safely
 on its original surface cell. Excavated shafts retain their checked retreat
 requirements; actual flooded footing does not qualify for this fallback.
 
+Recovery no longer ends an attempt because health or food is low. Hungry,
+injured bots may seek food during a clear daytime opportunity; low health alone
+does not send a hungry forager straight back to a house where regeneration is
+impossible. Nighttime cover and visible-threat decisions still take priority,
+and actual death remains a failed attempt.
+
 Validation: 480 JavaScript tests, including off-center reach, refused repair
 retries, rotation packet ordering and entrance hazards. An isolated native
 survival fixture repaired five damaged house parts using real materials,
