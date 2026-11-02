@@ -262,3 +262,22 @@ test('a late grounded update beyond a landing continues forward without returnin
  const corner=new WorldNavigation();Object.assign(corner,{destination:goal.join(','),path:[landing,[-.5,63.1,-.5],goal],anchor:[.5,64.1,.5],lastPlan:1000,progressAt:1000,lastPosition:[.5,63.5,-.65]});
  assert.equal(corner.plan(b,goal,{now:1100}).path[0],landing,'turns still require the checked corner');
 });
+
+
+test('home approaches fall back to dry exterior ground when the preferred marker is obstructed',()=>{
+ const {homeApproach}=require('../controller/world_navigation'),b=fixture({'0,64,-5':'stone'}),h={x:0,y:64,z:0},g=homeApproach(h,b);
+ assert.notDeepEqual(g,[.5,64.1,-4.5]);assert.equal(standable(b,Math.floor(g[0]),Math.round(g[1]),Math.floor(g[2])),true);
+});
+
+test('new house plots require a usable exit apron beyond the flat room',()=>{
+ const {usableEntrance}=require('../controller/hut_teacher'),h={x:0,y:64,z:0};
+ assert.equal(usableEntrance(fixture(),h),true);
+ const b=fixture({'0,63,-5':'water'});assert.equal(usableEntrance(b,h),false,'a shoreline exit is not a safe house site');
+});
+
+test('a long loaded route advances a verified prefix after exhausting its search budget',()=>{
+ const {WorldNavigation}=require('../controller/world_navigation'),b=fixture();b.entity.onGround=true;
+ const at=b.blockAt;b.blockAt=p=>Math.floor(p.x)===50&&Math.abs(Math.floor(p.z))<=90&&p.y>=64&&p.y<67?{name:'stone',boundingBox:'block',position:p.floored()}:at(p);
+ const n=new WorldNavigation(),plan=n.plan(b,[100.5,64.1,.5],{bounds:[-10,130,-110,110],now:1000});
+ assert.equal(n.partial,true);assert.equal(n.blocked,false);assert.ok(n.path.length>0&&n.path.length<=12);assert.equal(plan.arrived,false);
+});

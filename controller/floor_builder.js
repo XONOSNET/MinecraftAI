@@ -20,7 +20,14 @@ function returnGoal(t,b,state){
  const corners=[[-2,-2],[2,-2],[-2,2],[2,2],[0,0]].map(([x,z])=>[h.x+x+.5,h.y+.1,h.z+z+.5]);
  corners.sort((a,c)=>new Vec3(...a).distanceTo(b.entity.position)-new Vec3(...c).distanceTo(b.entity.position));
  const forbidden=q=>(t.campPlots||[]).some(p=>(p.x!==h.x||p.z!==h.z)&&!nav.privatePlotCell(occupied,p)&&nav.privatePlotCell(q,p));
- return [front,...corners].find(g=>standable(b,Math.floor(g[0]),Math.round(g[1]),Math.floor(g[2]))&&space.clearOfPlayers(b,new Vec3(...g))&&route(b,g,Math.min(192,Math.max(48,Math.ceil(new Vec3(...g).distanceTo(b.entity.position))+16)),8192,true,{bounds:state.world.bounds,reversible:true,forbidden}).reached)||null;
+ return [front,...corners].find(g=>{
+  if(!standable(b,Math.floor(g[0]),Math.round(g[1]),Math.floor(g[2]))||!space.clearOfPlayers(b,new Vec3(...g)))return false;
+  const radius=Math.min(192,Math.max(48,Math.ceil(new Vec3(...g).distanceTo(b.entity.position))+16)),options={bounds:state.world.bounds,reversible:true,forbidden};
+  const planned=route(b,g,radius,8192,true,options);
+  // One bounded expansion handles a long detour after night-time displacement.
+  // Never turn an incomplete path into permission to clear or dig the plot.
+  return planned.reached||route(b,g,Math.min(192,Math.max(96,radius*2)),16384,true,options).reached;
+ })||null;
 }
 function stances(t,b,q,tiles,state,used=new Set()){
  const p=b.entity.position;

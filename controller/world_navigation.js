@@ -23,8 +23,14 @@ function travelCue(p,path){
 }
 function homeApproach(plot,bot=null){
  if(!plot)return null;
- const x=plot.x,z=plot.z-5,y=bot&&[plot.y,plot.y-1,plot.y+1].find(y=>standable(bot,x,y,z));
- return [x+.5,(Number.isFinite(y)?y:plot.y)+.1,z+.5];
+ const x=plot.x,z=plot.z-5;
+ if(bot){
+  // The preferred marker is not guaranteed dry or supported on natural terrain.
+  // Pick a nearby exterior landing instead of routing forever to an invalid cell.
+  for(const [dx,dz] of [[0,0],[0,1],[-1,0],[1,0],[-1,1],[1,1],[0,-1],[-2,0],[2,0]])
+   for(const y of [plot.y,plot.y-1,plot.y+1])if(standable(bot,x+dx,y,z+dz))return [x+dx+.5,y+.1,z+dz+.5];
+ }
+ return [x+.5,plot.y+.1,z+.5];
 }
 function samePlot(a,b){return !!a&&!!b&&a.x===b.x&&a.y===b.y&&a.z===b.z;}
 function privatePlotCell(q,h){return q[0]>=h.x-3&&q[0]<=h.x+3&&q[2]>=h.z-3&&q[2]<=h.z+3&&q[1]>=h.y-1&&q[1]<=h.y+4;}
@@ -98,7 +104,7 @@ class WorldNavigation{
   if(!landing&&(this.lastPlan===-Infinity||due||offRoute||invalid||this.waiting&&bot.entity.onGround===true)){
    // The expedition region is wider than the old 96-cell search radius.
    // Keep room beyond a distant goal for the last turn around a hill/house.
-   const radius=Math.min(192,Math.max(48,Math.ceil(Math.hypot(target[0]-p.x,target[2]-p.z))+16));
+   const radius=Math.min(192,Math.max(96,Math.ceil(Math.hypot(target[0]-p.x,target[2]-p.z))+16));
    let planned=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden});this.lastPlan=now;this.anchor=[p.x,p.y,p.z];
    if(!planned.reached&&!planned.waiting_for_ground&&memory){const remembered=memory.detour(bot,target,bounds);if(remembered&&!remembered.some(q=>forbidden([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])]))){planned={...planned,reached:true,path:remembered};memory.replans++;}}
    // A distant remembered home can be outside the client's loaded chunks.
@@ -107,7 +113,7 @@ class WorldNavigation{
    // qualify, and arrival still requires the actual destination to be reached.
    const unknown=!bot.blockAt(new Vec3(Math.floor(target[0]),Math.round(target[1]),Math.floor(target[2])));
    const end=planned.path.at(-1),gain=end?Math.hypot(target[0]-p.x,target[2]-p.z)-Math.hypot(target[0]-end[0],target[2]-end[2]):0;
-   if(!planned.reached&&!planned.waiting_for_ground&&unknown&&planned.path.length>=4&&gain>=4){planned={...planned,reached:true,partial:true,path:planned.path.slice(0,12)};this.best=Infinity;}
+   if(!planned.reached&&!planned.waiting_for_ground&&(unknown||planned.budget_exhausted&&standable(bot,Math.floor(target[0]),Math.round(target[1]),Math.floor(target[2])))&&planned.path.length>=4&&gain>=4){planned={...planned,reached:true,partial:true,path:planned.path.slice(0,12)};this.best=Infinity;}
    this.path=planned.reached?planned.path:[];this.blocked=!planned.reached;
    this.partial=!!planned.partial;
    this.waiting=!!planned.waiting_for_ground;

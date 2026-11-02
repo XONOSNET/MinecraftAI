@@ -50,14 +50,24 @@ test('ordinary settlement supplies still accept planks and log equivalents',()=>
  const items=[{name:'oak_planks',count:24}],{b,t}=fixture(items);t.supplyRun=true;
  assert.equal(t.woodReady(b),false);items.push({name:'birch_log',count:1});assert.equal(t.woodReady(b),true);
 });
-test('wall retries choose distinct reachable stances and stop after three positions',()=>{
- const {b,t}=fixture(),retry=require('../controller/build_approach').retry,q={x:3,y:64,z:0},bounds=[-20,20,-20,20];
- assert.equal(retry(t,b,q,bounds),true);const first=t.buildApproach.slice();assert.notDeepEqual(first,[.5,64.1,.5]);
- b.entity.position=new Vec3(...first);assert.equal(retry(t,b,q,bounds),true);assert.notDeepEqual(t.buildApproach,first);
- b.entity.position=new Vec3(...t.buildApproach);assert.equal(retry(t,b,q,bounds),false);
+test('wall retries choose distinct reachable stances with a bounded retry count',()=>{
+ const {b,t}=fixture(),retry=require('../controller/build_approach').retry,q={x:3,y:64,z:0},bounds=[-20,20,-20,20],seen=new Set([b.entity.position.floored().toString()]);
+ let attempts=0;
+ while(retry(t,b,q,bounds)){
+  const p=new Vec3(...t.buildApproach),key=p.floored().toString();assert.equal(seen.has(key),false);seen.add(key);attempts++;assert.ok(attempts<=7);b.entity.position=p;
+ }
+ assert.ok(attempts>2,'use more than the three central positions before giving up');
 });
+
 test('wall retries reject unsupported and occupied interior stances',()=>{
  const {b,t}=fixture(),retry=require('../controller/build_approach').retry,q={x:3,y:64,z:0};
  b.blockAt=p=>({name:'air',boundingBox:'empty',position:p});assert.equal(retry(t,b,q,[-20,20,-20,20]),false);
- const f=fixture();f.b.players.other={username:'other',entity:{id:2,position:new Vec3(.5,64,.5)}};assert.equal(retry(f.t,f.b,q,[-20,20,-20,20]),false);
+ const f=fixture();f.b.players.other={username:'other',entity:{id:2,position:new Vec3(.5,64,.5)}};assert.equal(retry(f.t,f.b,q,[-20,20,-20,20]),true);assert.ok(new Vec3(...f.t.buildApproach).distanceTo(f.b.players.other.entity.position)>=2);
+});
+
+
+test('refused corner walls can be retried from the closer inner ring',()=>{
+ const {b,t}=fixture(),q={x:3,y:64,z:3};t.plot={x:0,y:64,z:0};
+ assert.equal(require('../controller/build_approach').retry(t,b,q,[-20,20,-20,20]),true);
+ assert.deepEqual(t.buildApproach,[2.5,64.1,2.5]);
 });

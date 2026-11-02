@@ -46,6 +46,15 @@ function findSpawn(bot,bounds,{margin=8}={}){
   const value=y-Math.hypot(dx,dz)*.1;if(valid&&value>score){score=value;best=[x+.5,y+.1,z+.5];}
  }return best;
 }
+function usableEntrance(bot,h){
+ // A flat room is insufficient when its only doorway opens onto water or a cliff.
+ let previous=h.y;
+ for(const dz of [-4,-5]){
+  const y=[previous,previous-1,previous+1].find(y=>standable(bot,h.x,y,h.z+dz));
+  if(y===undefined)return false;previous=y;
+ }
+ return true;
+}
 function findPlot(bot,bounds,index,spread,total=8,reserved=[]){
  const width=bounds[1]-bounds[0],depth=bounds[3]-bounds[2],columns=Math.min(4,total),rows=Math.ceil(total/columns);
  const ox=Math.floor(bounds[0]+(index%columns+.5)*width/columns),oz=Math.floor(bounds[2]+(Math.floor(index/columns)+.5)*depth/rows);
@@ -55,10 +64,10 @@ function findPlot(bot,bounds,index,spread,total=8,reserved=[]){
  const limit=Math.max(width,depth);
  for(let r=0;r<=limit;r++)for(let dx=-r;dx<=r;dx++)for(let dz=-r;dz<=r;dz+=Math.abs(dx)===r?1:Math.max(1,2*r)){
   if(Math.abs(dx)!==r&&Math.abs(dz)!==r)continue;
-  const x=ox+dx,z=oz+dz;if(x<bounds[0]+5||x>bounds[1]-6||z<bounds[2]+5||z>bounds[3]-6||reserved.some(p=>Math.abs(p.x-x)<house.config.plot_spacing&&Math.abs(p.z-z)<house.config.plot_spacing))continue;
+  const x=ox+dx,z=oz+dz;if(x<bounds[0]+5||x>bounds[1]-6||z<bounds[2]+7||z>bounds[3]-6||reserved.some(p=>Math.abs(p.x-x)<house.config.plot_spacing&&Math.abs(p.z-z)<house.config.plot_spacing))continue;
   const y=height(x,z);if(y===null)continue;
   let flat=true;for(let a=-3;a<=3&&flat;a++)for(let b=-3;b<=3;b++)if(height(x+a,z+b)!==y){flat=false;break;}
-  if(flat){const tableY=height(x-3,z+3);if(tableY!==null&&Math.abs(tableY-y)<3)return {x,y,z,tableY};}
+  if(flat&&usableEntrance(bot,{x,y,z})){const tableY=height(x-3,z+3);if(tableY!==null&&Math.abs(tableY-y)<3)return {x,y,z,tableY};}
 }return null;
 }
 const plotClaims=new Map();
@@ -205,7 +214,7 @@ class HutTeacher{
     }this.phase='build';
    }else if(this.phase==='build'){
     if(this.buildApproach){const moved=await this.walk(bot,motor,this.buildApproach,state,api,scan,tasks);if(moved===false)throw Error('No safe route to retry the refused wall placement');if(moved!==true){this.message='Taking another safe angle for the refused wall block';return this.message;}this.buildApproach=null;}
-    if(Math.abs(p.x-this.plot.x-.5)>2||Math.abs(p.z-this.plot.z-.5)>2||Math.abs(p.y-this.plot.y)>.3){await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5],state,api,scan,tasks);this.message='Taking position inside the hut';}
+    if(Math.abs(p.x-this.plot.x-.5)>2.2||Math.abs(p.z-this.plot.z-.5)>2.2||Math.abs(p.y-this.plot.y)>.3){await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5],state,api,scan,tasks);this.message='Taking position inside the hut';}
     else{
     const remaining=blueprint(this.plot).filter(q=>!matches(bot,q));
     this.built=house.total-remaining.length;
@@ -529,4 +538,4 @@ class HutTeacher{
   const motorLabel=motor.command(result.action,task,{...sensed,...sensedScan.proximity,doorway:passage,focusPoint:cue,cueDistance:Math.hypot(cue[0]-p.x,cue[2]-p.z)},angle);this.lastNavigation.motor_after=motor.diagnostic?.();if(motorLabel)this.message=motorLabel;
  }
 }
-module.exports={HutTeacher,secureInterior,blueprint,intact,findPlot,claimPlot,findSpawn,surface,reference};
+module.exports={HutTeacher,secureInterior,blueprint,intact,findPlot,claimPlot,findSpawn,surface,reference,usableEntrance};
