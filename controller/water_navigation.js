@@ -2,14 +2,24 @@
 const {Vec3}=require('vec3'),space=require('./resource_space');
 const HAZARDS=new Set(['lava','fire','soul_fire','magma_block','campfire','soul_campfire','bubble_column','powder_snow','cactus']);
 const open=v=>!!v&&(v.boundingBox==='empty'||v.name.endsWith('_door')&&v.getProperties?.().open===true)&&!HAZARDS.has(v.name);
+function safeCurrent(bot,v){
+ const level=Number(v.getProperties?.().level||0);
+ if(level===0)return true;
+ // Shallow runoff over a full floor is wadeable. Falling water and currents
+ // over deep water remain excluded: they can pull a swimmer off the route.
+ if(level>=8||!v.position)return false;
+ const floor=bot.blockAt(v.position.offset(0,-1,0));
+ return !!floor&&floor.boundingBox==='block'&&!HAZARDS.has(floor.name)&&
+  (!floor.shapes||floor.shapes.some(s=>s[0]===0&&s[2]===0&&s[3]===1&&s[5]===1&&s[4]===1));
+}
 function cell(bot,x,y,z){
  const at=(dx,dy,dz)=>bot.blockAt(new Vec3(x+dx,y+dy,z+dz)),feet=at(0,0,0),head=at(0,1,0),floor=at(0,-1,0);
  if(!feet||!floor||!open(head)||head.name==='water')return null;
  const wet=feet.name==='water';
- if(wet){if(Number(feet.getProperties?.().level||0)!==0)return null;if(!bot.entity?.isInWater&&(bot.labOxygen??20)<6)return null;}
+ if(wet){if(!safeCurrent(bot,feet))return null;if(!bot.entity?.isInWater&&(bot.labOxygen??20)<6)return null;}
  else if(!open(feet)||floor.boundingBox!=='block'||HAZARDS.has(floor.name))return null;
  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let dy=-1;dy<=1;dy++){
-  const v=at(dx,dy,dz);if(!v||HAZARDS.has(v.name)||v.getProperties?.().waterlogged||v.name==='water'&&Number(v.getProperties?.().level||0)!==0)return null;
+  const v=at(dx,dy,dz);if(!v||HAZARDS.has(v.name)||v.getProperties?.().waterlogged||v.name==='water'&&!safeCurrent(bot,v))return null;
  }
  return {wet,mode:wet?(floor.boundingBox==='block'?'wade':'swim'):'bank',cost:wet?(floor.boundingBox==='block'?3:5):1};
 }

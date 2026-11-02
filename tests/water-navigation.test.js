@@ -35,6 +35,27 @@ test('water transit rejects covered surfaces, currents, bubbles, lava and unload
  const at=b.blockAt;b.blockAt=p=>{const v=at(p);return v.name==='water'?{...v,getProperties:()=>({level:2})}:v;};assert.equal(water.cell(b,4,63,0),null);
  b.blockAt=()=>null;assert.equal(water.cell(b,4,63,0),null);
 });
+
+test('shallow runoff beside source water allows an escape but falling and deep currents do not',()=>{
+ const {b}=fixture(),at=b.blockAt;
+ b.blockAt=p=>{const v=at(p);if(p.y===62)return {...v,name:'stone',boundingBox:'block'};return v.name==='water'?{...v,getProperties:()=>({level:p.x===4?0:2})}:v;};
+ b.entity.position=new Vec3(4.5,63.13,.5);b.entity.isInWater=true;b.entity.onGround=false;
+ assert.equal(water.cell(b,4,63,0).mode,'wade');assert.equal(water.cell(b,5,63,0).mode,'wade');
+ const goal=[10.5,64.1,.5],r=require('../controller/field_navigation').travelRoute(b,goal,20,4096,true,{bounds:[-2,13,-3,3]});
+ assert.equal(r.reached,true);assert.equal(r.water_route,true);assert.equal(water.validRoute(b,r.path,goal),true);
+ const shallow=b.blockAt;
+ b.blockAt=p=>{const v=shallow(p);return v.name==='water'&&p.x===5?{...v,getProperties:()=>({level:8})}:v;};
+ assert.equal(water.cell(b,4,63,0),null,'falling water beside the source is unsafe');
+ b.blockAt=p=>p.y===62&&p.x===5?at(p):shallow(p);
+ assert.equal(water.cell(b,4,63,0),null,'deep current beside the source is unsafe');
+});
+
+test('surface bobbing replans from the checked water below without accepting a dry airborne start',()=>{
+ const {b}=fixture(),goal=[10.5,64.1,.5];b.entity.position=new Vec3(4.5,63.85,.5);b.entity.onGround=false;b.entity.isInWater=true;
+ const r=route(b,goal,20,4096,true,{bounds:[-2,13,-3,3],allowWater:true});assert.equal(r.reached,true);assert.equal(water.validRoute(b,r.path,goal),true);
+ b.entity.position=new Vec3(.5,65,.5);b.entity.isInWater=false;
+ assert.equal(route(b,goal,20,4096,true,{allowWater:true}).waiting_for_ground,true);
+});
 test('crossing needs a dry destination and low air prevents new water entry',()=>{
  const {b}=fixture();assert.equal(water.validRoute(b,[[4.5,63.1,.5]],[4.5,63.1,.5]),false);
  b.labOxygen=3;assert.equal(water.cell(b,4,63,0),null,'do not enter water on low air');b.entity.isInWater=true;assert.ok(water.cell(b,4,63,0),'a swimmer must still be allowed to surface and exit');

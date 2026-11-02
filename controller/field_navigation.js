@@ -20,6 +20,14 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
  const stand=(x,y,z)=>{const key=x+','+y+','+z;if(!stands.has(key))stands.set(key,options.allowWater?!!transit(x,y,z):standable(terrain,x,y,z));return stands.get(key);};
  const others=avoidPlayers?space.players(bot):[];
  const p=bot.entity.position;let start=[Math.floor(p.x),Math.round(p.y),Math.floor(p.z)];const key=n=>n.join(',');let escape=null;
+ // Surface buoyancy lifts the feet above the water cell before onGround can
+ // become true. Plan from the checked surface below, rather than waiting for
+ // a swimmer to land in mid-water. Never normalize dry airborne positions.
+ if(options.allowWater&&!stand(...start)){
+  for(const y of [Math.floor(p.y),Math.round(p.y)-1]){
+   if(p.y-y>=0&&p.y-y<=1.4&&transit(start[0],y,start[2])?.wet){start=[start[0],y,start[2]];break;}
+  }
+ }
  if(!stand(...start)){
   if(bot.entity.onGround!==true)return {path:[],expanded:0,waiting_for_ground:true,message:'Waiting to settle on safe ground'};
   const occupied=bot.blockAt(new Vec3(...start));if(!occupied||BAD.has(occupied.name))return {path:[],expanded:0,message:'Hazard or unloaded ground under the bot; holding position'};
