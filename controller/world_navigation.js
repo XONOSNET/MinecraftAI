@@ -30,7 +30,8 @@ function homeApproach(plot,bot=null){
   for(const [dx,dz] of [[0,0],[0,1],[-1,0],[1,0],[-1,1],[1,1],[0,-1],[-2,0],[2,0]])
    for(const y of [plot.y,plot.y-1,plot.y+1])if(standable(bot,x+dx,y,z+dz))return [x+dx+.5,y+.1,z+dz+.5];
  }
- if(bot)for(const y of [plot.y,plot.y-1,plot.y+1])if(require('./water_navigation').cell(bot,x,y,z)?.wet===false)return [x+.5,y+.1,z+.5];
+ if(bot)for(const [dx,dz] of [[0,0],[0,1],[-1,0],[1,0],[-1,1],[1,1],[0,-1],[-2,0],[2,0]])
+  for(const y of [plot.y,plot.y-1,plot.y+1])if(require('./water_navigation').cell(bot,x+dx,y,z+dz)?.wet===false)return [x+dx+.5,y+.1,z+dz+.5];
  return [x+.5,plot.y+.1,z+.5];
 }
 function samePlot(a,b){return !!a&&!!b&&a.x===b.x&&a.y===b.y&&a.z===b.z;}

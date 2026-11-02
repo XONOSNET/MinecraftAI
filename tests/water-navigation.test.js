@@ -3,6 +3,18 @@ function fixture(){
  const cells=new Map(),controls={},b={username:'WaterTest',players:{},labOxygen:20,entity:{id:1,position:new Vec3(.5,64,.5),onGround:true,yaw:-Math.PI/2},blockAt(p){p=p.floored();const key=p.toString(),wet=p.x>=3&&p.x<=6&&p.y>=61&&p.y<=63,name=cells.get(key)||(wet?'water':p.y<64?'stone':'air');return {position:p,name,boundingBox:['air','water','lava','bubble_column'].includes(name)?'empty':'block',getProperties:()=>({level:0})};},setControlState(k,v){controls[k]=v;},look:async()=>{}};
  return {b,cells,controls};
 }
+
+test('a waterside home uses its supported front bank instead of a marker above water',()=>{
+ const {b}=fixture(),plot={x:0,y:64,z:0},bounds=[-12,12,-14,12];
+ b.entity.position=new Vec3(2.5,64,-1.5);
+ b.blockAt=p=>{p=p.floored();const wet=p.z<=-5&&p.y>=61&&p.y<=63,name=wet?'water':p.y<64?'stone':'air';return {position:p,name,boundingBox:['air','water'].includes(name)?'empty':'block',getProperties:()=>({level:0})};};
+ const {homeApproach}=require('../controller/world_navigation'),goal=homeApproach(plot,b);
+ assert.deepEqual(goal,[.5,64.1,-3.5]);assert.equal(standable(b,0,64,-4),false);assert.equal(water.cell(b,0,64,-4).wet,false);
+ const plan=new WorldNavigation().plan(b,goal,{plot,plots:[plot],bounds});assert.equal(plan.blocked,false);assert.equal(plan.water_route,true);
+ assert.deepEqual(require('../controller/floor_builder').returnGoal({plot,campPlots:[]},b,{world:{bounds}}),goal);
+ const at=b.blockAt;b.blockAt=p=>{const v=at(p);return v.name==='water'?{...v,getProperties:()=>({level:2})}:v;};
+ const unsafe=homeApproach(plot,b);assert.notDeepEqual(unsafe,goal,'a bank beside a current cannot use the checked source-water fallback');
+});
 test('surface route crosses source water and reaches a verified bank without changing dry work footing',()=>{
  const {b}=fixture(),goal=[10.5,64.1,.5],bounds=[-2,13,-3,3];
  assert.equal(route(b,goal,20,4096,true,{bounds,reversible:true}).reached,false);
