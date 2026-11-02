@@ -5,13 +5,12 @@ const nightSleep=require('./night_sleep');
 const shelterPolicy=require('./shelter_policy');
 const RAW={beef:'cooked_beef',porkchop:'cooked_porkchop',mutton:'cooked_mutton',chicken:'cooked_chicken',rabbit:'cooked_rabbit'},FOOD=['cooked_beef','cooked_porkchop','cooked_mutton','cooked_chicken','cooked_rabbit','apple','bread'],ANIMALS=['cow','pig','sheep','chicken','rabbit'];
 const SAFE_RAW=['beef','porkchop','mutton','rabbit'];
-const HOSTILES=new Set(['zombie','zombie_villager','husk','drowned','skeleton','stray','bogged','creeper','spider','cave_spider','witch','pillager','vindicator','enderman']);
 const count=(b,n)=>b.inventory.items().filter(i=>i.name===n).reduce((s,i)=>s+i.count,0),meals=b=>FOOD.reduce((s,n)=>s+count(b,n),0),raw=b=>Object.keys(RAW).reduce((s,n)=>s+count(b,n),0);
 const enabled=w=>w.mission==='first_night',handles=p=>p.startsWith('night_');
 const inside=(p,b)=>p.x>b[0]+2&&p.x<b[1]-3&&p.z>b[2]+2&&p.z<b[3]-3;
 function init(t,w){t.wilderness={exploration:new Exploration(),memory:new WildernessMemory(w.memory||{}),priority:'Survey',reason:'Locate a safe home and nearby resources',searches:0,recoveries:0,foodConsumed:0,attacked:0};}
 function priority(b,t,w){
- const n=t.wilderness,sheltered=t.milestones.includes('hut')&&!t.homeDamage?.unsafe,threat=Object.values(b.entities).find(e=>HOSTILES.has(e.name)&&e.isValid!==false&&e.position.distanceTo(b.entity.position)<10&&combat.visible(b,e));
+ const n=t.wilderness,sheltered=t.milestones.includes('hut')&&!t.homeDamage?.unsafe,threat=shelterPolicy.threats(b).find(e=>e.position.distanceTo(b.entity.position)<10);
  const needsHealing=b.health<18&&b.food<18;
  if(meals(b)&&(b.food<=16||needsHealing))return {kind:'eat',reason:'Restore hunger before continuing'};
  if((b.food<=10||n.resume&&needsHealing)&&SAFE_RAW.some(name=>count(b,name)))return {kind:'eat raw',reason:'Emergency food while cooking is unavailable'};

@@ -5,6 +5,19 @@ function fixture(){
  const t={phase:'gather',milestones:['hut'],plot:{x:0,y:64,z:0},path:[],navigator:{lastPlan:0}};night.init(t,{});
  const state={world:{mission:'first_night',first_night:{hostiles:true}}};return {b,t,state};
 }
+
+test('neutral Endermen cannot lock hungry recovery in a hut but provoked Endermen still require cover',()=>{
+ const {b,t,state}=fixture();b.time.timeOfDay=6000;b.health=11.8;b.food=17;t.phase='night_recover';t.wilderness.resume='chest';
+ b.inventory.items=()=>[{name:'wooden_axe',count:1}];
+ b.registry={entitiesByName:{enderman:{metadataKeys:['creepy','stared_at']}}};
+ b.entities.e={name:'enderman',position:new Vec3(2.5,64,.5),metadata:[]};
+ assert.equal(policy.danger(b),false);assert.equal(night.priority(b,t,state.world).kind,'recovery forage');
+ for(const flag of [0,1]){
+  b.entities.e.metadata=[];b.entities.e.metadata[flag]=true;
+  assert.equal(policy.danger(b),true);assert.equal(policy.assess(b,state.world).mode,'cover');assert.equal(night.priority(b,t,state.world).kind,'retreat');
+ }
+ b.entities.e.metadata=[false,false];assert.equal(night.priority(b,t,state.world).kind,'recovery forage');
+});
 test('unprotected bots seek shelter before damage, including a night with no visible enemy',()=>{
  const {b,state}=fixture();assert.equal(policy.wantsCover(b,state.world),true);
  b.time.timeOfDay=6000;assert.equal(policy.wantsCover(b,state.world),false);
