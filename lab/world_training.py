@@ -11,6 +11,7 @@ from .protection import HOSTILES
 from .first_night import profile as night_profile, LESSONS as NIGHT_LESSONS, clean_memory, readiness, LEVELS
 from .world_fauna import fauna_commands, fauna_extend_commands, replenish_commands, walked_pastures, house_plots
 from .camp_layout import commands as camp_commands
+from .sleep_quorum import SleepQuorum
 
 LESSONS=['Enclose a hut','Craft and place a chest','Craft a wooden pickaxe','Craft a wooden axe','Craft a wooden shovel','Store eight planks and equip the axe']
 HOUSE=json.loads((Path(__file__).resolve().parent.parent/'config/house.json').read_text(encoding='utf-8'))
@@ -33,9 +34,10 @@ SCENARIOS=[dict(id=i,name=name,description=description,spread=spread) for i,(nam
 
 
 class WorldTraining(SurvivalLessons):
-    def __init__(self,path,command,logpath,clock=time.time,staging=None,persist=None,copy_batch_size=2):
+    def __init__(self,path,command,logpath,clock=time.time,staging=None,persist=None,copy_batch_size=2,sleep_pack_path=None):
         self.path=Path(path);self.command=command;self.logpath=Path(logpath);self.clock=clock
         self.staging=staging;self.persist=persist
+        self.sleep_quorum=SleepQuorum(command,sleep_pack_path)
         # At most two small clones per acknowledgement, never a whole chunk burst.
         if type(copy_batch_size) is not int or not 1<=copy_batch_size<=2:raise ValueError('Terrain copy batch must contain one or two slices.')
         self.copy_batch_size=copy_batch_size
@@ -135,6 +137,7 @@ class WorldTraining(SurvivalLessons):
 
     def finish(self):
         s=self.session
+        self.sleep_quorum.restore()
         successful=sorted(((name,r) for name,r in s['results'].items() if r.get('state')=='complete'),key=lambda pair:pair[1].get('seconds',float('inf')))
         for rank,(name,result) in enumerate(successful,1):result['completion_rank']=rank
         s.update(active=False,phase='finished',restart_at=self.clock()+10,message='Batch finished. Restoring terrain for the next batch in 10 seconds.' if s.get('loop') else 'Trial finished. Review each bot’s result; reset starts from the saved natural terrain.')
@@ -227,6 +230,7 @@ class WorldTraining(SurvivalLessons):
 
     def tick(self):
         s=self.session
+        self.sleep_quorum.tick(s,self.clock())
         if not s or s.get('memory_hold'):return
         if s['phase'] not in ('snapshotting','restoring') and not s.get('first_night',{}).get('hostiles') and self.clock()-s.get('sweep_at',0)>1:
             x0,x1,z0,z1=s['bounds']
@@ -533,6 +537,7 @@ class WorldTraining(SurvivalLessons):
             self.finish()
 
     def stop(self,reason='World trial paused by you.'):
+        self.sleep_quorum.restore()
         if self.session and 'fauna_queue' in self.session:
             x0,x1,z0,z1=self.session['bounds']
             try:self.command(f'forceload remove {x0} {z0} {x1-1} {z1-1}')

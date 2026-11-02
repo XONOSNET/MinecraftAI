@@ -219,7 +219,7 @@ install_outline_pack('server/world/datapacks/lab_bot_outlines')
 practice_protection=PracticeProtection(console)
 from .staging import StagingPad
 staging_pad=StagingPad(console)
-world_training=WorldTraining('data/world-training.json',console,'logs/minecraft-console.log',staging=staging_pad,persist=persistence.document)
+world_training=WorldTraining('data/world-training.json',console,'logs/minecraft-console.log',staging=staging_pad,persist=persistence.document,sleep_pack_path='server/world/datapacks/lab_sleep_quorum')
 bot_lights=BotLights(console,config_path="config/bot-lights.json")
 from .behavior import BehaviorRules
 behavior_rules=BehaviorRules('config/behavior.json',[f'LabAI{i}' for i in range(AGENT_COUNT)])
