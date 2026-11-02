@@ -105,6 +105,17 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   else if(arrived===false)throw Error('Mine water retreat could not reach dry ground');
   t.message='Water in mine: retreating to dry stairs before changing direction';return {handled:true};
  }
+ if(m.stage==='descend'){
+  const from=new Vec3(...m.path.at(-1)),next=m.next,q=from.offset(DIRS[next.d][0],-1,DIRS[next.d][1]);
+  // Keep this committed landing across controller ticks. Re-centering on the
+  // previous stair halfway through the move creates an endless out/back loop.
+  if(!dry(b,q)){motor.pause();m.flooded.push(q.toString());m.next=null;m.stage='dig';return {handled:true};}
+  if(!nav.standable(b,q.x,q.y,q.z))throw Error('New mine stair has no safe landing');
+  const arrived=await t.walk(b,motor,point(q),state,api,scan,tasks);
+  if(arrived===true){m.path.push(q.toArray());m.supports.push(q.toArray());m.steps++;m.dir=next.d;m.next=null;m.turned=false;m.stage='dig';t.lastProgress=Date.now();}
+  else if(arrived===false)throw Error('New mine stair cannot be reached safely');
+  return {handled:true};
+ }
  const from=new Vec3(...m.path.at(-1));
  if(!dry(b,from)){
   motor.pause();m.flooded.push(from.toString());
@@ -154,9 +165,6 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   return {handled:true};
  }
  if(!nav.standable(b,checked.q.x,checked.q.y,checked.q.z))throw Error('New mine stair has no safe landing');
- const arrived=await t.walk(b,motor,point(checked.q),state,api,scan,tasks);
- if(arrived===true){m.path.push(checked.q.toArray());m.supports.push(checked.q.toArray());m.steps++;m.dir=next.d;m.next=null;m.turned=false;t.lastProgress=Date.now();}
- else if(arrived===false)throw Error('New mine stair cannot be reached safely');
- return {handled:true};
+ m.stage='descend';return {handled:true};
 }
 module.exports={depth,allowed,dry,step,start,report,light,tick,rules};

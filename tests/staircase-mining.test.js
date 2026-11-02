@@ -66,3 +66,18 @@ test('an exhausted mine returns to exploration instead of repeatedly using the s
  const result=await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(result.handled,false);assert.equal(f.t.wilderness.mine,null);assert.equal(f.t.wilderness.rejectedMines.length,1);
  const next=mine.start(f.t,f.b,f.state,'stone');assert.ok(next);assert.ok(Math.hypot(next.entry[0],next.entry[2])>=4);
 });
+
+
+test('multi-tick descent commits the new landing instead of pulling back toward the previous stair',async()=>{
+ const f=fixture(),goals=[];f.t.wilderness.mine={stage:'descend',entry:[0,64,0],path:[[0,64,0]],supports:[[0,64,0]],next:{d:0},steps:0,flooded:[],dir:0,target_y:48};
+ for(const y of [63,64,65])f.cells.set(new Vec3(1,y,0).toString(),'air');
+ f.t.walk=async(_b,_m,g)=>{goals.push(g);f.b.entity.position=new Vec3(1.2,64,.5);return goals.length<3?undefined:true;};
+ for(let i=0;i<3;i++)await mine.tick(f.t,f.b,f.motor,f.state);
+ assert.deepEqual(goals,Array(3).fill([1.5,63.1,.5]));assert.equal(f.t.wilderness.mine.steps,1);assert.equal(f.t.wilderness.mine.stage,'dig');assert.deepEqual(f.t.wilderness.mine.path.at(-1),[1,63,0]);
+});
+
+test('a committed descent still rejects flooding before moving onto the landing',async()=>{
+ const f=fixture();f.t.wilderness.mine={stage:'descend',entry:[0,64,0],path:[[0,64,0]],supports:[[0,64,0]],next:{d:0},steps:0,flooded:[],dir:0,target_y:48};
+ f.cells.set(new Vec3(1,63,0).toString(),'water');f.t.walk=async()=>{throw Error('must not enter water');};
+ await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.wilderness.mine.stage,'dig');assert.equal(f.t.wilderness.mine.next,null);assert.equal(f.t.wilderness.mine.steps,0);
+});

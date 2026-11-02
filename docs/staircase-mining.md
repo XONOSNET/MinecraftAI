@@ -51,3 +51,19 @@ uses an isolated originally empty sky fixture and diagnostic tools. It exercises
 real survival digging, server-authoritative crafting, placement, descent and
 ascent, then removes the fixture and diagnostic items. It bypasses policy action
 selection to test physical execution; it is not a production learning score.
+
+
+## Committed stair descents
+
+A production stop report showed BirchBadger at full health, with its hut and
+wooden tools complete, stopped by the 90-second stationary guard on the first
+mine step. The miner was still in `dig`: every update re-centered on the previous
+landing, even when the bot had already started moving down onto the next one.
+A synchronous diagnostic walker had hidden this multi-update failure.
+
+The miner now enters an explicit `descend` stage once excavation and the landing
+are verified. It keeps that destination until arrival, then records the new
+step and resumes digging. Flooding and unsafe landings are still checked before
+movement; the normal stall and health guards remain enabled. Regression tests
+use a walker that requires several controller updates and verify that it never
+receives a reverse destination mid-descent.
