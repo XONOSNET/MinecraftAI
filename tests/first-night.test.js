@@ -48,6 +48,18 @@ test('all outdoor survival searches exit at the sensed ground height below a rai
  }
 });
 
+test('wood scouting exits a completed hut before rejecting outdoor destinations',async ctx=>{
+ const b=bot(),t={phase:'gather',plot:{x:0,y:64,z:0},milestones:['hut'],navigator:{},path:[]};night.init(t,{});
+ let searches=0,walks=0;t.wilderness.searchPlanAt=Date.now()+60000;
+ ctx.mock.method(t.wilderness.exploration,'choose',async()=>{searches++;return [12.5,64.1,.5];});
+ t.walk=async(_b,_m,g)=>{walks++;assert.deepEqual(g,[.5,64.1,-4.5]);if(walks===2){b.entity.position=new Vec3(...g);return true;}};
+ const state={world:{bounds:[-30,30,-30,30]}};
+ await night.explore(t,b,{pause(){}},state);assert.equal(searches,0);assert.equal(t.wilderness.explorationLeaving,true);
+ await night.explore(t,b,{pause(){}},state);assert.equal(searches,0);assert.equal(t.wilderness.explorationLeaving,undefined);
+ t.walk=async()=>undefined;await night.explore(t,b,{pause(){}},state);
+ assert.equal(searches,1);assert.equal(t.wilderness.searches,1);assert.deepEqual(t.wilderness.searchGoal,[12.5,64.1,.5]);
+});
+
 test('recovery at food 17 eats carried meals or safely forages instead of waiting for impossible regeneration',async()=>{
  const b=bot(),t={phase:'night_recover',milestones:['hut'],navigator:{},path:[]};night.init(t,{});t.wilderness.resume='chest';
  b.health=16;b.food=17;b.inventory.items=()=>[{name:'wooden_axe',count:1}];

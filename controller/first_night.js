@@ -81,6 +81,14 @@ async function pickup(t,b,motor,state,api,scan,tasks,names){
 async function explore(t,b,motor,state,api,scan,tasks,surface,kind='wood'){
  const n=t.wilderness,p=b.entity.position,bounds=state.world.bounds,now=Date.now();
  n.exploration??=new Exploration();n.exploration.observe(p);
+ // A closed completed hut disconnects the local reachability search from all
+ // outdoor resources. Cross the sensed doorway before rejecting search patches.
+ if(t.milestones?.includes('hut')&&(n.explorationLeaving||require('./world_navigation').insideHome(p,t.plot))){
+  n.explorationLeaving=true;
+  const goal=require('./world_navigation').homeApproach(t.plot,b);
+  if(await t.walk(b,motor,goal,state,api,scan,tasks)===true){delete n.explorationLeaving;n.searchPlanAt=0;}
+  t.message='Leaving the hut before scouting '+kind;return;
+ }
  if(n.searchKind!==kind){n.searchGoal=null;n.searchKind=kind;n.noResourceAt=null;}
  if(n.searchGoal&&Math.hypot(n.searchGoal[0]-p.x,n.searchGoal[2]-p.z)<1){n.exploration.finish(b,kind,n.searchGoal,now);n.memory.visited.add(n.searchGoal.map(Math.floor).join(','));n.searchGoal=null;t.lastProgress=now;}
  if(!n.searchGoal){
