@@ -65,7 +65,22 @@ async function earthItem(b,s){
  if(Date.now()-(s.inventoryAt||0)>=1000){s.inventoryAt=Date.now();await inventory.sync(b);item=pick();}
  return item;
 }
-function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,waiting_for:s.waitReason||null,exit_blocks:s.exitBlocks??null,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
+async function placeCover(b,s,target,support,face,name){
+ for(const height of [.2,.5,.8]){
+  if(cover(b.blockAt(target),name))return true;
+  if(!openCell(b.blockAt(target))||!space.clearOfPlayers(b,target.offset(.5,.5,.5),1))return false;
+  if(!b.entity.onGround||b.entity.position.y+1.8>target.y&&face.y===0)return false;
+  const actual=b.blockAt(support);if(!actual||actual.boundingBox!=='block'||actual.getProperties?.().waterlogged)throw Error('Emergency cover support is no longer solid and dry');
+  await inventory.sync(b);await inventory.equip(b,name,{synced:true});
+  const delta=new Vec3(.5+face.x*.5,face.y===0?height:face.y>0?1:0,.5+face.z*.5);
+  await b.lookAt(support.plus(delta),true);
+  try{await b._placeBlockWithOptions(actual,face,{forceLook:'ignore',swingArm:'right',delta});}
+  catch(error){if(!String(error.message).includes('Server refused'))throw error;s.coverRefusals=(s.coverRefusals||0)+1;}
+  if(cover(b.blockAt(target),name))return true;
+ }
+ return false;
+}
+function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,waiting_for:s.waitReason||null,exit_blocks:s.exitBlocks??null,cover_refusals:s.coverRefusals||0,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
 async function tick(t,b,motor,state,api,scan,tasks){
  const n=t.wilderness,w=state.world,now=Date.now();let s=n.burrow;
  if(!s){
@@ -118,9 +133,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
   if(!item){t.message='Emergency cover: collecting the first dirt block';return true;}
   const lip=new Vec3(...s.lip);if(b.blockAt(lip)?.name!=='air')throw Error('Emergency cover lip is obstructed');
   if(!space.clearOfPlayers(b,lip.offset(.5,.5,.5),1)){t.message='Emergency cover: waiting for a clear cover-block position';return true;}
-  await inventory.equip(b,item.name,{synced:true});await b.lookAt(lip.offset(.5,0,.5),true);
-  await b._placeBlockWithOptions(b.blockAt(lip.offset(0,-1,0)),new Vec3(0,1,0),{forceLook:'ignore',swingArm:'right'});
-  if(b.blockAt(lip)?.name!==item.name)throw Error('Emergency cover lip was not confirmed');
+  if(!await placeCover(b,s,lip,lip.offset(0,-1,0),new Vec3(0,1,0),item.name)){t.message='Emergency cover lip refused: rechecking inventory and support';return true;}
   s.lip_name=item.name;s.stage='dig';t.lastProgress=s.progressAt=Date.now();t.message='Emergency cover: first dirt block shields the opening';return true;
  }
  if(s.stage==='seal'){
@@ -130,10 +143,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
   if(p.y+1.8>cap.y||!b.entity.onGround)throw Error('Insufficient headroom for the emergency roof');
   if(!space.clearOfPlayers(b,cap.offset(.5,.5,.5),1)){t.message='Emergency cover: waiting for another player to leave the opening';return true;}
   const lip=new Vec3(...s.lip),face=cap.minus(lip);if(!cover(b.blockAt(lip),s.lip_name))throw Error('Emergency roof support changed');
-  await inventory.equip(b,item.name,{synced:true});const support=b.blockAt(lip);
-  await b.lookAt(lip.offset(.5+face.x*.5,.5,.5+face.z*.5),true);
-  await b._placeBlockWithOptions(support,face,{forceLook:'ignore',swingArm:'right'});
-  if(b.blockAt(cap)?.name!==item.name)throw Error('Emergency roof placement was not confirmed');
+  if(!await placeCover(b,s,cap,lip,face,item.name)){t.message='Emergency roof refused: retrying checked cover face';return true;}
   s.cap_name=item.name;s.stage='hidden';t.lastProgress=s.progressAt=Date.now();t.message='Emergency burrow sealed: waiting for daylight and a clear exit';return true;
  }
  if(s.stage==='hidden'){
@@ -218,4 +228,4 @@ async function seek(t,b,motor,state,api,scan,tasks){
  if(n.coverEscape){if(await t.walk(b,motor,n.coverEscape,state,api,scan,tasks)===false){n.coverEscape=null;n.coverEscapeAt=now+500;}}else motor.pause();
  t.message='Seeking safe earth cover; refusing exposed work or combat'+(n.burrow_status?' · '+n.burrow_status:'');
 }
-module.exports={EARTH,walls,site,find,sealed,report,tick,seek,cover,openCell,safeNotch};
+module.exports={EARTH,walls,site,find,sealed,report,tick,seek,cover,openCell,safeNotch,placeCover};

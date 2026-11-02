@@ -381,7 +381,7 @@ class HutTeacher{
    const item=bot.inventory.items().find(i=>name?i.name===name:planks(i.name));if(!item)throw Error('No building material available.');
    const ref=reference(bot,q,{exclude:rejected});if(!ref){this.lastNavigation={...this.lastNavigation,placement_failure:{target:[q.x,q.y,q.z],position:[bot.entity.position.x,bot.entity.position.y,bot.entity.position.z],rejected_faces:[...rejected],reason:'no_reachable_support'}};const error=Error('No reachable supporting face for placement.');error.code='BUILD_OBSTRUCTED';throw error;}
    await inventorySync.equip(bot,item.name,{synced:true});
-   try{await aim(bot,ref.point);await bot._placeBlockWithOptions(ref.block,ref.face,{swingArm:'right',forceLook:'ignore',delta:ref.delta});if(bot.blockAt(new Vec3(q.x,q.y,q.z))?.name!==item.name)throw Error('Server refused to confirm '+item.name+' at '+new Vec3(q.x,q.y,q.z));return;}catch(error){if(!String(error.message).includes('Server refused'))throw error;rejected.add(ref.key);await new Promise(r=>setTimeout(r,150));}
+   try{await aim(bot,ref.point);if(item.name.endsWith('_door'))await bot.look(0,0,true);await bot._placeBlockWithOptions(ref.block,ref.face,{swingArm:'right',forceLook:'ignore',delta:ref.delta});if(bot.blockAt(new Vec3(q.x,q.y,q.z))?.name!==item.name)throw Error('Server refused to confirm '+item.name+' at '+new Vec3(q.x,q.y,q.z));return;}catch(error){if(!String(error.message).includes('Server refused'))throw error;rejected.add(ref.key);await new Promise(r=>setTimeout(r,150));}
   }
   const error=Error('Server refused all reachable supporting faces');error.code='BUILD_OBSTRUCTED';throw error;
  }

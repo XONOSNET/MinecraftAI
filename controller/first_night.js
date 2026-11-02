@@ -21,7 +21,9 @@ function priority(b,t,w){
  if(t.phase==='night_seek_cover')return {kind:'resume',reason:'Daylight and a clear area allow work to resume'};
  if(sheltered&&(b.health<12||threat))return {kind:'retreat',reason:threat?'Visible '+threat.name+' nearby':'Recover health inside the hut'};
  if(n.resume&&b.health>=18&&!threat)return {kind:'resume',reason:'Safe to continue the interrupted task'};
- if(t.phase==='night_recover'&&n.resume&&needsHealing&&b.health>=12&&!threat&&!meals(b)&&b.inventory.items().some(i=>i.name.endsWith('_axe')))return {kind:'recovery forage',reason:'Health regeneration requires food; gather provisions before recovering'};
+ if(t.phase==='night_recover'&&n.resume&&needsHealing&&b.health>=12&&!threat&&!meals(b))return b.inventory.items().some(i=>i.name.endsWith('_axe'))?
+  {kind:'recovery forage',reason:'Health regeneration requires food; gather provisions before recovering'}:
+  {kind:'recovery supplies',reason:'Recovery needs food and a hunting tool; resume the interrupted supply lesson in daylight'};
  return {kind:handles(t.phase)?t.phase.replace('night_','').replaceAll('_',' '):t.phase.replaceAll('_',' '),reason:sheltered?'Develop and provision the home':'Gather enough materials for a secure shelter'};
 }
 async function interrupt(t,b,motor,state,api,scan){
@@ -48,6 +50,7 @@ async function interrupt(t,b,motor,state,api,scan){
  if(await require('./survival_defense').tick(t,b,motor,state,api,scan))return true;
  if(p.kind==='retreat'&&!(t.phase==='night_hold'&&b.health>=12)&&!['night_retreat','night_recover'].includes(t.phase)){n.resume=t.phase;n.recoveries++;t.phase='night_retreat';t.path=[];t.navigator.lastPlan=-Infinity;return true;}
  if(p.kind==='resume'&&['night_retreat','night_recover'].includes(t.phase)){t.phase=n.resume;delete n.resume;t.lastProgress=Date.now();return true;}
+ if(p.kind==='recovery supplies'){t.phase=n.resume;delete n.resume;t.path=[];t.navigator.lastPlan=-Infinity;t.lastProgress=Date.now();t.message=p.reason;return true;}
  if(p.kind==='recovery forage'){
   n.forageResume='night_retreat';t.phase='night_forage';t.path=[];t.navigator.lastPlan=-Infinity;
   t.message=p.reason;return true;

@@ -30,9 +30,10 @@ async function main(){try{
   const before=t.wilderness.burrow.stage;
   b.time.timeOfDay=6000;await burrow.tick(t,b,motor,state);await wait(80);
   if(missingLip&&before==='reclaim'){
-   await inventory.sync(b);
-   if(b.inventory.items().filter(i=>i.name==='dirt').reduce((n,i)=>n+i.count,0)===2)await b.toss(b.registry.itemsByName.dirt.id,null,1);
+   // Remove loose fixture drops first; a tossed block can otherwise be picked
+   // back up while temporary operator commands are waiting for acknowledgement.
    await commands(['kill @e[type=item,x=-1315,y=205,z=-1315,dx=30,dy=12,dz=30]']);await inventory.sync(b);
+   if(b.inventory.items().filter(i=>i.name==='dirt').reduce((n,i)=>n+i.count,0)===2){await commands(['clear @s dirt 1']);await inventory.sync(b);}
    assert.equal(b.inventory.items().filter(i=>i.name==='dirt').reduce((n,i)=>n+i.count,0),1,'only roof recovered; lip unavailable');result.missing_lip_verified=true;
   }
   if(t.wilderness.burrow?.exitNotch)result.safe_exit_pocket_verified=true;

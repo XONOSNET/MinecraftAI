@@ -6,9 +6,10 @@ function target(t,b,w){
  if(require('./shelter_policy').wantsCover(b,w)||t.wilderness?.shelterWatch)return null;
  if(!w.first_night?.hostiles||b.isSleeping)return null;
  const bounds=w.bounds,p=b.entity.position;
- const enemies=Object.values(b.entities).filter(e=>e.isValid!==false&&HOSTILES.has(e.name)&&e.position&&e.position.x>bounds[0]&&e.position.x<bounds[1]&&e.position.z>bounds[2]&&e.position.z<bounds[3]&&e.position.distanceTo(p)<=4.5&&combat.visible(b,e));
+ const enemies=Object.values(b.entities).filter(e=>e.isValid!==false&&HOSTILES.has(e.name)&&e.position&&e.position.x>bounds[0]&&e.position.x<bounds[1]&&e.position.z>bounds[2]&&e.position.z<bounds[3]&&e.position.distanceTo(p)<=4.5&&Date.now()>=(t.wilderness.defenseDeferred?.get(e.id)||0)&&combat.visible(b,e));
  return enemies.find(e=>e.id===t.wilderness.defense?.target_id)||enemies.sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p))[0]||null;
 }
+function pDistance(b,e){return b.entity.position.distanceTo(e.position);}
 async function tick(t,b,motor,state,api,scan){
  if(!api||!scan)return false;
  const enemy=target(t,b,state.world);if(!enemy)return false;
@@ -17,7 +18,17 @@ async function tick(t,b,motor,state,api,scan){
  // combat still respects cooldown, range, line of sight and equipment gates.
  const minY=b.game?.minY??-64,maxY=minY+(b.game?.height??384)-1;
  const task={kind:'combat',mobs:[enemy.name],mob_label:'',target_id:enemy.id,bounds:state.world.bounds,min_y:minY,max_y:maxY,weapon,kill_target:1,critical_hits:false,safe_walk:true,strict_ground:true,avoid_players:true};
+ const now=Date.now(),healthKey=b.registry?.entitiesByName?.[enemy.name]?.metadataKeys?.indexOf('health'),enemyHealth=healthKey>=0?enemy.metadata?.[healthKey]:undefined;
+ if(runtime.target_id!==enemy.id){runtime.progressAt=now;runtime.bestDistance=Infinity;runtime.enemyHealth=undefined;}
+ const distance=pDistance(b,enemy);
+ if(distance<(runtime.bestDistance??Infinity)-.5||typeof enemyHealth==='number'&&enemyHealth<(runtime.enemyHealth??Infinity)){
+  runtime.progressAt=now;runtime.bestDistance=distance;runtime.enemyHealth=enemyHealth;
+ }
  runtime.target_id=enemy.id;
+ if(now-(runtime.progressAt??now)>12000){
+  (t.wilderness.defenseDeferred??=new Map()).set(enemy.id,now+15000);
+  runtime.target_id=null;motor.pause();t.message='No effective combat progress; disengaging and reassessing route or cover';return false;
+ }
  const sensed=combat.observe(b,task,runtime),rays=scan(b),p=b.entity.position;
  const obs=[...rays.pooled,Math.sin(sensed.angle),Math.cos(sensed.angle),Math.min(sensed.distance/32,1),b.health/20,b.food/20,b.entity.onGround?1:0,...sensed.extra];
  const reply=await api('/step',{agent:b.username,run:state.run,world_skill:'combat',obs,teacher:combat.teacher(sensed,task),reward:0,position:[p.x,p.y,p.z],health:b.health,food:b.food,hits:rays.hits,perception_ms:0,steps:0,goal:[enemy.position.x,enemy.position.y,enemy.position.z],task:'combat',metrics:sensed.metrics});

@@ -150,3 +150,18 @@ test('critically injured living bots can still attempt emergency cover',async ct
  const f=fixture();f.b.health=4.5;f.b.entities={};
  assert.equal(await burrow.tick(f.t,f.b,f.motor,f.state),true);assert.equal(f.t.phase,'night_burrow');assert.ok(f.t.wilderness.burrow);
 });
+
+
+test('a refused cover is retried with checked alternate hit points and confirmed inventory',async ctx=>{
+ const f=fixture(),s={},cap=new Vec3(0,64,0),lip=new Vec3(1,64,0);f.b.entity.position.y=62;f.cells.set(lip.toString(),'dirt');let calls=0,syncs=0;const heights=[];
+ ctx.mock.method(inventory,'sync',async()=>{syncs++;});ctx.mock.method(inventory,'equip',async()=>{});f.b.lookAt=async()=>{};
+ f.b._placeBlockWithOptions=async(ref,face,options)=>{calls++;heights.push(options.delta.y);if(calls===1)throw Error('Server refused to place dirt');f.cells.set(cap.toString(),'dirt');};
+ assert.equal(await burrow.placeCover(f.b,s,cap,lip,new Vec3(-1,0,0),'dirt'),true);assert.equal(calls,2);assert.equal(syncs,2);assert.deepEqual(heights,[.2,.5]);assert.equal(s.coverRefusals,1);
+});
+
+test('cover retries do not bypass physical blockers or invent placement success',async ctx=>{
+ const f=fixture(),s={},cap=new Vec3(0,64,0),lip=new Vec3(1,64,0);f.b.entity.position.y=62;f.cells.set(lip.toString(),'dirt');let calls=0;
+ ctx.mock.method(inventory,'sync',async()=>{});ctx.mock.method(inventory,'equip',async()=>{});f.b.lookAt=async()=>{};f.b._placeBlockWithOptions=async()=>{calls++;throw Error('Server refused to place dirt');};
+ assert.equal(await burrow.placeCover(f.b,s,cap,lip,new Vec3(-1,0,0),'dirt'),false);assert.equal(calls,3);assert.equal(burrow.sealed(f.b,{cap:cap.toArray(),cap_name:'dirt'}),false);
+ f.cells.set(cap.toString(),'water');assert.equal(await burrow.placeCover(f.b,s,cap,lip,new Vec3(-1,0,0),'dirt'),false);assert.equal(calls,3);
+});

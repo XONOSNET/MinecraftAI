@@ -53,3 +53,12 @@ test('no refuge never falls through to exposed work or combat',async ctx=>{
  assert.equal(await night.interrupt(t,b,{pause(){}},state),true);assert.equal(t.phase,'night_seek_cover');assert.equal(seeks,1);
  b.time.timeOfDay=6000;await night.interrupt(t,b,{pause(){}},state);assert.equal(t.phase,'gather');
 });
+
+
+test('daytime recovery without food or a hunting tool resumes supplies instead of waiting for impossible regeneration',async ctx=>{
+ const {b,t,state}=fixture();b.health=16;b.food=12;b.time.timeOfDay=6000;t.phase='night_recover';t.wilderness.resume='gather';
+ assert.equal(night.priority(b,t,state.world).kind,'recovery supplies');
+ ctx.mock.method(burrow,'tick',async()=>false);
+ await night.interrupt(t,b,{pause(){}},state,async()=>({}),()=>({}));assert.equal(t.phase,'gather');assert.equal(t.wilderness.resume,undefined);assert.match(t.message,/Recovery needs food/);
+ b.time.timeOfDay=14000;t.phase='night_recover';t.wilderness.resume='gather';assert.equal(night.priority(b,t,state.world).kind,'retreat','night danger still takes priority');
+});

@@ -32,7 +32,7 @@ async function main(){try{
  result.initial_missing=repair.inspect(t,b).missing.length;
  for(let i=0;i<150&&Date.now()-started<120000;i++){await repair.tick(t,b,motor,state);await wait(80);if(!t.homeRepair)break;}
  await inventory.sync(b);Object.assign(result,{seconds:(Date.now()-started)/1000,phase:t.phase,health:b.health,remaining:repair.inspect(t,b).missing.length,inventory:b.inventory.items().map(i=>({name:i.name,count:i.count}))});
- assert.equal(t.homeRepair,null);assert.equal(result.remaining,0);assert.equal(t.phase,'night_scout');assert.deepEqual(t.milestones,['hut']);assert.equal(b.blockAt(new Vec3(-1497,210,-1500)).boundingBox,'block');assert.ok(b.inventory.items().filter(i=>i.name==='oak_planks').reduce((s,i)=>s+i.count,0)<32);result.passed=true;
+ assert.equal(t.homeRepair,null);assert.equal(result.remaining,0);assert.equal(t.phase,'night_scout');assert.deepEqual(t.milestones,['hut']);assert.equal(b.blockAt(new Vec3(-1497,210,-1500)).boundingBox,'block');assert.ok(b.inventory.items().filter(i=>i.name==='oak_planks').reduce((s,i)=>s+i.count,0)<32);result.door_facing=b.blockAt(new Vec3(-1500,211,-1503)).getProperties().facing;assert.equal(result.door_facing,'north');result.passed=true;
 }catch(e){result.error=e.stack;process.exitCode=1;}finally{
  b.clearControlStates();await admin({action:'gamemode',gamemode:'creative'}).catch(()=>{});
  if(changed){await commands(['kill @e[type=item,x=-1510,y=207,z=-1510,dx=20,dy=10,dz=20]','fill -1510 207 -1510 -1490 217 -1490 air','clear @s']);for(let x=-1510;x<=-1490;x++)for(let z=-1510;z<=-1490;z++)for(let y=207;y<=217;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air');}

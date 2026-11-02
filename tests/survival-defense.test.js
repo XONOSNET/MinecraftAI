@@ -41,3 +41,17 @@ test('defense ignores protected levels, sleeping bots, animals, neutral mobs, di
 test('First Night interrupts gathering to defend before a hut exists',async()=>{
  const f=fixture();night.init(f.t,{});await night.interrupt(f.t,f.b,f.motor,f.state,async(_p,d)=>({action:d.teacher}),f.scan);assert.equal(f.hits(),1);assert.equal(f.t.wilderness.priority,'Defending');
 });
+
+
+test('an ineffective combat engagement yields instead of consuming the stationary deadline',async ctx=>{
+ const f=fixture();let now=1000;ctx.mock.method(Date,'now',()=>now);const api=async()=>({action:0});
+ assert.equal(await defense.tick(f.t,f.b,f.motor,f.state,api,f.scan),true);
+ now+=13000;assert.equal(await defense.tick(f.t,f.b,f.motor,f.state,api,f.scan),false);assert.match(f.t.message,/disengaging/);assert.equal(defense.target(f.t,f.b,f.state.world),null);
+ now+=15001;assert.ok(defense.target(f.t,f.b,f.state.world),'temporary deferral does not permanently ignore the hostile');assert.equal(await defense.tick(f.t,f.b,f.motor,f.state,api,f.scan),true,'a new bounded engagement can start after the cooldown');
+});
+
+test('confirmed damage extends an active combat engagement without fabricating lesson progress',async ctx=>{
+ const f=fixture();let now=1000;ctx.mock.method(Date,'now',()=>now);f.b.registry={entitiesByName:{zombie:{metadataKeys:['health']}}};f.enemy.metadata=[20];
+ const api=async()=>({action:4});await defense.tick(f.t,f.b,f.motor,f.state,api,f.scan);now+=11000;f.enemy.metadata=[12];assert.equal(await defense.tick(f.t,f.b,f.motor,f.state,api,f.scan),true);
+ now+=11000;assert.equal(await defense.tick(f.t,f.b,f.motor,f.state,api,f.scan),true);assert.equal(f.t.lastProgress,123);
+});

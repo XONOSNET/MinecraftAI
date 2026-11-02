@@ -34,3 +34,11 @@ test('an unchanged target after placement is not reported as success',async()=>{
  try{await assert.rejects(t.place(bot,{x:0,y:64,z:0},'oak_planks'),{code:'BUILD_OBSTRUCTED'});assert.equal(calls,1);assert.deepEqual(t.lastNavigation.placement_failure.target,[0,64,0]);assert.equal(t.lastNavigation.placement_failure.rejected_faces.length,1);}
  finally{inventory.sync=sync;inventory.equip=equip;}
 });
+
+
+test('door placement preserves the house entrance orientation after aiming at its support',async ctx=>{
+ const {bot,cells}=fixture({'(0, 63, 0)':'stone'}),inventory=require('../controller/inventory_sync'),{HutTeacher}=require('../controller/hut_teacher');
+ bot.inventory.items=()=>[{name:'birch_door',count:1}];ctx.mock.method(inventory,'sync',async()=>{});ctx.mock.method(inventory,'equip',async()=>{});
+ bot.entity.yaw=-Math.PI/2;bot._placeBlockWithOptions=async(ref,face)=>{assert.equal(bot.entity.yaw,0,'north-facing closed panel matches the north/south house entrance');cells.set(ref.position.plus(face).toString(),'birch_door');};
+ const t=new HutTeacher();Object.assign(t,{plot:{x:0,y:64,z:3},phase:'door',campPlots:[]});await t.place(bot,{x:0,y:64,z:0},'birch_door');
+});
