@@ -14,7 +14,11 @@ function cell(bot,x,y,z){
  return {wet,mode:wet?(floor.boundingBox==='block'?'wade':'swim'):'bank',cost:wet?(floor.boundingBox==='block'?3:5):1};
 }
 function validRoute(bot,path,goal){
- if(!path.length||!cell(bot,Math.floor(goal[0]),Math.round(goal[1]),Math.floor(goal[2]))||bot.blockAt(new Vec3(Math.floor(goal[0]),Math.round(goal[1]),Math.floor(goal[2])))?.name==='water')return false;
+ const x=Math.floor(goal[0]),y=Math.round(goal[1]),z=Math.floor(goal[2]),landing=cell(bot,x,y,z);
+ if(!landing||landing.wet)return false;
+ // A supported bank may fail the stricter dry work-footing check solely for
+ // adjacent water. An empty path is valid only when already on that landing.
+ if(!path.length){const p=bot.entity.position;return bot.entity.onGround===true&&Math.floor(p.x)===x&&Math.floor(p.z)===z&&Math.abs(p.y-y)<.4;}
  let wet=0;
  for(const q of path){const c=cell(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2]));if(!c)return false;wet=c.wet?wet+1:0;if(wet>24)return false;}
  return true;

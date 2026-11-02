@@ -11,7 +11,7 @@ def test_walked_pastures_require_real_bounded_nearby_roads_outside_houses():
     assert (140,65,80) in points and (110,65,80) in points
     assert any(p[1]==100 for p in points), 'real explored elevations are not restricted to camp height'
     assert all(p[0]!=80 for p in points)
-    session['camp']={};assert walked_pastures(session)==[]
+    session['camp']={};assert walked_pastures(session)==points
 
 
 def test_walked_sheep_replenishment_keeps_population_and_successful_wave_caps():
@@ -36,6 +36,22 @@ def test_active_natural_trial_uses_reported_walked_pastures(tmp_path):
     assert any('positioned 16460.5 65 16440.5' in c and 'run summon minecraft:sheep' in c for c in commands)
     assert world.session['fauna_replenishment']['sheep_placement']=='walked grass candidates'
     assert world.session['fauna_replenishment']['walked_pastures']==1
+
+
+def test_unprepared_wilderness_uses_reported_roads_and_keeps_births_outside_reported_houses(tmp_path):
+    from lab.world_fauna import walked_pastures,house_plots
+    world,commands,clock,log=fixture(tmp_path)
+    world.start(dict(mission='first_night',night_level=3),['LabAI0'])
+    world.session.update(phase='running',trial_at=0,results={'LabAI0':dict(plot=dict(x=16460,y=65,z=16440),wilderness=dict(memory=dict(roads=[[16460.5,65.1,16440.5],[16460.5,65.1,16464.5]])))})
+    assert not world.session.get('camp')
+    assert house_plots(world.session)==[dict(x=16460,y=65,z=16440)]
+    assert walked_pastures(world.session)==[(16460,65,16464)]
+    commands.clear();clock[0]=30;world.tick()
+    assert world.session['fauna_replenishment']['walked_pastures']==1
+    summons=[c for c in commands if 'run summon minecraft:sheep' in c]
+    assert any('positioned 16460.5 65 16464.5' in c for c in summons)
+    assert not any('positioned 16460.5 65 16440.5' in c for c in summons)
+    assert all('matches ..1 if score #fauna_sheep lab_world matches ..23' in c for c in summons)
 
 
 def test_replenishment_is_bounded_surface_checked_and_avoids_house_plots():

@@ -94,7 +94,10 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   if(!nav.standable(b,q.x,q.y,q.z))throw Error('Recorded mine return stair is obstructed or unsafe');
   const arrived=await t.walk(b,motor,point(q),state,api,scan,tasks);
   if(arrived===true){if(m.exitIndex===0){m.stage='done';claims.delete(b.username);}else m.exitIndex--;}
-  else if(arrived===false)throw Error('Unable to climb the recorded mine return staircase');
+  else if(arrived===false){
+   if(!space.clearOfPlayers(b,q.offset(.5,0,.5))){motor.pause();t.message='Mine exit: waiting for another player to clear the return stair';return {handled:true};}
+   throw Error('Unable to climb the recorded mine return staircase');
+  }
   return {handled:true};
  }
  if(m.stage==='water_retreat'){

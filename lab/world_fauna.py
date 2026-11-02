@@ -2,11 +2,13 @@
 import math
 SPECIES=('cow','pig','sheep','chicken','rabbit')
 
+def house_plots(session):
+    return (session.get('camp') or {}).get('plots') or [r['plot'] for r in session.get('results',{}).values() if isinstance(r.get('plot'),dict) and all(type(r['plot'].get(k)) in (int,float) and math.isfinite(r['plot'][k]) for k in ('x','z'))]
+
 def walked_pastures(session):
     """Candidate grass checks beside actual camp travel, never animal locations."""
-    camp=session.get('camp') or {};spawn=camp.get('spawn');plots=camp.get('plots',[])
-    if not spawn:return []
-    x0,x1,z0,z1=session['bounds'];found={}
+    camp=session.get('camp') or {};plots=house_plots(session)
+    x0,x1,z0,z1=session['bounds'];spawn=camp.get('spawn') or [(x0+x1)/2,0,(z0+z1)/2];found={}
     for report in session.get('results',{}).values():
         for p in ((report.get('wilderness') or {}).get('memory') or {}).get('roads',[])[:512]:
             if not isinstance(p,list) or len(p)!=3 or any(type(v) not in (int,float) or not math.isfinite(v) for v in p):continue

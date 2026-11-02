@@ -98,3 +98,11 @@ test('the entrance fallback cannot excuse an actual flooded occupied cell',async
  const f=fixture();f.t.wilderness.mine={stage:'dig',entry:[0,64,0],path:[[0,64,0]],steps:0,flooded:[]};f.cells.set(new Vec3(0,64,0).toString(),'water');
  await assert.rejects(mine.tick(f.t,f.b,f.motor,f.state),/no verified dry retreat/);
 });
+
+test('a temporarily occupied return stair yields without abandoning the mine or inventing progress',async()=>{
+ const f=fixture(),m=f.t.wilderness.mine={stage:'exit',entry:[0,64,0],path:[[0,64,0]],exitIndex:0};f.t.lastProgress=123;
+ f.b.players.other={username:'Other',entity:{id:2,position:new Vec3(1.5,64,.5)}};f.t.walk=async()=>false;
+ await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.stage,'exit');assert.equal(m.exitIndex,0);assert.equal(f.t.lastProgress,123);assert.match(f.t.message,/waiting for another player/);
+ f.b.players={};await assert.rejects(mine.tick(f.t,f.b,f.motor,f.state),/Unable to climb/);
+ f.t.walk=async()=>true;await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.stage,'done');
+});

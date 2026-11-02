@@ -15,6 +15,14 @@ test('a waterside home uses its supported front bank instead of a marker above w
  const at=b.blockAt;b.blockAt=p=>{const v=at(p);return v.name==='water'?{...v,getProperties:()=>({level:2})}:v;};
  const unsafe=homeApproach(plot,b);assert.notDeepEqual(unsafe,goal,'a bank beside a current cannot use the checked source-water fallback');
 });
+
+test('an already-reached bank accepts an empty route without accepting distant goals or open water',()=>{
+ const {b}=fixture(),goal=[7.5,64.1,.5];b.entity.position=new Vec3(7.5,64,.27);
+ assert.equal(standable(b,7,64,0),false);assert.equal(water.validRoute(b,[],goal),true);
+ const plan=new WorldNavigation().plan(b,goal,{bounds:[-2,13,-3,3]});assert.equal(plan.blocked,false);assert.equal(plan.arrived,true);
+ assert.equal(water.validRoute(b,[],[10.5,64.1,.5]),false);assert.equal(water.validRoute(b,[],[4.5,63.1,.5]),false);
+ b.entity.onGround=false;assert.equal(water.validRoute(b,[],goal),false);
+});
 test('surface route crosses source water and reaches a verified bank without changing dry work footing',()=>{
  const {b}=fixture(),goal=[10.5,64.1,.5],bounds=[-2,13,-3,3];
  assert.equal(route(b,goal,20,4096,true,{bounds,reversible:true}).reached,false);
