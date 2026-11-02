@@ -71,3 +71,13 @@ test('refused corner walls can be retried from the closer inner ring',()=>{
  assert.equal(require('../controller/build_approach').retry(t,b,q,[-20,20,-20,20]),true);
  assert.deepEqual(t.buildApproach,[2.5,64.1,2.5]);
 });
+
+test('refused placements prefer a visible support over a closer occluded stance',()=>{
+ const {b,t}=fixture(),q={x:3,y:64,z:0},retry=require('../controller/build_approach').retry;
+ b.world={raycast(eye){return eye.x<2?b.blockAt(new Vec3(3,63,0)):null;}};
+ assert.equal(retry(t,b,q,[-20,20,-20,20]),true);assert.ok(t.buildApproach[0]<2);
+ assert.ok(require('../controller/placement_reference').references(b,q,{standing:new Vec3(...t.buildApproach),visibleOnly:true}).length);
+ // An overhead-only placement can still use the existing bounded assist.
+ t.buildAttempts=new Map();b.world.raycast=()=>null;
+ assert.equal(retry(t,b,q,[-20,20,-20,20]),true);
+});
