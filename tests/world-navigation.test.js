@@ -226,9 +226,25 @@ test('holding the confirmed building material does not request another inventory
 
 
 test('survey flight holds gravity without disabling controller physics ticks and restores it afterward',()=>{
- const survey=require('../controller/survey'),bot={physics:{gravity:.08},entity:{velocity:new Vec3(1,-1,1)},physicsEnabled:true};
+ const survey=require('../controller/survey'),bot={game:{gameMode:'spectator'},physics:{gravity:.08},entity:{velocity:new Vec3(1,-1,1)},physicsEnabled:true};
  survey.hold(bot);survey.hold(bot);assert.equal(bot.physics.gravity,0);assert.deepEqual(bot.entity.velocity,new Vec3(0,0,0));assert.equal(bot.physicsEnabled,true);
  survey.release(bot);assert.equal(bot.physics.gravity,.08);survey.release(bot);assert.equal(bot.physics.gravity,.08);
+});
+
+test('survival survey keeps normal gravity and downward motion instead of hovering into a flying kick',()=>{
+ const survey=require('../controller/survey');
+ for(const gameMode of ['survival',0,undefined]){
+  const bot={game:{gameMode},physics:{gravity:.08},entity:{velocity:new Vec3(0,-.12,0)},physicsEnabled:true};
+  for(let i=0;i<100;i++)survey.hold(bot);
+  assert.equal(bot.physics.gravity,.08);assert.equal(bot.entity.velocity.y,-.12);assert.equal(bot.labSurveyGravity,undefined);assert.equal(bot.physicsEnabled,true);
+ }
+});
+
+test('switching from spectator to survival releases a previous survey gravity hold',()=>{
+ const survey=require('../controller/survey'),bot={game:{gameMode:'spectator'},physics:{gravity:.08},entity:{velocity:new Vec3(0,0,0)}};
+ survey.hold(bot);assert.equal(bot.physics.gravity,0);
+ bot.game.gameMode='survival';bot.entity.velocity.y=-.1;survey.hold(bot);
+ assert.equal(bot.physics.gravity,.08);assert.equal(bot.entity.velocity.y,-.1);assert.equal(bot.labSurveyGravity,undefined);
 });
 
 test('safe spawn survey can find dry shore beyond the old central search area',()=>{
