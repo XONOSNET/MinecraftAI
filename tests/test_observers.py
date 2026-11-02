@@ -235,6 +235,24 @@ def test_world_shelter_watch_uses_third_bar_and_keeps_counting_after_morning(tmp
     assert cache[prefix+'visible']==prefix+'visible false'
 
 
+def test_selected_bot_vitals_survive_world_labels_and_switch_with_the_camera(tmp_path):
+    now=[100.];o=Observers(tmp_path/'hud',lambda command:None,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    o.progress_context={'world':{'phase':'running','round':1,'name':'Camp','message':'Testing','bots':['LabAI0','LabAI1'],'results':{'LabAI0':{'phase':'night_stone','lesson':7,'lesson_total':19}}}}
+    session=o.sessions['Xonosnet'];agent={'connected':True,'last_seen':100,'display_name':'CedarWren','health':17,'food':14}
+    prefix='bossbar set lab:observer_xonosnet_task name'
+    o.update_hud(session,agent,'evaluate')
+    assert 'CedarWren | Lesson 7/19' in o.hud_commands['Xonosnet'][prefix]
+    assert 'Health 85% | Food 70%' in o.hud_commands['Xonosnet'][prefix]
+    assert o.hud_commands['Xonosnet']['bossbar set lab:observer_xonosnet_state visible'].endswith(' false')
+    now[0]+=2;session['target']='LabAI1'
+    o.update_hud(session,dict(agent,last_seen=now[0],display_name='OakPanda',health=12.6,food=20),'evaluate')
+    assert 'OakPanda' in o.hud_commands['Xonosnet'][prefix]
+    assert 'Health 63% | Food 100%' in o.hud_commands['Xonosnet'][prefix]
+    now[0]+=10;o.update_hud(session,agent,'evaluate')
+    assert 'Health -- | Food --' in o.hud_commands['Xonosnet'][prefix]
+
+
 @pytest.mark.parametrize('seconds,updated',[(0,100),(2,95)])
 def test_shelter_watch_stays_visible_at_zero_while_waiting_for_dawn(tmp_path,seconds,updated):
     commands=[];o=Observers(tmp_path/'hud',commands.append,lambda:100,settle_delay=0)

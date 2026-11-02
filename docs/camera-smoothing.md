@@ -16,6 +16,11 @@ The name of a bot selected by an online, enabled spectator session is gold in th
 
 The vanilla scoreboard sidebar is shared: if several viewers follow different bots, each watched bot is highlighted for everyone. Offline and stopped spectator sessions do not highlight a bot.
 
+The selected bot's top task bar includes `Health 85% | Food 70%`, using the
+current 0–20 health and hunger values. It updates with the followed bot, remains
+visible while the route bar is hidden or showing a shelter countdown, and shows
+`--` when telemetry is missing or stale. This server-side HUD needs no client mod.
+
 Validation: 313 Python tests passed, including automatic cycling, rapid manual selection, restoring the previous color, unchanged-row suppression and multiple/offline/disabled viewers.
 
 

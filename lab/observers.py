@@ -311,6 +311,12 @@ class Observers:
             if world.get('learning_cycle'):
                 lines['stage']=f"Learning {world['learning_cycle']} | {world.get('learning_phase','').title()} | {label} {complete}/{len(world['bots'])}"
             if world.get('first_night'):lines['stage']=first_night_label(world,context.get('last_policy'))
+        # Keep vitals on the always-visible selected-bot bar. The state bar is
+        # hidden for many survival phases or replaced by the shelter countdown.
+        def vital_percent(value):
+            if not fresh or type(value) not in (int,float) or not math.isfinite(value):return '--'
+            return f'{round(max(0,min(20,value))*5)}%'
+        lines['task']+=f" | Health {vital_percent(agent.get('health'))} | Food {vital_percent(agent.get('food'))}"
         for suffix in ('stage','task','state'):
             if suffix not in lines:continue
             value=lines[suffix]
