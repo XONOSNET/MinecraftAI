@@ -47,7 +47,8 @@ function find(t,b,state){
  }return null;
 }
 function cover(block,expected){return !!expected&&EARTH.has(expected)&&EARTH.has(block?.name)&&block.boundingBox==='block'&&!block.getProperties?.().waterlogged;}
-function sealed(b,s){const block=s&&b.blockAt(new Vec3(...s.cap));return !!s&&(s.cap_name==='air'?block?.name==='air':cover(block,s.cap_name));}
+function openCell(block){return !!block&&['air','cave_air','void_air','light'].includes(block.name)&&block.boundingBox==='empty';}
+function sealed(b,s){const block=s&&b.blockAt(new Vec3(...s.cap));return !!s&&(s.cap_name==='air'?openCell(block):cover(block,s.cap_name));}
 async function earthItem(b,s){
  const pick=()=>b.inventory.items().find(i=>['dirt','coarse_dirt','rooted_dirt'].includes(i.name));
  let item=pick();if(item)return item;
@@ -137,12 +138,12 @@ async function tick(t,b,motor,state,api,scan,tasks){
   const time=b.time?.timeOfDay,nearby=threats(b,feet.offset(.5,0,.5));
   if(!Number.isFinite(time)||time>=12000||nearby.some(e=>ARCHERS.has(e.name)||e.position.distanceTo(feet.offset(.5,0,.5))<12)){s.stage='hidden';t.message='Exit no longer clear: keeping the refuge sealed';return true;}
   const block=b.blockAt(cap);if(!cover(block,s.cap_name))throw Error('Emergency roof changed before exit');
-  await b.dig(block,true);if(b.blockAt(cap)?.name!=='air')throw Error('Emergency roof did not open');
+  await b.dig(block,true);if(!openCell(b.blockAt(cap)))throw Error('Emergency roof did not open');
   s.stage='reclaim';t.lastProgress=s.progressAt=Date.now();return true;
  }
  if(s.stage==='reclaim'){
   const lip=b.blockAt(new Vec3(...s.lip));if(!cover(lip,s.lip_name))throw Error('Emergency cover lip changed before retrieval');
-  await b.dig(lip,true);if(b.blockAt(lip.position)?.name!=='air')throw Error('Emergency cover lip did not clear');
+  await b.dig(lip,true);if(!openCell(b.blockAt(lip.position)))throw Error('Emergency cover lip did not clear');
   s.stage='climb';t.lastProgress=s.progressAt=Date.now();return true;
  }
  if(s.stage==='climb'){
@@ -187,4 +188,4 @@ async function seek(t,b,motor,state,api,scan,tasks){
  if(n.coverEscape){if(await t.walk(b,motor,n.coverEscape,state,api,scan,tasks)===false){n.coverEscape=null;n.coverEscapeAt=now+500;}}else motor.pause();
  t.message='Seeking safe earth cover; refusing exposed work or combat'+(n.burrow_status?' · '+n.burrow_status:'');
 }
-module.exports={EARTH,walls,site,find,sealed,report,tick,seek,cover};
+module.exports={EARTH,walls,site,find,sealed,report,tick,seek,cover,openCell};

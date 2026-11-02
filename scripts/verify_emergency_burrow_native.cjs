@@ -14,7 +14,7 @@ async function main(){try{
  const state={run:'native-burrow-only',world:{bounds:[-1308,-1292,-1308,-1292],first_night:{hostiles:true}}},started=Date.now();
  result.started_at=Date.now();result.stages=[];while(t.wilderness.burrow?.stage!=='hidden'&&Date.now()-started<25000){await burrow.tick(t,b,motor,state);const stage=t.wilderness.burrow?.stage;if(result.stages.at(-1)?.stage!==stage)result.stages.push({stage,seconds:(Date.now()-result.started_at)/1000});await wait(80);}
  assert.equal(t.wilderness.burrow?.stage,'hidden','real shaft sealed');assert.equal(b.entity.position.y,209);assert.equal(burrow.sealed(b,t.wilderness.burrow),true);result.sealed_seconds=(Date.now()-started)/1000;result.hidden_health=b.health;
- await wait(3000);assert.equal(b.health,result.hidden_health,'sealed roof protects the occupant');assert.ok(b.health>0);
+ await wait(3000);assert.ok(b.health>=result.hidden_health,'sealed roof prevents further damage; normal regeneration is allowed');assert.ok(b.health>0);
  // Simulate ordinary grass spreading onto both fixture soil covers.
  await commands(['setblock -1300 211 -1300 grass_block','setblock -1299 211 -1300 grass_block','kill @e[tag=lab_burrow_fixture]']);await wait(1200);
  assert.equal(burrow.sealed(b,t.wilderness.burrow),true);result.grass_cover_verified=true;
@@ -22,7 +22,12 @@ async function main(){try{
  const original=b.time.timeOfDay;let exitAt;
  try{b.time.timeOfDay=6000;await burrow.tick(t,b,motor,state);
  assert.equal(t.wilderness.burrow.stage,'open');exitAt=Date.now();
- while(t.wilderness.burrow&&Date.now()-exitAt<25000){b.time.timeOfDay=6000;await burrow.tick(t,b,motor,state);await wait(80);}
+ while(t.wilderness.burrow&&Date.now()-exitAt<25000){
+  if(grassOnly&&t.wilderness.burrow.stage==='climb'&&b.entity.position.y>=210&&!result.carried_light_verified){
+   await commands(['setblock -1300 211 -1300 light[level=14]']);assert.equal(b.blockAt(feet)?.name,'light');result.carried_light_verified=true;
+  }
+  b.time.timeOfDay=6000;await burrow.tick(t,b,motor,state);await wait(80);
+ }
  }finally{b.time.timeOfDay=original;}
  assert.equal(t.wilderness.burrow,null,'two real jump placements returned to surface');assert.equal(t.phase,'gather');assert.ok(b.entity.position.y>=211);assert.equal(b.game.gameMode,'survival');assert.deepEqual(t.milestones,[]);
  result.exit_seconds=(Date.now()-exitAt)/1000;result.health=b.health;result.position=b.entity.position.clone();result.no_starting_items=true;result.local_daylight_sensor_only=true;result.passed=true;

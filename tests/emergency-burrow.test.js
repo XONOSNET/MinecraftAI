@@ -100,3 +100,14 @@ test('escape routing increases separation without choosing a path through an att
  const planned=require('../controller/field_navigation').route(f.b,goal,24,2048,true,{bounds:f.state.world.bounds,reversible:true});
  assert.ok(planned.path.every(q=>enemy.distanceTo(new Vec3(...q))>=before-.75));
 });
+
+test('carried-light blocks are clear exit headroom while real solid blocks remain obstructions',()=>{
+ const f=fixture(),s={cap:[0,64,0],cap_name:'air'};
+ for(const name of ['air','cave_air','void_air','light']){
+  f.b.blockAt=()=>({name,boundingBox:'empty'});assert.equal(burrow.sealed(f.b,s),true,name);
+ }
+ for(const name of ['stone','water','oak_leaves','sand']){
+  f.b.blockAt=()=>({name,boundingBox:name==='water'?'empty':'block'});assert.equal(burrow.sealed(f.b,s),false,name);
+ }
+ f.b.blockAt=()=>null;assert.equal(burrow.sealed(f.b,s),false);
+});

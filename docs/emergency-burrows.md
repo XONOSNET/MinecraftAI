@@ -78,3 +78,9 @@ fixture covers to grass, then digs/reclaims/climbs out at full health. That chec
 passed, with verified cleanup. A separate mobile-skeleton rerun was refused at
 roof placement when the attacker caught up; it is not counted as a survival
 success. These corrections do not guarantee a safe escape from every encounter.
+
+The climb-out headroom check also accepts air variants and non-solid Minecraft
+`light` blocks. Production carried lights can occupy the opened roof cell after
+the first dirt step; exact-air matching incorrectly stopped the second step.
+Solid blocks, fluids and unloaded cells remain blocked. The focused grass-cover
+fixture injects that same level-14 light cell between the two real exit steps.
