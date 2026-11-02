@@ -53,7 +53,7 @@ async function earthItem(b,s){
  if(Date.now()-(s.inventoryAt||0)>=1000){s.inventoryAt=Date.now();await inventory.sync(b);item=pick();}
  return item;
 }
-function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,sealed:!!s.cap_name}:null;}
+function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
 async function tick(t,b,motor,state,api,scan,tasks){
  const n=t.wilderness,w=state.world,now=Date.now();let s=n.burrow;
  if(!s){

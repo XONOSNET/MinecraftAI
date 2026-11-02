@@ -59,3 +59,8 @@ test('missing roofs, fluid breaches and unproductive excavation never become a s
  f.cells.set(new Vec3(0,64,0).toString(),'dirt');f.cells.set(new Vec3(1,62,0).toString(),'water');await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/no longer dry/);
  f.cells.clear();f.t.wilderness.burrow.stage='dig';f.t.wilderness.burrow.progressAt=Date.now()-31000;await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/no physical progress/);
 });
+
+test('a stopped bot no longer advertises its former refuge as safely sealed',()=>{
+ const f=fixture();f.t.phase='stopped';f.t.wilderness.burrow={stage:'hidden',feet:[0,64,0],cap_name:'dirt'};
+ assert.equal(burrow.report(f.t).sealed,false);
+});

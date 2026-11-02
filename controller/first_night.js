@@ -130,7 +130,8 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   const table=b.blockAt(new Vec3(pos.x,pos.y,pos.z));if(count(b,'stick')<2)await t.craft(b,'stick',1,null);
   if(!count(b,'wooden_axe'))await t.craft(b,'wooden_axe',1,table);await inventory.equip(b,'wooden_axe');t.table=pos;n.bootstrap=true;t.phase='gather';t.lastProgress=Date.now();
  }else if(t.phase==='night_stone'){
-  if(count(b,'cobblestone')>=16){t.milestone('quarry');next('fuel');return;}
+  if(count(b,'cobblestone')>=16&&(!n.mine||n.mine.stage==='done')){t.milestone('quarry');next('fuel');return;}
+  if(n.mine&&n.mine.stage!=='done'){await require('./staircase_mining').tick(t,b,motor,state,api,scan,tasks);return;}
   // First Night gathers exposed faces, not floor blocks. Removing neighboring
   // support below our feet was creating low-ceiling pockets with no jump out.
   if(!n.stoneScan||now-n.stoneScan>2500){n.stoneScan=now;n.stones=(await resourceScan.stone(b,{bounds:w.bounds})).map(q=>b.blockAt(q)).filter(q=>q&&inside(q.position,w.bounds)&&q.position.y>=Math.floor(p.y)&&q.position.y<=p.y+3&&!(Math.floor(p.x)===q.position.x&&Math.floor(p.z)===q.position.z));}
@@ -147,7 +148,10 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
     n.stonePlanAt=now+2000;for(const q of candidates.slice(0,6)){const goal=approaches(b,q,w.bounds).filter(g=>require('./resource_access').corridor(b,q.position,new Vec3(...g)).clear).sort((a,c)=>new Vec3(...a).distanceTo(p)-new Vec3(...c).distanceTo(p)).slice(0,2).find(g=>route(b,g,48,1024,true,{bounds:w.bounds,reversible:true}).reached);if(goal){chosen={q,goal};break;}}n.stoneApproach=chosen;
    }
    if(chosen){n.memory.remember('stone',chosen.q.position);const arrived=await t.walk(b,motor,chosen.goal,state,api,scan,tasks);if(arrived===true||arrived===false){n.memory.reject([chosen.q.position.x,chosen.q.position.y,chosen.q.position.z]);n.stoneScan=0;n.stoneApproach=null;}}
-   else await explore(t,b,motor,state,api,scan,tasks,surface,'stone');
+   else{
+    const mined=await require('./staircase_mining').tick(t,b,motor,state,api,scan,tasks);
+    if(!mined.handled||n.mine?.stage==='done')await explore(t,b,motor,state,api,scan,tasks,surface,'stone');
+   }
   }t.message=t.message||`Natural stone ${count(b,'cobblestone')} / 16`;
  }else if(t.phase==='night_fuel'){
   if(b.inventory.items().filter(i=>i.name.endsWith('_log')).reduce((s,i)=>s+i.count,0)>=4){t.phase='stone_return';t.lastProgress=now;}
@@ -239,5 +243,5 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(left===0&&b.health>=12&&b.food>=10&&n.sleep.morning_seen&&!b.isSleeping){t.milestone('survived');t.phase='complete';t.message='First Night complete: morning verified after a safe, provisioned shelter watch';}
  }
 }
-function report(t){const n=t.wilderness;return n?{priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,burrow:require('./emergency_burrow').report(t),livestock:n.livestock_status||null,scouting:n.scoutPlanning?{checked:n.scoutPlanning.checked,total:n.scoutPlanning.goals.length,landmark:n.scoutLandmark||null}:null,night_seen:!!n.nightSeen,sleep:n.sleep?{status:n.sleep.status,night_seen:!!n.sleep.night_seen,morning_seen:!!n.sleep.morning_seen,watch_seconds_left:n.sleep.watch_seconds_left,watch_seconds_total:n.sleep.watch_seconds_total,watch_updated_at:n.sleep.watch_updated_at}:null,exploration:n.exploration?.snapshot(t.last||{x:0,z:0},t.plot),memory:n.memory.snapshot()}:null;}
+function report(t){const n=t.wilderness;return n?{priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,burrow:require('./emergency_burrow').report(t),mining:require('./staircase_mining').report(t),livestock:n.livestock_status||null,scouting:n.scoutPlanning?{checked:n.scoutPlanning.checked,total:n.scoutPlanning.goals.length,landmark:n.scoutLandmark||null}:null,night_seen:!!n.nightSeen,sleep:n.sleep?{status:n.sleep.status,night_seen:!!n.sleep.night_seen,morning_seen:!!n.sleep.morning_seen,watch_seconds_left:n.sleep.watch_seconds_left,watch_seconds_total:n.sleep.watch_seconds_total,watch_updated_at:n.sleep.watch_updated_at}:null,exploration:n.exploration?.snapshot(t.last||{x:0,z:0},t.plot),memory:n.memory.snapshot()}:null;}
 module.exports={enabled,handles,init,priority,interrupt,explore,tick,report,approaches,meals,RAW,FOOD};

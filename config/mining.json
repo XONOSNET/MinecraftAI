@@ -1,0 +1,10 @@
+{
+  "stone": {"max_descent": 16},
+  "coal": {"minimum_y": 1, "preferred_y": 96},
+  "iron": {"preferred_y": 16, "requires": "stone_pickaxe"},
+  "run_length": 6,
+  "max_steps": 32,
+  "torch_interval": 4,
+  "unlit_steps": 10,
+  "coal_reserve": 4
+}

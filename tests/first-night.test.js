@@ -10,6 +10,17 @@ test('First Night mines exposed stone faces without removing lower neighboring s
  try{await night.tick(t,b,{pause(){}},{world:{bounds:[-20,20,-20,20],first_night:{}}});assert.ok(mined.equals(face));assert.ok(t.wilderness.stones.every(q=>q.position.y>=64));}
  finally{scan.stone=original;}
 });
+
+test('First Night starts a staircase when exposed stone is unavailable and returns before quarry credit',async ctx=>{
+ const b=bot(),t={phase:'night_stone',plot:{x:-10,y:64,z:-10},milestones:[],milestone(name){this.milestones.push(name);}};night.init(t,{});
+ ctx.mock.method(require('../controller/resource_scan'),'stone',async()=>[]);
+ let digs=0;ctx.mock.method(require('../controller/staircase_mining'),'tick',async()=>{digs++;t.wilderness.mine={stage:'exit'};return {handled:true};});
+ const state={world:{bounds:[-20,20,-20,20],first_night:{}}};
+ await night.tick(t,b,{pause(){}},state);assert.equal(digs,1);assert.equal(t.phase,'night_stone');
+ b.inventory.items=()=>[{name:'cobblestone',count:16}];await night.tick(t,b,{pause(){}},state);
+ assert.equal(digs,2);assert.deepEqual(t.milestones,[],'gathering enough stone does not skip the return staircase');
+ t.wilderness.mine.stage='done';await night.tick(t,b,{pause(){}},state);assert.deepEqual(t.milestones,['quarry']);assert.equal(t.phase,'night_fuel');
+});
 test('survival priorities interrupt work to eat or retreat and resume the original task',async()=>{
  const b=bot(),t={phase:'gather',milestones:['hut'],navigator:{},lastProgress:0};night.init(t,{});
  b.health=9;assert.equal(night.priority(b,t,{}).kind,'retreat');

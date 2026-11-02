@@ -95,7 +95,9 @@ class HutTeacher{
   if(this.phase!=='survey'&&now>this.settle&&(bot.health<(this.wilderness?6:10)||bot.food<(this.wilderness?2:5))){this.error='Health or food too low to continue safely.';this.phase='stopped';}
   if(now-this.started>((w.time_budget_seconds||1200)-50)*1000){this.error='Trial time limit reached.';this.phase='stopped';}
   const stock=bot.inventory.items().map(i=>i.name+':'+i.count).sort().join(','),stall=this.stall.update(p,[this.phase,this.built,this.harvested,this.constructionCleared,this.entranceCleared,this.milestones.length,stock].join('|'),now);
-  const burrowWaiting=this.phase==='night_burrow'&&this.wilderness?.burrow?.stage==='hidden'&&require('./emergency_burrow').sealed(bot,this.wilderness.burrow);
+  // Let the refuge skill validate its roof before a generic stationary timeout
+  // can mask a breach/unloaded chunk as inactivity. It throws on an invalid roof.
+  const burrowWaiting=this.phase==='night_burrow'&&this.wilderness?.burrow?.stage==='hidden';
   if(stall.expired&&!burrowWaiting&&!['survey','complete','stopped','night_hold','night_recover'].includes(this.phase)){this.error=`Stationary for ${rules.stationary_timeout_seconds} seconds without material or lesson progress; ending this attempt so learning can continue.`;this.phase='stopped';}
   let connectionRetry=false;
   try{
