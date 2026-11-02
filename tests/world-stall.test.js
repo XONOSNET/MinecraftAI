@@ -15,3 +15,10 @@ test('real material or lesson progress resets a stationary countdown',()=>{
  assert.equal(guard.update(p,'quarry:stone=1',81000).idle_seconds,0);
  assert.equal(guard.update(p,'fuel:logs=0',160000).expired,false);
 });
+
+test('leaving a long shelter watch gets a fresh exit deadline instead of inheriting ninety idle seconds',()=>{
+ const {progressSignature}=require('../controller/world_stall'),guard=new WorldStall(),p={x:0,z:0},t={phase:'night_burrow',milestones:[],wilderness:{burrow:{stage:'hidden'}}};
+ guard.update(p,progressSignature(t,''),0);assert.equal(guard.update(p,progressSignature(t,''),120000).expired,true,'the shelter skill handles the stationary hidden watch');
+ t.wilderness.burrow.stage='open';assert.equal(guard.update(p,progressSignature(t,''),120001).expired,false);assert.equal(guard.update(p,progressSignature(t,''),150000).expired,false);
+ assert.equal(guard.update(p,progressSignature(t,''),211000).expired,true,'an exit that never progresses still times out');
+});

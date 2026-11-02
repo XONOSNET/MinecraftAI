@@ -16,7 +16,7 @@ const settlement=require('./settlement');
 const {scanTrees,visibleBlock}=require('./target_scan');
 const {closeDoor}=require('./door_care');
 const furnace=require('./furnace');
-const {WorldStall}=require('./world_stall');
+const {WorldStall,progressSignature}=require('./world_stall');
 const {WorldNavigation,routeDoorway,homeApproach}=require('./world_navigation');
 const survival=require('./survival');
 const firstNight=require('./first_night');
@@ -94,7 +94,7 @@ class HutTeacher{
   if(this.phase!=='survey'&&!this.inside(p,w.bounds)){this.error='Reached the simulation boundary; stopped.';this.phase='stopped';}
   if(this.phase!=='survey'&&now>this.settle&&(bot.health<(this.wilderness?6:10)||bot.food<(this.wilderness?2:5))){this.error='Health or food too low to continue safely.';this.phase='stopped';}
   if(now-this.started>((w.time_budget_seconds||1200)-50)*1000){this.error='Trial time limit reached.';this.phase='stopped';}
-  const stock=bot.inventory.items().map(i=>i.name+':'+i.count).sort().join(','),stall=this.stall.update(p,[this.phase,this.built,this.harvested,this.constructionCleared,this.entranceCleared,this.milestones.length,stock].join('|'),now);
+  const stock=bot.inventory.items().map(i=>i.name+':'+i.count).sort().join(','),stall=this.stall.update(p,progressSignature(this,stock),now);
   // Let the refuge skill validate its roof before a generic stationary timeout
   // can mask a breach/unloaded chunk as inactivity. It throws on an invalid roof.
   const burrowWaiting=this.phase==='night_burrow'&&this.wilderness?.burrow?.stage==='hidden';

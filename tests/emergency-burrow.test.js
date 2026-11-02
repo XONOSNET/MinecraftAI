@@ -64,3 +64,39 @@ test('a stopped bot no longer advertises its former refuge as safely sealed',()=
  const f=fixture();f.t.phase='stopped';f.t.wilderness.burrow={stage:'hidden',feet:[0,64,0],cap_name:'dirt'};
  assert.equal(burrow.report(f.t).sealed,false);
 });
+
+test('grass spreading on earth covers is not a roof breach and exits reclaim the changed soil',async()=>{
+ const f=fixture();f.b.time.timeOfDay=6000;f.b.entities={};
+ const s=f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],lip:[1,64,0],cap_name:'dirt',lip_name:'dirt',stage:'hidden',progressAt:Date.now(),resume:'gather'};
+ f.t.phase='night_burrow';f.b.entity.position.y=62;f.cells.set(new Vec3(0,64,0).toString(),'grass_block');f.cells.set(new Vec3(1,64,0).toString(),'grass_block');
+ f.b.dig=async v=>f.cells.set(v.position.toString(),'air');
+ assert.equal(burrow.sealed(f.b,s),true);await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(s.stage,'open');
+ await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(s.stage,'reclaim');await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(s.stage,'climb');
+});
+
+test('refuge exit rechecks newly arrived threats before removing the roof',async()=>{
+ const f=fixture();f.b.time.timeOfDay=6000;f.b.entities.s.position.x=5;
+ f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],cap_name:'dirt',stage:'open',progressAt:Date.now(),resume:'gather'};f.cells.set(new Vec3(0,64,0).toString(),'dirt');
+ f.b.dig=async()=>{throw Error('Threatened exit must remain closed');};await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.wilderness.burrow.stage,'hidden');
+});
+
+test('one-block-offset earth patches are found instead of skipped by a two-block sampling grid',()=>{
+ const f=fixture();f.b.entities={};const blockAt=f.b.blockAt;
+ f.b.blockAt=p=>{const v=blockAt(p);if(p.y===63&&(p.x<2||p.x>4||p.z<0||p.z>2))v.name='sand';return v;};
+ const found=burrow.find(f.t,f.b,f.state);assert.ok(found);assert.equal(found.x,3);assert.equal(found.z,1);
+});
+
+test('escape goals stay committed across replanning intervals and quiet nights still search for earth',async ctx=>{
+ const f=fixture();f.b.entities={};let now=1000;ctx.mock.method(Date,'now',()=>now);const goals=[];f.t.walk=async(_b,_m,g)=>{goals.push(g);};
+ await burrow.seek(f.t,f.b,f.motor,f.state);assert.ok(f.t.wilderness.coverEscape,'no enemy should not freeze a bot lacking diggable ground');
+ const goal=f.t.wilderness.coverEscape;now=5000;await burrow.seek(f.t,f.b,f.motor,f.state);assert.deepEqual(f.t.wilderness.coverEscape,goal);assert.deepEqual(goals[1],goals[0]);
+});
+
+test('escape routing increases separation without choosing a path through an attacker',async()=>{
+ const f=fixture();f.b.entities.s.position=new Vec3(-5,64,.5);f.t.walk=async()=>undefined;
+ await burrow.seek(f.t,f.b,f.motor,f.state);const goal=f.t.wilderness.coverEscape;assert.ok(goal);
+ const enemy=f.b.entities.s.position,before=enemy.distanceTo(f.b.entity.position);
+ assert.ok(enemy.distanceTo(new Vec3(...goal))>before+2);
+ const planned=require('../controller/field_navigation').route(f.b,goal,24,2048,true,{bounds:f.state.world.bounds,reversible:true});
+ assert.ok(planned.path.every(q=>enemy.distanceTo(new Vec3(...q))>=before-.75));
+});

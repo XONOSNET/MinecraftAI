@@ -33,7 +33,7 @@ function site(t,b,feet,w){
 }
 function find(t,b,state){
  const p=b.entity.position,base=p.floored(),offsets=[],enemies=threats(b);
- for(let x=-12;x<=12;x+=2)for(let z=-12;z<=12;z+=2)offsets.push([x,z]);offsets.sort((a,c)=>Math.hypot(...a)-Math.hypot(...c));
+ for(let x=-12;x<=12;x++)for(let z=-12;z<=12;z++)offsets.push([x,z]);offsets.sort((a,c)=>Math.hypot(...a)-Math.hypot(...c));
  let checked=0;
  for(const [x,z] of offsets)for(const dy of [0,1,-1,2,-2]){
   const feet=base.offset(x,dy,z),goal=[feet.x+.5,feet.y+.1,feet.z+.5];
@@ -46,7 +46,8 @@ function find(t,b,state){
   if(++checked>=6)return null;
  }return null;
 }
-function sealed(b,s){return s&&b.blockAt(new Vec3(...s.cap))?.name===s.cap_name;}
+function cover(block,expected){return !!expected&&EARTH.has(expected)&&EARTH.has(block?.name)&&block.boundingBox==='block'&&!block.getProperties?.().waterlogged;}
+function sealed(b,s){const block=s&&b.blockAt(new Vec3(...s.cap));return !!s&&(s.cap_name==='air'?block?.name==='air':cover(block,s.cap_name));}
 async function earthItem(b,s){
  const pick=()=>b.inventory.items().find(i=>['dirt','coarse_dirt','rooted_dirt'].includes(i.name));
  let item=pick();if(item)return item;
@@ -117,7 +118,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
   if(!item){t.message='Emergency cover: collecting excavated dirt for the roof';return true;}
   if(p.y+1.8>cap.y||!b.entity.onGround)throw Error('Insufficient headroom for the emergency roof');
   if(!space.clearOfPlayers(b,cap.offset(.5,.5,.5),1)){t.message='Emergency cover: waiting for another player to leave the opening';return true;}
-  const lip=new Vec3(...s.lip),face=cap.minus(lip);if(b.blockAt(lip)?.name!==s.lip_name)throw Error('Emergency roof support changed');
+  const lip=new Vec3(...s.lip),face=cap.minus(lip);if(!cover(b.blockAt(lip),s.lip_name))throw Error('Emergency roof support changed');
   await inventory.equip(b,item.name,{synced:true});const support=b.blockAt(lip);
   await b.lookAt(lip.offset(.5+face.x*.5,.5,.5+face.z*.5),true);
   await b._placeBlockWithOptions(support,face,{forceLook:'ignore',swingArm:'right'});
@@ -133,12 +134,14 @@ async function tick(t,b,motor,state,api,scan,tasks){
   return true;
  }
  if(s.stage==='open'){
-  const block=b.blockAt(cap);if(block?.name!==s.cap_name)throw Error('Emergency roof changed before exit');
+  const time=b.time?.timeOfDay,nearby=threats(b,feet.offset(.5,0,.5));
+  if(!Number.isFinite(time)||time>=12000||nearby.some(e=>ARCHERS.has(e.name)||e.position.distanceTo(feet.offset(.5,0,.5))<12)){s.stage='hidden';t.message='Exit no longer clear: keeping the refuge sealed';return true;}
+  const block=b.blockAt(cap);if(!cover(block,s.cap_name))throw Error('Emergency roof changed before exit');
   await b.dig(block,true);if(b.blockAt(cap)?.name!=='air')throw Error('Emergency roof did not open');
   s.stage='reclaim';t.lastProgress=s.progressAt=Date.now();return true;
  }
  if(s.stage==='reclaim'){
-  const lip=b.blockAt(new Vec3(...s.lip));if(lip?.name!==s.lip_name)throw Error('Emergency cover lip changed before retrieval');
+  const lip=b.blockAt(new Vec3(...s.lip));if(!cover(lip,s.lip_name))throw Error('Emergency cover lip changed before retrieval');
   await b.dig(lip,true);if(b.blockAt(lip.position)?.name!=='air')throw Error('Emergency cover lip did not clear');
   s.stage='climb';t.lastProgress=s.progressAt=Date.now();return true;
  }
@@ -157,19 +160,31 @@ async function tick(t,b,motor,state,api,scan,tasks){
 }
 async function seek(t,b,motor,state,api,scan,tasks){
  const n=t.wilderness,p=b.entity.position,enemies=require('./shelter_policy').threats(b),now=Date.now();
- if(now>=(n.coverEscapeAt||0)){
-  n.coverEscapeAt=now+2500;n.coverEscape=null;
+ const cell=q=>Math.floor(q[0]/8)+','+Math.floor(q[2]/8);n.coverVisited??=new Map();
+ if(n.coverEscape){
+  const distance=p.distanceTo(new Vec3(...n.coverEscape));
+  if(distance<(n.coverEscapeBest??Infinity)-.5){n.coverEscapeBest=distance;n.coverEscapeProgressAt=now;}
+  const caught=enemies.length&&Math.min(...enemies.map(e=>e.position.distanceTo(new Vec3(...n.coverEscape))))<Math.min(...enemies.map(e=>e.position.distanceTo(p)))-1;
+  if(distance<.9||caught||now-(n.coverEscapeProgressAt||now)>8000){n.coverEscape=null;n.coverEscapeAt=0;}
+ }
+ if(!n.coverEscape&&now>=(n.coverEscapeAt||0)){
+  n.coverEscapeAt=now+2500;
   const choices=[];
   for(let x=-8;x<=8;x+=4)for(let z=-8;z<=8;z+=4)for(const dy of [0,1,-1]){
    const q=p.floored().offset(x,dy,z),g=[q.x+.5,q.y+.1,q.z+.5];
-   if(!enemies.length||!standable(b,q.x,q.y,q.z))continue;
-   const clearance=Math.min(...enemies.map(e=>e.position.distanceTo(new Vec3(...g))));
-   if(clearance<=Math.min(...enemies.map(e=>e.position.distanceTo(p)))+2)continue;
-   choices.push({g,clearance});
+   if(Math.hypot(x,z)<4||!standable(b,q.x,q.y,q.z))continue;
+   const clearance=enemies.length?Math.min(...enemies.map(e=>e.position.distanceTo(new Vec3(...g)))):0;
+   if(enemies.length&&clearance<=Math.min(...enemies.map(e=>e.position.distanceTo(p)))+2)continue;
+   const soil=EARTH.has(b.blockAt(q.offset(0,-1,0))?.name)?4:0;
+   choices.push({g,score:clearance+soil+Math.hypot(x,z)*.2-(n.coverVisited.get(cell(g))||0)*6});
   }
-  for(const c of choices.sort((a,b)=>b.clearance-a.clearance).slice(0,6))if(route(b,c.g,24,2048,true,{bounds:state.world.bounds,reversible:true}).reached){n.coverEscape=c.g;break;}
+  for(const c of choices.sort((a,b)=>b.score-a.score).slice(0,6)){
+   const planned=route(b,c.g,24,2048,true,{bounds:state.world.bounds,reversible:true});
+   if(!planned.reached||enemies.some(e=>planned.path.some(q=>e.position.distanceTo(new Vec3(...q))<e.position.distanceTo(p)-.75)))continue;
+   n.coverEscape=c.g;n.coverEscapeBest=Infinity;n.coverEscapeProgressAt=now;n.coverVisited.set(cell(c.g),(n.coverVisited.get(cell(c.g))||0)+1);break;
+  }
  }
- if(n.coverEscape)await t.walk(b,motor,n.coverEscape,state,api,scan,tasks);else motor.pause();
+ if(n.coverEscape){if(await t.walk(b,motor,n.coverEscape,state,api,scan,tasks)===false){n.coverEscape=null;n.coverEscapeAt=now+500;}}else motor.pause();
  t.message='Seeking safe earth cover; refusing exposed work or combat'+(n.burrow_status?' · '+n.burrow_status:'');
 }
-module.exports={EARTH,walls,site,find,sealed,report,tick,seek};
+module.exports={EARTH,walls,site,find,sealed,report,tick,seek,cover};

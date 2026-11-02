@@ -50,3 +50,31 @@ Night 3. It will not dig into unsafe terrain to force an escape, revive a dead
 bot, or weaken the survival lesson. Deployment reloads only the bot controller,
 restores unvalidated model weights and starts a fresh comparison at the same
 site/support level, retaining demonstrations.
+
+## Subsequent shelter failure fixes
+
+Read-only inspection of a stopped production bot found its roof was still a
+solid grass block. Grass had spread onto placed dirt; exact block-name equality
+incorrectly reported a breach. Soil-to-soil changes now preserve a verified
+solid, dry cover; air, fluids, non-soil and unloaded roof cells still fail. Both
+the roof and protective lip can be reclaimed after grass growth. The exit checks
+daylight and threats again immediately before opening.
+
+Two other bots reached the `open` stage after a long sealed watch and inherited
+the stationary timer accumulated underground. The progress signature now includes
+the refuge stage, so opening starts a fresh bounded deadline. Physical excavation,
+health, hunger and trial limits remain active; a stuck exit still fails.
+
+The dirt search now checks every block within its bounded radius rather than
+skipping odd-offset patches. Escape destinations remain committed while progress
+continues rather than changing every 2.5 seconds. A quiet night with no nearby
+enemy still permits a bounded search for suitable ground. Escape routes must
+increase separation and cannot pass substantially closer to a visible attacker.
+Policy movement actions remain unchanged.
+
+The `--grass-cover` native fixture validates the soil change independently of
+combat: it starts with no items, seals with excavated dirt, changes the two
+fixture covers to grass, then digs/reclaims/climbs out at full health. That check
+passed, with verified cleanup. A separate mobile-skeleton rerun was refused at
+roof placement when the attacker caught up; it is not counted as a survival
+success. These corrections do not guarantee a safe escape from every encounter.
