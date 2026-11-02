@@ -513,7 +513,7 @@ class HutTeacher{
    // blocked after its obstacle has changed. The normal progress deadline stays.
    motor.pause();this.path=[];this.lastPlan=0;this.lastRecoveryReset=now;this.navigator.lastPlan=-Infinity;this.navigator.path=[];
   }
-  const planned=this.navigator.plan(bot,goal,{plot:this.plot,plots:this.campPlots,bounds:state.world.bounds,now,memory:this.wilderness?.memory,constructionWork:this.phase==='clear_plot'});
+  const planned=this.navigator.plan(bot,goal,{plot:this.plot,plots:this.campPlots,bounds:state.world.bounds,now,memory:this.wilderness?.memory,constructionWork:['clear_plot','home_repair'].includes(this.phase)});
   this.lastNavigation={...this.navigator.status,phase:this.phase,position:[p.x,p.y,p.z],yaw:bot.entity.yaw,on_ground:bot.entity.onGround,cue:[...planned.cue],cue_centering:!!planned.cue.centering,motor_before:motor.diagnostic?.(),nearby_players:space.players(bot).filter(q=>q.distanceTo(p)<6).map(q=>[q.x,q.y,q.z]),player_clearance:forBot(bot).player_clearance,sampled_at:now};
   this.path=planned.path;this.lastPlan=this.navigator.lastPlan;this.destination=this.navigator.destination;
   if(this.navigator.replanned)this.timing.replans++;

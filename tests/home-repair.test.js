@@ -87,3 +87,21 @@ test('a refused repair retries a different supported stance without inventing pr
  for(let i=0;i<30&&f.t.homeRepair;i++)await repair.tick(f.t,f.b,f.motor,f.state);
  assert.ok(attempts>=2);assert.equal(f.t.homeRepair,null);assert.equal(repair.inspect(f.t,f.b).missing.length,0);
 });
+
+test('repair walking can reach the outer work strip of its own plot while protecting other homes',async ctx=>{
+ const {HutTeacher}=require('../controller/hut_teacher'),{WorldNavigation}=require('../controller/world_navigation'),entrance=require('../controller/entrance_clearance');
+ const f=fixture(),t=new HutTeacher();t.phase='home_repair';t.plot=f.t.plot;t.campPlots=[t.plot,{x:12,y:64,z:0}];
+ f.b.entity.position=new Vec3(1.5,64,-4.5);f.b.entity.onGround=true;
+ const goal=[3.5,64.1,-2.5],options={plot:t.plot,plots:t.campPlots,bounds:f.state.world.bounds};
+ // The outer strip is outside insideHome(), but is still part of the owner's
+ // repair workspace. A normal travel route intentionally cannot enter it.
+ const emptyBot={...f.b,blockAt(p){return {position:p.floored(),name:p.y<64?'stone':'air',boundingBox:p.y<64?'block':'empty'};}};
+ assert.equal(new WorldNavigation().plan(emptyBot,goal,options).blocked,true);
+ assert.equal(new WorldNavigation().plan(emptyBot,goal,{...options,constructionWork:true}).blocked,false);
+ assert.equal(new WorldNavigation().plan(emptyBot,[15.5,64.1,-2.5],{...options,constructionWork:true}).blocked,true);
+ let received;
+ ctx.mock.method(entrance,'resume',async()=>null);ctx.mock.method(entrance,'tick',async()=>false);
+ t.navigator={portalFor:()=>null,plan(_b,_g,o){received=o;return {blocked:true,path:[],cue:goal};},status:{}};
+ await t.walk(emptyBot,f.motor,goal,f.state);assert.equal(received.constructionWork,true);
+ t.phase='night_scout';await t.walk(emptyBot,f.motor,goal,f.state);assert.equal(received.constructionWork,false);
+});
