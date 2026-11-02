@@ -39,6 +39,7 @@ test('an unchanged target after placement is not reported as success',async()=>{
 test('door placement preserves the house entrance orientation after aiming at its support',async ctx=>{
  const {bot,cells}=fixture({'(0, 63, 0)':'stone'}),inventory=require('../controller/inventory_sync'),{HutTeacher}=require('../controller/hut_teacher');
  bot.inventory.items=()=>[{name:'birch_door',count:1}];ctx.mock.method(inventory,'sync',async()=>{});ctx.mock.method(inventory,'equip',async()=>{});
- bot.entity.yaw=-Math.PI/2;bot._placeBlockWithOptions=async(ref,face)=>{assert.equal(bot.entity.yaw,0,'north-facing closed panel matches the north/south house entrance');cells.set(ref.position.plus(face).toString(),'birch_door');};
+ let serverYaw=-Math.PI/2;bot.waitForTicks=async n=>{assert.ok(n>=2);serverYaw=bot.entity.yaw;};
+ bot.entity.yaw=-Math.PI/2;bot._placeBlockWithOptions=async(ref,face)=>{assert.equal(serverYaw,0,'rotation must reach the server before the placement packet');cells.set(ref.position.plus(face).toString(),'birch_door');};
  const t=new HutTeacher();Object.assign(t,{plot:{x:0,y:64,z:3},phase:'door',campPlots:[]});await t.place(bot,{x:0,y:64,z:0},'birch_door');
 });

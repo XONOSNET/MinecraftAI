@@ -81,3 +81,20 @@ test('a committed descent still rejects flooding before moving onto the landing'
  f.cells.set(new Vec3(1,63,0).toString(),'water');f.t.walk=async()=>{throw Error('must not enter water');};
  await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.wilderness.mine.stage,'dig');assert.equal(f.t.wilderness.mine.next,null);assert.equal(f.t.wilderness.mine.steps,0);
 });
+
+test('mine selection checks the entrance envelope, not just its first excavation',()=>{
+ const f=fixture();f.cells.set(new Vec3(-1,64,0).toString(),'sand');
+ assert.ok(mine.step(f.t,f.b,new Vec3(0,64,0),[1,0],f.state.world));
+ const m=mine.start(f.t,f.b,f.state,'stone');assert.ok(m);assert.ok(mine.dry(f.b,new Vec3(...m.entry)));assert.notDeepEqual(m.entry,[0,64,0]);
+});
+
+test('an unused entrance with safe occupied footing can be abandoned without a fatal retreat error',async()=>{
+ const f=fixture();f.t.wilderness.mine={stage:'dig',entry:[0,64,0],path:[[0,64,0]],steps:0,flooded:[]};f.cells.set(new Vec3(-1,64,0).toString(),'sand');
+ await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.wilderness.mine.stage,'done');assert.equal(f.items.cobblestone,undefined);
+ await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.wilderness.mine,null);assert.equal(f.t.wilderness.rejectedMines.length,1);
+});
+
+test('the entrance fallback cannot excuse an actual flooded occupied cell',async()=>{
+ const f=fixture();f.t.wilderness.mine={stage:'dig',entry:[0,64,0],path:[[0,64,0]],steps:0,flooded:[]};f.cells.set(new Vec3(0,64,0).toString(),'water');
+ await assert.rejects(mine.tick(f.t,f.b,f.motor,f.state),/no verified dry retreat/);
+});

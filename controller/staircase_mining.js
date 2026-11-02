@@ -38,7 +38,7 @@ function step(t,b,from,dir,w){
 function start(t,b,state,resource){
  const base=b.entity.position.floored(),candidates=[];
  for(let dx=-8;dx<=8;dx+=2)for(let dz=-8;dz<=8;dz+=2)for(const dy of [0,1,-1]){
-  const q=base.offset(dx,dy,dz);if(!allowed(t,b,q,state.world)||!nav.standable(b,q.x,q.y,q.z))continue;
+  const q=base.offset(dx,dy,dz);if(!allowed(t,b,q,state.world)||!nav.standable(b,q.x,q.y,q.z)||!dry(b,q))continue;
   if((t.wilderness.rejectedMines||[]).some(v=>Date.now()<v.until&&Math.hypot(q.x-v.x,q.z-v.z)<4))continue;
   for(let d=0;d<4;d++)if(step(t,b,q,DIRS[d],state.world))candidates.push({q,d,distance:q.distanceTo(base)});
  }
@@ -121,7 +121,14 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   motor.pause();m.flooded.push(from.toString());
   if(m.next)m.flooded.push(from.offset(...[DIRS[m.next.d][0],-1,DIRS[m.next.d][1]]).toString());
   m.waterIndex=m.path.findLastIndex(p=>{const q=new Vec3(...p);return dry(b,q)&&nav.standable(b,q.x,q.y,q.z);});
-  if(m.waterIndex<0)throw Error('Water or unsafe terrain entered the mine; no verified dry retreat remains');
+  if(m.waterIndex<0){
+   // At an unexcavated entrance, adjacent sand or water can invalidate the
+   // digging envelope while the occupied surface remains safe to walk away.
+   if(m.steps===0&&m.path.length===1&&nav.standable(b,from.x,from.y,from.z)&&b.entity.position.distanceTo(from.offset(.5,0,.5))<.65){
+    m.stage='done';m.reason='Entrance excavation envelope became unsafe; selecting another site';claims.delete(b.username);return {handled:true};
+   }
+   throw Error('Water or unsafe terrain entered the mine; no verified dry retreat remains');
+  }
   m.stage='water_retreat';m.reason='Wet branch abandoned; seeking a dry mining direction';return {handled:true};
  }
  if(b.entity.position.distanceTo(from.offset(.5,0,.5))>.65){await t.walk(b,motor,point(from),state,api,scan,tasks);return {handled:true};}

@@ -66,10 +66,11 @@ async function salvage(t,b,motor,state,api,scan,tasks){
 }
 function stance(t,b,q,state){
  const target=new Vec3(q.x,q.y,q.z),p=b.entity.position,candidates=[];
- const valid=g=>!(g[0]===q.x&&(g[2]===q.z||q.kind==='bed'&&g[2]===q.z+1)&&g[1]<=q.y+1&&g[1]+2>q.y)&&nav.standable(b,...g)&&space.clearOfPlayers(b,new Vec3(g[0]+.5,g[1],g[2]+.5))&&placement.reference(b,q,{standing:new Vec3(g[0]+.5,g[1],g[2]+.5)});
- const current=p.floored();if(valid([current.x,current.y,current.z]))return [p.x,p.y+.1,p.z];
+ const id=[q.x,q.y,q.z].join(','),excluded=t.homeRepair?.failedStances?.get(id)||new Set();
+ const valid=(g,standing=new Vec3(g[0]+.5,g[1],g[2]+.5),margin=0)=>!excluded.has(g.join(','))&&!(g[0]===q.x&&(g[2]===q.z||q.kind==='bed'&&g[2]===q.z+1)&&g[1]<=q.y+1&&g[1]+2>q.y)&&nav.standable(b,...g)&&space.clearOfPlayers(b,standing)&&placement.references(b,q,{standing}).some(ref=>ref.point.distanceTo(standing.offset(0,b.entity.eyeHeight||1.62,0))<=4.2-margin);
+ const current=p.floored();if(valid([current.x,current.y,current.z],p))return [p.x,p.y+.1,p.z];
  for(let x=-4;x<=4;x++)for(let z=-4;z<=4;z++)for(const dy of [0,-1,1]){
-  const g=[target.x+x,t.plot.y+dy,target.z+z];if(Math.hypot(x,z)<1||!valid(g))continue;
+  const g=[target.x+x,t.plot.y+dy,target.z+z];if(Math.hypot(x,z)<1||!valid(g,undefined,.5))continue;
   const goal=[g[0]+.5,g[1]+.1,g[2]+.5];if(new Vec3(...goal).offset(0,1.62,0).distanceTo(target.offset(.5,.5,.5))>4.2)continue;candidates.push(goal);
  }
  return candidates.sort((a,c)=>new Vec3(...a).distanceTo(p)-new Vec3(...c).distanceTo(p)).slice(0,12).find(g=>nav.route(b,g,24,2048,true,{bounds:state.world.bounds,reversible:true,forbidden:v=>(t.campPlots||[]).some(h=>(h.x!==t.plot.x||h.z!==t.plot.z)&&Math.abs(v[0]-h.x)<=3&&Math.abs(v[2]-h.z)<=3)}).reached)||null;
@@ -174,7 +175,13 @@ async function tick(t,b,motor,state,api,scan,tasks){
     if(!await access.dig(b,occupied,{validate:v=>require('./floor_builder').safeFoundation(b,v)&&safe(t,b,q)}))return true;
    }
    if(q.kind==='door')await b.look(Math.PI,0,true);
-   await t.place(b,q,item);
+   try{await t.place(b,q,item);}catch(error){
+    if(error.code!=='BUILD_OBSTRUCTED')throw error;
+    r.failedStances??=new Map();const id=[q.x,q.y,q.z].join(',');
+    if(!r.failedStances.has(id))r.failedStances.set(id,new Set());
+    const p=b.entity.position.floored();r.failedStances.get(id).add([p.x,p.y,p.z].join(','));
+    t.path=[];t.navigator.lastPlan=-Infinity;t.message='Repair support changed; checking another reachable work position';return true;
+   }
   }
  }
  if(['door','bed'].includes(q.kind))for(let i=0;i<20&&!matches(b,q);i++)await new Promise(resolve=>setTimeout(resolve,50));
@@ -183,6 +190,6 @@ async function tick(t,b,motor,state,api,scan,tasks){
   throw Error('Home repair placement did not verify: '+q.kind+' at '+[q.x,q.y,q.z].join(',')+'; actual '+actual?.name+' '+JSON.stringify(actual?.getProperties?.()));
  }
  if(q.kind==='chest')r.chestReplaced=true;if(q.kind==='bed')r.bedReplaced=true;
- r.repaired++;t.lastProgress=Date.now();return true;
+ r.failedStances?.delete([q.x,q.y,q.z].join(','));r.repaired++;t.lastProgress=Date.now();return true;
 }
 module.exports={matches,expected,inspect,observe,budget,needsWood,collecting,stance,safe,tick,report,empty};

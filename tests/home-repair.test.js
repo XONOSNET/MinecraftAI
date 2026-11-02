@@ -70,3 +70,20 @@ test('a bot moves off a damaged work cell before replacing it and checks both ha
  f.b.entity.position=new Vec3(-1.5,64,-1.5);f.b.players.other={username:'Other',entity:{id:2,position:new Vec3(2.5,64,.5)}};
  assert.equal(repair.safe(f.t,f.b,{x:2,y:64,z:-1,kind:'bed'}),false);
 });
+
+test('repair reach uses actual off-center position and leaves room for walking tolerance',()=>{
+ const f=fixture(),q={x:-3,y:63,z:-1,kind:'planks',floor:true};f.set(new Vec3(q.x,q.y,q.z),'air');
+ f.b.entity.position=new Vec3(1.7,64,-.5);
+ const placement=require('../controller/placement_reference');assert.equal(placement.reference(f.b,q),null);
+ const goal=repair.stance(f.t,f.b,q,f.state);assert.ok(goal);assert.notDeepEqual(goal,[1.7,64.1,-.5]);
+ const p=new Vec3(goal[0],Math.round(goal[1]),goal[2]);assert.ok(placement.references(f.b,q,{standing:p}).some(r=>r.point.distanceTo(p.offset(0,1.62,0))<=3.7));
+});
+
+test('a refused repair retries a different supported stance without inventing progress',async()=>{
+ const f=fixture(),q=new Vec3(3,65,0);f.set(q,'air');const place=f.t.place;let attempts=0,first;
+ f.t.place=async(...args)=>{attempts++;if(attempts===1){first=f.b.entity.position.floored().toArray();const e=Error('support moved');e.code='BUILD_OBSTRUCTED';throw e;}assert.notDeepEqual(f.b.entity.position.floored().toArray(),first);return place(...args);};
+ await repair.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.homeRepair.repaired,0);assert.equal(f.t.phase,'home_repair');
+ for(let i=0;i<30&&f.t.homeRepair;i++)await repair.tick(f.t,f.b,f.motor,f.state);
+ assert.ok(attempts>=2);assert.equal(f.t.homeRepair,null);assert.equal(repair.inspect(f.t,f.b).missing.length,0);
+});
