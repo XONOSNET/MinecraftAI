@@ -143,3 +143,10 @@ test('daylight refuge reports the actual nearby skeleton holding up its exit',as
  f.t.phase='night_burrow';f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],cap_name:'dirt',stage:'hidden',progressAt:Date.now()};
  await burrow.tick(f.t,f.b,f.motor,f.state);assert.match(f.t.message,/skeleton 5m/);assert.match(burrow.report(f.t).waiting_for,/skeleton/);assert.equal(f.t.wilderness.burrow.stage,'hidden');
 });
+
+
+test('critically injured living bots can still attempt emergency cover',async ctx=>{
+ ctx.mock.method(access,'stabilize',async()=>true);
+ const f=fixture();f.b.health=4.5;f.b.entities={};
+ assert.equal(await burrow.tick(f.t,f.b,f.motor,f.state),true);assert.equal(f.t.phase,'night_burrow');assert.ok(f.t.wilderness.burrow);
+});

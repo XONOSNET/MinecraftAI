@@ -69,7 +69,7 @@ function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:
 async function tick(t,b,motor,state,api,scan,tasks){
  const n=t.wilderness,w=state.world,now=Date.now();let s=n.burrow;
  if(!s){
-  if(!w.first_night?.hostiles||b.isSleeping||b.health<=6)return false;
+  if(!w.first_night?.hostiles||b.isSleeping||b.health<=0)return false;
   if(require('./shelter_policy').assess(b,w).mode==='fight')return false;
  const shelterPolicy=require('./shelter_policy'),enemies=threats(b),proactive=shelterPolicy.wantsCover(b,w),need=proactive||enemies.some(e=>ARCHERS.has(e.name)&&b.health<19||b.health<=16&&e.position.distanceTo(b.entity.position)<10);
   if(!need||t.milestones.includes('hut')&&!t.homeDamage?.unsafe&&(proactive||b.entity.position.distanceTo(new Vec3(t.plot.x+.5,t.plot.y,t.plot.z+.5))<12))return false;
