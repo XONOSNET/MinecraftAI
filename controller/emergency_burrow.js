@@ -81,6 +81,15 @@ async function placeCover(b,s,target,support,face,name){
  return false;
 }
 function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,waiting_for:s.waitReason||null,exit_blocks:s.exitBlocks??null,cover_refusals:s.coverRefusals||0,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
+function retrySurface(t,b,s,reason){
+ const feet=new Vec3(...s.feet),p=b.entity.position,q=p.floored();
+ // Abandon excavation only while still on checked surface footing. A damaged
+ // underground shell must never be silently treated as a safe refuge.
+ if(Math.abs(p.y-feet.y)>.2||p.distanceTo(feet.offset(.5,0,.5))>2||!standable(b,q.x,q.y,q.z))return false;
+ const n=t.wilderness;n.burrowRejected??=new Map();n.burrowRejected.set(feet.toString(),Date.now()+30000);
+ n.burrow=null;claims.delete(b.username);t.phase=s.resume;n.burrowSearchAt=0;t.path=[];t.navigator.lastPlan=-Infinity;
+ t.message=reason+'; seeking another checked earth refuge';return true;
+}
 async function tick(t,b,motor,state,api,scan,tasks){
  const n=t.wilderness,w=state.world,now=Date.now();let s=n.burrow;
  if(!s){
@@ -109,18 +118,27 @@ async function tick(t,b,motor,state,api,scan,tasks){
   }
   if(Math.hypot(p.x-feet.x-.5,p.z-feet.z-.5)<.45&&Math.abs(p.y-feet.y)<.2){
    if(threats(b).some(e=>e.position.distanceTo(p)<8)){n.burrow=null;claims.delete(b.username);t.phase=s.resume;n.burrowSearchAt=0;t.message='Threat too close to excavate: seeking a more distant earth refuge';return true;}
-   if(!site(t,b,feet,w))throw Error('Emergency refuge terrain changed; refusing excavation');
+   if(!site(t,b,feet,w)){if(retrySurface(t,b,s,'Refuge terrain changed before excavation'))return true;throw Error('Emergency refuge terrain changed; refusing excavation');}
    if(await access.stabilize(b,motor,feet)){s.stage='dig';s.progressAt=now;}
   }
   t.message='Emergency cover: reaching a verified dry earth patch';return true;
  }
  motor.pause();
- if(!walls(b,feet,s))throw Error('Emergency refuge walls or floor are no longer dry and supported');
+ if(!walls(b,feet,s)){
+  if(s.stage==='dig'&&retrySurface(t,b,s,'Refuge shell changed before descent'))return true;
+  throw Error('Emergency refuge walls or floor are no longer dry and supported');
+ }
  if(s.stage==='dig'){
   if(!b.entity.onGround){t.message='Emergency cover: settling after a one-block descent';return true;}
   const y=Math.round(p.y);if(y<=feet.y-2){s.stage='seal';s.progressAt=now;return true;}
   if(y<feet.y&&!s.lip_name){s.stage='lip';s.progressAt=now;return true;}
-  if(Math.abs(p.x-feet.x-.5)>.2001||Math.abs(p.z-feet.z-.5)>.2001)throw Error('Emergency shaft footing changed');
+  if(Math.abs(p.x-feet.x-.5)>.2001||Math.abs(p.z-feet.z-.5)>.2001){
+   if(Math.floor(p.x)===feet.x&&Math.floor(p.z)===feet.z&&standable(b,feet.x,y,feet.z)){
+    await access.stabilize(b,motor,new Vec3(feet.x,y,feet.z));t.message='Emergency cover: regaining centered footing before digging';return true;
+   }
+   if(retrySurface(t,b,s,'Moved away from the refuge shaft'))return true;
+   throw Error('Emergency shaft footing changed');
+  }
   const q=new Vec3(feet.x,y-1,feet.z),block=b.blockAt(q);
   if(space.players(b).some(v=>Math.abs(v.y-q.y-1)<.25&&Math.abs(v.x-q.x-.5)<.8&&Math.abs(v.z-q.z-.5)<.8)){t.message='Emergency cover: waiting for another player to clear the shaft';return true;}
   if(!EARTH.has(block?.name)||!b.canDigBlock(block))throw Error('Emergency shaft is not safely hand-diggable earth');

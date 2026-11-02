@@ -60,6 +60,22 @@ test('missing roofs, fluid breaches and unproductive excavation never become a s
  f.cells.clear();f.t.wilderness.burrow.stage='dig';f.t.wilderness.burrow.progressAt=Date.now()-31000;await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/no physical progress/);
 });
 
+test('small shaft displacement recenters before digging without resetting the progress deadline',async ctx=>{
+ const f=fixture();f.t.phase='night_burrow';const at=Date.now()-1000,s=f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],stage:'dig',progressAt:at,resume:'gather'};
+ f.b.entity.position.x=.79;let centers=0,digs=0;f.b.canDigBlock=()=>true;f.b.dig=async()=>{digs++;};
+ ctx.mock.method(access,'stabilize',async(_b,_m,q)=>{assert.deepEqual(q.toArray(),[0,64,0]);centers++;f.b.entity.position.x=.5;return true;});
+ await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(centers,1);assert.equal(digs,0);assert.equal(s.progressAt,at);assert.equal(s.stage,'dig');assert.equal(f.t.phase,'night_burrow');
+});
+
+test('a changed shell can be rejected from safe surface footing but not from underground',async()=>{
+ const f=fixture();f.t.phase='night_burrow';f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],stage:'dig',progressAt:Date.now(),resume:'gather'};
+ f.cells.set(new Vec3(1,62,0).toString(),'water');
+ await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.wilderness.burrow,null);assert.equal(f.t.phase,'gather');assert.equal(f.t.wilderness.burrowRejected.size,1);
+ f.t.phase='night_burrow';f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],stage:'dig',progressAt:Date.now(),resume:'gather'};
+ f.cells.set(new Vec3(0,63,0).toString(),'air');f.b.entity.position.y=63;
+ await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/no longer dry/);assert.equal(f.t.phase,'night_burrow');
+});
+
 test('a stopped bot no longer advertises its former refuge as safely sealed',()=>{
  const f=fixture();f.t.phase='stopped';f.t.wilderness.burrow={stage:'hidden',feet:[0,64,0],cap_name:'dirt'};
  assert.equal(burrow.report(f.t).sealed,false);
