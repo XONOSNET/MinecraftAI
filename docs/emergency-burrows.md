@@ -84,3 +84,36 @@ The climb-out headroom check also accepts air variants and non-solid Minecraft
 the first dirt step; exact-air matching incorrectly stopped the second step.
 Solid blocks, fluids and unloaded cells remain blocked. The focused grass-cover
 fixture injects that same level-14 light cell between the two real exit steps.
+
+
+## Exit material recovery and clear waiting reasons
+
+Some production bots recovered the roof but not the lip's dropped item, which
+remained on the surface. They spent that single block on the first step and
+then timed out halfway up. The exit now counts both required steps before
+climbing. After a short pickup wait, it can hand-mine one additional earth
+block from a capped side pocket at the bottom. The pocket requires a solid,
+dry ceiling, floor, exterior and side walls, excludes players and is tracked
+explicitly by the shaft integrity guard. No materials are injected and the
+ordinary physical-progress deadline remains active.
+
+Daytime does not guarantee safety: a production inspection found a living
+skeleton about seven blocks above one sealed refuge. Waiting messages now name
+the threat and distance, or daylight, and reports include the waiting reason
+and available exit blocks. The bot still rechecks the exit before opening.
+
+Cover searches now consider longer inland destinations and keep a margin from
+the world boundary. Pathfinding excludes other private plots and cells that
+approach an attacker before selecting a route. Health, boundary and time limits
+are unchanged; no safe destination is guaranteed in every sand biome.
+
+
+`node scripts/verify_emergency_burrow_native.cjs --grass-cover --missing-lip-drop`
+passed with an empty starting inventory. The fixture deliberately discards one
+recovered dirt block to reproduce the material shortage, verifies the extra
+capped pocket, and performs both jump placements with actual items. Exit took
+11 seconds, including diagnostic commands; health did not decrease during the
+sealed wait/exit. Its lit roof prevents unrelated natural spawns on the fixture.
+This is an exit/material test, not a new claim of success against a moving
+skeleton. Terrain cleanup was verified. The full suite passed 448 JavaScript
+checks and 320 Python checks.

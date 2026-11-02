@@ -7,8 +7,9 @@ async function admin(data){for(let i=0;i<12;i++){const r=await fetch('http://127
 async function commands(list){await admin({action:'op'});await wait(1000);try{for(const c of list){b.chat('/'+c);await wait(800);}}finally{await admin({action:'deop'});await wait(500);}}
 async function main(){try{
  await once(b,'spawn');await wait(2000);await admin({action:'gamemode',gamemode:'creative'});await admin({action:'teleport-coordinates',x:-1300,y:220,z:-1300});await wait(2000);
+ if(process.argv.includes('--clean-only')){changed=true;result.cleanup_only=true;return;}
  for(let x=-1315;x<=-1285;x++)for(let z=-1315;z<=-1285;z++)for(let y=205;y<=217;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air','fixture volume must be empty');
- changed=true;await commands(['fill -1315 206 -1315 -1285 210 -1285 dirt','fill -1315 216 -1315 -1285 216 -1285 stone','clear @s','tp @s -1299.5 211 -1299.5',...(!grassOnly?['summon skeleton -1287.5 211 -1299.5 {PersistenceRequired:1b,Tags:["lab_burrow_fixture"]}']:[])]);
+ changed=true;await commands(['fill -1315 206 -1315 -1285 210 -1285 dirt','fill -1315 216 -1315 -1285 216 -1285 sea_lantern','kill @e[type=!player,type=!item,type=!experience_orb,x=-1315,y=211,z=-1315,dx=30,dy=6,dz=30]','clear @s','tp @s -1299.5 211 -1299.5',...(!grassOnly?['summon skeleton -1287.5 211 -1299.5 {PersistenceRequired:1b,Tags:["lab_burrow_fixture"]}']:[])]);
  await admin({action:'gamemode',gamemode:'survival'});await wait(400);await inventory.sync(b);assert.equal(b.inventory.items().length,0,'no starting items');
  motor=createMotor(b,{move:true,turn:true,jump:true,sprint:true});t={phase:'night_burrow',plot:{x:-1270,y:211,z:-1270},campPlots:[],milestones:[],wilderness:{burrow:{feet:feet.toArray(),cap:feet.toArray(),lip:feet.offset(1,0,0).toArray(),stage:'approach',resume:'gather',reason:'Native refuge test',progressAt:Date.now()}},navigator:{lastPlan:0},walk:async()=>true};
  const state={run:'native-burrow-only',world:{bounds:[-1308,-1292,-1308,-1292],first_night:{hostiles:true}}},started=Date.now();
@@ -19,19 +20,27 @@ async function main(){try{
  await commands(['setblock -1300 211 -1300 grass_block','setblock -1299 211 -1300 grass_block','kill @e[tag=lab_burrow_fixture]']);await wait(1200);
  assert.equal(burrow.sealed(b,t.wilderness.burrow),true);result.grass_cover_verified=true;
  // Only the diagnostic sensor is given daylight; global server time is untouched.
- const original=b.time.timeOfDay;let exitAt;
+ const original=b.time.timeOfDay;let exitAt;const missingLip=process.argv.includes('--missing-lip-drop');
  try{b.time.timeOfDay=6000;await burrow.tick(t,b,motor,state);
  assert.equal(t.wilderness.burrow.stage,'open');exitAt=Date.now();
  while(t.wilderness.burrow&&Date.now()-exitAt<25000){
   if(grassOnly&&t.wilderness.burrow.stage==='climb'&&b.entity.position.y>=210&&!result.carried_light_verified){
    await commands(['setblock -1300 211 -1300 light[level=14]']);assert.equal(b.blockAt(feet)?.name,'light');result.carried_light_verified=true;
   }
+  const before=t.wilderness.burrow.stage;
   b.time.timeOfDay=6000;await burrow.tick(t,b,motor,state);await wait(80);
+  if(missingLip&&before==='reclaim'){
+   await inventory.sync(b);
+   if(b.inventory.items().filter(i=>i.name==='dirt').reduce((n,i)=>n+i.count,0)===2)await b.toss(b.registry.itemsByName.dirt.id,null,1);
+   await commands(['kill @e[type=item,x=-1315,y=205,z=-1315,dx=30,dy=12,dz=30]']);await inventory.sync(b);
+   assert.equal(b.inventory.items().filter(i=>i.name==='dirt').reduce((n,i)=>n+i.count,0),1,'only roof recovered; lip unavailable');result.missing_lip_verified=true;
+  }
+  if(t.wilderness.burrow?.exitNotch)result.safe_exit_pocket_verified=true;
  }
  }finally{b.time.timeOfDay=original;}
  assert.equal(t.wilderness.burrow,null,'two real jump placements returned to surface');assert.equal(t.phase,'gather');assert.ok(b.entity.position.y>=211);assert.equal(b.game.gameMode,'survival');assert.deepEqual(t.milestones,[]);
  result.exit_seconds=(Date.now()-exitAt)/1000;result.health=b.health;result.position=b.entity.position.clone();result.no_starting_items=true;result.local_daylight_sensor_only=true;result.passed=true;
-}catch(error){result.error=error.stack;result.burrow=t?.wilderness.burrow;result.position=b.entity.position.clone();result.enemies=Object.values(b.entities).filter(e=>e.name==='skeleton').map(e=>({position:e.position.clone(),valid:e.isValid}));result.cap=b.blockAt(new Vec3(...t.wilderness.burrow.cap))?.name;result.items=b.inventory.items().map(i=>({name:i.name,count:i.count}));throw error;}finally{
+}catch(error){result.error=error.stack;result.burrow=t?.wilderness.burrow;result.position=b.entity.position.clone();result.enemies=Object.values(b.entities).filter(e=>e.name==='skeleton').map(e=>({position:e.position.clone(),valid:e.isValid}));result.cap=t?.wilderness.burrow?b.blockAt(new Vec3(...t.wilderness.burrow.cap))?.name:null;result.items=b.inventory.items().map(i=>({name:i.name,count:i.count}));throw error;}finally{
  motor?.pause();await admin({action:'gamemode',gamemode:'creative'}).catch(()=>{});
  if(changed){await commands(['kill @e[tag=lab_burrow_fixture]','kill @e[type=item,x=-1315,y=205,z=-1315,dx=30,dy=12,dz=30]','kill @e[type=experience_orb,x=-1315,y=205,z=-1315,dx=30,dy=12,dz=30]','fill -1315 205 -1315 -1285 217 -1285 air']);for(let x=-1315;x<=-1285;x++)for(let z=-1315;z<=-1285;z++)for(let y=205;y<=217;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air','fixture cleanup verified');}
  await admin({action:'teleport-coordinates',x:-153.5,y:225.1,z:160.5}).catch(()=>{});await admin({action:'gamemode',gamemode:'survival'}).catch(()=>{});await admin({action:'deop'}).catch(()=>{});result.cleaned=true;b.quit();fs.writeFileSync('logs/emergency-burrow-native.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));

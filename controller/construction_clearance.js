@@ -4,8 +4,8 @@ const access=require('./resource_access'),inventory=require('./inventory_sync');
 const SOFT=new Set(['short_grass','tall_grass','fern','large_fern','dead_bush','vine','glow_lichen','moss_carpet','snow','poppy','dandelion','blue_orchid','allium','azure_bluet','oxeye_daisy','cornflower','lily_of_the_valley','wither_rose','sunflower','lilac','rose_bush','peony','pink_petals','wildflowers','leaf_litter','brown_mushroom','red_mushroom']);
 const EARTH=new Set(['dirt','grass_block','coarse_dirt','rooted_dirt','podzol','mycelium','moss_block','stone','granite','diorite','andesite','deepslate','tuff']);
 const natural=name=>SOFT.has(name)||EARTH.has(name)||name.endsWith('_leaves')||name.endsWith('_log')||name.endsWith('_tulip');
-const empty=b=>b&&['air','cave_air','void_air'].includes(b.name);
-function owned(t,p,{lighting=false}={}){const h=t.plot;return !!h&&(p.y>=h.y&&p.y<=h.y+house.config.wall_height+1&&Math.abs(p.x-h.x)<=3&&Math.abs(p.z-h.z)<=3||lighting&&t.phase==='light_place'&&house.torchMount(h,'outdoor').position.equals(p));}
+const empty=b=>b&&['air','cave_air','void_air','light'].includes(b.name);
+function owned(t,p,{lighting=false}={}){const h=t.plot;return !!h&&(p.y>=h.y&&p.y<=h.y+house.config.wall_height+1&&Math.abs(p.x-h.x)<=3&&Math.abs(p.z-h.z)<=3||lighting&&['light_place','home_repair'].includes(t.phase)&&house.torchMount(h,'outdoor').position.equals(p));}
 function safe(t,b,block,options){
  if(!block||!owned(t,block.position,options)||!natural(block.name)||b.entity.onGround!==true)return false;
  const q=block.position;

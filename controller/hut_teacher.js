@@ -22,6 +22,7 @@ const survival=require('./survival');
 const firstNight=require('./first_night');
 const house=require('./house');
 const houseLighting=require('./house_lighting');
+const homeRepair=require('./home_repair');
 const survey=require('./survey'),resourceScan=require('./resource_scan'),serviceErrors=require('./service_errors');
 const LOG=/^(oak|birch|spruce|jungle|acacia|dark_oak|mangrove|cherry)_log$/;
 const planks=name=>name.endsWith('_planks');
@@ -81,17 +82,18 @@ class HutTeacher{
  async tick(bot,motor,state,api,scan,tasks){
   const now=Date.now(),p=bot.entity.position,w=state.world,rules=forBot(bot);
   if(this.run===state.run&&now<(this.serviceRetryAt||0)){motor.pause();return this.message;}
-  if(this.run!==state.run){this.reforest=null;this.floorReturnGoal=null;this.plotReturnGoal=null;this.entranceApproach=null;this.entranceCleared=0;this.plotClearing=null;this.afterPlotClear=null;this.constructionCleared=0;this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();this.dropTrack=null;this.pickupTravelGoal=null;}
+  if(this.run!==state.run){this.homeRepair=null;this.homeDamage=null;this.homeInspectAt=0;this.reforest=null;this.floorReturnGoal=null;this.plotReturnGoal=null;this.entranceApproach=null;this.entranceCleared=0;this.plotClearing=null;this.afterPlotClear=null;this.constructionCleared=0;this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();this.dropTrack=null;this.pickupTravelGoal=null;}
   if(this.run!==state.run){space.release(bot.username);require('./exploration').release(bot.username);this.resourceAccess={};this.buildAttempts=new Map();this.buildApproach=null;this.floorRecovery=null;this.treeRetry=0;this.focusBlock=null;this.lastNavigation=null;if(this.survival?.deathListener)bot.removeListener('entityDead',this.survival.deathListener);this.survival=null;this.wilderness=null;this.failureCategory=null;this.serviceFailureSince=null;this.serviceRetryAt=0;this.home=null;this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.campPlots=[];this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;this.scanCount=0;this.observedTrees=0;this.quarry=null;this.lastRecoveryReset=0;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
   if(this.phase==='survey')survey.hold(bot);else survey.release(bot);
   if(firstNight.enabled(w)&&!this.wilderness)firstNight.init(this,w);
+  homeRepair.observe(this,bot);
   if(this.wilderness&&this.phase!=='survey'){this.wilderness.memory.observe(bot);this.wilderness.exploration?.observe(p);}
   this.timing.mark(this.phase,'waiting',now);
   const moved=Math.hypot(p.x-this.last.x,p.z-this.last.z);if(moved<4&&this.phase!=='survey')this.travelled+=moved;this.last=p.clone();
   if(Math.hypot(p.x-this.anchor.x,p.z-this.anchor.z)>1){this.anchor=p.clone();this.lastProgress=now;}
   this.message='';this.navigationActive=false;this.harvestTarget=null;this.harvestKind='approach';
   if(!['gather','quarry','fuel_log','survival_coal','survival_iron','survival_wood'].includes(this.phase))space.release(bot.username);
-  if(this.phase!=='survey'&&!this.inside(p,w.bounds)){this.error='Reached the simulation boundary; stopped.';this.phase='stopped';}
+  if(this.phase!=='survey'&&!this.inside(p,w.bounds)){this.failureCategory='boundary';this.error='Reached the simulation boundary; stopped.';this.phase='stopped';}
   if(this.phase!=='survey'&&now>this.settle&&(bot.health<(this.wilderness?6:10)||bot.food<(this.wilderness?2:5))){this.error='Health or food too low to continue safely.';this.phase='stopped';}
   if(now-this.started>((w.time_budget_seconds||1200)-50)*1000){this.error='Trial time limit reached.';this.phase='stopped';}
   const stock=bot.inventory.items().map(i=>i.name+':'+i.count).sort().join(','),stall=this.stall.update(p,progressSignature(this,stock),now);
@@ -113,6 +115,7 @@ class HutTeacher{
    }else if(now<this.settle){motor.pause();this.message='Settling on natural ground';}
    else if(this.resourceAccess?.column?.length){await this.workElevated(bot,motor,state,api,scan,tasks);}
    else if(this.wilderness&&!['complete','stopped'].includes(this.phase)&&await firstNight.interrupt(this,bot,motor,state,api,scan)){/* safety priority handled */}
+   else if(!['survey','complete','stopped'].includes(this.phase)&&await homeRepair.tick(this,bot,motor,state,api,scan,tasks)){/* verify and repair an already-earned home */}
    else if(this.phase==='clear_plot'){if(await require('./plot_clearance').tick(this,bot,motor,state,api,scan,tasks)){this.phase=this.afterPlotClear||'gather';this.afterPlotClear=null;this.lastProgress=Date.now();}}
    else if(firstNight.handles(this.phase)){await firstNight.tick(this,bot,motor,state,api,scan,tasks,surface);}
    else if(this.phase==='gather'){
@@ -339,6 +342,7 @@ class HutTeacher{
  }
  milestone(name){if(!this.milestones.includes(name))this.milestones.push(name);}
  woodReady(bot){
+  if(homeRepair.collecting(this))return false;
   // Fuel must remain raw: spare planks cannot replace logs for charcoal.
   const logs=count(bot,n=>LOG.test(n));
   return this.wilderness?.fuelTrip?logs>=4:logs*4+count(bot,planks)>=(this.supplyRun?28:this.requiredWood(bot));

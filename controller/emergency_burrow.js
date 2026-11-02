@@ -11,17 +11,27 @@ function threats(b,standing=b.entity.position){
  const proxy=Object.create(b);proxy.entity={...b.entity,position:standing};
  return Object.values(b.entities||{}).filter(e=>alive(b,e)&&MOBS.has(e.name)&&e.position?.distanceTo(standing)<18&&combat.visible(proxy,e));
 }
-function walls(b,feet){
+function walls(b,feet,s){
  // Two removed earth cells, an untouched floor, and a raised surface cap
  // supported by one protective dirt lip. Every surrounding cell stays solid.
  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let y=feet.y-4;y<=feet.y-1;y++){
   if(dx===0&&dz===0&&y>feet.y-3)continue;
-  const q=b.blockAt(new Vec3(feet.x+dx,y,feet.z+dz));if(!q||!SOLID.has(q.name)||q.boundingBox!=='block'||q.getProperties?.().waterlogged)return false;
+  const cell=new Vec3(feet.x+dx,y,feet.z+dz);
+  if(s?.exitNotch&&cell.equals(new Vec3(...s.exitNotch))&&safeNotch(b,feet,cell)&&openCell(b.blockAt(cell)))continue;
+  const q=b.blockAt(cell);if(!q||!SOLID.has(q.name)||q.boundingBox!=='block'||q.getProperties?.().waterlogged)return false;
  }
  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let dy=0;dy<=2;dy++){
   const q=b.blockAt(feet.offset(dx,dy,dz));if(!q||DANGER.has(q.name)||q.name.endsWith('_concrete_powder')||q.getProperties?.().waterlogged)return false;
  }
  return true;
+}
+// One capped side pocket supplies a real extra exit block if the lip drop stayed above.
+// Its ceiling, floor and exterior remain solid; never open a passage to surface or water.
+function safeNotch(b,feet,q){
+ if(q.y!==feet.y-2||Math.abs(q.x-feet.x)+Math.abs(q.z-feet.z)!==1)return false;
+ const dx=q.x-feet.x,dz=q.z-feet.z;
+ const closed=p=>{const v=b.blockAt(p);return !!v&&SOLID.has(v.name)&&v.boundingBox==='block'&&!v.getProperties?.().waterlogged;};
+ return [q.offset(0,1,0),q.offset(0,-1,0),q.offset(dx,0,dz),q.offset(dz,0,dx),q.offset(-dz,0,-dx)].every(closed)&&space.clearOfPlayers(b,q.offset(.5,.5,.5),1);
 }
 function site(t,b,feet,w){
  const bounds=w.bounds;if(feet.x<=bounds[0]+2||feet.x>=bounds[1]-3||feet.z<=bounds[2]+2||feet.z>=bounds[3]-3)return false;
@@ -55,14 +65,14 @@ async function earthItem(b,s){
  if(Date.now()-(s.inventoryAt||0)>=1000){s.inventoryAt=Date.now();await inventory.sync(b);item=pick();}
  return item;
 }
-function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
+function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,waiting_for:s.waitReason||null,exit_blocks:s.exitBlocks??null,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
 async function tick(t,b,motor,state,api,scan,tasks){
  const n=t.wilderness,w=state.world,now=Date.now();let s=n.burrow;
  if(!s){
   if(!w.first_night?.hostiles||b.isSleeping||b.health<=6)return false;
   if(require('./shelter_policy').assess(b,w).mode==='fight')return false;
  const shelterPolicy=require('./shelter_policy'),enemies=threats(b),proactive=shelterPolicy.wantsCover(b,w),need=proactive||enemies.some(e=>ARCHERS.has(e.name)&&b.health<19||b.health<=16&&e.position.distanceTo(b.entity.position)<10);
-  if(!need||t.milestones.includes('hut')&&(proactive||b.entity.position.distanceTo(new Vec3(t.plot.x+.5,t.plot.y,t.plot.z+.5))<12))return false;
+  if(!need||t.milestones.includes('hut')&&!t.homeDamage?.unsafe&&(proactive||b.entity.position.distanceTo(new Vec3(t.plot.x+.5,t.plot.y,t.plot.z+.5))<12))return false;
   if(now<(n.burrowSearchAt||0))return false;n.burrowSearchAt=now+2500;
   const feet=find(t,b,state);if(!feet){n.burrow_status='No safe dry earth refuge found; refusing sand, water or unsupported ground';return false;}
   for(const [key,c] of claims)if(c.run!==state.run)claims.delete(key);
@@ -90,7 +100,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
   t.message='Emergency cover: reaching a verified dry earth patch';return true;
  }
  motor.pause();
- if(!walls(b,feet))throw Error('Emergency refuge walls or floor are no longer dry and supported');
+ if(!walls(b,feet,s))throw Error('Emergency refuge walls or floor are no longer dry and supported');
  if(s.stage==='dig'){
   if(!b.entity.onGround){t.message='Emergency cover: settling after a one-block descent';return true;}
   const y=Math.round(p.y);if(y<=feet.y-2){s.stage='seal';s.progressAt=now;return true;}
@@ -130,8 +140,10 @@ async function tick(t,b,motor,state,api,scan,tasks){
   if(!sealed(b,s))throw Error('Emergency shelter roof was breached');
   const time=b.time?.timeOfDay,day=Number.isFinite(time)&&time>=0&&time<12000;
   const nearby=threats(b,feet.offset(.5,0,.5));
-  t.message=day?'Emergency burrow: checking for threats above before leaving':'Emergency burrow: safely waiting for daylight';
-  if(day&&!nearby.some(e=>ARCHERS.has(e.name)||e.position.distanceTo(feet.offset(.5,0,.5))<12)){s.stage='open';s.progressAt=now;}
+  const blocker=nearby.find(e=>ARCHERS.has(e.name)||e.position.distanceTo(feet.offset(.5,0,.5))<12);
+  s.waitReason=!day?'daylight':blocker?blocker.name+' '+Math.round(blocker.position.distanceTo(feet.offset(.5,0,.5)))+'m above shelter':null;
+  t.message='Emergency burrow: '+(s.waitReason?'waiting for '+s.waitReason:'clear daylight exit; preparing to leave');
+  if(day&&!blocker){s.stage='open';s.progressAt=now;}
   return true;
  }
  if(s.stage==='open'){
@@ -150,7 +162,19 @@ async function tick(t,b,motor,state,api,scan,tasks){
   if(!b.entity.onGround)return true;
   if(p.y>=feet.y-.1){t.phase=s.resume;n.burrow=null;claims.delete(b.username);t.navigator.lastPlan=-Infinity;t.lastProgress=Date.now();t.message='Left the temporary burrow; resuming survival work';return true;}
   if(!sealed(b,{...s,cap_name:'air'}))throw Error('Emergency exit is blocked overhead');
-  await inventory.sync(b);const item=b.inventory.items().find(i=>['dirt','coarse_dirt','rooted_dirt'].includes(i.name));
+  await inventory.sync(b);const items=b.inventory.items().filter(i=>['dirt','coarse_dirt','rooted_dirt'].includes(i.name));
+  const count=items.reduce((sum,i)=>sum+i.count,0),remaining=Math.max(0,feet.y-Math.round(p.y));s.exitBlocks=count;
+  // Recover enough blocks before rising beyond the safely capped side pocket.
+  if(count<remaining&&Math.round(p.y)===feet.y-2){
+   s.exitCollectAt??=now;
+   if(now-s.exitCollectAt<1500){t.message='Emergency exit: collecting roof and lip drops';return true;}
+   if(!s.exitNotch){
+    const q=[[1,0],[-1,0],[0,1],[0,-1]].map(([x,z])=>feet.offset(x,-2,z)).find(q=>safeNotch(b,feet,q)&&EARTH.has(b.blockAt(q)?.name)&&b.canDigBlock(b.blockAt(q)));
+    if(q){await b.dig(b.blockAt(q),true);if(!openCell(b.blockAt(q)))throw Error('Emergency exit supply pocket did not clear');s.exitNotch=q.toArray();t.lastProgress=s.progressAt=Date.now();t.message='Emergency exit: recovering extra earth from a closed side pocket';return true;}
+   }
+   t.message='Emergency exit: collecting extra dirt before climbing ('+count+'/'+remaining+')';return true;
+  }
+  const item=items[0];
   if(!item){t.message='Emergency exit: collecting the removed roof block';return true;}
   const q=new Vec3(feet.x,Math.round(p.y),feet.z),lease={until:Date.now()+10000,cancelled:false};b.labResourceAccess=lease;motor.lockLook(true);
   try{if(await access.jumpPlace(b,q,item))t.lastProgress=s.progressAt=Date.now();}
@@ -170,9 +194,12 @@ async function seek(t,b,motor,state,api,scan,tasks){
  }
  if(!n.coverEscape&&now>=(n.coverEscapeAt||0)){
   n.coverEscapeAt=now+2500;
+  n.coverSearches=(n.coverSearches||0)+1;
   const choices=[];
-  for(let x=-8;x<=8;x+=4)for(let z=-8;z<=8;z+=4)for(const dy of [0,1,-1]){
+  for(let x=-16;x<=16;x+=4)for(let z=-16;z<=16;z+=4)for(const dy of [0,1,-1,2,-2,3,-3]){
    const q=p.floored().offset(x,dy,z),g=[q.x+.5,q.y+.1,q.z+.5];
+   const bounds=state.world.bounds;
+   if(q.x<bounds[0]+6||q.x>bounds[1]-7||q.z<bounds[2]+6||q.z>bounds[3]-7)continue;
    if(Math.hypot(x,z)<4||!standable(b,q.x,q.y,q.z))continue;
    const clearance=enemies.length?Math.min(...enemies.map(e=>e.position.distanceTo(new Vec3(...g)))):0;
    if(enemies.length&&clearance<=Math.min(...enemies.map(e=>e.position.distanceTo(p)))+2)continue;
@@ -180,7 +207,10 @@ async function seek(t,b,motor,state,api,scan,tasks){
    choices.push({g,score:clearance+soil+Math.hypot(x,z)*.2-(n.coverVisited.get(cell(g))||0)*6});
   }
   for(const c of choices.sort((a,b)=>b.score-a.score).slice(0,6)){
-   const planned=route(b,c.g,24,2048,true,{bounds:state.world.bounds,reversible:true});
+   n.coverRoutesChecked=(n.coverRoutesChecked||0)+1;
+   const planned=route(b,c.g,32,4096,true,{bounds:state.world.bounds,reversible:true,forbidden:q=>
+    (t.campPlots||[]).some(h=>(h.x!==t.plot?.x||h.z!==t.plot?.z)&&require('./world_navigation').privatePlotCell(q,h))||
+    enemies.some(e=>e.position.distanceTo(new Vec3(q[0]+.5,q[1]+.1,q[2]+.5))<e.position.distanceTo(p)-.75)});
    if(!planned.reached||enemies.some(e=>planned.path.some(q=>e.position.distanceTo(new Vec3(...q))<e.position.distanceTo(p)-.75)))continue;
    n.coverEscape=c.g;n.coverEscapeBest=Infinity;n.coverEscapeProgressAt=now;n.coverVisited.set(cell(c.g),(n.coverVisited.get(cell(c.g))||0)+1);break;
   }
@@ -188,4 +218,4 @@ async function seek(t,b,motor,state,api,scan,tasks){
  if(n.coverEscape){if(await t.walk(b,motor,n.coverEscape,state,api,scan,tasks)===false){n.coverEscape=null;n.coverEscapeAt=now+500;}}else motor.pause();
  t.message='Seeking safe earth cover; refusing exposed work or combat'+(n.burrow_status?' · '+n.burrow_status:'');
 }
-module.exports={EARTH,walls,site,find,sealed,report,tick,seek,cover,openCell};
+module.exports={EARTH,walls,site,find,sealed,report,tick,seek,cover,openCell,safeNotch};

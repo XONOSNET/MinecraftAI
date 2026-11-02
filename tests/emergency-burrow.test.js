@@ -111,3 +111,35 @@ test('carried-light blocks are clear exit headroom while real solid blocks remai
  }
  f.b.blockAt=()=>null;assert.equal(burrow.sealed(f.b,s),false);
 });
+
+test('sand-biome search uses longer inland goals instead of ending its next leg at the trial boundary',async()=>{
+ const f=fixture();f.state.world.bounds=[-20,20,-20,20];f.b.entity.position=new Vec3(15.5,64,.5);f.b.entities.s.position=new Vec3(8,64,.5);f.t.walk=async()=>undefined;
+ await burrow.seek(f.t,f.b,f.motor,f.state);const g=f.t.wilderness.coverEscape;assert.ok(g,'a safer route parallel to the boundary should remain available');
+ assert.ok(g[0]<=13.5&&g[0]>=-13.5&&g[2]<=13.5&&g[2]>=-13.5);assert.ok(Math.hypot(g[0]-15.5,g[2]-.5)>=8);
+});
+
+
+test('exit reserves both steps and safely mines one capped side pocket when the lip drop is unavailable',async ctx=>{
+ const f=fixture();let now=10000,dirt=1,steps=0;ctx.mock.method(Date,'now',()=>now);ctx.mock.method(inventory,'sync',async()=>{});
+ f.b.entities={};f.b.entity.position.y=62;f.b.clearControlStates=()=>{};f.b.canDigBlock=()=>true;f.b.inventory.items=()=>dirt?[{name:'dirt',count:dirt}]:[];
+ const s=f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],stage:'climb',resume:'gather',progressAt:now};f.t.phase='night_burrow';
+ f.b.dig=async v=>{f.cells.set(v.position.toString(),'air');dirt++;};
+ ctx.mock.method(access,'jumpPlace',async(_b,q)=>{steps++;dirt--;f.cells.set(q.toString(),'dirt');f.b.entity.position.y++;return true;});
+ await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(steps,0,'do not strand bot halfway up');
+ now+=1600;await burrow.tick(f.t,f.b,f.motor,f.state);assert.deepEqual(s.exitNotch,[1,62,0]);assert.equal(dirt,2);assert.equal(burrow.walls(f.b,new Vec3(0,64,0),s),true);
+ for(let i=0;i<3;i++)await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.phase,'gather');assert.equal(steps,2);assert.equal(dirt,0);assert.deepEqual(f.t.milestones,[]);
+});
+
+test('exit supply pockets refuse exposed ceilings, water behind walls and occupied cells',()=>{
+ const f=fixture(),feet=new Vec3(0,64,0),q=new Vec3(1,62,0);assert.equal(burrow.safeNotch(f.b,feet,q),true);
+ for(const [p,name] of [[q.offset(0,1,0),'air'],[q.offset(1,0,0),'water'],[q.offset(0,-1,0),'sand']]){f.cells.set(p.toString(),name);assert.equal(burrow.safeNotch(f.b,feet,q),false);f.cells.clear();}
+ assert.equal(burrow.safeNotch(f.b,feet,q.offset(0,1,0)),false);
+ f.b.players.other={username:'Other',entity:{id:3,position:q.offset(.5,0,.5)}};assert.equal(burrow.safeNotch(f.b,feet,q),false);
+});
+
+test('daylight refuge reports the actual nearby skeleton holding up its exit',async()=>{
+ const f=fixture();f.b.time.timeOfDay=6000;f.b.entities.s.position.x=5;f.cells.set(new Vec3(0,64,0).toString(),'dirt');
+ f.t.phase='night_burrow';f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],cap_name:'dirt',stage:'hidden',progressAt:Date.now()};
+ await burrow.tick(f.t,f.b,f.motor,f.state);assert.match(f.t.message,/skeleton 5m/);assert.match(burrow.report(f.t).waiting_for,/skeleton/);assert.equal(f.t.wilderness.burrow.stage,'hidden');
+});
