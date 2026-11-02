@@ -65,7 +65,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    if(!Number.isFinite(angle)||!Number.isFinite(bot.entity?.yaw)){clear();return 'Waiting for valid orientation';}
    stalled=false;
    if(task?.water_route&&task.waypoints?.length){
-    recovery.reset();doorway.reset();strafe.reset();plan={waterGoal:task.waypoints[0],waterMove:[0,3].includes(action),label:'Following checked water crossing'};expires=clock()+1500;paused=false;return plan.label;
+    recovery.reset();doorway.reset();strafe.reset();plan={waterGoal:task.waypoints[0],waterMove:[0,3,5].includes(action),label:'Following checked water crossing'};expires=clock()+1500;paused=false;return plan.label;
    }
    if(legacy){applyMotion(bot,action,permissions,task);return null;}
    plan=motorPlan(action,permissions,task,{...sensed,inWater:!!bot.entity?.isInWater},angle,!!bot.getControlState('forward'));

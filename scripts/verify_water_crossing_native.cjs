@@ -16,7 +16,7 @@ for(const shallow of [false,true]){
  const nav=new WorldNavigation(),goal=[-1593.5,211.1,-1600.5],bounds=[-1611,-1589,-1603,-1597],started=Date.now();motor=createMotor(b,{move:true,jump:true,turn:true});let arrived=false,wet=false,waterRouteSeen=false,runoffSeen=false;const health=b.health;
  while(Date.now()-started<45000){
   for(let x=-1602;x<=-1598;x++){const v=b.blockAt(new Vec3(x,210,-1600));if(v?.name==='water'&&Number(v.getProperties().level)>0)runoffSeen=true;}
-  const plan=nav.plan(b,goal,{bounds});if(plan.arrived){arrived=true;break;}assert.equal(plan.blocked,false);waterRouteSeen||=!!plan.water_route;wet||=!!b.entity.isInWater;motor.command(0,{water_route:true,waypoints:[plan.cue]},null,0);await wait(100);
+  const plan=nav.plan(b,goal,{bounds});if(plan.arrived){arrived=true;break;}assert.equal(plan.blocked,false);waterRouteSeen||=!!plan.water_route;wet||=!!b.entity.isInWater;motor.command(shallow?5:0,{water_route:true,waypoints:[plan.cue]},null,0);await wait(100);
  }
  result.navigation=nav.status;result.remaining=nav.path.slice(0,3);result.in_water=b.entity.isInWater;result.on_ground=b.entity.onGround;
  assert.equal(arrived,true,'crossed the channel and reached dry bank');assert.equal(wet,true,'actually entered water');assert.equal(waterRouteSeen,true);assert.ok(b.health>=health,'no health lost');if(shallow)assert.equal(runoffSeen,true,'shallow flowing water was present');
