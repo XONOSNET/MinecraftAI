@@ -261,6 +261,11 @@ class WorldTraining(SurvivalLessons):
                     self.force_tile(self.preloaded,'remove');self.preloaded=None
                 if not self.jobs:
                     if s.get('first_night') and not self.prepare_fauna():return
+                    if s.get('first_night') and 'start_time_of_day' not in s:
+                        # Paired policies must not face dawn versus immediate
+                        # night solely because the preceding attempt ran longer.
+                        s['start_time_of_day']=0
+                        self.command('time set 0')
                     if s.get('first_night',{}).get('hostiles'):
                         if 'hostiles_reset_at' not in s:
                             self.reset_hostiles(s['bounds']);s['hostiles_reset_at']=self.clock();return

@@ -26,6 +26,15 @@ def reach_candidate(m,lab):
     lab.job['status']='completed';m.tick();lab.job['status']='completed';m.tick();assert m.state['phase']=='evaluating'
 
 
+def test_trial_start_clock_is_recorded_and_mismatched_conditions_cannot_promote_a_model():
+    baseline=measured_trial(dict(bots=['LabAI0'],results={},start_time_of_day=0))
+    assert baseline['start_time_of_day']==0
+    candidate={**baseline,'completed':1,'progress':1.,'start_time_of_day':13000}
+    accepted,reason=select_world(baseline,candidate)
+    assert not accepted and 'start time changed' in reason
+    assert select_world(baseline,{**candidate,'start_time_of_day':0})[0]
+
+
 def test_behavior_changes_wait_until_next_cycle_and_revision_guards_selection(tmp_path):
     m,lab,clock=fixture(tmp_path);revision={'revision':'first','config':{'global':{},'bots':{},'version':1}}
     m.h['behavior']=lambda:revision

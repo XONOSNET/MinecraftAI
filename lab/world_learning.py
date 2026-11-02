@@ -19,10 +19,11 @@ def measured_trial(session):
         progress.append(min(1,(len(r.get('milestones',[]))+partial)/total))
         if r.get('state')=='complete' and isinstance(r.get('seconds'),(float,int)):seconds.append(r['seconds'])
     return dict(bots=len(names),roster=sorted(names),completed=completed,unsafe=unsafe,progress=sum(progress)/n,
-                median_seconds=statistics.median(seconds) if seconds else None,run=session.get('run'),behavior_revision=session.get('behavior_snapshot',{}).get('revision'))
+                median_seconds=statistics.median(seconds) if seconds else None,run=session.get('run'),behavior_revision=session.get('behavior_snapshot',{}).get('revision'),start_time_of_day=session.get('start_time_of_day'))
 
 
 def select_world(baseline,candidate):
+    if baseline.get('start_time_of_day')!=candidate.get('start_time_of_day'):return False,'Trial start time changed; comparison discarded.'
     if baseline.get('behavior_revision')!=candidate.get('behavior_revision'):return False,'Behavior settings changed; comparison discarded.'
     if baseline['bots']!=candidate['bots'] or baseline.get('roster')!=candidate.get('roster'):return False,'Bot roster changed; comparison discarded.'
     if candidate['unsafe']>baseline['unsafe']:return False,'More low-health failures; restored protected specialists.'

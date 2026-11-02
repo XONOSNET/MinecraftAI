@@ -51,13 +51,27 @@ def test_night_three_final_hostile_reset_waits_for_drops_then_deploys_without_ru
     world,commands,clock,log=fixture(tmp_path)
     world.start(dict(mission='first_night',night_level=3),['LabAI0']);s=world.session;world.jobs=[];world.prepare_fauna=lambda:True;commands.clear()
     world.tick();assert s['phase']!='running';assert s['hostiles_reset_at']==0
+    assert s['start_time_of_day']==0 and commands[0]=='time set 0'
     sweeps=[c for c in commands if c.startswith('kill @e[type=minecraft:')];assert len(sweeps)==21
     x0,x1,z0,z1=s['bounds'];assert all(f'x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}' in c for c in sweeps)
     assert not any(c.startswith('gamemode survival') for c in commands)
     commands.clear();clock[0]=.1;world.tick();assert s['phase']!='running';assert not commands
     clock[0]=.3;world.tick();assert s['phase']=='running'
+    assert 'time set 0' not in commands
     assert commands.index(next(c for c in commands if c.startswith('kill @e[type=minecraft:item,')))<commands.index('gamemode survival LabAI0')
     commands.clear();clock[0]=2;world.tick();assert not any('type=minecraft:zombie' in c for c in commands)
+
+
+@pytest.mark.parametrize('driver',['student','teacher'])
+def test_first_night_resets_start_clock_once_without_freezing_the_day_cycle(tmp_path,driver):
+    world,commands,clock,log=fixture(tmp_path)
+    world.start(dict(mission='first_night',night_level=3,driver=driver),['LabAI0'])
+    world.jobs=[];world.prepare_fauna=lambda:True;commands.clear()
+    world.tick();clock[0]=.3;world.tick()
+    assert commands.count('time set 0')==1
+    assert world.session['start_time_of_day']==0 and world.session['phase']=='running'
+    commands.clear();clock[0]=20;world.tick()
+    assert not any(c.startswith('time set') or 'doDaylightCycle' in c for c in commands)
 
 
 def test_hostile_reset_does_not_touch_snapshot_sources_or_active_trials(tmp_path):
