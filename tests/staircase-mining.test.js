@@ -107,6 +107,15 @@ test('a temporarily occupied return stair yields without abandoning the mine or 
  f.t.walk=async()=>true;await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.stage,'done');
 });
 
+test('mine exit also yields when a nearby player blocks the approach rather than the landing',async()=>{
+ const f=fixture(),m=f.t.wilderness.mine={stage:'exit',entry:[3,64,0],path:[[3,64,0]],exitIndex:0};f.t.lastProgress=123;
+ f.b.players.other={username:'Other',entity:{id:2,position:new Vec3(1.5,64,2.2)}};
+ assert.equal(require('../controller/resource_space').clearOfPlayers(f.b,new Vec3(3.5,64,.5)),true,'landing itself is clear');
+ f.t.walk=async()=>false;
+ await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.stage,'exit');assert.equal(f.t.lastProgress,123);assert.match(f.t.message,/waiting for another player/);
+ f.b.players={};await assert.rejects(mine.tick(f.t,f.b,f.motor,f.state),/Unable to climb/);
+});
+
 test('an interrupted mine exit reconnects from the surface instead of revisiting an obstructed lower stair',async()=>{
  const f=fixture(),m=f.t.wilderness.mine={stage:'exit',entry:[0,64,0],path:[[0,64,0],[1,63,0],[2,62,0]],exitIndex:2};
  f.b.entity.position=new Vec3(10.5,64,.5);f.t.lastProgress=123;let destination;

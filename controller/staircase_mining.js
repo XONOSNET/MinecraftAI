@@ -115,7 +115,9 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   const arrived=await t.walk(b,motor,point(q),state,api,scan,tasks);
   if(arrived===true){if(m.exitIndex===0){m.stage='done';claims.delete(b.username);}else m.exitIndex--;}
   else if(arrived===false){
-   if(!space.clearOfPlayers(b,q.offset(.5,0,.5))){motor.pause();t.message='Mine exit: waiting for another player to clear the return stair';return {handled:true};}
+   const nearby=space.players(b).some(p=>p.distanceTo(b.entity.position)<6);
+   const terrainRoute=nearby&&nav.route(b,point(q),24,2048,false,{bounds:state.world.bounds,reversible:true}).reached;
+   if(!space.clearOfPlayers(b,q.offset(.5,0,.5))||terrainRoute){motor.pause();t.message='Mine exit: waiting for another player to clear the return stair';return {handled:true};}
    throw Error('Unable to climb the recorded mine return staircase');
   }
   return {handled:true};
