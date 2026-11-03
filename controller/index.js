@@ -15,7 +15,7 @@ const {randomUUID}=require('crypto');
 const bots=[];let quitting=false;
 async function requestApi(path,data){const r=await fetch('http://127.0.0.1:8000'+path,{method:'POST',headers:{'Content-Type':'application/json','X-Lab-Token':token},body:JSON.stringify(data),signal:AbortSignal.timeout(10000)});if(!r.ok){const error=Error(await r.text());error.status=r.status;throw error;}return r.json();}
 async function spawn(i){if(quitting)return;try{const status=await(await fetch('http://127.0.0.1:8000/status?compact=true',{signal:AbortSignal.timeout(10000)})).json();if(status.server&&!status.server.ready){setTimeout(()=>spawn(i),2000);return;}}catch{setTimeout(()=>spawn(i),2000);return;}if(quitting)return;const name='LabAI'+i;const b=mineflayer.createBot({host:'127.0.0.1',port:25565,username:name,auth:'offline',version:'1.21.4',respawn:true});bots[i]=b;let tick=0,busy=false,goal=null,lastDistance=null,steps=0,phase='',episode=0,task=null,runtime=tasks.createRuntime(),readyAt=0,lastMetrics=null,activity='Connecting',decisionMs=250,lastDecisionAt=0,trialStarted=null;
- inventorySync.attach(b);require('./resource_space').attach(b);
+ inventorySync.attach(b);require('./resource_space').attach(b);require('./enderman_gaze').attach(b);
  const hutTeacher=new HutTeacher(),doorCare=createDoorCare(b);
  const guard=require('./controller_guard').createGuard(reason=>{motor.pause();require('./survey').release(b);console.error(name,'Controller recovery:',reason);b.quit(reason);});
  const api=async(path,data)=>{if(guard.closed())throw Error('Controller connection retired');const response=await requestApi(path,data);if(guard.closed())throw Error('Controller connection retired');return response;};

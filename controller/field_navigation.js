@@ -42,7 +42,7 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
  }
 
  const distance=n=>{const horizontal=Math.abs(Math.floor(goal[0])-n[0])+Math.abs(Math.floor(goal[2])-n[2]),height=Math.abs(Math.round(goal[1])-n[1]);return Math.max(horizontal,height)+height*.4;};
- let best=start,bestDistance=distance(start),open=[{n:start,g:0,f:bestDistance}],visited=new Set(),costs=new Map([[key(start),0]]),parent=new Map(),expanded=0;
+ let best=start,bestDistance=distance(start),open=[{n:start,g:0,f:bestDistance}],visited=new Set(),costs=new Map([[key(start),0]]),parent=new Map(),jumps=new Map(),expanded=0;
  const less=(a,b)=>a.f<b.f||a.f===b.f&&a.g>b.g;
  const push=v=>{open.push(v);let i=open.length-1;while(i){const parent=(i-1)>>1;if(!less(open[i],open[parent]))break;[open[i],open[parent]]=[open[parent],open[i]];i=parent;}};
  const pop=()=>{const first=open[0],last=open.pop();if(open.length){open[0]=last;let i=0;while(true){let child=i*2+1;if(child>=open.length)break;if(child+1<open.length&&less(open[child+1],open[child]))child++;if(!less(open[child],open[i]))break;[open[i],open[child]]=[open[child],open[i]];i=child;}}return first;};
@@ -59,10 +59,15 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
    if(dy===1&&!(options.allowWater&&bot.blockAt(new Vec3(...n))?.name==='water')){const over=terrain.blockAt(new Vec3(n[0],n[1]+2,n[2]));if(!safe(over)||over.boundingBox!=='empty')continue;}
    if(options.reversible&&dy===-1){const over=terrain.blockAt(new Vec3(next[0],next[1]+2,next[2]));if(!passable(over))continue;}
    const k=key(next),ng=g+(options.allowWater?transit(...next).cost:1)+(dy!==0?.4:0);
-   if(ng<(costs.get(k)??Infinity)){costs.set(k,ng);parent.set(k,n);push({n:next,g:ng,f:ng+distance(next)});}break;
+   if(ng<(costs.get(k)??Infinity)){costs.set(k,ng);parent.set(k,n);jumps.delete(k);push({n:next,g:ng,f:ng+distance(next)});}break;
+  }
+  if(options.allowGaps&&!options.allowWater)for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
+   const next=[n[0]+dx*2,n[1],n[2]+dz*2];
+   if(Math.abs(next[0]-start[0])>radius||Math.abs(next[2]-start[2])>radius||!require('./checked_jump').gap(bot,n,next,options))continue;
+   const k=key(next),ng=g+2.8;if(ng<(costs.get(k)??Infinity)){costs.set(k,ng);parent.set(k,n);jumps.set(k,n);push({n:next,g:ng,f:ng+distance(next)});}
   }
  }
- const path=[];let n=best;while(key(n)!==key(start)){path.push([n[0]+.5,n[1]+.1,n[2]+.5]);n=parent.get(key(n));if(!n)break;}
+ const path=[];let n=best;while(key(n)!==key(start)){const q=[n[0]+.5,n[1]+.1,n[2]+.5];if(jumps.has(key(n)))q.gapFrom=jumps.get(key(n));path.push(q);n=parent.get(key(n));if(!n)break;}
  const reached=best[0]===Math.floor(goal[0])&&best[2]===Math.floor(goal[2])&&Math.abs(best[1]-goal[1])<.6&&stand(...best);
  path.reverse();if(reached&&Math.hypot(goal[0]-p.x,goal[2]-p.z)>.3)path.push([goal[0],best[1]+.1,goal[2]]);
  // The cell center is clear, but an off-center body can clip an adjacent table
@@ -76,7 +81,7 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
   const heading=Math.atan2(-(next[0]-p.x),-(next[2]-p.z));
   const directDescent=descending&&require('./perception').proximity(bot,{recovery:false}).canStepDown(heading,Math.min(.75,Math.hypot(next[0]-p.x,next[2]-p.z)));
   if(!options.allowWater&&(adjacentWall||adjacentDrop&&!directDescent)){const center=[start[0]+.5,start[1]+.1,start[2]+.5];
-   if(!others.length||space.stepClear(p,{x:center[0],y:center[1],z:center[2]},others,require('./behavior').forBot(bot).player_clearance)){center.centering=true;path.unshift(center);}
+   if(!others.length||space.stepClear(p,{x:center[0],y:center[1],z:center[2]},others,require('./behavior').forBot(bot).player_clearance)){center.centering=true;center.routeCenter=true;path.unshift(center);}
   }
  }
  if(escape)path.unshift(escape);

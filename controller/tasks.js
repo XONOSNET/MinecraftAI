@@ -90,6 +90,7 @@ function teacherAction(bot,task,sensed,runtime,angle){
   if(bot.entity.isInWater&&dy<-1.15)return 6;
   const target=Math.atan2(-(cue[0]-p.x),-(cue[2]-p.z));angle=Math.atan2(Math.sin(target-bot.entity.yaw),Math.cos(target-bot.entity.yaw));
   if(Math.abs(angle)>.05)return angle>0?1:2;
+  if(task.gap_jump&&d>.4)return 3;
   if(task.strict_ground&&dy>.6&&dy<1.2&&d<1.8)return 3;
   const gapTakeoff=task.gap_edges?.some(edge=>edge-p.x>=-.4&&edge-p.x<=1.1)??sensed.frontHazard;
   if(task.jump_gaps&&gapTakeoff&&d>1)return 3;

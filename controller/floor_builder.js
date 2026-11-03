@@ -23,7 +23,7 @@ function returnGoal(t,b,state){
  return [front,...corners].find(g=>{
   const cell=[Math.floor(g[0]),Math.round(g[1]),Math.floor(g[2])];
   if(!(standable(b,...cell)||require('./water_navigation').cell(b,...cell)?.wet===false)||!space.clearOfPlayers(b,new Vec3(...g)))return false;
-  const radius=Math.min(192,Math.max(48,Math.ceil(new Vec3(...g).distanceTo(b.entity.position))+16)),options={bounds:state.world.bounds,reversible:true,forbidden};
+  const radius=Math.min(192,Math.max(48,Math.ceil(new Vec3(...g).distanceTo(b.entity.position))+16)),options={bounds:state.world.bounds,reversible:true,forbidden,allowGaps:true};
   const planned=travelRoute(b,g,radius,8192,true,options);
   // One bounded expansion handles a long detour after night-time displacement.
   // Never turn an incomplete path into permission to clear or dig the plot.

@@ -234,3 +234,12 @@ test('a reachable mining target permits policy alignment without walking or jump
  const {Vec3}=require('vec3');let now=0;const controls={},b={entity:{position:new Vec3(.5,64,.5),yaw:0,pitch:0,onGround:true},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,async look(y,p){this.entity.yaw=y;this.entity.pitch=p;}};
  const motor=createMotor(b,permissions,{clock:()=>now});for(const action of [0,1,2,3,4]){motor.command(action,{kind:'gather',stationary_work:true},{...safe,wallAhead:true},.3);now+=50;motor.tick();assert.equal(!!controls.forward,false);assert.equal(!!controls.back,false);assert.equal(!!controls.jump,false);assert.equal(!!controls.left,false);assert.equal(!!controls.right,false);}
 });
+
+
+test('a checked step keeps forward through the airborne interval even between policy replies',()=>{
+ const {Vec3}=require('vec3');let now=0;const controls={},bot={players:{},entity:{position:new Vec3(.5,64,.5),yaw:0,pitch:0,onGround:true},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,blockAt(p){const q=p.floored(),solid=q.y<(q.z<0?65:64);return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+ const motor=createMotor(bot,permissions,{clock:()=>now}),task={kind:'expedition',auto_step:true,safe_walk:true,waypoints:[[.5,65.1,-.5]]};
+ motor.command(0,task,safe,0);motor.tick();bot.entity.onGround=false;bot.entity.position.y=64.3;motor.tick();
+ motor.command(4,task,safe,0);now+=50;motor.tick();assert.equal(controls.forward,true);assert.equal(controls.jump,false);
+ motor.pause();assert.equal(controls.forward,false,'explicit safety cancellation always wins');
+});

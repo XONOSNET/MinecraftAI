@@ -630,3 +630,19 @@ def test_manual_next_bot_preserves_view_and_does_not_enable_automatic_cycle(tmp_
     assert s['target']=='LabAI2' and s['view']=='orbit' and s['cycle_enabled'] is False
     o.sessions['Xonosnet']['enabled']=False
     with pytest.raises(ValueError):o.next_bot('Xonosnet',agents)
+
+
+def test_roster_stopped_bot_is_gray_even_when_watched(tmp_path):
+    import json
+    commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:100)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    o.progress_context={'world':{'phase':'running','results':{'LabAI0':{'state':'stopped','phase':'stopped'}}}}
+    o.update_roster(['Xonosnet'],{'LabAI0':{'connected':True,'last_seen':100,'display_name':'AmberRobin'}},'teacher')
+    prefix='scoreboard players display name lab_row_0 lab_bots '
+    row=json.loads(next(c[len(prefix):] for c in reversed(commands) if c.startswith(prefix)))
+    assert row['text']=='AmberRobin' and row['color']=='gray'
+    o.progress_context['world']['results']['LabAI0']={'state':'working','phase':'gather'}
+    o.roster_at=-10
+    o.update_roster(['Xonosnet'],{'LabAI0':{'connected':True,'last_seen':100,'display_name':'AmberRobin'}},'teacher')
+    row=json.loads(next(c[len(prefix):] for c in reversed(commands) if c.startswith(prefix)))
+    assert row['color']=='gold'

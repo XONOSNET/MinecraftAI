@@ -95,8 +95,9 @@ class HutTeacher{
  async tick(bot,motor,state,api,scan,tasks){
   const now=Date.now(),p=bot.entity.position,w=state.world,rules=forBot(bot);
   if(this.run===state.run&&now<(this.serviceRetryAt||0)){motor.pause();return this.message;}
-  if(this.run!==state.run){this.deathRun=null;this.homeRepair=null;this.homeDamage=null;this.homeInspectAt=0;this.reforest=null;this.floorReturnGoal=null;this.plotReturnGoal=null;this.entranceApproach=null;this.entranceCleared=0;this.plotClearing=null;this.afterPlotClear=null;this.constructionCleared=0;this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();this.dropTrack=null;this.pickupTravelGoal=null;}
+  if(this.run!==state.run){this.deathRun=null;this.loot=null;this.buildBlocker=null;this.homeRepair=null;this.homeDamage=null;this.homeInspectAt=0;this.reforest=null;this.floorReturnGoal=null;this.plotReturnGoal=null;this.entranceApproach=null;this.entranceCleared=0;this.plotClearing=null;this.afterPlotClear=null;this.constructionCleared=0;this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();this.dropTrack=null;this.pickupTravelGoal=null;}
   if(this.run!==state.run){space.release(bot.username);require('./exploration').release(bot.username);this.resourceAccess={};this.buildAttempts=new Map();this.buildApproach=null;this.floorRecovery=null;this.treeRetry=0;this.focusBlock=null;this.lastNavigation=null;if(this.survival?.deathListener)bot.removeListener('entityDead',this.survival.deathListener);this.survival=null;this.wilderness=null;this.failureCategory=null;this.serviceFailureSince=null;this.serviceRetryAt=0;this.home=null;this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.campPlots=[];this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;this.scanCount=0;this.observedTrees=0;this.quarry=null;this.lastRecoveryReset=0;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
+  if(!w.prepared&&plotClaims.has(state.run))this.campPlots=[...plotClaims.get(state.run).values()];
   if(this.phase==='survey')survey.hold(bot);else survey.release(bot);
   if(firstNight.enabled(w)&&!this.wilderness)firstNight.init(this,w);
   homeRepair.observe(this,bot);
@@ -129,6 +130,10 @@ class HutTeacher{
    }else if(now<this.settle){motor.pause();this.message='Settling on natural ground';}
    else if(this.resourceAccess?.column?.length){await this.workElevated(bot,motor,state,api,scan,tasks);}
    else if(this.wilderness&&!['complete','stopped'].includes(this.phase)&&await firstNight.interrupt(this,bot,motor,state,api,scan)){/* safety priority handled */}
+   else if(!['survey','complete','stopped'].includes(this.phase)&&await require('./opportunistic_loot').tick(this,bot,motor,state,api,scan,tasks)){/* bounded useful-item detour */}
+   else if(await require('./build_blockers').tick(this,bot,motor,state,api,scan,tasks)){/* clear living construction obstruction */}
+   else if(await require('./early_lighting').tick(this,bot,motor,state)){/* lighting before settlement extras */}
+   else if(await require('./reforest').tick(this,bot,motor,state,{opportunity:true})){/* brief nearby replanting opportunity */}
    else if(!['survey','complete','stopped'].includes(this.phase)&&await homeRepair.tick(this,bot,motor,state,api,scan,tasks)){/* verify and repair an already-earned home */}
    else if(this.phase==='clear_plot'){if(await require('./plot_clearance').tick(this,bot,motor,state,api,scan,tasks)){this.phase=this.afterPlotClear||'gather';this.afterPlotClear=null;this.lastProgress=Date.now();}}
    else if(firstNight.handles(this.phase)){await firstNight.tick(this,bot,motor,state,api,scan,tasks,surface);}
@@ -335,7 +340,7 @@ class HutTeacher{
    }else if(survival.handles(this.phase)){await survival.tick(this,bot,motor,state,api,scan,tasks);}
    else motor.pause();
    if(!firstNight.handles(this.phase)&&!survival.handles(this.phase)&&!['survey','gather','craft','door_craft','supply_craft','chest','tools','stock_chest','quarry','fuel_log','stone_tools','furnace','smelt','torch_craft','shelter','complete','stopped'].includes(this.phase)&&now-this.lastProgress>60000)throw Error('No construction or movement progress for 60 seconds.');
-  }catch(error){motor.pause();connectionRetry=serviceErrors.recover(this,error);if(!connectionRetry){survey.release(bot);this.error=this.phase+': '+error.message;this.phase='stopped';}}
+  }catch(error){motor.pause();if(error.code==='BUILD_ENTITY_BLOCKED'){this.message='An animal is blocking construction; clearing it before retrying';}else{connectionRetry=serviceErrors.recover(this,error);if(!connectionRetry){survey.release(bot);this.error=this.phase+': '+error.message;this.phase='stopped';}}}
   // A death during an awaited action remains terminal even after native respawn.
   if(this.deathRun===state.run){this.died(state.run);motor.pause();}
   // Only try spare saplings after the primary action has finished naturally.
@@ -377,6 +382,7 @@ class HutTeacher{
   await require('./construction_clearance').prepare(this,bot,q,name);
   const rejected=new Set();
   for(let attempt=0;attempt<6;attempt++){
+   if(Object.values(bot.entities||{}).some(e=>require('./build_blockers').eligible(bot,e)&&require('./build_blockers').intersects(e,q))){const error=Error('Living animal blocks this construction cell');error.code='BUILD_ENTITY_BLOCKED';throw error;}
    await inventorySync.sync(bot);
    const item=bot.inventory.items().find(i=>name?i.name===name:planks(i.name));if(!item)throw Error('No building material available.');
    const ref=reference(bot,q,{exclude:rejected});if(!ref){this.lastNavigation={...this.lastNavigation,placement_failure:{target:[q.x,q.y,q.z],position:[bot.entity.position.x,bot.entity.position.y,bot.entity.position.z],rejected_faces:[...rejected],reason:'no_reachable_support'}};const error=Error('No reachable supporting face for placement.');error.code='BUILD_OBSTRUCTED';throw error;}
@@ -532,7 +538,7 @@ class HutTeacher{
   const cue=planned.cue;if(!this.inside(new Vec3(...cue),state.world.bounds)){motor.pause();throw Error('Planned route reached the trial boundary.');}
   const passage=routeDoorway(bot,planned.portal,planned.path,goal);
   const skill=this.phase==='enter'?'shelter':'expedition';
-  const task={water_route:planned.water_route,hunting:!!intent.hunting,kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],safety_focus:[...cue],bounds:state.world.bounds,actual_doors:[],allow_water:!!planned.water_route,coverage_target:100,quick_look:true,safe_walk:true,strict_ground:true,auto_step:true,route_corridor:planned.corridor,avoid_players:true,navigation_lock:state.world.driver==='teacher',center_route:!!cue.centering,travel_sprint:!['floor','table','build','door','enter'].includes(this.phase),sprint_path:planned.path};
+  const task={gap_jump:!!cue.gapFrom,water_route:planned.water_route,hunting:!!intent.hunting,kind:skill==='gathering'?'gather':skill==='shelter'?'shelter':'expedition',goal,waypoints:[cue],safety_focus:[...cue],bounds:state.world.bounds,actual_doors:[],allow_water:!!planned.water_route,coverage_target:100,quick_look:true,safe_walk:true,strict_ground:true,auto_step:true,route_corridor:planned.corridor,avoid_players:true,navigation_lock:state.world.driver==='teacher',center_route:!!cue.centering,travel_sprint:!['floor','table','build','door','enter'].includes(this.phase),sprint_path:planned.path};
   const desired=Math.atan2(-(cue[0]-p.x),-(cue[2]-p.z)),angle=Math.atan2(Math.sin(desired-bot.entity.yaw),Math.cos(desired-bot.entity.yaw));
   const sensedScan=scan(bot,{goalYaw:desired}),sensed=tasks.observeTask(bot,task,sensedScan,this.runtime);
   const obs=[...sensedScan.pooled,Math.sin(angle),Math.cos(angle),Math.min(p.distanceTo(new Vec3(...goal))/32,1),bot.health/20,bot.food/20,bot.entity.onGround?1:0,...sensed.extra];

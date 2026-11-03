@@ -2,17 +2,17 @@
 const {Vec3}=require('vec3'),inventory=require('./inventory_sync'),house=require('./house'),space=require('./resource_space');
 const SOIL=new Set(['grass_block','dirt','coarse_dirt','podzol','rooted_dirt','moss_block']);
 const HOSTILES=new Set(['zombie','zombie_villager','husk','drowned','skeleton','stray','bogged','creeper','spider','cave_spider','witch','pillager','vindicator','enderman']);
-const PHASES=new Set(['gather','fuel_log','survival_wood']);
+const PHASES=new Set(['gather','fuel_log','survival_wood','stone_return','return_home','night_fuel','night_scout','night_food_home','night_wool_home','leave_hut']);
 const sapling=name=>name.endsWith('_sapling')||['mangrove_propagule','azalea','flowering_azalea'].includes(name);
 const groupSize=name=>['dark_oak_sapling','pale_oak_sapling'].includes(name)?4:1;
 const empty=block=>block&&['air','cave_air'].includes(block.name);
 function plots(t){return [...new Map([t.plot,...(t.campPlots||[])].filter(Boolean).map(p=>[`${p.x},${p.z}`,p])).values()];}
-function idle(t,b,state){
+function idle(t,b,state,opportunity=false){
  const p=b.entity?.position,v=b.entity?.velocity;
- return !!p&&!!t.plot&&plots(t).length>=(state.world.count||1)&&PHASES.has(t.phase)&&!t.error&&!t.navigationActive&&!t.harvestTarget&&!t.resourceAccess?.column?.length&&
+ return !!p&&!!t.plot&&plots(t).length>=(state.world.count||1)&&PHASES.has(t.phase)&&!t.error&&(opportunity||!t.navigationActive)&&!t.harvestTarget&&!t.resourceAccess?.column?.length&&
   b.health>=18&&b.food>=16&&!b.isSleeping&&!b.currentWindow&&!b.targetDigBlock&&!b.usingHeldItem&&b.entity.onGround===true&&!b.entity.isInWater&&!b.entity.isInLava&&
-  Math.hypot(v?.x||0,v?.z||0)<.015&&Math.abs(v?.y||0)<.1&&
-  !['forward','back','left','right','jump','sneak'].some(key=>b.getControlState?.(key))&&
+  (opportunity||Math.hypot(v?.x||0,v?.z||0)<.015)&&Math.abs(v?.y||0)<.1&&
+  (opportunity||!['forward','back','left','right','jump','sneak'].some(key=>b.getControlState?.(key)))&&
   !Object.values(b.entities||{}).some(e=>HOSTILES.has(e.name)&&e.isValid!==false&&e.position.distanceTo(p)<12);
 }
 function safe(t,b,state,positions,name){
@@ -71,14 +71,15 @@ async function place(b,p,name){
  try{await b._genericPlace(b.blockAt(p.offset(0,-1,0)),new Vec3(0,1,0),{forceLook:'ignore',swingArm:'right'});return await verified;}
  finally{clearTimeout(timer);b.removeListener('blockUpdate',listener);}
 }
-async function tick(t,b,motor,state,{now=Date.now(),random=Math.random}={}){
+async function tick(t,b,motor,state,{now=Date.now(),random=Math.random,opportunity=false}={}){
  const r=t.reforest??={planted:0,attempts:0,nextCheck:0};
  if(now<r.nextCheck)return false;
  r.nextCheck=now+5000;
- if(!idle(t,b,state))return false;
+ if(!idle(t,b,state,opportunity))return false;
  // Optional planting must not keep an otherwise stalled gatherer busy forever.
  if(!r.pending&&r.lastPrimaryProgress===t.lastProgress)return false;
  const choice=choose(t,b,state,random);if(!choice)return false;
+ if(opportunity){motor.pause();if(b.waitForTicks)await b.waitForTicks(2);}
  // Random intervals plus random nearby locations avoid synchronized rows/forests.
  r.nextCheck=now+30000+Math.floor(random()*30000);r.attempts++;r.lastPrimaryProgress=t.lastProgress;
  const previous=b.heldItem?.name;let planted=0;
@@ -86,10 +87,10 @@ async function tick(t,b,motor,state,{now=Date.now(),random=Math.random}={}){
  try{
   await inventory.equip(b,choice.name);
   // Recheck the whole spot after equipping; another player may have approached.
-  if(!idle(t,b,state)||!safe(t,b,state,choice.group,choice.name))return false;
+  if(!idle(t,b,state,opportunity)||!safe(t,b,state,choice.group,choice.name))return false;
   if(choice.group.length===4)r.pending={name:choice.name,positions:choice.group.map(p=>p.toArray())};
   for(const p of choice.positions){
-   if(!idle(t,b,state)||!empty(b.blockAt(p))||space.busy(b,state.run,p))break;
+   if(!idle(t,b,state,opportunity)||!empty(b.blockAt(p))||space.busy(b,state.run,p))break;
    if(!await place(b,p,choice.name))break;
    planted++;r.planted++;r.last={item:choice.name,position:p.toArray(),at:Date.now()};
   }

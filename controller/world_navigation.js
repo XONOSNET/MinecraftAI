@@ -89,7 +89,7 @@ class WorldNavigation{
   const previous=this.lastPosition;this.lastPosition=[p.x,p.y,p.z];
   // A waypoint crossed in midair is still the landing target. Advancing or
   // replanning before touchdown can replace it with an unsupported start cell.
-  while((bot.entity.onGround!==false||this.waterRoute&&bot.entity.isInWater)&&this.path.length&&Math.abs(this.path[0][1]-p.y)<(this.waterRoute?1.4:.4)){
+  while((bot.entity.onGround!==false||this.waterRoute&&(bot.entity.isInWater||this.path[0]&&Math.hypot(this.path[0][0]-p.x,this.path[0][2]-p.z)<.45))&&this.path.length&&Math.abs(this.path[0][1]-p.y)<(this.waterRoute?1.4:.4)){
    const q=this.path[0],near=Math.hypot(q[0]-p.x,q[2]-p.z)<(this.waterRoute ? .45 : q.centering ? .15 : .4);
    const crossed=previous&&Math.abs(previous[1]-p.y)<.4&&Math.hypot(previous[0]-p.x,previous[2]-p.z)<=4&&segmentDistance({x:q[0],z:q[2]},previous,[p.x,p.y,p.z])<.12;
    // Momentum can pass a landing center before the first grounded reply.
@@ -102,12 +102,12 @@ class WorldNavigation{
   // Keep a valid route while making progress. Periodic shortest-path swaps
   // around moving neighbors were sending bots between opposite house aisles.
   const due=now-this.lastPlan>=forBot(bot).route_replan_ms&&(!this.path.length||this.blocked||now-this.progressAt>2500);
-  const landing=bot.entity.onGround===false&&this.path.length&&!invalid&&!offRoute;
+  const landing=(bot.entity.onGround===false||this.waterRoute)&&this.path.length&&!invalid&&!offRoute;
   if(!landing&&(this.lastPlan===-Infinity||due||offRoute||invalid||this.waiting&&bot.entity.onGround===true)){
    // The expedition region is wider than the old 96-cell search radius.
    // Keep room beyond a distant goal for the last turn around a hill/house.
    const radius=Math.min(192,Math.max(96,Math.ceil(Math.hypot(target[0]-p.x,target[2]-p.z))+16));
-   let planned=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden});this.lastPlan=now;this.anchor=[p.x,p.y,p.z];
+   let planned=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden,allowGaps:true});this.lastPlan=now;this.anchor=[p.x,p.y,p.z];
    if(!planned.reached&&!planned.waiting_for_ground&&memory){const remembered=memory.detour(bot,target,bounds);if(remembered&&!remembered.some(q=>forbidden([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])]))){planned={...planned,reached:true,path:remembered};memory.replans++;}}
    // A distant remembered home can be outside the client's loaded chunks.
    // Advance a short, actually checked prefix toward that unknown destination
@@ -129,7 +129,7 @@ class WorldNavigation{
   }else this.replanned=false;
   // Replace tiny grid zigzags with a short, body-safe direct leg. Remove the
   // bypassed cells so the follower never turns back to visit old grid corners.
-  const smooth=this.waterRoute?this.path[0]:require('./route_smoothing').smoothCue(bot,p,this.path,{bounds,forbidden});
+  const smooth=this.path[0]?.gapFrom?this.path[0]:require('./route_smoothing').smoothCue(bot,p,this.path,{bounds,forbidden,allowWater:this.waterRoute});
   const skipped=this.path.indexOf(smooth);
   if(skipped>0){this.path.splice(0,skipped);this.anchor=[p.x,p.y,p.z];}
   let remaining=0,from=[p.x,p.y,p.z];for(const point of this.path){remaining+=Math.hypot(point[0]-from[0],point[2]-from[2])+Math.abs(point[1]-from[1])*.4;from=point;}

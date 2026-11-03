@@ -75,3 +75,10 @@ test('placement failures never stop the trial, credit planting or lose the equip
  assert.equal(await forest.tick(t,b,motor,state,{now:100,random:()=>0}),false);
  assert.equal(t.reforest.planted,0);assert.match(t.reforest.last_error,/refused/);assert.equal(t.phase,'gather');assert.equal(b.heldItem.name,'stone_axe');assert.equal(b.listenerCount('blockUpdate'),0);
 });
+
+
+test('a safe outdoor travel opportunity briefly pauses to plant without extending lesson progress',async ctx=>{
+ const {t,b,state,motor,items}=fixture(ctx);t.navigationActive=true;b.entity.velocity.x=.15;b.getControlState=k=>k==='forward';let pauses=0;motor.pause=()=>pauses++;
+ assert.equal(await forest.tick(t,b,motor,state,{now:100,random:()=>0,opportunity:true}),true);
+ assert.equal(pauses,1);assert.equal(items[0].count,4);assert.equal(t.lastProgress,123);assert.equal(t.phase,'gather');
+});

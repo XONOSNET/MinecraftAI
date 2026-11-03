@@ -11,8 +11,8 @@ LEVELS=[
          description='Survey natural build sites and resources. No planted resources or cleared camp; hostile protection remains.'),
     dict(id=3,name='Wilderness survival',prepared=False,trees=False,stations=False,hostiles=True,hold_seconds=1800,
          description='Natural terrain and ordinary hostile mobs. Complete the survival chain and remain alive for 30 minutes.')]
-LESSONS=['Enclose a hut','Craft and place a chest','Craft a wooden pickaxe','Craft a wooden axe','Craft a wooden shovel','Store eight planks and equip the axe',
-         'Find and mine accessible stone','Craft a stone pickaxe','Craft a stone axe','Craft and place a furnace','Smelt charcoal','Mount indoor and outdoor wall torches',
+LESSONS=['Enclose a hut','Craft a wooden pickaxe','Find and mine accessible stone','Craft a stone pickaxe','Craft a stone axe',
+         'Craft and place a furnace','Smelt charcoal','Mount indoor and outdoor wall torches','Craft and place a chest','Craft a wooden axe','Craft a wooden shovel','Store eight planks and equip the axe',
          'Find and collect food','Cook four meals','Return home with provisions','Collect three white wool','Craft a bed and register home','Complete a resource scouting round trip','Remain safely sheltered']
 
 def profile(level):

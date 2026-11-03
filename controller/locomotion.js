@@ -58,12 +58,27 @@ function motorPlan(action,permissions,task,sensed,angle,traveling=false){
 }
 function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
  const recovery=createRecovery(()=>forBot(bot)),doorway=createDoorway(),strafe=createStrafe(bot);
- let plan=null,targetYaw=null,expires=0,last=clock(),paused=true,lookLocked=false,stalled=false,lastSafetyAt=-Infinity,groundSafe=true,lastSprintSafetyAt=-Infinity,sprintSafe=false;
- function clear(){if(bot.labResourceAccess)bot.labResourceAccess.cancelled=true;if(bot.labCriticalAttack)bot.labCriticalAttack.cancelled=true;recovery.reset();doorway.reset();strafe.reset();bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
+ let plan=null,targetYaw=null,jumpLease=null,expires=0,last=clock(),paused=true,lookLocked=false,stalled=false,lastSafetyAt=-Infinity,groundSafe=true,lastSprintSafetyAt=-Infinity,sprintSafe=false;
+ function clear(){if(bot.labResourceAccess)bot.labResourceAccess.cancelled=true;if(bot.labCriticalAttack)bot.labCriticalAttack.cancelled=true;recovery.reset();doorway.reset();strafe.reset();jumpLease=null;bot.labRecovering=false;bot.labAvoiding=false;bot.setControlState('back',false);plan=null;targetYaw=null;paused=true;stalled=false;pauseMotion(bot,permissions);}
  return {
   command(action,task,sensed,angle){
    if(!Number.isFinite(angle)||!Number.isFinite(bot.entity?.yaw)){clear();return 'Waiting for valid orientation';}
    stalled=false;
+   if(jumpLease){
+    // A grounded takeoff can still be cancelled; once airborne keep the
+    // checked forward trajectory until landing rather than stuttering mid-jump.
+    if(bot.entity.onGround===true&&!jumpLease.airborne&&![0,3].includes(action)){jumpLease=null;}
+    else return jumpLease.label;
+   }
+   const jumpGoal=task?.waypoints?.[0],p0=bot.entity?.position;
+   if(jumpGoal&&bot.blockAt&&permissions.move&&permissions.jump&&bot.entity.onGround===true&&[0,3].includes(action)&&Math.abs(angle)<.18){
+    const from=[Math.floor(p0.x),Math.round(p0.y),Math.floor(p0.z)],to=[Math.floor(jumpGoal[0]),Math.round(jumpGoal[1]),Math.floor(jumpGoal[2])];
+    const gap=!!task.gap_jump&&require('./checked_jump').gap(bot,from,to,{bounds:task.bounds});
+    const step=!!task.auto_step&&Math.hypot(jumpGoal[0]-p0.x,jumpGoal[2]-p0.z)<1.35&&require('./checked_jump').step(bot,jumpGoal);
+    if((gap||step)&&space.clearOfPlayers(bot,new Vec3(...jumpGoal),1)){
+     recovery.reset();doorway.reset();strafe.reset();jumpLease={goal:jumpGoal,yaw:bot.entity.yaw+angle,until:clock()+1500,airborne:false,gap,label:gap?'Jumping the checked one-block gap':'Stepping up while holding forward'};paused=false;return jumpLease.label;
+    }
+   }
    if(task?.water_route&&task.waypoints?.length){
     const moving=[0,3,5].includes(action),label=moving?'Following checked water crossing':[1,2].includes(action)?'Aligning with checked water crossing':'Policy chose to hold position in water; maintaining buoyancy';
     recovery.reset();doorway.reset();strafe.reset();plan={waterGoal:task.waypoints[0],waterMove:moving,label};expires=clock()+1500;paused=false;return plan.label;
@@ -144,11 +159,20 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
   },
   pause:clear,
   passageActive:()=>doorway.active(),
-  status(){return stalled?'Waiting for policy response':plan?.waterGoal?plan.label:doorway.active()?doorway.label():recovery.active()?recovery.label():plan?.side&&(bot.getControlState('left')||bot.getControlState('right'))?plan.label:plan?.sprint&&bot.getControlState('sprint')?'Sprinting on clear ground':null;},
+  status(){return jumpLease?jumpLease.label:stalled?'Waiting for policy response':plan?.waterGoal?plan.label:doorway.active()?doorway.label():recovery.active()?recovery.label():plan?.side&&(bot.getControlState('left')||bot.getControlState('right'))?plan.label:plan?.sprint&&bot.getControlState('sprint')?'Sprinting on clear ground':null;},
   diagnostic(){return {label:plan?.label||null,paused,expired:stalled||!paused&&clock()>expires,ground_safe:groundSafe,precise_focus:!!plan?.preciseFocus,recovering:recovery.active(),doorway:doorway.active(),controls:Object.fromEntries(['forward','back','left','right','jump','sneak','sprint'].map(k=>[k,!!bot.getControlState(k)]))};},
   lockLook(value){lookLocked=value;},
   tick(){
    if(legacy||!bot.entity)return;
+   if(jumpLease){
+    const j=jumpLease,p=bot.entity.position;
+    if(clock()>=j.until||j.airborne&&bot.entity.onGround===true){jumpLease=null;plan=null;paused=true;pauseMotion(bot,permissions);return;}
+    if(bot.entity.onGround===false)j.airborne=true;
+    for(const k of ['back','left','right','sneak'])bot.setControlState(k,false);
+    const along=-(j.goal[0]-p.x)*Math.sin(j.yaw)-(j.goal[2]-p.z)*Math.cos(j.yaw);
+    bot.setControlState('forward',!!permissions.move&&along>.08);bot.setControlState('jump',!!permissions.jump&&!j.airborne);bot.setControlState('sprint',false);
+    if(permissions.turn&&bot.look)Promise.resolve(bot.look(j.yaw,0,true)).catch(()=>clear());return;
+   }
    // Short, bounded physical build-up owns movement until landing or cancellation.
    const access=bot.labResourceAccess;if(access&&!access.cancelled&&Date.now()<access.until)return;
    const leap=bot.labCriticalAttack;

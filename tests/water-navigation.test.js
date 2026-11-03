@@ -106,3 +106,13 @@ test('water motor honors wait actions while maintaining buoyancy',()=>{
  motor.command(4,{water_route:true,waypoints:[[4.5,63.1,.5]]},null,0);motor.tick();assert.equal(controls.forward,false);
  motor.pause();assert.equal(controls.forward,false);assert.equal(controls.jump,true);
 });
+
+
+test('water bobbing keeps a valid route and an airborne bank exit never points backward',()=>{
+ const {b}=fixture(),n=new WorldNavigation(),goal=[10.5,64.1,.5],now=Date.now();
+ b.entity.position=new Vec3(4.5,63.8,.5);b.entity.isInWater=true;b.entity.onGround=false;
+ n.waterRoute=true;n.destination=goal.join(',');n.lastPlan=now-10000;n.progressAt=now-3000;n.best=20;n.anchor=[3.5,63.1,.5];n.path=[[5.5,63.1,.5],[6.5,63.1,.5],[7.5,64.1,.5],[10.5,64.1,.5]];
+ let plan=n.plan(b,goal,{bounds:[-2,13,-3,3],now});assert.equal(n.replanned,false);assert.ok(plan.cue[0]>4.5);
+ b.entity.position=new Vec3(6.7,64.2,.5);b.entity.isInWater=false;n.anchor=[5.5,63.1,.5];n.path=[[6.5,63.1,.5],[7.5,64.1,.5],[10.5,64.1,.5]];
+ plan=n.plan(b,goal,{bounds:[-2,13,-3,3],now:now+100});assert.ok(plan.cue[0]>=7.5);
+});

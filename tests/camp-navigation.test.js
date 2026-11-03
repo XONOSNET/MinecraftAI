@@ -47,7 +47,7 @@ test('remembered solid resources do not crowd reachable scouting ground out of t
 
 test('a precise waypoint crossed between decisions advances instead of turning back',()=>{
  const b=flat(),base=b.blockAt;b.entity.position=new Vec3(.1,64,.5);b.blockAt=p=>p.x===0&&p.y===64&&p.z===1?{name:'stone',position:p,boundingBox:'block',getProperties:()=>({})}:base(p);
- const nav=new WorldNavigation();let planned=nav.plan(b,[6.5,64.1,.5],{bounds:[-20,20,-20,20],now:1000});assert.equal(nav.path[0].centering,true);
+ const nav=new WorldNavigation();let planned=nav.plan(b,[6.5,64.1,.5],{bounds:[-20,20,-20,20],now:1000});assert.ok(planned.cue[0]>=.5,'a checked flat shortcut may bypass a generated center');
  b.entity.position.x=.7;planned=nav.plan(b,[6.5,64.1,.5],{bounds:[-20,20,-20,20],now:1200});assert.ok(nav.path[0][0]>=1.5);assert.ok(planned.cue[0]>=1.5);assert.ok(!nav.path[0].centering);
 });
 

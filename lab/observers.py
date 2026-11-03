@@ -377,7 +377,8 @@ class Observers:
             if (mode in ('evaluate','untrained','random','heuristic') or getattr(self,'progress_context',{}).get('phase')=='queued_teacher') and a.get('trial_completed',0)>=getattr(self,'progress_context',{}).get('episodes',3):activity='Done; waiting'
             world=getattr(self,'progress_context',{}).get('world')
             if world and getattr(self,'progress_context',{}).get('job',{}).get('status') not in ('running','cancelling'):activity=world['results'].get(name,{}).get('phase',world['phase']).title()
-            color='gold' if name in watched else 'aqua'
+            stopped=bool(world and world.get('results',{}).get(name,{}).get('state')=='stopped')
+            color='gray' if stopped else 'gold' if name in watched else 'aqua'
             row=(a.get('display_name') or name,activity,color)
             previous=self.roster_rows.get(name)
             if previous==row:continue
