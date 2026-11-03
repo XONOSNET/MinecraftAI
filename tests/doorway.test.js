@@ -40,7 +40,7 @@ test('reverse-side approach works, closed door waits, unsafe paths never move',(
  let a=c.update(base,sensed({...door,open:false}),p,Math.PI/2,0,permissions);assert.match(a.label,/waiting for door/);assert.equal(a.forward,false);
  a=c.update(base,sensed(door,()=>false),p,Math.PI/2,100,permissions);assert.equal(a.forward,false);
  a=c.update(base,sensed(),p,Math.PI/2,200,permissions);assert.equal(a.forward,true);assert.equal(a.targetYaw,Math.PI/2);
- assert.match(c.update(base,sensed(),p,0,13000,permissions).label,/waiting for reset/);
+ assert.equal(c.update(base,sensed(),p,0,13000,permissions),null,'expired alignment releases the checked route');
 });
 test('north/south doors use the same stable cross-axis alignment',()=>{
  const c=createDoorway(),d={...door,axis:'z'};
@@ -102,4 +102,13 @@ test('a route-checked lower landing allows an upright doorway exit, with drop pr
  assert.equal(unsafe.forward,false);
  const unverified=createDoorway().update(base,{...s,doorway:door},p,-Math.PI/2,0,permissions);
  assert.equal(unverified.forward,false);assert.equal(unverified.descent,false);
+});
+
+
+test('a timed-out doorway relinquishes control to the checked route instead of holding forever',()=>{
+ const c=createDoorway(),p={x:-2,y:181,z:door.center},s=sensed(door,()=>false);
+ assert.ok(c.update(base,s,p,0,0,permissions));assert.equal(c.active(),true);
+ assert.equal(c.update(base,s,p,0,12001,permissions),null);assert.equal(c.active(),false);
+ assert.equal(c.update(base,s,p,0,12002,permissions),null,'the same stale alignment must not immediately reacquire control');
+ c.reset();assert.ok(c.update(base,s,p,0,12003,permissions),'a new task can use doorway guidance again');
 });

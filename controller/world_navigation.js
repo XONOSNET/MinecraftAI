@@ -102,7 +102,9 @@ class WorldNavigation{
   // Keep a valid route while making progress. Periodic shortest-path swaps
   // around moving neighbors were sending bots between opposite house aisles.
   const due=now-this.lastPlan>=forBot(bot).route_replan_ms&&(!this.path.length||this.blocked||now-this.progressAt>2500);
-  const landing=(bot.entity.onGround===false||this.waterRoute)&&this.path.length&&!invalid&&!offRoute;
+  // Bobbing preserves a progressing swim, but a stationary water route must
+  // still replan around changed obstacles and players instead of pinning forever.
+  const landing=(this.waterRoute?now-this.progressAt<2500:bot.entity.onGround===false)&&this.path.length&&!invalid&&!offRoute;
   if(!landing&&(this.lastPlan===-Infinity||due||offRoute||invalid||this.waiting&&bot.entity.onGround===true)){
    // The expedition region is wider than the old 96-cell search radius.
    // Keep room beyond a distant goal for the last turn around a hill/house.
