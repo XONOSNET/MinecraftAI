@@ -8,6 +8,9 @@ function fixture(){
  b.set=(x,y,z,n)=>blocks.set(new Vec3(x,y,z).toString(),n);return b;
 }
 test('Gather cuts reachable logs before moving to an old approach or collecting loose wood',async()=>{
+ // Load the expensive registry before starting controller scan/report timers.
+ // Otherwise parallel test load can expire them halfway through this fixture.
+ const registry=require('prismarine-registry')('1.21.4'),Item=require('prismarine-item')(registry);
  const b=fixture(),p=b.entity.position,now=Date.now(),t=new HutTeacher(),target=new Vec3(2,65,0),goal=[1.5,65.1,.5];
  b.set(1,64,0,'stone');b.set(2,65,0,'oak_log');b.world={raycast:()=>b.blockAt(target)};
  Object.assign(t,{run:'fixture',phase:'gather',started:now,lastProgress:now,lastReport:now,last:p.clone(),anchor:p.clone(),travelled:0,
@@ -18,7 +21,7 @@ test('Gather cuts reachable logs before moving to an old approach or collecting 
  const state={run:'fixture',world:{bounds:[-20,20,-20,20],mission:'hut'}},motor={pause(){}};
  await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(walked,0);assert.equal(mined,1);
  b.entity.position=new Vec3(1.5,65,.5);await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(mined,2);
- b.registry=require('prismarine-registry')('1.21.4');const Item=require('prismarine-item')(b.registry),index=b.registry.entitiesByName.item.metadataKeys.indexOf('item');
+ b.registry=registry;const index=b.registry.entitiesByName.item.metadataKeys.indexOf('item');
  b.entities.drop={id:12,name:'item',position:new Vec3(1.8,65.2,.5),metadata:{[index]:Item.toNotch(new Item(b.registry.itemsByName.oak_log.id,1))}};
  let collected=0;t.collectWood=async()=>{collected++;};
  await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(collected,0);assert.equal(mined,3,'reachable logs retain the work stance');

@@ -30,6 +30,18 @@ function returnGoal(t,b,state){
   return planned.reached||travelRoute(b,g,Math.min(192,Math.max(96,radius*2)),16384,true,options).reached;
  })||null;
 }
+function returnTarget(t,b,state,field){
+ const cached=t[field];
+ if(cached){
+  const cell=[Math.floor(cached[0]),Math.round(cached[1]),Math.floor(cached[2])];
+  // A distant unloaded approach uses the plot's nominal height. Once chunks
+  // arrive, that cached height may be solid terrain rather than a landing.
+  // Keep unknown targets for checked prefix travel, but re-sense invalid ones.
+  if(!b.blockAt(new Vec3(...cell))||standable(b,...cell)||require('./water_navigation').cell(b,...cell)?.wet===false)return cached;
+  t[field]=null;
+ }
+ return returnGoal(t,b,state);
+}
 function stances(t,b,q,tiles,state,used=new Set()){
  const p=b.entity.position;
  // Navigation can arrive 0.4m short of a cell center. A neighboring one-cell
@@ -47,7 +59,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
  // Prefer the exterior, then a checked intact plot stance; skip any dug holes.
  if(Math.hypot(p.x-t.plot.x-.5,p.z-t.plot.z-.5)>6||Math.abs(p.y-t.plot.y)>1.25){
   if(b.entity.onGround===false&&!b.entity.isInWater){motor.pause();t.message='Waiting to land before checking the return route to the house floor';return;}
-  const goal=t.floorReturnGoal||returnGoal(t,b,state);
+  const goal=returnTarget(t,b,state,'floorReturnGoal');
   if(!goal)throw Error('No safe return route to the unfinished house floor');
   t.floorReturnGoal=goal;
   const moved=await t.walk(b,motor,goal,state,api,scan,tasks);
@@ -97,4 +109,4 @@ async function tick(t,b,motor,state,api,scan,tasks){
  }
  t.floorRecovery=null;t.lastProgress=Date.now();t.message=`Laying wooden floor ${tiles.length-remaining.length+1} / ${tiles.length}`;
 }
-module.exports={tick,stances,returnGoal,safeFoundation};
+module.exports={tick,stances,returnGoal,returnTarget,safeFoundation};

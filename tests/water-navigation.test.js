@@ -97,10 +97,12 @@ test('water motor honors wait actions while maintaining buoyancy',()=>{
  const {b,controls}=fixture();b.entity.position=new Vec3(3.5,63,.5);b.entity.isInWater=true;b.getControlState=k=>!!controls[k];
  const motor=require('../controller/locomotion').createMotor(b,{move:true,jump:true,turn:true});
  motor.command(4,{water_route:true,waypoints:[[4.5,63.1,.5]]},null,0);motor.tick();assert.equal(controls.forward,false);assert.equal(controls.jump,true);
+ assert.match(motor.status(),/hold position in water/);
  motor.command(0,{water_route:true,waypoints:[[4.5,63.1,.5]]},null,0);motor.tick();assert.equal(controls.forward,true);
  // The teacher selects swim-up (5) beside a rising bank. Buoyancy without
  // forward travel cannot climb out, so this is a moving water intention.
  motor.command(5,{water_route:true,waypoints:[[4.5,63.1,.5]]},null,0);motor.tick();assert.equal(controls.forward,true);assert.equal(controls.jump,true);
+ assert.match(motor.command(6,{water_route:true,waypoints:[[4.5,63.1,.5]]},null,0),/hold position in water/);motor.tick();assert.equal(controls.forward,false,'the displayed policy hold is not silently replaced by teacher travel');
  motor.command(4,{water_route:true,waypoints:[[4.5,63.1,.5]]},null,0);motor.tick();assert.equal(controls.forward,false);
  motor.pause();assert.equal(controls.forward,false);assert.equal(controls.jump,true);
 });

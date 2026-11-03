@@ -95,3 +95,14 @@ test('swimming home remains allowed instead of waiting for dry-ground onGround',
   assert.equal(walked,true,phase+' must allow checked swimming return');assert.doesNotMatch(t.message,/Waiting to land/);
  }
 });
+
+test('construction returns refresh a nominal unloaded height once its cell loads as solid ground',async()=>{
+ for(const phase of ['floor','clear_plot']){
+  const {t,b,state,motor}=fixture();t.phase=phase;state.world.bounds=[-100,100,-100,100];b.entity.position=new Vec3(40.5,64,.5);t.lastProgress=123;
+  b.blockAt=p=>{p=p.floored();const name=p.y<64||p.x===0&&p.z===-5&&p.y===64?'grass_block':'air';return {name,position:p,boundingBox:name==='air'?'empty':'block'};};
+  const field=phase==='floor'?'floorReturnGoal':'plotReturnGoal';t[field]=[.5,64.1,-4.5];let goal;
+  t.walk=async(_b,_m,g)=>{goal=g;return undefined;};
+  if(phase==='floor')await t.buildFloor(b,motor,state);else await require('../controller/plot_clearance').tick(t,b,motor,state);
+  assert.deepEqual(goal,[.5,65.1,-4.5]);assert.deepEqual(t[field],goal);assert.equal(t.lastProgress,123,'refreshing geometry is not lesson progress');
+ }
+});
