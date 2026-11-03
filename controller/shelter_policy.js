@@ -36,7 +36,10 @@ function assess(b,w){
  const overwhelmed=nearby.length>0&&((b.health??20)<12||pressure>capacity);
  let mode='work',reason='No immediate hostile encounter';
  if(w.first_night?.hostiles){
-  if(overwhelmed){mode='cover';reason='Outmatched: '+nearby.length+' nearby hostile(s), threat '+pressure+' versus capacity '+capacity.toFixed(1);}
+  // The survival defense specialist does not implement creeper combat. Never
+  // label one manageable and then fall through to gathering without defending.
+  if(nearby.some(e=>e.name==='creeper')){mode='cover';reason='Creeper nearby: disengage and seek cover; explosive combat is not supported';}
+  else if(overwhelmed){mode='cover';reason='Outmatched: '+nearby.length+' nearby hostile(s), threat '+pressure+' versus capacity '+capacity.toFixed(1);}
   else if(night&&!cave&&!equipped(b)){mode='cover';reason='Unprotected on the surface at night';}
   else if(nearby.length){mode='fight';reason=(cave?'Underground':'Daytime')+' encounter is manageable';}
  }

@@ -29,6 +29,13 @@ judging its return route. A brief descent is not a permanent route failure.
 Actual blocked grounded routes still fail, and swimming returns remain enabled.
 Waiting does not refresh the stall deadline or grant construction progress.
 
+Survival encounters with visible nearby creepers request cover even in daylight.
+The current defensive combat specialist does not support creepers; classifying
+one as a manageable fight previously let work resume without either combat or
+cover. Other manageable daytime encounters still use the combat specialist.
+This adds no protection, resources or survival credit, and does not implement a
+creeper-fighting skill.
+
 Validation: JavaScript regression tests cover replacement, supply gathering,
 shelter interruption, rejected crafting output, upgrade selection, mine return
 and stone target retention. `scripts/verify_staircase_mining_native.cjs` uses an

@@ -35,6 +35,22 @@ test('daytime lone attackers trigger unarmed self-defense even when a hut exists
  ctx.mock.method(burrow,'tick',async()=>{throw Error('Manageable daylight fight must precede excavation');});
  assert.equal(await night.interrupt(t,b,{pause(){}},state),true);assert.equal(defended,1);assert.equal(t.phase,'gather');
 });
+
+test('a daytime creeper triggers cover rather than an unsupported manageable fight',()=>{
+ const {b,t,state}=fixture();b.time.timeOfDay=6000;b.inventory.items=()=>[{name:'stone_axe',count:1}];
+ b.entities.c={name:'creeper',isValid:true,position:new Vec3(8,64,.5)};
+ for(const armored of [false,true]){
+  b.inventory.slots[5]=armored?{name:'iron_helmet'}:null;
+  assert.equal(policy.assess(b,state.world).mode,'cover');assert.match(policy.assess(b,state.world).reason,/Creeper/);assert.equal(night.priority(b,t,state.world).kind,'retreat');
+ }
+ t.milestones=[];assert.equal(night.priority(b,t,state.world).kind,'seek cover');
+});
+
+test('creeper cover does not trigger for invalid enemies or protected training lessons',()=>{
+ const {b,state}=fixture();b.time.timeOfDay=6000;b.inventory.items=()=>[{name:'stone_axe',count:1}];
+ b.entities.c={name:'creeper',isValid:false,position:new Vec3(8,64,.5)};assert.equal(policy.assess(b,state.world).mode,'work');
+ b.entities.c.isValid=true;state.world.first_night.hostiles=false;assert.equal(policy.assess(b,state.world).mode,'work');
+});
 test('underground assessment distinguishes a lone enemy, groups, ranged threats and equipment',()=>{
  const {b,state}=fixture();b.blockAt=()=>({name:'stone'});b.entities.z={name:'zombie',position:new Vec3(2,64,0)};
  let risk=policy.assess(b,state.world);assert.equal(risk.underground,true);assert.equal(risk.mode,'fight','a manageable cave encounter is not decided by surface time');
