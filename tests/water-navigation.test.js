@@ -124,3 +124,17 @@ test('a stalled water route releases its lock so new obstacles and nearby player
  n.waterRoute=true;n.destination=goal.join(',');n.lastPlan=now-10000;n.progressAt=now-3000;n.best=20;n.anchor=[3.5,63.1,.5];n.path=[[5.5,63.1,.5],[6.5,63.1,.5],[7.5,64.1,.5],[10.5,64.1,.5]];
  n.plan(b,goal,{bounds:[-2,13,-3,3],now});assert.equal(n.replanned,true,'bobbing cannot pin a stalled route indefinitely');
 });
+
+
+test('a swimmer returning to unloaded home first takes a verified dry-shore prefix',()=>{
+ const {b}=fixture(),at=b.blockAt;b.blockAt=p=>p.x>=13?null:at(p);b.entity.position=new Vec3(4.5,63,.5);b.entity.isInWater=true;b.entity.onGround=false;
+ const goal=[100.5,64.1,.5],n=new WorldNavigation(),plan=n.plan(b,goal,{bounds:[-2,110,-3,3]});
+ assert.equal(plan.blocked,false);assert.equal(plan.arrived,false);assert.equal(plan.water_route,true);assert.equal(n.status.partial_route,true);assert.ok(plan.path.length<=12);
+ const shore=plan.path.at(-1);assert.equal(water.cell(b,Math.floor(shore[0]),Math.round(shore[1]),Math.floor(shore[2])).wet,false);assert.equal(water.validRoute(b,plan.path,shore),true);
+});
+
+test('an unloaded distant home never turns an all-water prefix into a completed crossing',()=>{
+ const {b}=fixture();b.entity.position=new Vec3(4.5,63,.5);b.entity.isInWater=true;b.entity.onGround=false;
+ b.blockAt=p=>{p=p.floored();if(p.x>=13||p.x<0||Math.abs(p.z)>2)return null;const name=p.y>=61&&p.y<=63?'water':p.y<61?'stone':'air';return {position:p,name,boundingBox:['air','water'].includes(name)?'empty':'block',getProperties:()=>({level:0})};};
+ const n=new WorldNavigation(),plan=n.plan(b,[100.5,64.1,.5],{bounds:[-2,110,-3,3]});assert.equal(plan.blocked,true);assert.equal(plan.arrived,false);assert.equal(n.status.partial_route,false);
+});

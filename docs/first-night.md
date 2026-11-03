@@ -62,3 +62,6 @@ Water-route continuity is conditional on recent route progress. After 2.5 second
 
 
 After the final home repair, an open door is secured from the verified room interior. A final work stance outside interaction range now routes back inside before the normal door-close interaction, then resumes the interrupted lesson. The native damaged-house fixture also checks this distant finishing position without adding milestones or relaxing repair verification.
+
+
+A swimmer whose home is outside its loaded chunks may first follow a checked route prefix to nearby dry shore. This leg is limited to twelve waypoints, must make at least four blocks of progress toward home, and must pass the normal water-route checks with a dry endpoint. All-water prefixes remain rejected. Reaching this shore does not count as reaching home; the controller replans the remaining return as chunks load.
