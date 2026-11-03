@@ -144,6 +144,14 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
    const radius=Math.min(192,Math.max(24,Math.ceil(b.entity.position.distanceTo(home))+8));
    if(nav.route(b,point(home),radius,8192,true,{bounds:state.world.bounds,reversible:true}).reached)m.exitIndex=0;
   }
+  // Changed blocks can invalidate one waypoint without trapping the miner.
+  // Skip it only when a sensed, reversible route reaches an earlier safe stair.
+  const oldGoal=new Vec3(...m.path[m.exitIndex]);
+  if(!nav.standable(b,oldGoal.x,oldGoal.y,oldGoal.z)){
+   for(let i=m.exitIndex-1;i>=0;i--){const v=new Vec3(...m.path[i]);
+    if(nav.standable(b,v.x,v.y,v.z)&&nav.route(b,point(v),48,4096,true,{bounds:state.world.bounds,reversible:true}).reached){m.exitIndex=i;break;}
+   }
+  }
   const q=new Vec3(...m.path[m.exitIndex]);
   if(!nav.standable(b,q.x,q.y,q.z))throw Error('Recorded mine return stair is obstructed or unsafe');
   const arrived=await t.walk(b,motor,point(q),state,api,scan,tasks);

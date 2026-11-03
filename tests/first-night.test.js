@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),{Vec3}=require('vec3'),night=require('../controller/first_night'),{WildernessMemory}=require('../controller/wilderness_memory');
-function bot(){return {health:20,food:20,username:'LabAI0',entity:{position:new Vec3(.5,64,.5),onGround:true},entities:{},players:{},inventory:{items:()=>[]},world:{raycast:()=>null},blockAt(p){return {name:p.y<64?'stone':'air',position:p,boundingBox:p.y<64?'block':'empty'};}};}
+function bot(){return {health:20,food:20,username:'LabAI0',entity:{position:new Vec3(.5,64,.5),onGround:true},entities:{},players:{},inventory:{items:()=>[{name:'wooden_axe',count:1}]},world:{raycast:()=>null},blockAt(p){return {name:p.y<64?'stone':'air',position:p,boundingBox:p.y<64?'block':'empty'};}};}
 
 test('First Night mines exposed stone faces without removing lower neighboring support',async()=>{
  const scan=require('../controller/resource_scan'),original=scan.stone,b=bot(),floor=new Vec3(2,63,0),face=new Vec3(2,64,0);
@@ -20,6 +20,17 @@ test('First Night starts a staircase when exposed stone is unavailable and retur
  b.inventory.items=()=>[{name:'cobblestone',count:16}];await night.tick(t,b,{pause(){}},state);
  assert.equal(digs,2);assert.deepEqual(t.milestones,[],'gathering enough stone does not skip the return staircase');
  t.wilderness.mine.stage='done';await night.tick(t,b,{pause(){}},state);assert.deepEqual(t.milestones,['quarry']);assert.equal(t.phase,'night_fuel');
+});
+
+test('reaching a stone approach retains the resource; a failed approach rejects it',async ctx=>{
+ for(const arrived of [true,false]){
+  const b=bot(),q={name:'stone',position:new Vec3(5,64,0)},t={phase:'night_stone',plot:{x:-10,y:64,z:-10},milestones:[],walk:async()=>arrived};night.init(t,{});
+  b.blockAt=p=>({name:p.equals(q.position)?'stone':p.y<64?'stone':'air',position:p,boundingBox:p.equals(q.position)||p.y<64?'block':'empty'});b.canDigBlock=()=>true;
+  Object.assign(t.wilderness,{stoneScan:Date.now(),stones:[q],stoneApproach:{q,goal:[4.5,64.1,.5]}});
+  ctx.mock.method(require('../controller/resource_access'),'canClear',()=>false);
+  await night.tick(t,b,{pause(){}},{world:{bounds:[-20,20,-20,20],first_night:{}}});
+  assert.equal(t.wilderness.memory.available([5,64,0]),arrived);assert.equal(t.wilderness.stoneApproach,null);
+ }
 });
 test('survival priorities interrupt work to eat or retreat and resume the original task',async()=>{
  const b=bot(),t={phase:'gather',milestones:['hut'],navigator:{},lastProgress:0};night.init(t,{});

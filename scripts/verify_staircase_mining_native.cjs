@@ -49,7 +49,14 @@ async function main(){try{
  result.coal_prospect={seconds:(Date.now()-coalAt)/1000,ore_blocks:prospect.coal_mined,path:prospect.path,stage:prospect.stage,reason:prospect.reason,coal:b.inventory.items().filter(i=>i.name==='coal').reduce((s,i)=>s+i.count,0),coal_before:coalBefore};
  assert.equal(prospect.stage,'done');assert.ok(prospect.coal_mined>=3);assert.ok(prospect.path.every(p=>p[1]===plane),'coal prospecting stays level');
  assert.ok(b.inventory.items().filter(i=>i.name==='coal').reduce((s,i)=>s+i.count,0)>=coalBefore+3,'real coal drops collected');
- result.passed=true;
+ // Tool loss on this disposable fixture: craft a real replacement from logs,
+ // equip it, and restore the interrupted lesson without production supplies.
+ await commands(['clear @s','give @s oak_log 2','setblock -1403 211 -1399 crafting_table','tp @s -1399.5 211 -1399.5']);await inventory.sync(b);
+ const recovery=require('../controller/tool_recovery');t.plot={x:-1400,y:211,z:-1400};t.phase='night_stone';t.navigator={};t.wilderness.mine=null;
+ t.craft=async(_b,name,n,workbench)=>{await require('../controller/crafting').craft(b,name,n,workbench);await inventory.sync(b);};
+ recovery.request(t,'wooden_pickaxe');await recovery.tick(t,b,motor,state);
+ assert.equal(b.heldItem?.name,'wooden_pickaxe');assert.equal(t.phase,'night_stone');assert.equal(t.wilderness.toolRecovery,undefined);
+ result.tool_replacement={passed:true,held:b.heldItem.name,lesson:t.phase};result.passed=true;
 }catch(e){result.error=e.stack;process.exitCode=1;}finally{
  b.clearControlStates();await admin({action:'gamemode',gamemode:'creative'}).catch(()=>{});
  if(changed){await commands(['fill -1412 195 -1412 -1388 217 -1388 air','kill @e[type=item,x=-1412,y=-64,z=-1412,dx=24,dy=384,dz=24]','kill @e[type=experience_orb,x=-1412,y=-64,z=-1412,dx=24,dy=384,dz=24]']);await wait(500);for(let x=-1412;x<=-1388;x++)for(let z=-1412;z<=-1388;z++)for(let y=195;y<=217;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air','fixture cleanup verified');}

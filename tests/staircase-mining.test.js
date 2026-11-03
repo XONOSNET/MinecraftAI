@@ -194,3 +194,11 @@ test('home retreat retires a stale flooded mine in every working stage but requi
  f.t.wilderness.mine={stage:'dig',entry:[20,64,0],path:[[20,64,0]],steps:0};
  assert.equal((await mine.tick(f.t,f.b,f.motor,f.state)).done,true);
 });
+
+test('an obstructed return waypoint can be skipped only over a checked reversible route',async ctx=>{
+ const f=fixture(),m=f.t.wilderness.mine={stage:'exit',entry:[0,64,0],path:[[0,64,0],[1,64,0],[2,64,0]],exitIndex:2};
+ f.cells.set(new Vec3(2,64,0).toString(),'stone');f.b.entity.position=new Vec3(2.5,64,.5);
+ const nav=require('../controller/field_navigation');ctx.mock.method(nav,'route',(_b,g,_r,_budget,_diag,options)=>{assert.equal(options.reversible,true);return {reached:g[0]===1.5};});
+ let goal;f.t.walk=async(_b,_m,g)=>{goal=g;return undefined;};
+ await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.exitIndex,1);assert.deepEqual(goal,[1.5,64.1,.5]);assert.equal(m.stage,'exit');assert.equal(f.items.cobblestone,undefined);
+});

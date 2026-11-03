@@ -466,6 +466,12 @@ class HutTeacher{
   else this.message='Rechecking the tracked temporary support before stepping down';
  }
  async harvest(bot,motor,target,state,api,scan,tasks,tool=null){
+  if(tool&&this.wilderness){
+   const recovery=require('./tool_recovery');let ready=recovery.choose(bot,tool);
+   if(!ready){motor.pause();await inventorySync.sync(bot);ready=recovery.choose(bot,tool);}
+   if(!ready&&recovery.request(this,tool))return;
+   tool=ready||tool;
+  }
   this.timing.mark(this.phase,'harvesting');
   const p=bot.entity.position,goal=[target.x+.5,p.y,target.z+.5],desired=Math.atan2(-(goal[0]-p.x),-(goal[2]-p.z)),focusKey=target.toString();
   const pitch=Math.atan2(target.y+.5-p.y-(bot.entity.eyeHeight||1.62),Math.hypot(goal[0]-p.x,goal[2]-p.z));
@@ -488,7 +494,7 @@ class HutTeacher{
    try{
     const axes=['netherite_axe','diamond_axe','iron_axe','stone_axe','wooden_axe','golden_axe'];
     const chosen=tool||axes.find(n=>bot.inventory.items().some(i=>i.name===n));
-    if(chosen&&bot.heldItem?.name!==chosen)await inventorySync.equip(bot,chosen);
+    if(chosen&&bot.heldItem?.name!==chosen){try{await inventorySync.equip(bot,chosen);}catch(error){if(String(error.message).startsWith('Missing item to equip:')&&require('./tool_recovery').request(this,chosen))return;throw error;}}
     const resourceKind=LOG.test(bot.blockAt(target)?.name||'')?'wood':'stone';const success=await harvest(bot,bot.blockAt(target));if(success){const stance=bot.entity.position;if(this.wilderness&&standable(bot,Math.floor(stance.x),Math.round(stance.y),Math.floor(stance.z)))this.wilderness.memory.remember(resourceKind,target,[stance.x,stance.y+.1,stance.z]);this.harvested=(this.harvested||0)+1;this.lastProgress=Date.now();this.harvestTarget=null;if(!this.resources?.some(v=>v.x===target.x&&v.z===target.z&&bot.blockAt(v)?.name.endsWith('_log')&&harvestable(bot,v)))await level(bot);}else{this.harvestTarget=null;await level(bot);this.message='Harvest did not remove the block; reacquiring the target';}this.path=[];
    }finally{motor.lockLook(false);}
   }

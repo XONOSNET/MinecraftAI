@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),{Vec3}=require('vec3'),livestock=require('../controller/first_night_livestock'),night=require('../controller/first_night'),{WildernessMemory}=require('../controller/wilderness_memory');
 const registry=require('prismarine-registry')('1.21.4');
-function bot(){return {username:'LabAI0',registry,health:20,food:20,entity:{position:new Vec3(.5,64,-15.5),onGround:true},entities:{},players:{},inventory:{items:()=>[]},world:{raycast:()=>null},blockAt(p){const q=p.floored();return {name:q.y<64?'stone':'air',position:q,boundingBox:q.y<64?'block':'empty'};}};}
+function bot(){return {username:'LabAI0',registry,health:20,food:20,entity:{position:new Vec3(.5,64,-15.5),onGround:true},entities:{},players:{},inventory:{items:()=>[{name:'wooden_axe',count:1}]},world:{raycast:()=>null},blockAt(p){const q=p.floored();return {name:q.y<64?'stone':'air',position:q,boundingBox:q.y<64?'block':'empty'};}};}
 function setup(){const b=bot(),t={phase:'night_food',plot:{x:0,y:64,z:0},campPlots:[{x:0,y:64,z:0},{x:10,y:64,z:0}],milestones:[],walk:async()=>undefined};night.init(t,{});return {b,t,state:{run:'world-test',world:{first_night:{stations:true},bounds:[-40,40,-40,40],index:0}}};}
 function sheep(id,x=0,color=0,owner='LabAI0'){const metadata={2:'FirstNight'+owner};metadata[registry.entitiesByName.sheep.metadataKeys.indexOf('wool')]=color;return {id,name:'sheep',position:new Vec3(x+.5,64,-18.5),metadata};}
 test('resource sightings remember wool separately and respect ownership and white wool',()=>{

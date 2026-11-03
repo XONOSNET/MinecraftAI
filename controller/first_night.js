@@ -48,13 +48,14 @@ async function interrupt(t,b,motor,state,api,scan){
  if(t.phase==='night_seek_cover'){t.phase=n.coverResume||'gather';delete n.coverResume;t.path=[];t.navigator.lastPlan=-Infinity;return true;}
  if(await require('./survival_defense').tick(t,b,motor,state,api,scan))return true;
  if(p.kind==='retreat'&&!(t.phase==='night_hold'&&b.health>=12)&&!['night_retreat','night_recover'].includes(t.phase)){n.resume=t.phase;n.recoveries++;t.phase='night_retreat';t.path=[];t.navigator.lastPlan=-Infinity;return true;}
- if(p.kind==='resume'&&['night_retreat','night_recover'].includes(t.phase)){t.phase=n.resume;delete n.resume;t.lastProgress=Date.now();return true;}
+ if(p.kind==='resume'&&['night_retreat','night_recover'].includes(t.phase)){t.phase=n.resume;delete n.resume;t.path=[];t.navigator.lastPlan=-Infinity;n.leaving=false;n.explorationLeaving=false;n.stoneApproach=null;n.searchGoal=null;t.lastProgress=Date.now();return true;}
  if(p.kind==='recovery supplies'){t.phase=n.resume;delete n.resume;t.path=[];t.navigator.lastPlan=-Infinity;t.lastProgress=Date.now();t.message=p.reason;return true;}
  if(p.kind==='recovery forage'){
   n.forageResume='night_retreat';t.phase='night_forage';t.path=[];t.navigator.lastPlan=-Infinity;
   t.message=p.reason;return true;
  }
  if(b.food<=10&&!['night_food','night_wool','night_forage','night_retreat','night_recover'].includes(t.phase)&&b.inventory.items().some(i=>i.name.endsWith('_axe'))&&!n.forageResume){n.forageResume=t.phase;t.phase='night_forage';return true;}
+ if(!['night_retreat','night_recover','night_seek_cover'].includes(t.phase)&&await require('./tool_recovery').tick(t,b,motor,state,api,scan,require('./tasks')))return true;
  return false;
 }
 function approaches(b,block,bounds){
@@ -157,7 +158,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
    if(!chosen&&now>=(n.stonePlanAt||0)){
     n.stonePlanAt=now+2000;for(const q of candidates.slice(0,6)){const goal=approaches(b,q,w.bounds).filter(g=>require('./resource_access').corridor(b,q.position,new Vec3(...g)).clear).sort((a,c)=>new Vec3(...a).distanceTo(p)-new Vec3(...c).distanceTo(p)).slice(0,2).find(g=>route(b,g,48,1024,true,{bounds:w.bounds,reversible:true}).reached);if(goal){chosen={q,goal};break;}}n.stoneApproach=chosen;
    }
-   if(chosen){n.memory.remember('stone',chosen.q.position);const arrived=await t.walk(b,motor,chosen.goal,state,api,scan,tasks);if(arrived===true||arrived===false){n.memory.reject([chosen.q.position.x,chosen.q.position.y,chosen.q.position.z]);n.stoneScan=0;n.stoneApproach=null;}}
+   if(chosen){n.memory.remember('stone',chosen.q.position);const arrived=await t.walk(b,motor,chosen.goal,state,api,scan,tasks);if(arrived===true||arrived===false){if(arrived===false)n.memory.reject([chosen.q.position.x,chosen.q.position.y,chosen.q.position.z]);n.stoneScan=0;n.stoneApproach=null;}}
    else{
     const mined=await require('./staircase_mining').tick(t,b,motor,state,api,scan,tasks);
     if(!mined.handled||n.mine?.stage==='done')await explore(t,b,motor,state,api,scan,tasks,surface,'stone');
@@ -174,6 +175,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(t.phase==='night_forage'&&(SAFE_RAW.reduce((s,name)=>s+count(b,name),0)>=2||meals(b)>=2)){t.phase=n.forageResume||'night_food';delete n.forageResume;t.lastProgress=now;return;}
   if(t.phase!=='night_forage'&&(wool?count(b,'white_wool')>=3:meals(b)+raw(b)>=4)){t.milestone(wool?'wool':'food_found');next(wool?'wool_home':'food_home');return;}
   if(await pickup(t,b,motor,state,api,scan,tasks,wool?['white_wool']:Object.keys(RAW).concat(FOOD)))return;
+  if(!require('./tool_recovery').choose(b,'wooden_axe')){motor.pause();await inventory.sync(b);if(!require('./tool_recovery').choose(b,'wooden_axe')){require('./tool_recovery').request(t,'wooden_axe');return;}}
   const selection=require('./hunt_targets').choose(t,b,state,approaches,now),animal=selection.animal;
   n.livestock_status={...selection.status,wool:count(b,'white_wool'),wool_target:3};
   if(animal){let huntMessage=null;delete n.noResourceAt;if(n.animal!==animal.id){n.animalGoal=null;n.animalPlanAt=0;}n.animal=animal.id;n.memory.remember('food',animal.position);if(livestock.whiteSheep(b,animal))n.memory.remember('wool',animal.position);
