@@ -72,3 +72,26 @@ test('a genuinely blocked home return stops with a return-route diagnosis instea
  const {t,b,state,motor}=fixture();b.entity.position.x=40;t.walk=async()=>false;
  await assert.rejects(t.buildFloor(b,motor,state),/return route/);
 });
+
+test('floor return waits through an airborne descent before deciding the home route failed',async()=>{
+ const {t,b,state,motor}=fixture();b.entity.position=new Vec3(.5,62.5,-5.5);b.entity.onGround=false;t.lastProgress=123;
+ t.walk=async()=>assert.fail('do not plan from an unsupported airborne cell');
+ await t.buildFloor(b,motor,state);assert.match(t.message,/land/);assert.equal(t.phase,'floor');assert.equal(t.lastProgress,123);
+ b.entity.onGround=true;b.entity.position=new Vec3(.5,62,-5.5);t.walk=async()=>false;
+ await assert.rejects(t.buildFloor(b,motor,state),/return route/,'a real blocked landing must still fail');
+});
+
+test('plot clearing also waits for dry airborne footing before its return route search',async()=>{
+ const {t,b,state,motor}=fixture();t.phase='clear_plot';b.entity.position=new Vec3(.5,62.5,-5.5);b.entity.onGround=false;t.lastProgress=123;
+ t.walk=async()=>assert.fail('do not route from a falling cell');
+ assert.equal(await require('../controller/plot_clearance').tick(t,b,motor,state),false);assert.match(t.message,/land/);assert.equal(t.lastProgress,123);
+});
+
+test('swimming home remains allowed instead of waiting for dry-ground onGround',async()=>{
+ for(const phase of ['floor','clear_plot']){
+  const {t,b,state,motor}=fixture();t.phase=phase;b.entity.position=new Vec3(40.5,64,.5);b.entity.onGround=false;b.entity.isInWater=true;
+  const original=b.blockAt;b.blockAt=p=>p.x<5?null:original(p);let walked=false;t.walk=async()=>{walked=true;};
+  if(phase==='floor')await t.buildFloor(b,motor,state);else await require('../controller/plot_clearance').tick(t,b,motor,state);
+  assert.equal(walked,true,phase+' must allow checked swimming return');assert.doesNotMatch(t.message,/Waiting to land/);
+ }
+});

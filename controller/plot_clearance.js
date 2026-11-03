@@ -36,6 +36,7 @@ async function tick(t,b,motor,state,api,perception,tasks){
  // Clearing runs both before gathering and after the wood trip. Local work
  // stances cannot route back from a distant tree or inspect unloaded home cells.
  if(Math.hypot(p.x-t.plot.x-.5,p.z-t.plot.z-.5)>6||Math.abs(p.y-t.plot.y)>1.25){
+  if(b.entity.onGround===false&&!b.entity.isInWater){motor.pause();t.message='Waiting to land before checking the return route to the house plot';return false;}
   const goal=t.plotReturnGoal||require('./floor_builder').returnGoal(t,b,state);
   if(!goal)throw Error('No safe return route to the house plot before clearing');
   t.plotReturnGoal=goal;

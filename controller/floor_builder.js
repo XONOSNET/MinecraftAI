@@ -46,6 +46,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
  // Floor stances are local work positions, not long-distance return routes.
  // Prefer the exterior, then a checked intact plot stance; skip any dug holes.
  if(Math.hypot(p.x-t.plot.x-.5,p.z-t.plot.z-.5)>6||Math.abs(p.y-t.plot.y)>1.25){
+  if(b.entity.onGround===false&&!b.entity.isInWater){motor.pause();t.message='Waiting to land before checking the return route to the house floor';return;}
   const goal=t.floorReturnGoal||returnGoal(t,b,state);
   if(!goal)throw Error('No safe return route to the unfinished house floor');
   t.floorReturnGoal=goal;

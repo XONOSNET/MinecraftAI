@@ -24,6 +24,11 @@ controller can use a newly sensed landing in that same entrance column. It must
 have safe supported footing and a complete reversible route. The recorded mine
 history is preserved, and returning still does not award missing supplies.
 
+Floor construction and plot clearing wait for a dry airborne bot to land before
+judging its return route. A brief descent is not a permanent route failure.
+Actual blocked grounded routes still fail, and swimming returns remain enabled.
+Waiting does not refresh the stall deadline or grant construction progress.
+
 Validation: JavaScript regression tests cover replacement, supply gathering,
 shelter interruption, rejected crafting output, upgrade selection, mine return
 and stone target retention. `scripts/verify_staircase_mining_native.cjs` uses an
