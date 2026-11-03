@@ -57,13 +57,13 @@ async function center(bot,feet){
  const goal=feet.offset(.5,0,.5);
  await aim(bot,goal.offset(0,bot.entity.eyeHeight||1.62,0));
  try{for(let i=0;i<18;i++){
-  active(bot);if(Math.hypot(bot.entity.position.x-goal.x,bot.entity.position.z-goal.z)<.09)break;
-  if(!bot.entity.onGround||!bot.entity.position.floored().equals(feet))throw Error('Resource stance changed during centering');
+  active(bot);if(!bot.entity.onGround||!bot.entity.position.floored().equals(feet))return false;
+  if(Math.hypot(bot.entity.position.x-goal.x,bot.entity.position.z-goal.z)<.09)break;
   await bot.look(Math.atan2(goal.x-bot.entity.position.x,goal.z-bot.entity.position.z)+Math.PI,0,true);
   bot.setControlState('sneak',true);bot.setControlState('forward',true);await bot.waitForTicks(1);
  }}finally{bot.clearControlStates();}
  await bot.waitForTicks(3);
- return Math.hypot(bot.entity.position.x-goal.x,bot.entity.position.z-goal.z)<=.15;
+ return bot.entity.onGround&&bot.entity.position.floored().equals(feet)&&Math.hypot(bot.entity.position.x-goal.x,bot.entity.position.z-goal.z)<=.15;
 }
 async function stabilize(bot,motor,feet){
  return controlled(bot,motor,async()=>{

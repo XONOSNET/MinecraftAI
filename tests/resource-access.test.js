@@ -86,6 +86,20 @@ test('a safe column recenter waits for residual motion to settle',async()=>{
  assert.equal(await access.recoverColumn(b,motor,state),true);assert.deepEqual(waits,[4]);assert.equal(b.labResourceAccess,undefined);
 });
 
+test('knockback during refuge centering aborts locally and releases controls without terminating survival',async()=>{
+ for(const when of ['moving','settling']){
+  const b=fixture(),feet=new Vec3(0,64,0),motor={pause(){},lockLook(v){b.locked=v;}},controls={};
+  b.entity.position=new Vec3(.75,64,.5);b.entity.yaw=0;b.entity.pitch=0;
+  b.look=async(y,p)=>{b.entity.yaw=y;b.entity.pitch=p;};b.setControlState=(k,v)=>controls[k]=v;b.clearControlStates=()=>{for(const k of Object.keys(controls))controls[k]=false;};
+  b.waitForTicks=async n=>{
+   if(n===1){if(when==='moving'){b.entity.position.x=1.1;b.entity.onGround=false;}else b.entity.position.x=.5;}
+   if(n===3&&when==='settling')b.entity.onGround=false;
+  };
+  assert.equal(await access.stabilize(b,motor,feet),false,when);
+  assert.equal(b.labResourceAccess,undefined);assert.equal(b.locked,false);assert.ok(Object.values(controls).every(v=>!v));
+ }
+});
+
 test('a server-rejected jump placement returns failure and releases jump controls',async()=>{
  const b=fixture(),feet=new Vec3(0,64,0),controls={};
  b.heldItem={name:'dirt',count:2};b.entity.yaw=0;b.entity.pitch=-Math.PI/2;
