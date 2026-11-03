@@ -48,3 +48,11 @@ test('lighting starts before the chest and carries a real mine torch reserve',as
  await lighting.tick(t,b,{},{});assert.equal(t.phase,'night_light_tools');await lighting.tick(t,b,{pause(){}},{});assert.equal(t.phase,'quarry_setup');assert.ok(t.milestones.includes('wooden_pickaxe'));
  t.phase='quarry_setup';t.milestones.push('torch','stocked');await lighting.tick(t,b,{},{});assert.equal(t.phase,'night_food','lighting must not repeat after settlement extras');
 });
+
+
+test('gaze guard waits for Mineflayer plugins before wrapping look',()=>{
+ const {EventEmitter}=require('events'),b=new EventEmitter();
+ gaze.attach(b);assert.equal(b.listenerCount('spawn'),1);let called=0;b.look=()=>{called++;return Promise.resolve();};
+ b.emit('spawn');assert.equal(b.listenerCount('spawn'),0);assert.equal(b.listenerCount('physicsTick'),1);
+ b.look(0,0,true);assert.equal(called,1);b.emit('end');assert.equal(b.listenerCount('physicsTick'),0);
+});

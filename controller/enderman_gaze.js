@@ -9,5 +9,5 @@ function protect(b,yaw,pitch){
  }
  return pitch;
 }
-function attach(b){const look=b.look.bind(b);b.look=(yaw,pitch,...args)=>look(yaw,protect(b,yaw,pitch),...args);let at=0;const guard=()=>{if(!b.entity||Date.now()-at<150)return;at=Date.now();const pitch=protect(b,b.entity.yaw,b.entity.pitch);if(pitch!==b.entity.pitch)Promise.resolve(look(b.entity.yaw,pitch,true)).catch(()=>{});};b.on('physicsTick',guard);b.once('end',()=>b.removeListener('physicsTick',guard));}
+function attach(b){if(typeof b.look!=='function'){b.once('spawn',()=>attach(b));return;}const look=b.look.bind(b);b.look=(yaw,pitch,...args)=>look(yaw,protect(b,yaw,pitch),...args);let at=0;const guard=()=>{if(!b.entity||Date.now()-at<150)return;at=Date.now();const pitch=protect(b,b.entity.yaw,b.entity.pitch);if(pitch!==b.entity.pitch)Promise.resolve(look(b.entity.yaw,pitch,true)).catch(()=>{});};b.on('physicsTick',guard);b.once('end',()=>b.removeListener('physicsTick',guard));}
 module.exports={protect,attach};
