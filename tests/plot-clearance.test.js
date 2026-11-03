@@ -56,5 +56,13 @@ test('distant plot clearing approaches an unloaded home instead of waiting indef
  const f=fixture();f.b.entity.position.x=70;const original=f.b.blockAt;f.b.blockAt=p=>p.x<10?null:original(p);
  let goal;f.t.walk=async(_b,_m,g)=>{goal=g;};await plot.tick(f.t,f.b,f.motor,f.state);
  assert.deepEqual(goal,[.5,64.1,-4.5]);assert.match(f.t.message,/Returning/);
- f.t.walk=async()=>false;await assert.rejects(plot.tick(f.t,f.b,f.motor,f.state),/return route/);
+ f.t.walk=async()=>false;await plot.tick(f.t,f.b,f.motor,f.state);assert.match(f.t.message,/Return route pending/);f.t.plotReturnWait.since-=16000;await assert.rejects(plot.tick(f.t,f.b,f.motor,f.state),/return route/);
+});
+
+
+test('plot return retries transient route failures without clearing remotely or inventing progress',async()=>{
+ const f=fixture({'(1, 65, 0)':'oak_leaves'});f.state.world.bounds=[-100,100,-100,100];f.b.entity.position.x=40;f.t.lastProgress=123;let calls=0;
+ f.t.walk=async()=>++calls===1?false:undefined;
+ await plot.tick(f.t,f.b,f.motor,f.state);assert.ok(f.t.plotReturnWait);assert.equal(plot.scan(f.t,f.b).pending.length,1);assert.equal(f.t.lastProgress,123);
+ await plot.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.plotReturnWait,null);assert.equal(calls,2);assert.equal(f.t.lastProgress,123);
 });

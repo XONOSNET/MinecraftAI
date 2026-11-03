@@ -38,12 +38,13 @@ async function tick(t,b,motor,state,api,perception,tasks){
  if(Math.hypot(p.x-t.plot.x-.5,p.z-t.plot.z-.5)>6||Math.abs(p.y-t.plot.y)>1.25){
   if(b.entity.onGround===false&&!b.entity.isInWater){motor.pause();t.message='Waiting to land before checking the return route to the house plot';return false;}
   const goal=require('./floor_builder').returnTarget(t,b,state,'plotReturnGoal');
-  if(!goal)throw Error('No safe return route to the house plot before clearing');
+  if(!goal){require('./floor_builder').waitForReturn(t,motor,state,'plotReturnWait','No safe return route to the house plot before clearing',now);return false;}
   t.plotReturnGoal=goal;
-  if(await t.walk(b,motor,goal,state,api,perception,tasks)===false){t.plotReturnGoal=null;throw Error('No safe return route to the house plot before clearing');}
+  if(await t.walk(b,motor,goal,state,api,perception,tasks)===false){t.plotReturnGoal=null;require('./floor_builder').waitForReturn(t,motor,state,'plotReturnWait','No safe return route to the house plot before clearing',now);return false;}
+  t.plotReturnWait=null;
   progress.blockedAt=null;t.message='Returning to the house plot before clearing construction obstructions';return false;
  }
- t.plotReturnGoal=null;
+ t.plotReturnGoal=null;t.plotReturnWait=null;
  const {pending,unloaded}=scan(t,b);
  if(unloaded){motor.pause();t.message='Waiting for all house-plot blocks to load before clearing';return false;}
  if(!pending.length){motor.pause();t.message='House plot cleared; starting '+(t.afterPlotClear||'gathering');t.plotClearing=null;return true;}

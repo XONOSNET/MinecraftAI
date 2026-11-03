@@ -70,6 +70,7 @@ test('returning to the exterior transitions into real local floor work after arr
 
 test('a genuinely blocked home return stops with a return-route diagnosis instead of a floor-stance error',async()=>{
  const {t,b,state,motor}=fixture();b.entity.position.x=40;t.walk=async()=>false;
+ await t.buildFloor(b,motor,state);assert.match(t.message,/Return route pending/);t.floorReturnWait.since-=16000;
  await assert.rejects(t.buildFloor(b,motor,state),/return route/);
 });
 
@@ -78,7 +79,8 @@ test('floor return waits through an airborne descent before deciding the home ro
  t.walk=async()=>assert.fail('do not plan from an unsupported airborne cell');
  await t.buildFloor(b,motor,state);assert.match(t.message,/land/);assert.equal(t.phase,'floor');assert.equal(t.lastProgress,123);
  b.entity.onGround=true;b.entity.position=new Vec3(.5,62,-5.5);t.walk=async()=>false;
- await assert.rejects(t.buildFloor(b,motor,state),/return route/,'a real blocked landing must still fail');
+ await t.buildFloor(b,motor,state);t.floorReturnWait.since-=16000;
+ await assert.rejects(t.buildFloor(b,motor,state),/return route/,'a persistently blocked landing must still fail');
 });
 
 test('plot clearing also waits for dry airborne footing before its return route search',async()=>{
@@ -105,4 +107,12 @@ test('construction returns refresh a nominal unloaded height once its cell loads
   if(phase==='floor')await t.buildFloor(b,motor,state);else await require('../controller/plot_clearance').tick(t,b,motor,state);
   assert.deepEqual(goal,[.5,65.1,-4.5]);assert.deepEqual(t[field],goal);assert.equal(t.lastProgress,123,'refreshing geometry is not lesson progress');
  }
+});
+
+
+test('a transient floor-return failure retries without placing or crediting progress',async()=>{
+ const {t,b,state,motor}=fixture();state.world.bounds=[-100,100,-100,100];b.entity.position.x=40;t.lastProgress=123;t.place=async()=>assert.fail('never build remotely');let calls=0;
+ t.walk=async()=>++calls===1?false:undefined;
+ await t.buildFloor(b,motor,state);assert.ok(t.floorReturnWait);assert.equal(t.lastProgress,123);
+ await t.buildFloor(b,motor,state);assert.equal(calls,2);assert.equal(t.floorReturnWait,null);assert.equal(t.phase,'floor');assert.equal(t.lastProgress,123);
 });

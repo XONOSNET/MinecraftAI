@@ -12,6 +12,11 @@ function safeFoundation(b,block){
  if(below?.boundingBox!=='block'||['magma_block','campfire','soul_campfire'].includes(below.name)||above?.boundingBox!=='empty')return false;
  return [[0,-1,0],[0,1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]].every(([x,y,z])=>{const v=b.blockAt(q.offset(x,y,z));return v&&!['water','lava','fire','soul_fire'].includes(v.name);});
 }
+function waitForReturn(t,motor,state,field,error,now=Date.now()){
+ let wait=t[field];if(!wait||wait.run!==state.run)wait=t[field]={run:state.run,since:now};
+ motor.pause();t.message='Return route pending; rechecking loaded terrain and footing';
+ if(now-wait.since>=15000)throw Error(error);
+}
 function returnGoal(t,b,state){
  const nav=require('./world_navigation'),h=t.plot,front=nav.homeApproach(h,b),occupied=[Math.floor(b.entity.position.x),Math.round(b.entity.position.y),Math.floor(b.entity.position.z)];
  // An unfinished house has no mandatory doorway. A blocked front marker must
@@ -60,13 +65,14 @@ async function tick(t,b,motor,state,api,scan,tasks){
  if(Math.hypot(p.x-t.plot.x-.5,p.z-t.plot.z-.5)>6||Math.abs(p.y-t.plot.y)>1.25){
   if(b.entity.onGround===false&&!b.entity.isInWater){motor.pause();t.message='Waiting to land before checking the return route to the house floor';return;}
   const goal=returnTarget(t,b,state,'floorReturnGoal');
-  if(!goal)throw Error('No safe return route to the unfinished house floor');
+  if(!goal){waitForReturn(t,motor,state,'floorReturnWait','No safe return route to the unfinished house floor');return;}
   t.floorReturnGoal=goal;
   const moved=await t.walk(b,motor,goal,state,api,scan,tasks);
-  if(moved===false){t.floorReturnGoal=null;throw Error('No safe return route to the unfinished house floor');}
+  if(moved===false){t.floorReturnGoal=null;waitForReturn(t,motor,state,'floorReturnWait','No safe return route to the unfinished house floor');return;}
+  t.floorReturnWait=null;
   t.message='Returning to the house before laying the floor';return;
  }
- t.floorReturnGoal=null;
+ t.floorReturnGoal=null;t.floorReturnWait=null;
  const all=house.blueprint(t.plot),tiles=all.filter(q=>q.floor),remaining=tiles.filter(q=>!finished(b,q));
  t.built=house.total-all.filter(q=>q.table?b.blockAt(new Vec3(q.x,q.y,q.z))?.name!=='crafting_table':!finished(b,q)).length;
  if(!remaining.length){motor.pause();t.floorRecovery=null;t.phase='table';return;}
@@ -109,4 +115,4 @@ async function tick(t,b,motor,state,api,scan,tasks){
  }
  t.floorRecovery=null;t.lastProgress=Date.now();t.message=`Laying wooden floor ${tiles.length-remaining.length+1} / ${tiles.length}`;
 }
-module.exports={tick,stances,returnGoal,returnTarget,safeFoundation};
+module.exports={tick,stances,returnGoal,returnTarget,safeFoundation,waitForReturn};
