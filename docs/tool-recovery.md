@@ -19,6 +19,11 @@ checked reversible route to an earlier supported stair. Genuine unsafe exits
 still fail. Reaching a stone approach no longer rejects the resource; failed
 approaches retain the existing rejection and wider scouting behavior.
 
+If the recorded entrance's ground height changes by one block, the return
+controller can use a newly sensed landing in that same entrance column. It must
+have safe supported footing and a complete reversible route. The recorded mine
+history is preserved, and returning still does not award missing supplies.
+
 Validation: JavaScript regression tests cover replacement, supply gathering,
 shelter interruption, rejected crafting output, upgrade selection, mine return
 and stone target retention. `scripts/verify_staircase_mining_native.cjs` uses an

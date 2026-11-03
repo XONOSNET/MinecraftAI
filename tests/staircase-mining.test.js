@@ -202,3 +202,19 @@ test('an obstructed return waypoint can be skipped only over a checked reversibl
  let goal;f.t.walk=async(_b,_m,g)=>{goal=g;return undefined;};
  await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.exitIndex,1);assert.deepEqual(goal,[1.5,64.1,.5]);assert.equal(m.stage,'exit');assert.equal(f.items.cobblestone,undefined);
 });
+
+test('a changed entrance height uses its sensed supported surface rather than stopping on air',async()=>{
+ const f=fixture(63),m=f.t.wilderness.mine={stage:'exit',entry:[0,64,0],path:[[0,64,0]],exitIndex:0};
+ f.b.entity.position=new Vec3(1.5,63,.5);let destination;
+ f.t.walk=async(_b,_m,g)=>{destination=g;return true;};
+ await mine.tick(f.t,f.b,f.motor,f.state);assert.deepEqual(destination,[.5,63.1,.5]);assert.deepEqual(m.return_landing,[0,63,0]);assert.equal(m.stage,'done');assert.equal(f.items.cobblestone,undefined);
+ assert.deepEqual(m.entry,[0,64,0],'retain the recorded entrance and excavation history');
+});
+
+test('changed entrance recovery cannot choose a hazardous or unreachable landing',async ctx=>{
+ const f=fixture(63),m=f.t.wilderness.mine={stage:'exit',entry:[0,64,0],path:[[0,64,0]],exitIndex:0};f.b.entity.position=new Vec3(1.5,63,.5);
+ f.cells.set(new Vec3(0,63,0).toString(),'water');f.t.walk=async()=>{throw Error('must not walk toward a hazard');};
+ await assert.rejects(mine.tick(f.t,f.b,f.motor,f.state),/return stair is obstructed/);
+ f.cells.delete(new Vec3(0,63,0).toString());ctx.mock.method(require('../controller/field_navigation'),'route',()=>({reached:false}));
+ await assert.rejects(mine.tick(f.t,f.b,f.motor,f.state),/return stair is obstructed/);assert.equal(m.stage,'exit');assert.equal(m.return_landing,undefined);
+});

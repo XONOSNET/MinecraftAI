@@ -152,7 +152,14 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
     if(nav.standable(b,v.x,v.y,v.z)&&nav.route(b,point(v),48,4096,true,{bounds:state.world.bounds,reversible:true}).reached){m.exitIndex=i;break;}
    }
   }
-  const q=new Vec3(...m.path[m.exitIndex]);
+  let q=new Vec3(...m.path[m.exitIndex]);
+  // The original entrance can lose a layer of ground while its column still
+  // has a safe surface landing. Re-sense only this exit column, never infer a
+  // route across an unsupported old waypoint or count uncollected resources.
+  if(m.exitIndex===0&&!nav.standable(b,q.x,q.y,q.z)){
+   const landing=[-1,1].map(dy=>q.offset(0,dy,0)).find(v=>nav.standable(b,v.x,v.y,v.z)&&nav.route(b,point(v),48,4096,true,{bounds:state.world.bounds,reversible:true}).reached);
+   if(landing){q=landing;m.return_landing=landing.toArray();}
+  }
   if(!nav.standable(b,q.x,q.y,q.z))throw Error('Recorded mine return stair is obstructed or unsafe');
   const arrived=await t.walk(b,motor,point(q),state,api,scan,tasks);
   if(arrived===true){if(m.exitIndex===0){m.stage='done';claims.delete(b.username);}else m.exitIndex--;}
