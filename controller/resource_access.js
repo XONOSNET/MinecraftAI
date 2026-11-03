@@ -129,7 +129,7 @@ async function descend(bot,motor,state){
  // Never mine a natural support, another bot's block, or a column left behind.
  if(Math.hypot(p.x-q.x-.5,p.z-q.z-.5)>.2||Math.abs(p.y-q.y-1)>.15||!bot.entity.onGround)throw Error('Temporary column descent needs a centered, settled stance');
  const b=bot.blockAt(q),floor=bot.blockAt(q.offset(0,-1,0));
- if(b?.name!==entry.name||floor?.boundingBox!=='block'||!dry(bot,q))throw Error('Temporary column changed; cannot descend safely');
+ if(b?.name!==entry.name||floor?.boundingBox!=='block'||!dry(bot,q))throw Error('Temporary column changed; cannot descend safely: '+JSON.stringify({support:q.toArray(),expected:entry.name,actual:b?.name||'unloaded',floor:floor?.name||'unloaded',neighbors:[[0,0,0],[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]].map(d=>bot.blockAt(q.offset(...d))?.name||'unloaded')}));
  motor.lockLook(true);let removed;try{removed=await dig(bot,b);}finally{motor.lockLook(false);}
  if(!removed){
   // Keep the exact tracked support and retry after the next settled ticks.

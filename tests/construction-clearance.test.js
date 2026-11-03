@@ -67,3 +67,13 @@ test('plants outside the house are preserved instead of failing placement inside
  const q={x:3,y:64,z:0};assert.equal(clearance.firstObstruction(f.b,new Vec3(3,64,0))?.name,'large_fern');
  await digging(f,()=>clearance.prepare(f.t,f.b,q));assert.deepEqual(f.dug,[]);assert.equal(f.blocks.get('(4, 65, 0)'),'large_fern');
 });
+
+test('all tulips use real soft-plant digging when an offset shape misses the center ray',async ctx=>{
+ ctx.mock.method(access,'dig',async()=>false);ctx.mock.method(require('../controller/harvest'),'aim',async()=>{});
+ for(const name of ['white_tulip','pink_tulip','red_tulip','orange_tulip']){
+  const f=fixture({'(2, 64, 0)':name});f.b.canDigBlock=()=>true;
+  f.b.dig=async block=>{assert.equal(block.name,name);f.dug.push(block.name);f.blocks.set(block.position.toString(),'air');};
+  assert.equal(await clearance.clear(f.t,f.b,f.b.blockAt(new Vec3(2,64,0))),true);
+  assert.deepEqual(f.dug,[name]);assert.equal(f.t.constructionCleared,1);
+ }
+});

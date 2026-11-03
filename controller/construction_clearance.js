@@ -3,7 +3,8 @@ const {Vec3}=require('vec3'),house=require('./house'),space=require('./resource_
 const access=require('./resource_access'),inventory=require('./inventory_sync');
 const SOFT=new Set(['short_grass','tall_grass','fern','large_fern','dead_bush','vine','glow_lichen','moss_carpet','snow','poppy','dandelion','blue_orchid','allium','azure_bluet','oxeye_daisy','cornflower','lily_of_the_valley','wither_rose','sunflower','lilac','rose_bush','peony','pink_petals','wildflowers','leaf_litter','brown_mushroom','red_mushroom']);
 const EARTH=new Set(['dirt','grass_block','coarse_dirt','rooted_dirt','podzol','mycelium','moss_block','stone','granite','diorite','andesite','deepslate','tuff']);
-const natural=name=>SOFT.has(name)||EARTH.has(name)||name.endsWith('_leaves')||name.endsWith('_log')||name.endsWith('_tulip');
+const soft=name=>SOFT.has(name)||name.endsWith('_tulip');
+const natural=name=>soft(name)||EARTH.has(name)||name.endsWith('_leaves')||name.endsWith('_log');
 const empty=b=>b&&['air','cave_air','void_air','light'].includes(b.name);
 function owned(t,p,{lighting=false}={}){const h=t.plot;return !!h&&(p.y>=h.y&&p.y<=h.y+house.config.wall_height+1&&Math.abs(p.x-h.x)<=3&&Math.abs(p.z-h.z)<=3||lighting&&['light_place','home_repair'].includes(t.phase)&&house.torchMount(h,'outdoor').position.equals(p));}
 function safe(t,b,block,options){
@@ -27,7 +28,7 @@ async function clear(t,b,block,options){
  let removed=await access.dig(b,block,{validate:current=>safe(t,b,current,options)});
  // Small, offset plant shapes can miss a center ray even with a completely
  // clear reach corridor. Dig their real block, without accepting walls in front.
- if(!removed&&SOFT.has(block.name)&&require('./resource_target').withinReach(b,block.position)&&!firstObstruction(b,block.position)){
+ if(!removed&&soft(block.name)&&require('./resource_target').withinReach(b,block.position)&&!firstObstruction(b,block.position)){
   await require('./harvest').aim(b,block.position.offset(.5,.3,.5));
   const current=b.blockAt(block.position);
   if(current?.name===block.name&&safe(t,b,current,options)&&b.canDigBlock(current)&&!firstObstruction(b,current.position)){

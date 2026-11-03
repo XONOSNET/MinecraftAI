@@ -36,6 +36,18 @@ cover. Other manageable daytime encounters still use the combat specialist.
 This adds no protection, resources or survival credit, and does not implement a
 creeper-fighting skill.
 
+Construction clearing handles all four tulip variants through the same verified
+small-plant fallback as poppies and grass. Tulips were previously detected as
+obstructions but omitted from that fallback, so an offset flower shape could
+exhaust every clearing angle. The fallback still checks ownership, reach,
+visibility, nearby hazards and actual server block removal. The disposable
+`scripts/verify_plot_flowers_native.cjs` fixture checks all four real flowers.
+
+Temporary-column descent failures now include the expected support, actual
+support, underlying block and adjacent blocks in the report. The safety guard
+is unchanged; these details distinguish terrain changes from hazard exposure
+before adding any recovery behavior.
+
 Validation: JavaScript regression tests cover replacement, supply gathering,
 shelter interruption, rejected crafting output, upgrade selection, mine return
 and stone target retention. `scripts/verify_staircase_mining_native.cjs` uses an
