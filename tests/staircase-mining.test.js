@@ -1,18 +1,18 @@
 const test=require('node:test'),assert=require('node:assert/strict'),{Vec3}=require('vec3');
 const mine=require('../controller/staircase_mining'),access=require('../controller/resource_access'),inventory=require('../controller/inventory_sync');
-function fixture(){
+function fixture(ground=64){
  const cells=new Map(),items={wooden_pickaxe:1,stick:4},b={username:'MineUnit',game:{minY:-64},players:{},entities:{},entity:{id:1,position:new Vec3(.5,64,.5),onGround:true},inventory:{items:()=>Object.entries(items).filter(([,n])=>n).map(([name,count])=>({name,count}))},world:{raycast:()=>null}};
- b.blockAt=p=>{p=p.floored();const name=cells.get(p.toString())||(p.y<64?'stone':'air');return {name,position:p,boundingBox:['air','wall_torch'].includes(name)?'empty':'block',getProperties:()=>({})};};b.canDigBlock=()=>true;
+ b.blockAt=p=>{p=p.floored();const name=cells.get(p.toString())||(p.y<ground?'stone':'air');return {name,position:p,boundingBox:['air','wall_torch'].includes(name)?'empty':'block',getProperties:()=>({})};};b.canDigBlock=()=>true;
  b.world.raycast=(eye,dir,length)=>{for(let d=0;d<=length;d+=.03){const v=b.blockAt(eye.plus(dir.scaled(d)));if(v.boundingBox==='block')return {position:v.position};}return null;};
  const t={run:'mine-unit',phase:'night_stone',plot:{x:30,y:64,z:30},campPlots:[],wilderness:{},harvested:0,lastProgress:0};
  t.walk=async(_b,_m,q)=>{b.entity.position=new Vec3(q[0],Math.round(q[1]),q[2]);return true;};
- t.harvest=async(_b,_m,q)=>{const v=b.blockAt(q);cells.set(q.toString(),'air');items[v.name.includes('coal')?'coal':'cobblestone']=(items[v.name.includes('coal')?'coal':'cobblestone']||0)+1;};
+ t.harvest=async(_b,_m,q)=>{const v=b.blockAt(q),drop=v.name.includes('coal')?'coal':v.name.includes('iron_ore')?'raw_iron':'cobblestone';cells.set(q.toString(),'air');items[drop]=(items[drop]||0)+1;};
  t.craft=async(_b,name)=>{if(name==='torch'){items.coal--;items.stick--;items.torch=(items.torch||0)+4;}};
  b.placeBlock=async(support,face)=>{cells.set(support.position.plus(face).toString(),'wall_torch');items.torch--;};
  return {b,t,cells,items,motor:{pause(){},lockLook(){}},state:{world:{bounds:[-40,40,-40,40]}}};
 }
 test('depth knowledge separates early stone, shallow coal and underground iron and obeys dimension floor',()=>{
- const {b}=fixture();assert.equal(mine.depth('stone',64,b),48);assert.equal(mine.depth('coal',4,b),1);assert.equal(mine.depth('iron',64,b),16);
+ const {b}=fixture();assert.equal(mine.depth('stone',64,b),48);assert.equal(mine.depth('coal',4,b),4);assert.equal(mine.depth('coal',120,b),96);assert.equal(mine.depth('coal',64,b),64);assert.equal(mine.depth('iron',64,b),16);
  b.game.minY=0;assert.equal(mine.depth('stone',8,b),5);
 });
 test('stairs have three-block headroom and never mine directly under the bot',()=>{
@@ -80,6 +80,53 @@ test('a committed descent still rejects flooding before moving onto the landing'
  const f=fixture();f.t.wilderness.mine={stage:'descend',entry:[0,64,0],path:[[0,64,0]],supports:[[0,64,0]],next:{d:0},steps:0,flooded:[],dir:0,target_y:48};
  f.cells.set(new Vec3(1,63,0).toString(),'water');f.t.walk=async()=>{throw Error('must not enter water');};
  await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.wilderness.mine.stage,'dig');assert.equal(f.t.wilderness.mine.next,null);assert.equal(f.t.wilderness.mine.steps,0);
+});
+
+test('coal vein harvesting follows newly exposed ore before digging another stair',async()=>{
+ const f=fixture();f.t.wilderness.mine={stage:'dig',resource:'coal',entry:[0,64,0],path:[[0,64,0]],supports:[[0,64,0]],target_y:64,steps:0,lit_at:0,torches:0,coal_mined:0,dir:0,flooded:[]};
+ for(const x of [1,2,3])f.cells.set(new Vec3(x,64,0).toString(),'coal_ore');
+ for(let i=0;i<10;i++){await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{resource:'coal',amount:3});if(f.t.wilderness.mine.stage==='done')break;}
+ assert.equal(f.items.coal,3);assert.equal(f.t.wilderness.mine.stage,'done');assert.equal(f.t.wilderness.mine.steps,0,'visible vein wins over blind excavation');
+ assert.equal(f.b.entity.position.y,64);assert.equal(f.b.blockAt(new Vec3(0,63,0)).name,'stone');
+});
+
+test('iron prospecting turns horizontal at target depth and counts raw iron rather than cobblestone',async()=>{
+ const f=fixture(16);f.b.entity.position=new Vec3(.5,16,.5);f.items.stone_pickaxe=1;f.items.cobblestone=100;
+ const m=f.t.wilderness.mine={stage:'dig',resource:'iron',entry:[0,16,0],path:[[0,16,0]],supports:[[0,16,0]],target_y:16,steps:0,lit_at:0,torches:0,coal_mined:0,dir:0,flooded:[]};
+ for(const y of [16,17])f.cells.set(new Vec3(1,y,0).toString(),'stone');
+ for(let i=0;i<8&&m.steps<1;i++)await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{resource:'iron',amount:1});
+ assert.equal(m.steps,1,'carve a level prospecting corridor before finding ore');
+ f.cells.set(new Vec3(2,16,0).toString(),'iron_ore');
+ for(let i=0;i<12;i++){await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{resource:'iron',amount:1});if(m.stage==='done')break;}
+ assert.equal(f.items.raw_iron,1);assert.equal(m.stage,'done');assert.ok(m.steps>0);assert.ok(m.path.every(p=>p[1]===16));
+ assert.equal(mine.report(f.t).strategy,'Horizontal prospecting near target depth');
+});
+
+test('ore quotas cannot be satisfied with stone and wooden picks cannot collect iron',async()=>{
+ const f=fixture();f.items.cobblestone=100;
+ const m=f.t.wilderness.mine={stage:'done',resource:'iron',entry:[0,64,0],path:[[0,64,0]],steps:0};
+ assert.equal((await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{resource:'iron',amount:1})).done,undefined);
+ f.t.wilderness.mine={...m,stage:'dig',target_y:16,dir:0,lit_at:0,flooded:[]};f.cells.set(new Vec3(1,64,0).toString(),'iron_ore');
+ await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{resource:'iron',amount:1});
+ assert.equal(f.b.blockAt(new Vec3(1,64,0)).name,'iron_ore');assert.equal(f.items.raw_iron,undefined);
+});
+
+test('flat prospecting preserves stair supports and refuses water or unsupported floors',()=>{
+ const f=fixture(),from=new Vec3(0,64,0);
+ assert.deepEqual(mine.step(f.t,f.b,from,[1,0],f.state.world,0).q.toArray(),[1,64,0]);
+ f.cells.set(new Vec3(1,63,0).toString(),'air');assert.equal(mine.step(f.t,f.b,from,[1,0],f.state.world,0),null);
+ f.cells.set(new Vec3(1,63,0).toString(),'stone');f.cells.set(new Vec3(1,64,1).toString(),'water');assert.equal(mine.step(f.t,f.b,from,[1,0],f.state.world,0),null);
+ assert.equal(mine.step(f.t,f.b,from,[1,0],f.state.world,-2),null);
+});
+
+test('prospecting approaches real ore drops before more excavation without inventing inventory',async ctx=>{
+ const f=fixture();ctx.mock.method(require('../controller/survival'),'itemName',()=> 'coal');
+ f.b.entities.drop={id:7,name:'item',position:new Vec3(2.5,64.2,.5)};
+ const m=f.t.wilderness.mine={stage:'dig',resource:'coal',entry:[0,64,0],path:[[0,64,0]],target_y:64,steps:0,dir:0};
+ let goal;f.t.walk=async(_b,_m,g)=>{goal=g;};f.t.harvest=async()=>{throw Error('collect the drop before digging');};
+ await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{resource:'coal',amount:3});
+ assert.ok(new Vec3(...goal).distanceTo(f.b.entities.drop.position)<1.2,'supported stance reaches the drop without standing on its edge');
+ assert.equal(f.items.coal,undefined);assert.equal(m.steps,0);assert.equal(m.stage,'dig');
 });
 
 test('mine selection checks the entrance envelope, not just its first excavation',()=>{
