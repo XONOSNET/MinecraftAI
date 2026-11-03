@@ -59,3 +59,6 @@ Focused tests cover these behaviors. The disposable native fixtures `scripts/ver
 
 
 Water-route continuity is conditional on recent route progress. After 2.5 seconds without progress, the usual bounded replanner can check new obstacles and nearby players; surface bobbing during forward progress still retains its route. Doorway alignment also relinquishes control when its existing timeout expires, handing movement back to the checked route rather than holding until the whole attempt fails. Collision, support, player-clearance and closed-door checks remain enforced.
+
+
+After the final home repair, an open door is secured from the verified room interior. A final work stance outside interaction range now routes back inside before the normal door-close interaction, then resumes the interrupted lesson. The native damaged-house fixture also checks this distant finishing position without adding milestones or relaxing repair verification.

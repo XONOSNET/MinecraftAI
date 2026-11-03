@@ -112,7 +112,15 @@ async function tick(t,b,motor,state,api,scan,tasks){
  if(await salvage(t,b,motor,state,api,scan,tasks))return true;
  if(!damage.missing.length){
   const door=b.blockAt(new Vec3(t.plot.x,t.plot.y,t.plot.z-3));
-  if(door?.getProperties?.().open){await require('./door_care').closeDoor(b,door);return true;}
+  if(door?.getProperties?.().open){
+   // The final work stance can be outside interaction reach or in the doorway.
+   // Return to the verified room before closing, instead of retrying remotely.
+   const goal=[t.plot.x+.5,t.plot.y+.1,t.plot.z+.5],p=b.entity.position;
+   if(Math.hypot(goal[0]-p.x,goal[2]-p.z)>.4||Math.abs(t.plot.y-p.y)>.4){
+    t.message='Returning inside to secure the repaired home';await t.walk(b,motor,goal,state,api,scan,tasks);return true;
+   }
+   motor.pause();t.message='Closing the repaired home door';await require('./door_care').closeDoor(b,door);return true;
+  }
   if(r.chestReplaced&&t.milestones.includes('stocked')){
    if(!await wood(t,b,r,8))return true;
    const q={...house.point(t.plot,'chest'),kind:'chest'},goal=stance(t,b,q,state);if(!goal)throw Error('No safe approach to restock the repaired chest');

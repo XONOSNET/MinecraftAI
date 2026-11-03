@@ -105,3 +105,13 @@ test('repair walking can reach the outer work strip of its own plot while protec
  await t.walk(emptyBot,f.motor,goal,f.state);assert.equal(received.constructionWork,true);
  t.phase='night_scout';await t.walk(emptyBot,f.motor,goal,f.state);assert.equal(received.constructionWork,false);
 });
+
+
+test('finished repairs approach the open door from inside before closing and resuming',async ctx=>{
+ const f=fixture(),door=new Vec3(0,64,-3);f.set(door,'oak_door',{half:'lower',open:true});f.set(door.offset(0,1,0),'oak_door',{half:'upper',open:true});
+ f.t.phase='home_repair';f.t.homeRepair={stage:'repair',resume:'night_scout',repaired:15};f.b.entity.position=new Vec3(6.2,63,-1.5);
+ let closes=0;ctx.mock.method(require('../controller/door_care'),'closeDoor',async()=>{closes++;assert.ok(f.b.entity.position.distanceTo(new Vec3(.5,64,.5))<.1);f.set(door,'oak_door',{half:'lower',open:false});return true;});
+ await repair.tick(f.t,f.b,f.motor,f.state);assert.equal(closes,0);assert.deepEqual(f.b.entity.position.toArray(),[.5,64,.5]);assert.equal(f.t.phase,'home_repair');
+ await repair.tick(f.t,f.b,f.motor,f.state);assert.equal(closes,1);await repair.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.homeRepair,null);assert.equal(f.t.phase,'night_scout');assert.deepEqual(f.t.milestones,['hut']);
+});
