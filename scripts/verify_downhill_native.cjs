@@ -5,9 +5,10 @@ const token=fs.readFileSync('data/api-token','utf8').trim(),wait=ms=>new Promise
 const b=mineflayer.createBot({host:'127.0.0.1',port:25565,username:'LabDownhillTest',auth:'offline',version:'1.21.4'}),report={diagnostic_only:true};let changed=false,motor,physics;
 async function admin(data){for(let i=0;i<15;i++){const r=await fetch('http://127.0.0.1:8000/admin/action',{method:'POST',headers:{'X-Lab-Token':token,'Content-Type':'application/json'},body:JSON.stringify({player:b.username,...data})});if(r.ok)return;await wait(400);}throw Error('Diagnostic admin unavailable');}
 async function commands(list){await admin({action:'op'});await wait(800);try{for(const c of list){b.chat('/'+c);await wait(700);}}finally{await admin({action:'deop'});await wait(400);}}
-async function follow(nav,goal,oldLanding){
+async function follow(nav,goal,oldLanding,handoff){
  const deadline=Date.now()+20000,start=b.entity.position.clone();let samples=0,descended=false;
  while(Date.now()<deadline){
+  if(handoff&&motor.committedJump()){await handoff.tick(b,motor,{run:'handoff-native',world:{bounds:[-1568,-1550,-1568,-1550]}},async()=>{},null,{createRuntime:()=>({})});assert.equal(handoff.error,null);await wait(100);continue;}
   const p=b.entity.position;descended ||= p.y<start.y-.7;
   const plan=nav.plan(b,goal,{bounds:[-1568,-1550,-1568,-1550]});assert.ok(!plan.blocked,'terrace route exists');
   if(oldLanding)assert.ok(!plan.path.includes(oldLanding),'passed landing must never be reintroduced');
@@ -39,6 +40,9 @@ async function follow(nav,goal,oldLanding){
  const start=Date.now();let heldFrames=0;
  while(m.stage!=='done'&&Date.now()-start<20000){await mine.tick(t,b,motor,state);if(b.entity.onGround===false&&motor.committedJump()){assert.equal(b.getControlState('forward'),true,'airborne mine return holds forward');heldFrames++;}await wait(100);}
  assert.equal(m.stage,'done');assert.ok(heldFrames>=4);assert.ok(b.entity.position.y>=214);report.mine_exit={steps:4,held_forward_airborne_frames:heldFrames,seconds:(Date.now()-start)/1000};
+ motor.pause();await commands(['tp @s -1558.69 210 -1558.5 90 0']);await b.waitForTicks(8);
+ const handoff=new (require('../controller/hut_teacher').HutTeacher)();await handoff.tick(b,motor,{run:'handoff-native',world:{bounds:[-1568,-1550,-1568,-1550]}},async()=>{},null,{createRuntime:()=>({})});handoff.phase='floor';handoff.plot={x:-1563,y:214,z:-1559};
+ const handoffAt=Date.now();report.construction_handoff=await follow(new WorldNavigation(),[-1562.5,214.1,-1558.5],null,handoff);report.construction_handoff.seconds=(Date.now()-handoffAt)/1000;report.construction_handoff.deferred_updates=handoff.movementHandoffs?.deferred_updates;assert.ok(report.construction_handoff.deferred_updates>=4);assert.equal(handoff.phase,'floor');
  motor.pause();await commands(['tp @s -1554.86 210 -1558.5']);await b.waitForTicks(8);
  const stance=new Vec3(-1556,210,-1559),recenterAt=Date.now();t.wilderness.mine={stage:'dig',resource:'stone',entry:stance.toArray(),path:[stance.toArray()],target_y:194,steps:0,flooded:[],ore_target:[-1555,210,-1559]};
  while(Date.now()-recenterAt<7000&&(!b.entity.position.floored().equals(stance)||b.entity.position.distanceTo(stance.offset(.5,0,.5))>=.25)){await mine.tick(t,b,motor,state);await wait(100);}

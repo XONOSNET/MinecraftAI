@@ -241,5 +241,6 @@ test('a checked step keeps forward through the airborne interval even between po
  const motor=createMotor(bot,permissions,{clock:()=>now}),task={kind:'expedition',auto_step:true,safe_walk:true,waypoints:[[.5,65.1,-.5]]};
  motor.command(0,task,safe,0);motor.tick();bot.entity.onGround=false;bot.entity.position.y=64.3;motor.tick();
  motor.command(4,task,safe,0);now+=50;motor.tick();assert.equal(controls.forward,true);assert.equal(controls.jump,false);
+ assert.equal(motor.diagnostic().owner,'checked_jump');assert.equal(motor.diagnostic().expired,false,'jump expiry must not use the unrelated old walking timer');
  motor.pause();assert.equal(controls.forward,false,'explicit safety cancellation always wins');
 });

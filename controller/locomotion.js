@@ -162,7 +162,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
   passageActive:()=>doorway.active(),
   committedJump:()=>!!jumpLease,
   status(){return jumpLease?jumpLease.label:stalled?'Waiting for policy response':plan?.waterGoal?plan.label:doorway.active()?doorway.label():recovery.active()?recovery.label():plan?.side&&(bot.getControlState('left')||bot.getControlState('right'))?plan.label:plan?.sprint&&bot.getControlState('sprint')?'Sprinting on clear ground':null;},
-  diagnostic(){return {label:plan?.label||null,paused,expired:stalled||!paused&&clock()>expires,ground_safe:groundSafe,precise_focus:!!plan?.preciseFocus,recovering:recovery.active(),doorway:doorway.active(),controls:Object.fromEntries(['forward','back','left','right','jump','sneak','sprint'].map(k=>[k,!!bot.getControlState(k)]))};},
+  diagnostic(){return {owner:jumpLease?'checked_jump':plan?.airGoal?'air_escape':plan?.waterGoal?'surface_swim':plan?'travel':null,label:jumpLease?.label||plan?.label||null,paused:jumpLease?false:paused,expired:jumpLease?clock()>=jumpLease.until:stalled||!paused&&clock()>expires,ground_safe:groundSafe,precise_focus:!!plan?.preciseFocus,recovering:recovery.active(),doorway:doorway.active(),controls:Object.fromEntries(['forward','back','left','right','jump','sneak','sprint'].map(k=>[k,!!bot.getControlState(k)]))};},
   lockLook(value){lookLocked=value;},
   tick(){
    if(legacy||!bot.entity)return;

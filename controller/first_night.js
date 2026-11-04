@@ -32,6 +32,9 @@ function priority(b,t,w){
 async function interrupt(t,b,motor,state,api,scan){
  if(t.wilderness.burrow)return require('./emergency_burrow').tick(t,b,motor,state,api,scan,require('./tasks'));
  const n=t.wilderness,p=priority(b,t,state.world);n.priority=p.kind;n.reason=p.reason;
+ // Food, tool replacement and task resumption must not steal a checked jump.
+ // Immediate threat decisions still run and can explicitly cancel movement.
+ if(require('./movement_handoff').hold(t,motor,{urgent:['seek cover','retreat','defend'].includes(p.kind)||b.health<6}))return true;
  const time=b.time?.timeOfDay;if(time>=13000&&time<23000)n.nightSeen=true;
  if(t.phase==='night_hold')nightSleep.observe(t,b);
  if(b.isSleeping&&(t.phase!=='night_hold'||['eat','eat raw'].includes(p.kind)||b.health<12))return nightSleep.wake(t,b,motor);
