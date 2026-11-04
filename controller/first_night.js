@@ -136,7 +136,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(b.blockAt(new Vec3(pos.x,pos.y,pos.z))?.name!=='crafting_table'){
    if(!count(b,'crafting_table'))await t.craft(b,'crafting_table',1,null);
    if(!ready()||b.entity.onGround===false||Math.hypot(b.entity.velocity?.x||0,b.entity.velocity?.z||0)>.025){t.navigator.lastPlan=-Infinity;t.message='Rechecking clear footing before placing the workbench';return;}
-   try{await t.place(b,pos,'crafting_table');}catch(error){if(!String(error.message).includes('Server refused')||(n.bootstrapRetries=(n.bootstrapRetries||0)+1)>=3)throw error;t.path=[];t.navigator.lastPlan=-Infinity;t.message='Workbench placement was obstructed; checking the close approach again';return;}
+   try{await t.place(b,pos,'crafting_table');}catch(error){if(error.code!=='BUILD_OBSTRUCTED'&&!String(error.message).includes('Server refused')||(n.bootstrapRetries=(n.bootstrapRetries||0)+1)>=3)throw error;t.path=[];t.navigator.lastPlan=-Infinity;t.message='Workbench placement was obstructed; checking the close approach again';return;}
   }
   const table=b.blockAt(new Vec3(pos.x,pos.y,pos.z));if(count(b,'stick')<2)await t.craft(b,'stick',1,null);
   if(!count(b,'wooden_axe'))await t.craft(b,'wooden_axe',1,table);await inventory.equip(b,'wooden_axe');t.table=pos;n.bootstrap=true;t.phase='gather';t.lastProgress=Date.now();
