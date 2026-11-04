@@ -1,12 +1,32 @@
-// First Night: earn lighting before chest/tool extras; all recipes stay native.
+// First Night: earn lighting before enclosure and extras; recipes stay native.
 const {Vec3}=require('vec3'),inventory=require('./inventory_sync'),furnace=require('./furnace'),house=require('./house');
 const count=(b,test)=>b.inventory.items().filter(i=>typeof test==='string'?i.name===test:test(i.name)).reduce((s,i)=>s+i.count,0);
+const reserveCost=t=>t.wilderness&&!t.supplyRun&&!t.wilderness.lightingKitReady?28:0;
+async function planks(t,b,reserve=4){for(const item of [...b.inventory.items()].filter(i=>i.name.endsWith('_log'))){const keep=Math.min(reserve,item.count);reserve-=keep;if(item.count>keep)await t.craft(b,item.name.replace('_log','_planks'),item.count-keep,null);}}
 function woodTrip(t){t.wilderness.fuelTrip=true;t.supplyRun=true;t.grove=null;t.resourceAt=0;t.tree=null;t.treeApproach=null;t.phase='gather';t.message='Gathering real wood for safety lighting and torch handles';}
-async function tick(t,b,motor,state){
+async function tick(t,b,motor,state,api,scan,tasks){
  const n=t.wilderness;if(!n)return false;
  const lit=t.milestones.includes('torch');
+ // The floor/table are ready before this point, but the house is not enclosed.
+ // Earn the lighting kit before walls/roof can create an unlit spawn space.
+ if(t.phase==='build'&&!n.lightingKitReady&&!lit){motor.pause();n.prebuildLighting=true;n.earlyLighting=true;n.lightingPrepared=true;t.phase='night_light_tools';t.lastProgress=Date.now();t.message='Preparing real torch supplies before enclosing the house';return true;}
+ if(n.prebuildLighting&&['stone_return','quarry_exit'].includes(t.phase)){
+  const goal=t.phase==='stone_return'?[t.plot.x+.5,t.plot.y+.1,t.plot.z+.5]:require('./world_navigation').homeApproach(t.plot,b);
+  if(await t.walk(b,motor,goal,state,api,scan,tasks)===true){motor.pause();t.phase=t.phase==='stone_return'?'stone_tools':'quarry';t.lastProgress=Date.now();}
+  return true;
+ }
+ if(n.prebuildLighting&&t.phase==='torch_craft'&&count(b,'torch')>=10){motor.pause();n.prebuildLighting=false;n.lightingKitReady=true;t.phase='build';t.lastProgress=Date.now();t.message='Torch kit ready; building walls with immediate interior lighting';return true;}
+ const lighting=require('./house_lighting');
+ if(t.phase==='build'&&n.lightingKitReady&&!lighting.installed(b,t.plot,'indoor')&&count(b,'torch')){
+  const mount=house.torchMount(t.plot,'indoor');
+  if(b.blockAt(mount.support)?.boundingBox==='block'){
+   if(mount.position.offset(.5,.5,.5).distanceTo(b.entity.position.offset(0,b.entity.eyeHeight||1.62,0))>=4){await t.walk(b,motor,[t.plot.x-.5,t.plot.y+.1,t.plot.z+.5],state,api,scan,tasks);t.message='Taking a safe interior stance for lighting before finishing the roof';return true;}
+   motor.pause();await lighting.place(b,t.plot,'indoor',t);t.lastProgress=Date.now();t.message='Lighting the interior while the house is still being built';return true;
+  }
+ }
+ if(t.phase==='leave_hut'&&n.lightingKitReady&&!lit){motor.pause();n.earlyLighting=true;t.phase=lighting.installed(b,t.plot,'indoor')?'light_exit':'light_inside';t.lastProgress=Date.now();t.message='Verifying house lighting before leaving for settlement supplies';return true;}
  if(t.phase==='supply_craft'&&!lit&&!n.lightingPrepared){
-  motor.pause();let reserve=4;for(const item of [...b.inventory.items()].filter(i=>i.name.endsWith('_log'))){const keep=Math.min(reserve,item.count);reserve-=keep;if(item.count>keep)await t.craft(b,item.name.replace('_log','_planks'),item.count-keep,null);}
+  motor.pause();await planks(t,b);
   n.lightingPrepared=true;t.phase='return_home';t.message='Reserving raw logs for charcoal before settlement extras';return true;
  }
  if(t.phase==='chest'&&!lit){n.earlyLighting=true;t.phase='night_light_tools';return true;}
@@ -38,4 +58,4 @@ async function tick(t,b,motor,state){
  if(t.phase==='quarry_setup'&&lit&&t.milestones.includes('stocked')){t.phase='night_food';t.lastProgress=Date.now();return true;}
  return false;
 }
-module.exports={tick};
+module.exports={tick,reserveCost,planks};

@@ -132,7 +132,7 @@ class HutTeacher{
    else if(this.wilderness&&!['complete','stopped'].includes(this.phase)&&await firstNight.interrupt(this,bot,motor,state,api,scan)){/* safety priority handled */}
    else if(!['survey','complete','stopped'].includes(this.phase)&&await require('./opportunistic_loot').tick(this,bot,motor,state,api,scan,tasks)){/* bounded useful-item detour */}
    else if(await require('./build_blockers').tick(this,bot,motor,state,api,scan,tasks)){/* clear living construction obstruction */}
-   else if(await require('./early_lighting').tick(this,bot,motor,state)){/* lighting before settlement extras */}
+   else if(await require('./early_lighting').tick(this,bot,motor,state,api,scan,tasks)){/* lighting before enclosure and settlement extras */}
    else if(await require('./reforest').tick(this,bot,motor,state,{opportunity:true})){/* brief nearby replanting opportunity */}
    else if(!['survey','complete','stopped'].includes(this.phase)&&await homeRepair.tick(this,bot,motor,state,api,scan,tasks)){/* verify and repair an already-earned home */}
    else if(this.phase==='clear_plot'){if(await require('./plot_clearance').tick(this,bot,motor,state,api,scan,tasks)){this.phase=this.afterPlotClear||'gather';this.afterPlotClear=null;this.lastProgress=Date.now();}}
@@ -200,7 +200,7 @@ class HutTeacher{
      this.message=this.wilderness?.fuelTrip?`Fuel logs ${count(bot,n=>LOG.test(n))} / 4 · ${this.message||'Harvesting raw wood'}`:this.message||`Harvesting logs ${count(bot,n=>LOG.test(n))} / ${Math.ceil(this.requiredWood(bot)/4)}`;
     }
    }else if(this.phase==='craft'){
-    this.timing.mark(this.phase,'crafting');motor.pause();for(const item of [...bot.inventory.items()].filter(i=>LOG.test(i.name))){const name=item.name.replace('_log','_planks'),id=bot.registry.itemsByName[name]?.id;const recipe=id&&bot.recipesFor(id,null,1,null)[0];if(recipe)await crafting.craft(bot,name,item.count,null);}
+    this.timing.mark(this.phase,'crafting');motor.pause();if(this.wilderness&&!this.wilderness.lightingKitReady)await require('./early_lighting').planks(this,bot);else for(const item of [...bot.inventory.items()].filter(i=>LOG.test(i.name))){const name=item.name.replace('_log','_planks'),id=bot.registry.itemsByName[name]?.id;const recipe=id&&bot.recipesFor(id,null,1,null)[0];if(recipe)await crafting.craft(bot,name,item.count,null);}
     this.table=house.point(this.plot,'table');
     if(bot.blockAt(new Vec3(this.table.x,this.table.y,this.table.z))?.name!=='crafting_table'&&!count(bot,n=>n==='crafting_table'))await this.craft(bot,'crafting_table',1,null);
     this.afterPlotClear='floor';this.phase='clear_plot';
@@ -366,6 +366,7 @@ class HutTeacher{
   if(homeRepair.collecting(this))return false;
   // Fuel must remain raw: spare planks cannot replace logs for charcoal.
   const logs=count(bot,n=>LOG.test(n));
+  if(require('./early_lighting').reserveCost(this)&&logs<4)return false;
   return this.wilderness?.fuelTrip?logs>=4:logs*4+count(bot,planks)>=(this.supplyRun?28:this.requiredWood(bot));
  }
  requiredWood(bot){
@@ -373,7 +374,7 @@ class HutTeacher{
   const missing=blueprint(this.plot).filter(q=>!matches(bot,q));
   const tableReady=bot.blockAt(house.point(this.plot,'table'))?.name==='crafting_table'||count(bot,n=>n==='crafting_table')>0;
   const doorReady=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-3))?.name.endsWith('_door')||count(bot,n=>n.endsWith('_door'))>0;
-  return missing.filter(q=>!q.table).length+(tableReady?0:4)+(doorReady?0:6);
+  return missing.filter(q=>!q.table).length+(tableReady?0:4)+(doorReady?0:6)+require('./early_lighting').reserveCost(this);
  }
  inside(p,b){return p.x>b[0]+1&&p.x<b[1]-2&&p.z>b[2]+1&&p.z<b[3]-2;}
  async craft(bot,name,count,table){return crafting.craft(bot,name,count,table);}
