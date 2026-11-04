@@ -92,6 +92,17 @@ test('nearby raised doorway cannot replace a verified step-up with stationary al
  assert.equal(controls.jump,true);assert.equal(controls.forward,true);assert.equal(motor.passageActive(),false);
 });
 
+test('exiting a door releases its flat alignment before steering up a nearby grass step',()=>{
+ const {Vec3}=require('vec3'),{proximity}=require('../controller/perception');let now=0;const controls={};
+ const bot={players:{},entity:{position:new Vec3(.6,64,2.6),yaw:0,pitch:0,onGround:true},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,async look(y){this.entity.yaw=y;},blockAt(p){const q=p.floored(),solid=q.y<(q.z<0?65:64);return {position:q,name:solid?'grass_block':'air',boundingBox:solid?'block':'empty'};}};
+ const motor=createMotor(bot,permissions,{clock:()=>now}),doorway={id:'exit',axis:'z',plane:1.5,center:.6,open:true,y:64};
+ motor.command(0,{kind:'expedition',safe_walk:true,strict_ground:true,waypoints:[[.6,64.1,.2]]},{...safe,...proximity(bot),doorway},0);assert.equal(motor.passageActive(),true);
+ bot.entity.position=new Vec3(.58,64,.7);const cue=[.5,65.1,-.5],angle=Math.atan2(.08,1.2),task={kind:'expedition',auto_step:true,safe_walk:true,strict_ground:true,waypoints:[cue]};
+ motor.command(1,task,{...safe,...proximity(bot),doorway},angle);
+ assert.equal(motor.passageActive(),false,'flat doorway guidance must yield to the verified rising route even while aligning');
+ bot.entity.yaw=angle;motor.command(3,task,{...safe,...proximity(bot),doorway},0);now+=50;motor.tick();assert.equal(controls.forward,true);assert.equal(controls.jump,true);
+});
+
 test('player clearance stops at a precise ledge waypoint instead of probing through the next turn',()=>{
  const {Vec3}=require('vec3'),space=require('../controller/resource_space');let now=0;const controls={};
  const p=new Vec3(24633.5022,67,16515.2087),goal=[24633.5,67.1,16515.5],other=new Vec3(24631.498584671033,65,16515.69991907191);

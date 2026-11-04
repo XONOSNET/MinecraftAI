@@ -110,3 +110,5 @@ Missing bed planks or cooking fuel now starts a short wood resupply trip and ret
 Plot-clearing and floor-building returns preserve a committed jump until touchdown, including when the jump crosses into the local construction radius. They wait before planning or working without cancelling the held forward trajectory. Unplanned falls still pause normally.
 
 The spectator HUD header shows elapsed trial time as MM:SS below one hour and HH:MM:SS from one hour onward. It starts at the running trial timestamp, excludes terrain preparation and freezes at the recorded trial finish. Registered bed homes use a flat house glyph and owner label above the roof instead of a three-dimensional bed item.
+
+A checked one-block climb immediately outside a door takes priority over the doorway's flat crossing alignment, including while steering toward the climb. This handles a one-cell low spot between the doorway and a raised grass bank without removing terrain or weakening landing checks.

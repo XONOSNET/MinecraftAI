@@ -120,7 +120,12 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    if((action===3||autoStep)&&permissions.jump&&rise>.6&&rise<1.2&&Math.abs(angle)<.35){recovery.reset();sensed={...sensed,wallAhead:false};}
    const lateral=permissions.move&&!task?.stationary_work?strafe.choose(action,task,sensed,angle,plan,clock()):null;
    if(lateral?.pure){plan.forward=false;plan.yaw=0;recovery.reset();}
-   const passage=task?.stationary_work?null:doorway.update(plan,{...sensed,onGround:bot.entity.onGround},bot.entity.position,bot.entity.yaw,clock(),permissions);
+   // A door's flat crossing endpoint can lie in a one-cell trough before a
+   // raised bank. Yield while the route aligns for that checked climb too;
+   // otherwise doorway aiming prevents the heading ever reaching jump angle.
+   const ascending=task?.auto_step&&rise>.6&&rise<1.2&&landing&&bot.blockAt&&require('./checked_jump').step(bot,landing);
+   if(ascending)doorway.reset();
+   const passage=task?.stationary_work||ascending?null:doorway.update(plan,{...sensed,onGround:bot.entity.onGround},bot.entity.position,bot.entity.yaw,clock(),permissions);
    if(passage){recovery.reset();plan=passage;}
    else{
    plan=recovery.update(plan,{...sensed,inWater:!!bot.entity.isInWater,inLava:!!bot.entity.isInLava},bot.entity.position,bot.entity.yaw,clock(),permissions,angle,task?.bounds);
