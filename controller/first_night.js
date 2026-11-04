@@ -15,7 +15,7 @@ function priority(b,t,w){
  if(meals(b)&&(b.food<=16||needsHealing))return {kind:'eat',reason:'Restore hunger before continuing'};
  if((b.food<=10||n.resume&&needsHealing)&&SAFE_RAW.some(name=>count(b,name)))return {kind:'eat raw',reason:'Emergency food while cooking is unavailable'};
  const risk=shelterPolicy.assess(b,w);
- if(risk.mode==='cover'||n.shelterWatch&&shelterPolicy.danger(b))return {kind:sheltered?'retreat':'seek cover',reason:risk.mode==='cover'?risk.reason:'Sheltered: wait for daylight and a clear area'};
+ if(risk.mode==='cover'||n.shelterWatch&&shelterPolicy.danger(b))return {kind:require('./refuge_choice').homeReachable(t,b,w)?'retreat':'seek cover',reason:risk.mode==='cover'?risk.reason:'Sheltered: wait for daylight and a clear area'};
  if(risk.mode==='fight')return {kind:'defend',reason:risk.reason};
  if(t.phase==='night_seek_cover')return {kind:'resume',reason:'Daylight and a clear area allow work to resume'};
  if(sheltered&&(b.health<12&&b.food>=18||threat))return {kind:'retreat',reason:threat?'Visible '+threat.name+' nearby':'Recover health inside the hut'};

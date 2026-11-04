@@ -29,10 +29,30 @@ test('unarmed full-health bots proactively dig before enemies arrive and retry b
  assert.equal(f.t.phase,'night_burrow');assert.equal(f.t.wilderness.burrow.stage,'approach');
  assert.match(f.t.wilderness.burrow.reason,/before night-time work/);
 });
-test('refuge selection keeps distance from attackers and refuses excavation when a mob catches up',async()=>{
+test('refuge selection prefers distance but starts digging when an attacker is nearby without occupying the shaft',async ctx=>{
  const f=fixture();f.b.entities.s.position.x=5;const found=burrow.find(f.t,f.b,f.state);assert.ok(found);assert.ok(found.offset(.5,0,.5).distanceTo(f.b.entities.s.position)>=12);
  f.t.phase='night_burrow';f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],lip:[1,64,0],stage:'approach',resume:'gather',progressAt:Date.now()};
- await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.phase,'gather');assert.equal(f.t.wilderness.burrow,null);assert.match(f.t.message,/too close/);
+ ctx.mock.method(access,'stabilize',async()=>true);
+ await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.phase,'night_burrow');assert.equal(f.t.wilderness.burrow.stage,'dig');
+});
+
+test('a fleeing bot can choose nearby dirt when every excavatable patch is within twelve blocks of a pursuer',()=>{
+ const f=fixture(),old=f.b.blockAt;f.b.entities.s.position=new Vec3(5,64,.5);
+ f.b.blockAt=p=>{const v=old(p);if(p.y===63&&(p.x<0||p.x>2||p.z<0||p.z>2))v.name='sand';return v;};
+ const found=burrow.find(f.t,f.b,f.state);assert.ok(found);assert.equal(burrow.site(f.t,f.b,found,f.state.world),true);assert.ok(found.offset(.5,0,.5).distanceTo(f.b.entities.s.position)<12);
+});
+
+test('an underground bot attacks a hostile blocking the roof, respects cooldown and stops attacking when clear',async ctx=>{
+ const f=fixture();f.b.entity.position=new Vec3(.5,62,.5);f.b.entities.s.position=new Vec3(.5,64,.5);f.b.lookAt=async()=>{};
+ let attacks=0,now=10000;ctx.mock.method(Date,'now',()=>now);f.b.attack=e=>{assert.equal(e.name,'skeleton');attacks++;};
+ const s={progressAt:1},cap=new Vec3(0,64,0);
+ assert.equal(await burrow.defendOpening(f.t,f.b,f.motor,s,cap),true);assert.equal(attacks,1);assert.equal(s.progressAt,now);
+ now+=100;assert.equal(await burrow.defendOpening(f.t,f.b,f.motor,s,cap),true);assert.equal(attacks,1);
+ now+=650;assert.equal(await burrow.defendOpening(f.t,f.b,f.motor,s,cap),true);assert.equal(attacks,2);
+ f.b.registry={entitiesByName:{skeleton:{metadataKeys:['health']}}};f.b.entities.s.metadata=[0];
+ assert.equal(await burrow.defendOpening(f.t,f.b,f.motor,s,cap),true,'wait for the corpse entity to disappear before placing through its body');assert.equal(attacks,2);
+ f.b.entities.s.isValid=false;assert.equal(await burrow.defendOpening(f.t,f.b,f.motor,s,cap),false);assert.equal(attacks,2);
+ f.b.entities.s={id:2,name:'sheep',position:new Vec3(.5,64,.5)};assert.equal(await burrow.defendOpening(f.t,f.b,f.motor,s,cap),false);
 });
 test('a dead archer does not keep a sealed refuge occupied forever',async()=>{
  const f=fixture();f.b.registry={entitiesByName:{skeleton:{metadataKeys:['health']}}};f.b.entities.s.metadata=[0];f.b.entities.s.position.x=5;f.b.time.timeOfDay=6000;
@@ -117,6 +137,22 @@ test('escape routing increases separation without choosing a path through an att
  assert.ok(planned.path.every(q=>enemy.distanceTo(new Vec3(...q))>=before-.75));
 });
 
+test('shelter seeking swims to a narrow dry bank instead of pausing over water',async()=>{
+ const f=fixture();f.b.entities={};f.b.entity.position=new Vec3(.5,63.13,.5);f.b.entity.onGround=false;f.b.entity.isInWater=true;
+ f.b.blockAt=p=>{p=p.floored();const bank=p.x===3&&Math.abs(p.z)<=1,name=p.y<63?'stone':p.y===63?(bank?'dirt':'water'):'air';return {position:p,name,boundingBox:['air','water'].includes(name)?'empty':'block',getProperties:()=>({level:0})};};
+ let walking;f.t.walk=async(_b,_m,g)=>{walking=g;};
+ await burrow.seek(f.t,f.b,f.motor,f.state);assert.ok(walking);assert.equal(Math.floor(walking[0]),3);assert.equal(walking[1],64.1);
+ const dry=require('../controller/field_navigation').route(f.b,walking,32,4096,true,{bounds:f.state.world.bounds,reversible:true});assert.ok(!dry.reached);
+ const transit=require('../controller/field_navigation').travelRoute(f.b,walking,32,4096,true,{bounds:f.state.world.bounds,reversible:true});assert.equal(transit.reached,true);assert.equal(transit.water_route,true);
+ assert.equal(burrow.site(f.t,f.b,new Vec3(0,64,0),f.state.world),false,'swimming permission does not permit digging a flooded refuge');
+});
+
+test('surrounded shelter seekers choose a reachable escape rather than demanding separation from every attacker',async()=>{
+ const f=fixture();f.b.entities=Object.fromEntries([[6,0],[-6,0],[0,6],[0,-6]].map(([x,z],i)=>[i,{id:i+2,name:i?'phantom':'skeleton',position:new Vec3(x+.5,64,z+.5)}]));
+ let walking;f.t.walk=async(_b,_m,g)=>{walking=g;};await burrow.seek(f.t,f.b,f.motor,f.state);assert.ok(walking);assert.ok(f.t.wilderness.coverRoutesChecked>6,'strict safer routes were exhausted before fallback');
+ const route=require('../controller/field_navigation').travelRoute(f.b,walking,32,4096,true,{bounds:f.state.world.bounds,reversible:true});assert.equal(route.reached,true);
+});
+
 test('carried-light blocks are clear exit headroom while real solid blocks remain obstructions',()=>{
  const f=fixture(),s={cap:[0,64,0],cap_name:'air'};
  for(const name of ['air','cave_air','void_air','light']){
@@ -180,4 +216,11 @@ test('cover retries do not bypass physical blockers or invent placement success'
  ctx.mock.method(inventory,'sync',async()=>{});ctx.mock.method(inventory,'equip',async()=>{});f.b.lookAt=async()=>{};f.b._placeBlockWithOptions=async()=>{calls++;throw Error('Server refused to place dirt');};
  assert.equal(await burrow.placeCover(f.b,s,cap,lip,new Vec3(-1,0,0),'dirt'),false);assert.equal(calls,3);assert.equal(burrow.sealed(f.b,{cap:cap.toArray(),cap_name:'dirt'}),false);
  f.cells.set(cap.toString(),'water');assert.equal(await burrow.placeCover(f.b,s,cap,lip,new Vec3(-1,0,0),'dirt'),false);assert.equal(calls,3);
+});
+
+test('a silent server placement refusal is retried and still requires a confirmed roof block',async ctx=>{
+ const f=fixture(),s={},cap=new Vec3(0,64,0),lip=new Vec3(1,64,0);f.b.entity.position.y=62;f.cells.set(lip.toString(),'dirt');let attempts=0;
+ ctx.mock.method(inventory,'sync',async()=>{});ctx.mock.method(inventory,'equip',async()=>{});f.b.lookAt=async()=>{};
+ f.b._placeBlockWithOptions=async()=>{if(++attempts===1)throw Error('Server did not answer the placement at (0, 64, 0): Event blockUpdate did not fire within timeout of 5000ms');f.cells.set(cap.toString(),'dirt');};
+ assert.equal(await burrow.placeCover(f.b,s,cap,lip,new Vec3(-1,0,0),'dirt'),true);assert.equal(attempts,2);assert.equal(s.coverRefusals,1);
 });

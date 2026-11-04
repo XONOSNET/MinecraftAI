@@ -13,7 +13,14 @@ async function main(){try{
  await admin({action:'gamemode',gamemode:'survival'});await wait(400);await inventory.sync(b);assert.equal(b.inventory.items().length,0,'no starting items');
  motor=createMotor(b,{move:true,turn:true,jump:true,sprint:true});t={phase:'night_burrow',plot:{x:-1270,y:211,z:-1270},campPlots:[],milestones:[],wilderness:{burrow:{feet:feet.toArray(),cap:feet.toArray(),lip:feet.offset(1,0,0).toArray(),stage:'approach',resume:'gather',reason:'Native refuge test',progressAt:Date.now()}},navigator:{lastPlan:0},walk:async()=>true};
  const state={run:'native-burrow-only',world:{bounds:[-1308,-1292,-1308,-1292],first_night:{hostiles:true}}},started=Date.now();
- result.started_at=Date.now();result.stages=[];while(t.wilderness.burrow?.stage!=='hidden'&&Date.now()-started<25000){await burrow.tick(t,b,motor,state);const stage=t.wilderness.burrow?.stage;if(result.stages.at(-1)?.stage!==stage)result.stages.push({stage,seconds:(Date.now()-result.started_at)/1000});await wait(80);}
+ result.started_at=Date.now();result.stages=[];while(t.wilderness.burrow?.stage!=='hidden'&&Date.now()-started<25000){
+  if(process.argv.includes('--blocked-opening')&&t.wilderness.burrow?.stage==='seal'&&!result.opening_blocker_spawned){
+   await commands(['summon zombie -1299.5 211 -1299.5 {NoAI:1b,NoGravity:1b,Health:2f,PersistenceRequired:1b,Tags:["lab_burrow_fixture"]}']);result.opening_blocker_spawned=true;
+  }
+  await burrow.tick(t,b,motor,state);if(t.wilderness.burrow?.lastOpeningAttack)result.opening_attacked=true;
+  const stage=t.wilderness.burrow?.stage;if(result.stages.at(-1)?.stage!==stage)result.stages.push({stage,seconds:(Date.now()-result.started_at)/1000});await wait(80);
+ }
+ if(process.argv.includes('--blocked-opening'))assert.equal(result.opening_attacked,true,'native hostile at the roof was attacked before sealing');
  assert.equal(t.wilderness.burrow?.stage,'hidden','real shaft sealed');assert.equal(b.entity.position.y,209);assert.equal(burrow.sealed(b,t.wilderness.burrow),true);result.sealed_seconds=(Date.now()-started)/1000;result.hidden_health=b.health;
  await wait(3000);assert.ok(b.health>=result.hidden_health,'sealed roof prevents further damage; normal regeneration is allowed');assert.ok(b.health>0);
  // Simulate ordinary grass spreading onto both fixture soil covers.
@@ -41,9 +48,9 @@ async function main(){try{
  }finally{b.time.timeOfDay=original;}
  assert.equal(t.wilderness.burrow,null,'two real jump placements returned to surface');assert.equal(t.phase,'gather');assert.ok(b.entity.position.y>=211);assert.equal(b.game.gameMode,'survival');assert.deepEqual(t.milestones,[]);
  result.exit_seconds=(Date.now()-exitAt)/1000;result.health=b.health;result.position=b.entity.position.clone();result.no_starting_items=true;result.local_daylight_sensor_only=true;result.passed=true;
-}catch(error){result.error=error.stack;result.burrow=t?.wilderness.burrow;result.position=b.entity.position.clone();result.enemies=Object.values(b.entities).filter(e=>e.name==='skeleton').map(e=>({position:e.position.clone(),valid:e.isValid}));result.cap=t?.wilderness.burrow?b.blockAt(new Vec3(...t.wilderness.burrow.cap))?.name:null;result.items=b.inventory.items().map(i=>({name:i.name,count:i.count}));throw error;}finally{
+}catch(error){result.error=error.stack;result.burrow=t?.wilderness.burrow;result.position=b.entity.position.clone();result.enemies=Object.values(b.entities).filter(e=>e.name==='skeleton').map(e=>({position:e.position.clone(),valid:e.isValid}));result.cap=t?.wilderness.burrow?b.blockAt(new Vec3(...t.wilderness.burrow.cap))?.name:null;result.items=b.inventory.items().map(i=>({name:i.name,count:i.count}));fs.writeFileSync("logs/emergency-burrow-native-before-cleanup.json",JSON.stringify(result,null,2));throw error;}finally{
  motor?.pause();await admin({action:'gamemode',gamemode:'creative'}).catch(()=>{});
- if(changed){await commands(['kill @e[tag=lab_burrow_fixture]','kill @e[type=item,x=-1315,y=205,z=-1315,dx=30,dy=12,dz=30]','kill @e[type=experience_orb,x=-1315,y=205,z=-1315,dx=30,dy=12,dz=30]','fill -1315 205 -1315 -1285 217 -1285 air']);for(let x=-1315;x<=-1285;x++)for(let z=-1315;z<=-1285;z++)for(let y=205;y<=217;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air','fixture cleanup verified');}
+ if(changed){await admin({action:"teleport-coordinates",x:-1300,y:220,z:-1300});await wait(1500);await b.waitForChunksToLoad();await commands(['kill @e[tag=lab_burrow_fixture]','kill @e[type=item,x=-1315,y=205,z=-1315,dx=30,dy=12,dz=30]','kill @e[type=experience_orb,x=-1315,y=205,z=-1315,dx=30,dy=12,dz=30]','fill -1315 205 -1315 -1285 217 -1285 air']);for(let x=-1315;x<=-1285;x++)for(let z=-1315;z<=-1285;z++)for(let y=205;y<=217;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air','fixture cleanup verified');}
  await admin({action:'teleport-coordinates',x:-153.5,y:225.1,z:160.5}).catch(()=>{});await admin({action:'gamemode',gamemode:'survival'}).catch(()=>{});await admin({action:'deop'}).catch(()=>{});result.cleaned=true;b.quit();fs.writeFileSync('logs/emergency-burrow-native.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));
 }}
 const timer=setTimeout(()=>{motor?.pause();b.quit();process.exitCode=1;},120000);

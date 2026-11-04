@@ -14,7 +14,7 @@ test('neutral Endermen cannot lock hungry recovery in a hut but provoked Enderme
  assert.equal(policy.danger(b),false);assert.equal(night.priority(b,t,state.world).kind,'recovery forage');
  for(const flag of [0,1]){
   b.entities.e.metadata=[];b.entities.e.metadata[flag]=true;
-  assert.equal(policy.danger(b),true);assert.equal(policy.assess(b,state.world).mode,'cover');assert.equal(night.priority(b,t,state.world).kind,'retreat');
+  assert.equal(policy.danger(b),true);assert.equal(policy.assess(b,state.world).mode,'cover');assert.equal(night.priority(b,t,state.world).kind,'seek cover','the provoked Enderman occupies this house, so it is not safe retreat cover');
  }
  b.entities.e.metadata=[false,false];assert.equal(night.priority(b,t,state.world).kind,'recovery forage');
 });

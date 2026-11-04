@@ -276,7 +276,23 @@ test('a late grounded update beyond a landing continues forward without returnin
  Object.assign(nav,{destination:goal.join(','),path:[landing,[.5,63.1,-1.5],goal],anchor:[.5,64.1,.5],lastPlan:1000,progressAt:1000,lastPosition:[.5,63.5,-.65]});
  const plan=nav.plan(b,goal,{now:1100});assert.equal(plan.path.includes(landing),false);assert.ok(plan.cue[2]<b.entity.position.z);
  const corner=new WorldNavigation();Object.assign(corner,{destination:goal.join(','),path:[landing,[-.5,63.1,-.5],goal],anchor:[.5,64.1,.5],lastPlan:1000,progressAt:1000,lastPosition:[.5,63.5,-.65]});
- assert.equal(corner.plan(b,goal,{now:1100}).path[0],landing,'turns still require the checked corner');
+ assert.equal(corner.plan(b,goal,{now:1100}).path.includes(landing),false,'a clear bend after landing needs no return to the old center');
+});
+
+test('passed downhill landings tolerate delayed or off-center updates only with a clear body corridor',()=>{
+ const {WorldNavigation,passedLanding}=require('../controller/world_navigation');
+ for(const mode of ['delayed','lateral','wall','unloaded','ledge','player','private','airborne','gap']){
+  const b={username:'LandingTest',players:{},entity:{id:1,position:new Vec3(mode==='lateral'?.7:.5,63,mode==='delayed'?-1.3:-.8),onGround:mode!=='airborne',yaw:0},blockAt(p){const q=p.floored();if(mode==='unloaded'&&q.x===-1&&q.z===-1)return null;let solid=q.y<(q.z<0?63:64);if(mode==='wall'&&q.x===0&&q.y===63&&q.z===-2)solid=true;if(mode==='ledge'&&q.x===-1&&q.y===62&&q.z===-1)solid=false;return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+  const n=new WorldNavigation(),goal=mode==='delayed'?[.5,63.1,-3.5]:[-1.5,63.1,-1.5],landing=[.5,63.1,-.5],next=mode==='delayed'?[.5,63.1,-2.5]:[-.5,63.1,-1.5];landing.centering=true;if(mode==='gap')next.gapFrom=[0,63,-1];
+  if(mode==='player')b.players.Other={username:'Other',entity:{id:2,position:new Vec3(-.5,63,-1.5)}};
+  Object.assign(n,{destination:goal.join(','),path:[landing,next,goal],anchor:[.5,64.1,.5],lastPlan:1000,progressAt:1000,lastPosition:[.5,63.5,-.65]});
+  // Keep this check about waypoint consumption, not the replanner's replacement path.
+  const options={now:1100};if(mode==='private')options.plots=[{x:-3,y:63,z:-3}];
+  const guards=mode==='private'?{forbidden:q=>q[0]<0}:{};
+  const passed=passedLanding(b,landing,next,n.anchor,guards),result=n.plan(b,goal,options);
+  assert.equal(passed,['delayed','lateral'].includes(mode),mode);
+  if(['delayed','lateral'].includes(mode))assert.equal(result.path.includes(landing),false);
+ }
 });
 
 
