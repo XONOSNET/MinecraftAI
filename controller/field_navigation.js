@@ -1,7 +1,7 @@
 // Conservative local route planning over loaded, sensed blocks. No world edits.
 const {Vec3}=require('vec3');
 const space=require('./resource_space');
-const BAD=new Set(['water','lava','fire','soul_fire','magma_block','campfire','soul_campfire','sweet_berry_bush','powder_snow','cactus','cobweb','oak_leaves']);
+const BAD=new Set(['water','seagrass','tall_seagrass','kelp','kelp_plant','lava','fire','soul_fire','magma_block','campfire','soul_campfire','sweet_berry_bush','powder_snow','cactus','cobweb','oak_leaves']);
 function safe(block){return !!block&&!BAD.has(block.name)&&!block.name.endsWith('_leaves');}
 function passable(block){return safe(block)&&(block.boundingBox==='empty'||block.name.endsWith('_door')&&block.getProperties?.().open===true);}
 function standable(bot,x,y,z){
@@ -56,7 +56,7 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
    if(Math.abs(next[0]-start[0])>radius||Math.abs(next[2]-start[2])>radius||!stand(...next))continue;
    if(others.length&&!space.stepClear(key(n)===key(start)&&!escape?p:{x:n[0]+.5,y:n[1],z:n[2]+.5},{x:next[0]+.5,y:next[1],z:next[2]+.5},others,require('./behavior').forBot(bot).player_clearance))continue;
    // An ascending jump also needs clearance above the departure block.
-   if(dy===1&&!(options.allowWater&&bot.blockAt(new Vec3(...n))?.name==='water')){const over=terrain.blockAt(new Vec3(n[0],n[1]+2,n[2]));if(!safe(over)||over.boundingBox!=='empty')continue;}
+   if(dy===1&&!(options.allowWater&&require('./water_navigation').isWater(bot.blockAt(new Vec3(...n))))){const over=terrain.blockAt(new Vec3(n[0],n[1]+2,n[2]));if(!safe(over)||over.boundingBox!=='empty')continue;}
    if(options.reversible&&dy===-1){const over=terrain.blockAt(new Vec3(next[0],next[1]+2,next[2]));if(!passable(over))continue;}
    const k=key(next),ng=g+(options.allowWater?transit(...next).cost:1)+(dy!==0?.4:0);
    if(ng<(costs.get(k)??Infinity)){costs.set(k,ng);parent.set(k,n);jumps.delete(k);push({n:next,g:ng,f:ng+distance(next)});}break;

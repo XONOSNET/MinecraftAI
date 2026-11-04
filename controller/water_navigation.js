@@ -1,6 +1,10 @@
 // Surface-only water transit. Construction/mining still require dry footing.
 const {Vec3}=require('vec3'),space=require('./resource_space');
 const HAZARDS=new Set(['lava','fire','soul_fire','magma_block','campfire','soul_campfire','bubble_column','powder_snow','cactus']);
+const AQUATIC=new Set(['seagrass','tall_seagrass','kelp','kelp_plant']);
+// These non-colliding plants contain source water in vanilla physics. They
+// are swimming cells, never dry land or permission to walk underwater.
+const isWater=v=>!!v&&(v.name==='water'||AQUATIC.has(v.name)&&v.boundingBox==='empty');
 const open=v=>!!v&&(v.boundingBox==='empty'||v.name.endsWith('_door')&&v.getProperties?.().open===true)&&!HAZARDS.has(v.name);
 function safeCurrent(bot,v){
  const level=Number(v.getProperties?.().level||0);
@@ -14,12 +18,12 @@ function safeCurrent(bot,v){
 }
 function cell(bot,x,y,z){
  const at=(dx,dy,dz)=>bot.blockAt(new Vec3(x+dx,y+dy,z+dz)),feet=at(0,0,0),head=at(0,1,0),floor=at(0,-1,0);
- if(!feet||!floor||!open(head)||head.name==='water')return null;
- const wet=feet.name==='water';
+ if(!feet||!floor||!open(head)||isWater(head))return null;
+ const wet=isWater(feet);
  if(wet){if(!safeCurrent(bot,feet))return null;if(!bot.entity?.isInWater&&(bot.labOxygen??20)<6)return null;}
  else if(!open(feet)||floor.boundingBox!=='block'||HAZARDS.has(floor.name))return null;
  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let dy=-1;dy<=1;dy++){
-  const v=at(dx,dy,dz);if(!v||HAZARDS.has(v.name)||v.getProperties?.().waterlogged||v.name==='water'&&!safeCurrent(bot,v))return null;
+  const v=at(dx,dy,dz);if(!v||HAZARDS.has(v.name)||v.getProperties?.().waterlogged&&!AQUATIC.has(v.name)||isWater(v)&&!safeCurrent(bot,v))return null;
  }
  return {wet,mode:wet?(floor.boundingBox==='block'?'wade':'swim'):'bank',cost:wet?(floor.boundingBox==='block'?3:5):1};
 }
@@ -48,4 +52,4 @@ function drive(bot,goal,permissions){
  if(permissions.turn&&Math.abs(angle)>.002)Promise.resolve(bot.look(bot.entity.yaw+Math.max(-.18,Math.min(.18,angle)),0,true)).catch(()=>{});
  return safe;
 }
-module.exports={cell,validRoute,drive};
+module.exports={cell,validRoute,drive,isWater};

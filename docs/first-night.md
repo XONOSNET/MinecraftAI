@@ -74,5 +74,7 @@ Construction return-goal selection also accepts the route follower's verified pa
 
 Doorway guidance remains active when the bot occupies the threshold cell even if navigation has already consumed that cell's waypoint. The next checked route point still determines crossing direction and any one-block descent. This retains clearance from the open side panel instead of stopping against it at a slightly off-center heading; it does not create doorway shortcuts from elsewhere in the house.
 
+Seagrass, tall seagrass, kelp and kelp plants are water-bearing swimming cells, matching vanilla physics. Surface planning can resume over these plants instead of waiting forever for an airborne swimmer to land. They never qualify as dry work footing, and a submerged plant above the feet does not count as breathable head space. Existing current, oxygen, hazard, waterlogged-obstacle and dry-exit checks remain in force.
+
 
 Plot clearing and floor building no longer fail an entire attempt on a single unsuccessful home-route check. They pause safely and re-sense for up to fifteen seconds; a verified route resumes normal travel. Persistent route failures still end with the original return-route diagnosis. Waiting adds no construction or lesson credit, does not permit remote digging, and retains the ordinary trial and stall limits.

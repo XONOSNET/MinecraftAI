@@ -167,3 +167,16 @@ test('a bounded checked return can begin sideways when its searched frontier mak
  const n=new WorldNavigation(),plan=n.plan(b,goal,{bounds});assert.equal(plan.blocked,false);assert.equal(plan.arrived,false);assert.equal(n.status.partial_route,true);assert.ok(plan.path.length<=12);
  const end=plan.path.at(-1);assert.ok(Math.hypot(goal[0]-end[0],goal[2]-end[2])>101,'this necessary initial leg moves away from the destination');assert.equal(water.validRoute(b,plan.path,end),true);
 });
+
+for(const plant of ['seagrass','tall_seagrass','kelp','kelp_plant'])test('swimming through '+plant+' retains water classification, air checks and dry-footing restrictions',()=>{
+ const {b,cells}=fixture(),at=b.blockAt;b.blockAt=p=>{const v=at(p);if(p.floored().x===4&&p.floored().z===0&&p.floored().y===63)return {...v,name:plant,boundingBox:'empty',shapes:[],getProperties:()=>({half:'upper'})};return v;};
+ b.entity.position=new Vec3(4.5,63.85,.5);b.entity.isInWater=true;b.entity.onGround=false;
+ assert.equal(water.cell(b,4,63,0).wet,true);assert.equal(standable(b,4,63,0),false);
+ const goal=[10.5,64.1,.5],r=route(b,goal,20,4096,true,{bounds:[-2,13,-3,3],allowWater:true});assert.equal(r.reached,true);assert.equal(water.validRoute(b,r.path,goal),true);
+ cells.set(new Vec3(4,64,0).toString(),'water');assert.equal(water.cell(b,4,63,0),null,'underwater head space is not surface air');
+ cells.delete(new Vec3(4,64,0).toString());b.entity.isInWater=false;b.labOxygen=3;assert.equal(water.cell(b,4,63,0),null,'low-air entry guard still applies');
+});
+test('waterlogged solid blocks and bubble columns are not treated as harmless aquatic plants',()=>{
+ const {b}=fixture(),at=b.blockAt;b.blockAt=p=>Math.floor(p.x)===4&&Math.floor(p.y)===63?{...at(p),name:'oak_leaves',getProperties:()=>({waterlogged:true})}:at(p);
+ assert.equal(water.cell(b,3,63,0),null);assert.equal(water.isWater(b.blockAt(new Vec3(4,63,0))),false);assert.equal(water.isWater({name:'bubble_column',boundingBox:'empty'}),false);
+});
