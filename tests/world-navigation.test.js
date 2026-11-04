@@ -278,6 +278,11 @@ test('a late grounded update beyond a landing continues forward without returnin
  const corner=new WorldNavigation();Object.assign(corner,{destination:goal.join(','),path:[landing,[-.5,63.1,-.5],goal],anchor:[.5,64.1,.5],lastPlan:1000,progressAt:1000,lastPosition:[.5,63.5,-.65]});
  assert.equal(corner.plan(b,goal,{now:1100}).path.includes(landing),false,'a clear bend after landing needs no return to the old center');
 });
+test('an aligned body touching a one-block face can climb without backing to its cell center',()=>{
+ const b={players:{},entity:{position:new Vec3(.74,64,.5),onGround:true},blockAt(p){p=p.floored();const solid=p.y<(p.x>=1?65:64);return {position:p,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+ const plan=route(b,[2.5,65.1,.5],8,128,true,{reversible:true});assert.equal(plan.reached,true);assert.deepEqual([...plan.path[0]],[1.5,65.1,.5]);
+ b.entity.position.z=.8;const lateral=route(b,[2.5,65.1,.5],8,128,true,{reversible:true});assert.deepEqual([...lateral.path[0]],[.5,64.1,.5],'lateral misalignment still needs centering');
+});
 
 test('passed downhill landings tolerate delayed or off-center updates only with a clear body corridor',()=>{
  const {WorldNavigation,passedLanding}=require('../controller/world_navigation');

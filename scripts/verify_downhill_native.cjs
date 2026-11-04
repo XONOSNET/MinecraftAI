@@ -28,7 +28,18 @@ async function follow(nav,goal,oldLanding){
  motor.pause();await commands(['tp @s -1558.15 210 -1558.5 -90 0']);await b.waitForTicks(8);
  const nav=new WorldNavigation(),goal=[-1554.5,210.1,-1554.5],landing=[-1558.5,210.1,-1558.5];landing.centering=true;
  Object.assign(nav,{destination:goal.join(','),path:[landing,[-1558.5,210.1,-1557.5],goal],anchor:[-1559.5,211.1,-1558.5],lastPlan:Date.now(),progressAt:Date.now(),lastPosition:[-1558.3,210.5,-1558.5]});
- report.late_corner=await follow(nav,goal,landing);assert.equal(b.health,20);report.health=b.health;report.passed=true;
+ report.late_corner=await follow(nav,goal,landing);
+ motor.pause();await commands(['fill -1561 211 -1560 -1561 211 -1558 stone','fill -1562 211 -1560 -1562 212 -1558 stone','fill -1563 211 -1560 -1563 213 -1558 stone','tp @s -1558.69 210 -1558.5 90 0']);await b.waitForTicks(8);
+ const mine=require('../controller/staircase_mining'),walker=new WorldNavigation(),state={world:{bounds:[-1568,-1550,-1568,-1550]}},m={stage:'exit',resource:'stone',entry:[-1563,214,-1559],path:[[-1563,214,-1559],[-1562,213,-1559],[-1561,212,-1559],[-1560,211,-1559],[-1559,210,-1559]],exitIndex:3};
+ const t={plot:{x:-1530,y:211,z:-1530},wilderness:{mine:m},campPlots:[],walk:async(_b,_motor,g)=>{
+  const p=b.entity.position,plan=walker.plan(b,g,{bounds:state.world.bounds});if(plan.arrived)return true;assert.ok(!plan.blocked);
+  const q=plan.cue,desired=Math.atan2(-(q[0]-p.x),-(q[2]-p.z)),angle=Math.atan2(Math.sin(desired-b.entity.yaw),Math.cos(desired-b.entity.yaw));
+  motor.command(Math.abs(angle)>.08?(angle>0?1:2):3,{kind:'expedition',auto_step:true,safe_walk:true,strict_ground:true,navigation_lock:true,waypoints:[q],safety_focus:q,route_corridor:plan.corridor},{...proximity(b),focusPoint:q},angle);
+ }};
+ const start=Date.now();let heldFrames=0;
+ while(m.stage!=='done'&&Date.now()-start<20000){await mine.tick(t,b,motor,state);if(b.entity.onGround===false&&motor.committedJump()){assert.equal(b.getControlState('forward'),true,'airborne mine return holds forward');heldFrames++;}await wait(100);}
+ assert.equal(m.stage,'done');assert.ok(heldFrames>=4);assert.ok(b.entity.position.y>=214);report.mine_exit={steps:4,held_forward_airborne_frames:heldFrames,seconds:(Date.now()-start)/1000};
+ assert.equal(b.health,20);report.health=b.health;report.passed=true;
  }catch(error){report.error=error.stack;process.exitCode=1;}finally{
  motor?.pause();if(physics)b.removeListener('physicsTick',physics);b.clearControlStates();await admin({action:'gamemode',gamemode:'creative'});
  if(changed){await commands(['fill -1568 207 -1568 -1550 216 -1550 air','kill @e[type=item,x=-1568,y=207,z=-1568,dx=18,dy=9,dz=18]','clear @s']);for(let x=-1568;x<=-1550;x++)for(let z=-1568;z<=-1550;z++)for(let y=207;y<=216;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air');}

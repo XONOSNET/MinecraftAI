@@ -3,6 +3,13 @@ function fixture(){
  const cells=new Map(),controls={},b={username:'WaterTest',players:{},labOxygen:20,entity:{id:1,position:new Vec3(.5,64,.5),onGround:true,yaw:-Math.PI/2},blockAt(p){p=p.floored();const key=p.toString(),wet=p.x>=3&&p.x<=6&&p.y>=61&&p.y<=63,name=cells.get(key)||(wet?'water':p.y<64?'stone':'air');return {position:p,name,boundingBox:['air','water','lava','bubble_column'].includes(name)?'empty':'block',getProperties:()=>({level:0})};},setControlState(k,v){controls[k]=v;},look:async()=>{}};
  return {b,cells,controls};
 }
+test('an accidental submerged entry keeps buoyancy while no surface route exists yet',async ctx=>{
+ const {HutTeacher}=require('../controller/hut_teacher'),b=fixture().b,t=new HutTeacher(),goal=[10.5,64.1,.5];b.entity.isInWater=true;b.entity.onGround=false;
+ ctx.mock.method(require('../controller/entrance_clearance'),'resume',async()=>null);
+ t.navigator={status:{},portalFor:()=>null,plan:()=>({blocked:true,path:[],cue:goal})};let action,task;
+ const motor={pause:()=>assert.fail('Pausing would clear buoyancy'),command(a,v){action=a;task=v;}};
+ await t.walk(b,motor,goal,{world:{bounds:[-20,20,-20,20]}});assert.equal(action,4);assert.equal(task.water_route,true);
+});
 
 test('a waterside home uses its supported front bank instead of a marker above water',()=>{
  const {b}=fixture(),plot={x:0,y:64,z:0},bounds=[-12,12,-14,12];

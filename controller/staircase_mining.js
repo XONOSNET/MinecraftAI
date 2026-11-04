@@ -138,7 +138,7 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   // points into the mine. Reconnect to the entrance through sensed terrain
   // rather than demanding that it revisit a now-obstructed lower landing.
   // A physics tick in mid-jump is not evidence that a return route failed.
-  if(b.entity.onGround===false&&!b.entity.isInWater){motor.pause();t.message='Mine exit: waiting to land before checking the return route';return {handled:true};}
+  if(b.entity.onGround===false&&!b.entity.isInWater){if(!motor.committedJump?.())motor.pause();t.message='Mine exit: waiting to land; preserving forward movement during a committed jump';return {handled:true};}
   const old=new Vec3(...m.path[m.exitIndex]);
   if(m.exitIndex>0&&(b.entity.position.distanceTo(old)>3||!nav.standable(b,old.x,old.y,old.z))){
    const radius=Math.min(192,Math.max(24,Math.ceil(b.entity.position.distanceTo(home))+8));

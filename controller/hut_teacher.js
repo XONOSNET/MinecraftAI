@@ -528,10 +528,13 @@ class HutTeacher{
    motor.pause();this.path=[];this.lastPlan=0;this.lastRecoveryReset=now;this.navigator.lastPlan=-Infinity;this.navigator.path=[];
   }
   const planned=this.navigator.plan(bot,goal,{plot:this.plot,plots:this.campPlots,bounds:state.world.bounds,now,memory:this.wilderness?.memory,constructionWork:['clear_plot','home_repair'].includes(this.phase)});
-  this.lastNavigation={...this.navigator.status,phase:this.phase,position:[p.x,p.y,p.z],yaw:bot.entity.yaw,on_ground:bot.entity.onGround,cue:[...planned.cue],cue_centering:!!planned.cue.centering,motor_before:motor.diagnostic?.(),nearby_players:space.players(bot).filter(q=>q.distanceTo(p)<6).map(q=>[q.x,q.y,q.z]),player_clearance:forBot(bot).player_clearance,sampled_at:now};
+  this.lastNavigation={...this.navigator.status,phase:this.phase,position:[p.x,p.y,p.z],velocity:bot.entity.velocity?.toArray?.(),physics_gravity:bot.physics?.gravity,physics_enabled:bot.physicsEnabled,in_water:bot.entity.isInWater,yaw:bot.entity.yaw,on_ground:bot.entity.onGround,cue:[...planned.cue],cue_centering:!!planned.cue.centering,motor_before:motor.diagnostic?.(),nearby_players:space.players(bot).filter(q=>q.distanceTo(p)<6).map(q=>[q.x,q.y,q.z]),player_clearance:forBot(bot).player_clearance,sampled_at:now};
   this.path=planned.path;this.lastPlan=this.navigator.lastPlan;this.destination=this.navigator.destination;
   if(this.navigator.replanned)this.timing.replans++;
   if(planned.blocked){
+   // A fall or knockback can submerge the head before a surface route exists.
+   // Keep buoyancy active while the planner waits for breathable surface footing.
+   if(bot.entity.isInWater){motor.command(4,{kind:'expedition',water_route:true,waypoints:[[p.x,p.y,p.z]]},{},0);this.message='Resurfacing after entering water; checking a safe shore route';return;}
    motor.pause();
    if(!intent.entranceWork&&await require('./entrance_clearance').tick(this,bot,motor,goal,state,stance=>this.walk(bot,motor,stance,state,api,scan,tasks,{...intent,entranceWork:true})))return;
    this.message=(['return_home','stone_return','light_return','enter'].includes(this.phase)?'Finding a safe way home. ':'')+planned.message;return false;

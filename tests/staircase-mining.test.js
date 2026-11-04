@@ -180,6 +180,12 @@ test('a mine exit waits through an airborne frame and retains failure for a genu
  f.b.entity.onGround=true;f.b.blockAt=p=>({position:p,name:'stone',boundingBox:'block'});
  await assert.rejects(mine.tick(f.t,f.b,f.motor,f.state),/return stair is obstructed/);assert.equal(m.stage,'exit');
 });
+test('mine exit leaves a committed jump controller holding forward while airborne',async()=>{
+ const f=fixture(),m=f.t.wilderness.mine={stage:'exit',entry:[0,64,0],path:[[0,64,0],[1,63,0]],exitIndex:1};
+ f.b.entity.position=new Vec3(1.5,63.7,.5);f.b.entity.onGround=false;
+ f.motor.committedJump=()=>true;f.motor.pause=()=>assert.fail('Do not cancel the in-flight jump');f.t.walk=async()=>assert.fail('Wait for landing before replanning');
+ await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.exitIndex,1);assert.equal(m.stage,'exit');
+});
 
 test('home retreat retires a stale flooded mine in every working stage but requires actual stone',async()=>{
  for(const stage of ['dig','descend','water_retreat','exit']){

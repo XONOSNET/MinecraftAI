@@ -87,7 +87,9 @@ class WorldNavigation{
   const exitClosed=exitDoor?.name.endsWith('_door')&&!exitDoor.getProperties().open;
   // An unfinished plot has no door to open. Continue outside instead of
   // waiting forever at the interior approach for a nonexistent interaction.
-  const target=foreign?(exitClosed?[portal.x+.5,portal.y+.1,portal.z-1.5]:homeApproach(portal,bot)):approachGoal(bot,goal,portal),key=target.join(','),home=homeApproach(plot,bot);
+  const swim=require('./swim_recovery').update(this,bot,{now,bounds,forbidden:q=>plots.some(h=>!samePlot(h,plot)&&privatePlotCell(q,h))});
+  const travelGoal=swim?.goal||goal;
+  const target=foreign?(exitClosed?[portal.x+.5,portal.y+.1,portal.z-1.5]:homeApproach(portal,bot)):approachGoal(bot,travelGoal,portal),key=target.join(','),home=homeApproach(plot,bot);
   // A bot can be on the outer strip of its plot after crafting or harvesting.
   // Always allow departure from that occupied plot; the narrower room test
   // otherwise marks every neighboring start cell forbidden and traps it.
@@ -164,6 +166,7 @@ class WorldNavigation{
    water_route:!!this.waterRoute,route_complete:!this.blocked,remaining_blocks:Math.round(remaining*10)/10,waypoints:this.path.length,no_progress_seconds:Math.floor(idle),reset_seconds:Math.max(0,Math.ceil(timeout-idle)),expanded:this.expanded||0};
   if(idle>=timeout)throw Error('No route progress for '+timeout+' seconds; ended this attempt instead of circling.');
   this.status.smoothed_waypoints=skipped>0?skipped:0;
+  this.status.water_recovery=swim?.goal?'Checked shore escape after stationary swimming':null;
   return {water_route:!!this.waterRoute,path:this.path,cue:smooth||travelCue(p,this.path)||target,corridor:[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,5)],blocked:this.blocked,arrived,message:this.reason,portal};
  }
 }

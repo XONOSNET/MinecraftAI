@@ -7,7 +7,7 @@ await once(b,'spawn');await wait(1800);await admin({action:'gamemode',gamemode:'
 for(let x=-1610;x<=-1590;x++)for(let z=-1604;z<=-1596;z++)for(let y=206;y<=216;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air');
 changed=true;await commands(['fill -1610 207 -1604 -1590 210 -1596 stone','fill -1602 208 -1603 -1598 210 -1597 water','fill -1610 215 -1604 -1590 215 -1596 sea_lantern','tp @s -1606.5 211 -1600.5']);await admin({action:'gamemode',gamemode:'survival'});await wait(300);
 result.crossings=[];
-for(const shallow of [false,true]){
+for(const shallow of (process.argv.includes('--recovery-only')?[]:[false,true])){
  if(shallow){
   await admin({action:'gamemode',gamemode:'creative'});
   await commands(['fill -1602 208 -1603 -1598 210 -1597 stone','fill -1602 210 -1603 -1598 210 -1597 air','setblock -1602 210 -1600 water','tp @s -1601.5 210.2 -1600.5']);
@@ -21,6 +21,25 @@ for(const shallow of [false,true]){
  result.navigation=nav.status;result.remaining=nav.path.slice(0,3);result.in_water=b.entity.isInWater;result.on_ground=b.entity.onGround;
  assert.equal(arrived,true,'crossed the channel and reached dry bank');assert.equal(wet,true,'actually entered water');assert.equal(waterRouteSeen,true);assert.ok(b.health>=health,'no health lost');if(shallow)assert.equal(runoffSeen,true,'shallow flowing water was present');
  result.crossings.push({shallow,seconds:(Date.now()-started)/1000,health:b.health,swam:wet,runoff_seen:runoffSeen,position:b.entity.position.toArray()});motor.pause();motor=null;
+}
+// An accidental submerged entry has no pre-existing surface route. Then replay
+// the stationary-swimmer condition with its physical progress clock expired.
+result.recovery=[];
+for(const submerged of [true,false]){
+ await admin({action:'gamemode',gamemode:'creative'});await commands(['fill -1602 208 -1603 -1598 210 -1597 water',`tp @s -1600.5 ${submerged?209.2:210.2} -1600.5`]);await admin({action:'gamemode',gamemode:'survival'});await wait(400);
+ const nav=new WorldNavigation(),goal=[-1593.5,211.1,-1600.5],bounds=[-1611,-1589,-1603,-1597],began=Date.now(),startingHealth=b.health;motor=createMotor(b,{move:true,jump:true,turn:true});
+ if(!submerged){nav.swimRecovery={anchor:b.entity.position.clone(),progressAt:Date.now()-4000};b.setControlState('forward',true);}
+ let landed=false,escapeSeen=false,surfacingSeen=false;
+ while(Date.now()-began<20000){
+  const p=b.entity.position,plan=nav.plan(b,goal,{bounds}),cell=require('../controller/water_navigation').cell(b,Math.floor(p.x),Math.round(p.y),Math.floor(p.z));
+  escapeSeen ||= !!nav.status.water_recovery;
+  if(cell&&!cell.wet&&b.entity.onGround){landed=true;nav.plan(b,goal,{bounds});assert.deepEqual(nav.status.target,goal,'original task resumes after shore');break;}
+  if(plan.blocked){surfacingSeen=true;motor.command(4,{water_route:true,waypoints:[[p.x,p.y,p.z]]},{},0);}
+  else motor.command(0,{water_route:true,waypoints:[plan.cue]},{},0);
+  await wait(100);
+ }
+ assert.equal(landed,true);if(submerged)assert.equal(surfacingSeen,true);else assert.equal(escapeSeen,true);assert.ok(b.health>=startingHealth);
+ result.recovery.push({submerged,escape_seen:escapeSeen,surfacing_seen:surfacingSeen,seconds:(Date.now()-began)/1000,health:b.health,position:b.entity.position.toArray()});motor.pause();motor=null;
 }
 result.passed=true;
 }catch(error){result.error=error.stack;result.position=b.entity.position.toArray();process.exitCode=1;}finally{motor?.pause();await admin({action:'gamemode',gamemode:'creative'}).catch(()=>{});if(changed){await commands(['fill -1610 206 -1604 -1590 216 -1596 air']);for(let x=-1610;x<=-1590;x++)for(let z=-1604;z<=-1596;z++)for(let y=206;y<=216;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air');}await admin({action:'teleport-coordinates',x:-153.5,y:225.1,z:160.5});await admin({action:'gamemode',gamemode:'survival'});await admin({action:'deop'});result.cleaned=true;b.quit();fs.writeFileSync('logs/water-crossing-native.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));setTimeout(()=>process.exit(process.exitCode||0),300);}})().catch(e=>{console.error(e);b.quit();process.exit(1);});
