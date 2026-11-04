@@ -66,6 +66,8 @@ function stances(t,b,q,tiles,state,used=new Set()){
 }
 async function tick(t,b,motor,state,api,scan,tasks){
  const p=b.entity.position;
+ // Crossing into the floor-work radius does not complete a checked jump.
+ if(b.entity.onGround===false&&motor.committedJump?.()){t.message='Waiting to land after the checked return jump';return;}
  // Floor stances are local work positions, not long-distance return routes.
  // Prefer the exterior, then a checked intact plot stance; skip any dug holes.
  if(Math.hypot(p.x-t.plot.x-.5,p.z-t.plot.z-.5)>6||Math.abs(p.y-t.plot.y)>1.25){

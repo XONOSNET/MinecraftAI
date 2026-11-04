@@ -33,6 +33,9 @@ function stances(t,b,targets,bounds){
 async function tick(t,b,motor,state,api,perception,tasks){
  const now=Date.now(),progress=t.plotClearing??={removed:0,deferred:new Map(),blockedAt:null};
  const p=b.entity.position;
+ // Finish the checked jump even if it crosses into the local work radius.
+ // Clearing must not cancel its forward lease halfway up the last step.
+ if(b.entity.onGround===false&&motor.committedJump?.()){t.message='Waiting to land after the checked return jump';return false;}
  // Clearing runs both before gathering and after the wood trip. Local work
  // stances cannot route back from a distant tree or inspect unloaded home cells.
  if(Math.hypot(p.x-t.plot.x-.5,p.z-t.plot.z-.5)>6||Math.abs(p.y-t.plot.y)>1.25){

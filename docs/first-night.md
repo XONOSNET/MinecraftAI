@@ -106,3 +106,5 @@ Mining recenters from the actual occupied cell. Crossing into an adjacent excava
 After falling or being knocked into water, navigation releases a previously committed dry landing so it can replan a checked swimming route. Ordinary airborne landings still retain their route until touchdown; buoyancy must not be mistaken for a jump that has not landed.
 
 Missing bed planks or cooking fuel now starts a short wood resupply trip and returns through the normal home entrance to resume that task. Shelter interruptions retain priority, and collected wool remains in inventory. Nightfall no longer interrupts the final door, entry or enclosure verification while a bot is inside its physically intact house shell with no hostile inside; the normal closed-door and hut verification still must finish before the lesson is awarded.
+
+Plot-clearing and floor-building returns preserve a committed jump until touchdown, including when the jump crosses into the local construction radius. They wait before planning or working without cancelling the held forward trajectory. Unplanned falls still pause normally.
