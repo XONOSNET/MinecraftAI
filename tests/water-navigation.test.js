@@ -159,3 +159,11 @@ test('construction goal selection preserves a checked partial return to a loaded
  assert.equal(await require('../controller/plot_clearance').tick(t,b,{pause(){}},state),false,'checked travel never completes plot clearing remotely');
  assert.deepEqual(t.plotReturnGoal,goal);assert.equal(t.plotClearing.removed,0);
 });
+
+test('a bounded checked return can begin sideways when its searched frontier makes real progress',()=>{
+ const {b}=fixture();b.blockAt=p=>{p=p.floored();const wall=(p.z===-1&&p.x>=-14||p.z===-90)&&p.y>=64&&p.y<=68,name=wall?'stone':p.x===1&&p.z<=-95&&p.y===63?'water':p.y<64?'stone':'air';return {position:p,name,boundingBox:['air','water'].includes(name)?'empty':'block',getProperties:()=>({level:0})};};
+ const goal=[.5,64.1,-100.5],bounds=[-100,110,-110,100],searched=route(b,goal,192,8192,true,{bounds,reversible:true,allowWater:true});
+ assert.equal(searched.budget_exhausted,true);assert.equal(searched.reached,false);assert.ok(searched.path.at(-1)[2]<-80);
+ const n=new WorldNavigation(),plan=n.plan(b,goal,{bounds});assert.equal(plan.blocked,false);assert.equal(plan.arrived,false);assert.equal(n.status.partial_route,true);assert.ok(plan.path.length<=12);
+ const end=plan.path.at(-1);assert.ok(Math.hypot(goal[0]-end[0],goal[2]-end[2])>101,'this necessary initial leg moves away from the destination');assert.equal(water.validRoute(b,plan.path,end),true);
+});

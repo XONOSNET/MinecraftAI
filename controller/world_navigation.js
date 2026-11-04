@@ -131,9 +131,12 @@ class WorldNavigation{
      // more search than one bounded water-capable plan. Accept only a short
      // checked prefix ending on dry shore, then replan as home chunks load.
      // A prefix ending in open water is never an acceptable partial return.
+     const frontier=wet.path.at(-1),frontierGain=frontier?Math.hypot(target[0]-p.x,target[2]-p.z)-Math.hypot(target[0]-frontier[0],target[2]-frontier[2]):0;
      for(let length=Math.min(12,wet.path.length);length>=4;length--){
       const prefix=wet.path.slice(0,length),shore=prefix.at(-1),gain=Math.hypot(target[0]-p.x,target[2]-p.z)-Math.hypot(target[0]-shore[0],target[2]-shore[2]);
-      if(gain>=4&&require('./water_navigation').validRoute(bot,prefix,shore)){planned={...wet,reached:true,partial:true,path:prefix};this.waterRoute=true;this.best=Infinity;break;}
+      // A checked detour may first move sideways/away around a cliff or inlet.
+      // Require progress at the searched frontier, not at every short leg.
+      if((gain>=4||frontierGain>=4)&&require('./water_navigation').validRoute(bot,prefix,shore)){planned={...wet,reached:true,partial:true,path:prefix};this.waterRoute=true;this.best=Infinity;break;}
      }
     }
    }
