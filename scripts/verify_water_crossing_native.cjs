@@ -25,21 +25,22 @@ for(const shallow of (process.argv.includes('--recovery-only')?[]:[false,true]))
 // An accidental submerged entry has no pre-existing surface route. Then replay
 // the stationary-swimmer condition with its physical progress clock expired.
 result.recovery=[];
-for(const submerged of [true,false]){
- await admin({action:'gamemode',gamemode:'creative'});await commands(['fill -1602 208 -1603 -1598 210 -1597 water',`tp @s -1600.5 ${submerged?209.2:210.2} -1600.5`]);await admin({action:'gamemode',gamemode:'survival'});await wait(400);
+for(const submerged of [true,false,'stale-land-route']){
+ await admin({action:'gamemode',gamemode:'creative'});await commands(['fill -1602 208 -1603 -1598 210 -1597 water',`tp @s -1600.5 ${submerged===true?209.2:210.2} -1600.5`]);await admin({action:'gamemode',gamemode:'survival'});await wait(400);
  const nav=new WorldNavigation(),goal=[-1593.5,211.1,-1600.5],bounds=[-1611,-1589,-1603,-1597],began=Date.now(),startingHealth=b.health;motor=createMotor(b,{move:true,jump:true,turn:true});
  if(!submerged){nav.swimRecovery={anchor:b.entity.position.clone(),progressAt:Date.now()-4000};b.setControlState('forward',true);}
- let landed=false,escapeSeen=false,surfacingSeen=false;
+ if(submerged==='stale-land-route')Object.assign(nav,{destination:goal.join(','),path:[[-1596.5,211.1,-1600.5],goal],anchor:b.entity.position.toArray(),lastPlan:Date.now()-4000,progressAt:Date.now()-4000,waterRoute:false});
+ let landed=false,escapeSeen=false,surfacingSeen=false,replannedWater=false;
  while(Date.now()-began<20000){
   const p=b.entity.position,plan=nav.plan(b,goal,{bounds}),cell=require('../controller/water_navigation').cell(b,Math.floor(p.x),Math.round(p.y),Math.floor(p.z));
-  escapeSeen ||= !!nav.status.water_recovery;
+  escapeSeen ||= !!nav.status.water_recovery;replannedWater ||= nav.replanned&&!!plan.water_route;
   if(cell&&!cell.wet&&b.entity.onGround){landed=true;nav.plan(b,goal,{bounds});assert.deepEqual(nav.status.target,goal,'original task resumes after shore');break;}
   if(plan.blocked){surfacingSeen=true;motor.command(4,{water_route:true,waypoints:[[p.x,p.y,p.z]]},{},0);}
   else motor.command(0,{water_route:true,waypoints:[plan.cue]},{},0);
   await wait(100);
  }
- assert.equal(landed,true);if(submerged)assert.equal(surfacingSeen,true);else assert.equal(escapeSeen,true);assert.ok(b.health>=startingHealth);
- result.recovery.push({submerged,escape_seen:escapeSeen,surfacing_seen:surfacingSeen,seconds:(Date.now()-began)/1000,health:b.health,position:b.entity.position.toArray()});motor.pause();motor=null;
+ assert.equal(landed,true);if(submerged===true)assert.equal(surfacingSeen,true);else if(submerged===false)assert.equal(escapeSeen,true);else assert.equal(replannedWater,true,'stale dry landing replaced by a swimming route');assert.ok(b.health>=startingHealth);
+ result.recovery.push({submerged,replanned_water:replannedWater,escape_seen:escapeSeen,surfacing_seen:surfacingSeen,seconds:(Date.now()-began)/1000,health:b.health,position:b.entity.position.toArray()});motor.pause();motor=null;
 }
 // A solid overhang blocks vertical buoyancy; escape sideways before rising.
 await admin({action:'gamemode',gamemode:'creative'});await commands(['fill -1600 211 -1601 -1599 211 -1600 grass_block','tp @s -1599.5 209.2 -1600.5']);await admin({action:'gamemode',gamemode:'survival'});await wait(300);

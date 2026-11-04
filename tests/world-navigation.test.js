@@ -1,6 +1,20 @@
 const test=require('node:test'),assert=require('node:assert/strict'),{Vec3}=require('vec3');
 const {route,standable}=require('../controller/field_navigation');
 const {blueprint,intact,findPlot}=require('../controller/hut_teacher');
+test('a swimmer abandons an old dry airborne landing and replans a checked bank route',()=>{
+ const {WorldNavigation}=require('../controller/world_navigation');
+ const bot={players:{},entity:{position:new Vec3(.5,64,.3),onGround:false,isInWater:true,yaw:0},blockAt(p){
+  const q=p.floored(),name=q.z<0?(q.y<65?'stone':'air'):(q.y<=64?'water':'air');
+  return {position:q,name,boundingBox:name==='stone'?'block':'empty'};
+ }};
+ const goal=[.5,65.1,-3.5],nav=new WorldNavigation();
+ Object.assign(nav,{destination:goal.join(','),path:[[.5,65.1,-1.5],goal],anchor:[.5,64,.5],lastPlan:1000,progressAt:1000,waterRoute:false});
+ const plan=nav.plan(bot,goal,{now:5000});
+ assert.equal(nav.replanned,true);assert.equal(plan.blocked,false);assert.equal(plan.water_route,true);
+ bot.entity.isInWater=false;
+ const dry=new WorldNavigation();Object.assign(dry,{destination:goal.join(','),path:[[.5,65.1,-1.5],goal],anchor:[.5,64,.5],lastPlan:1000,progressAt:1000,waterRoute:false});
+ dry.plan(bot,goal,{now:5000});assert.equal(dry.replanned,false,'ordinary airborne landings retain their committed route');
+});
 function fixture(blocks={}){return {entity:{position:new Vec3(.5,64,.5)},blockAt(p){const x=Math.floor(p.x),y=Math.floor(p.y),z=Math.floor(p.z);const name=blocks[`${x},${y},${z}`]||(y<64?'grass_block':'air');return name==='unloaded'?null:{name,boundingBox:['air','water','lava'].includes(name)?'empty':'block',position:new Vec3(x,y,z)};}};}
 
 test('travel lookahead joins a straight run but preserves turns, rises and sideways centering',()=>{
