@@ -32,7 +32,13 @@ function returnGoal(t,b,state){
   const planned=travelRoute(b,g,radius,8192,true,options);
   // One bounded expansion handles a long detour after night-time displacement.
   // Never turn an incomplete path into permission to clear or dig the plot.
-  return planned.reached||travelRoute(b,g,Math.min(192,Math.max(96,radius*2)),16384,true,options).reached;
+  if(planned.reached||travelRoute(b,g,Math.min(192,Math.max(96,radius*2)),16384,true,options).reached)return true;
+  // Goal selection must not veto the follower's checked partial return.
+  // Loaded banks can exceed a single water-capable search budget too.
+  // Selecting this destination only permits travel; local work stays gated
+  // by actual proximity and verified footing in tick().
+  const follower=new nav.WorldNavigation(),advance=follower.plan(b,g,{plot:h,plots:t.campPlots||[],bounds:state.world.bounds,constructionWork:true});
+  return !advance.blocked&&follower.status.partial_route===true;
  })||null;
 }
 function returnTarget(t,b,state,field){

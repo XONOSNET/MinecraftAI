@@ -150,3 +150,12 @@ test('a loaded bank beyond a bounded search advances only a short checked dry-en
  const at=b.blockAt;b.blockAt=p=>Math.floor(p.x)===100&&Math.floor(p.z)===0&&Math.floor(p.y)===64?{...at(p),name:'stone',boundingBox:'block'}:at(p);
  assert.equal(new WorldNavigation().plan(b,goal,{bounds:[-100,110,-100,100]}).blocked,true);
 });
+
+test('construction goal selection preserves a checked partial return to a loaded distant bank',async()=>{
+ const {b}=fixture();b.blockAt=p=>{p=p.floored();const name=p.x===50?'lava':[98,101].includes(p.x)&&p.y===63?'water':p.y<64?'stone':'air';return {position:p,name,boundingBox:['air','water','lava'].includes(name)?'empty':'block',getProperties:()=>({level:0})};};
+ const t={run:'partial-construction',plot:{x:100,y:64,z:5},campPlots:[],walk:async()=>undefined},state={run:'partial-construction',world:{bounds:[-100,110,-100,100]}},floor=require('../controller/floor_builder');
+ const goal=floor.returnTarget(t,b,state,'plotReturnGoal');assert.deepEqual(goal,[100.5,64.1,.5]);
+ const plan=new WorldNavigation().plan(b,goal,{plot:t.plot,bounds:state.world.bounds,constructionWork:true});assert.equal(plan.arrived,false);assert.equal(plan.blocked,false);
+ assert.equal(await require('../controller/plot_clearance').tick(t,b,{pause(){}},state),false,'checked travel never completes plot clearing remotely');
+ assert.deepEqual(t.plotReturnGoal,goal);assert.equal(t.plotClearing.removed,0);
+});

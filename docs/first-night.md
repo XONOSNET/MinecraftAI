@@ -70,5 +70,7 @@ The same bounded prefix is available when a loaded, valid dry bank requires more
 
 Early workbench placement treats a missing reachable supporting face as a recoverable obstruction, like a server-refused click. It tries the existing alternate approach stances, up to three placement attempts. Persistent obstruction still fails the attempt; unrelated crafting or connection errors are not swallowed.
 
+Construction return-goal selection also accepts the route follower's verified partial return when complete bounded searches fail. This prevents the selector from discarding a valid travel prefix before movement can begin. Plot clearing and floor work still require actual arrival near the plot; selecting a distant goal never permits remote construction.
+
 
 Plot clearing and floor building no longer fail an entire attempt on a single unsuccessful home-route check. They pause safely and re-sense for up to fifteen seconds; a verified route resumes normal travel. Persistent route failures still end with the original return-route diagnosis. Waiting adds no construction or lesson credit, does not permit remote digging, and retains the ordinary trial and stall limits.
