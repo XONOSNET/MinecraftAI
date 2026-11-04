@@ -15,6 +15,10 @@ function priority(b,t,w){
  if(meals(b)&&(b.food<=16||needsHealing))return {kind:'eat',reason:'Restore hunger before continuing'};
  if((b.food<=10||n.resume&&needsHealing)&&SAFE_RAW.some(name=>count(b,name)))return {kind:'eat raw',reason:'Emergency food while cooking is unavailable'};
  const risk=shelterPolicy.assess(b,w);
+ // The roof and walls can be finished before the three-second hut lesson
+ // awards its milestone. Do not interrupt its final door/entry work to seek
+ // a burrow from inside that already verified shell.
+ if(risk.mode==='cover'&&['door','enter','shelter'].includes(t.phase)&&!t.homeDamage?.unsafe&&require('./world_navigation').insideHome(b.entity.position,t.plot)&&!shelterPolicy.threats(b).some(e=>require('./world_navigation').insideHome(e.position,t.plot))&&require('./hut_teacher').intact(b,t.plot))return {kind:'finish enclosure',reason:'Secure the completed house shell before seeking other cover'};
  if(risk.mode==='cover'||n.shelterWatch&&shelterPolicy.danger(b))return {kind:require('./refuge_choice').homeReachable(t,b,w)?'retreat':'seek cover',reason:risk.mode==='cover'?risk.reason:'Sheltered: wait for daylight and a clear area'};
  if(risk.mode==='fight')return {kind:'defend',reason:risk.reason};
  if(t.phase==='night_seek_cover')return {kind:'resume',reason:'Daylight and a clear area allow work to resume'};
@@ -33,6 +37,7 @@ async function interrupt(t,b,motor,state,api,scan){
  if(b.isSleeping&&(t.phase!=='night_hold'||['eat','eat raw'].includes(p.kind)||b.health<12))return nightSleep.wake(t,b,motor);
  // Keep a sleeping bot still. Awake bots watch from shelter if monsters prevent bed use.
  if(b.isSleeping)return false;
+ if(p.kind==='finish enclosure')return false;
  if(p.kind==='eat'||p.kind==='eat raw'){motor.pause();await inventory.equip(b,(p.kind==='eat'?FOOD:SAFE_RAW).find(n=>count(b,n)));await b.consume();n.foodConsumed++;t.lastProgress=Date.now();return true;}
  if(p.kind==='seek cover'||p.kind==='retreat'&&shelterPolicy.wantsCover(b,state.world))n.shelterWatch=true;
  if(n.shelterWatch&&!shelterPolicy.danger(b))n.shelterWatch=false;
@@ -56,6 +61,7 @@ async function interrupt(t,b,motor,state,api,scan){
  }
  if(b.food<=10&&!['night_food','night_wool','night_forage','night_retreat','night_recover'].includes(t.phase)&&b.inventory.items().some(i=>i.name.endsWith('_axe'))&&!n.forageResume){n.forageResume=t.phase;t.phase='night_forage';return true;}
  if(!['night_retreat','night_recover','night_seek_cover'].includes(t.phase)&&await require('./tool_recovery').tick(t,b,motor,state,api,scan,require('./tasks')))return true;
+ if(require('./wood_resupply').tick(t,b))return true;
  return false;
 }
 function approaches(b,block,bounds){
@@ -203,13 +209,13 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(meals(b)>=4){t.milestone('cooked_meals');t.milestone('provisioned');next('wool');return;}
   const input=Object.keys(RAW).find(name=>count(b,name));if(!input){next('food');return;}
   t.message='Cooking '+input+' · '+meals(b)+' / 4 ready meals';
-  if(!b.inventory.items().some(i=>i.name.endsWith('_planks')||i.name==='charcoal'||i.name==='coal')){const log=b.inventory.items().find(i=>i.name.endsWith('_log'));if(!log)throw Error('No cooking fuel remains; need another wood trip');await t.craft(b,log.name.replace('_log','_planks'),1,null);}
+  if(!b.inventory.items().some(i=>i.name.endsWith('_planks')||i.name==='charcoal'||i.name==='coal')){const log=b.inventory.items().find(i=>i.name.endsWith('_log'));if(!log){require('./wood_resupply').request(t,'night_cook');return;}await t.craft(b,log.name.replace('_log','_planks'),1,null);}
   await furnace.smelt(b,b.blockAt(house.point(t.plot,'furnace')),input,RAW[input],n=>n.endsWith('_planks')||n==='charcoal'||n==='coal'||n==='stick');await inventory.sync(b);t.lastProgress=Date.now();
  }else if(t.phase==='night_wool_home')await move(home,'bed');
  else if(t.phase==='night_bed'){
   motor.pause();await inventory.sync(b);
   if(!count(b,'white_bed')){
-   if(b.inventory.items().filter(i=>i.name.endsWith('_planks')).reduce((s,i)=>s+i.count,0)<3){const log=b.inventory.items().find(i=>i.name.endsWith('_log'));if(!log)throw Error('Need three planks for the bed');await t.craft(b,log.name.replace('_log','_planks'),1,null);}
+   if(b.inventory.items().filter(i=>i.name.endsWith('_planks')).reduce((s,i)=>s+i.count,0)<3){const log=b.inventory.items().find(i=>i.name.endsWith('_log'));if(!log){require('./wood_resupply').request(t,'night_bed');return;}await t.craft(b,log.name.replace('_log','_planks'),1,null);}
    await t.craft(b,'white_bed',1,b.blockAt(house.point(t.plot,'table')));
   }
   const foot=house.point(t.plot,'bed'),head=foot.offset(0,0,1);

@@ -20,3 +20,11 @@ test('cover priority chooses a reachable home first and a burrow when it is too 
  const night=require('../controller/first_night');assert.equal(night.priority(f.b,f.t,{...f.w,first_night:{hostiles:true}}).kind,'retreat');
  f.b.entity.position.z=-40.5;assert.equal(night.priority(f.b,f.t,{...f.w,first_night:{hostiles:true}}).kind,'seek cover');
 });
+test('nightfall does not interrupt finishing a verified shell from inside it',()=>{
+ const f=fixture(),night=require('../controller/first_night'),house=require('../controller/hut_teacher');
+ f.t.phase='enter';f.t.milestones=[];f.b.entity.position=new Vec3(2.2,64,2.2);f.b.time={timeOfDay:14000};f.b.health=20;f.b.food=20;f.b.inventory={items:()=>[],slots:[]};
+ const blocks=new Map(house.blueprint(f.t.plot).map(q=>[[q.x,q.y,q.z].join(','),q.table?'crafting_table':'oak_planks']));
+ const at=f.b.blockAt;f.b.blockAt=p=>{const name=blocks.get(p.floored().toArray().join(','));return name?{position:p.floored(),name,boundingBox:'block'}:at(p);};
+ assert.equal(night.priority(f.b,f.t,{...f.w,first_night:{hostiles:true}}).kind,'finish enclosure');
+ blocks.delete('0,67,0');assert.notEqual(night.priority(f.b,f.t,{...f.w,first_night:{hostiles:true}}).kind,'finish enclosure','a damaged shell still needs cover');
+});
