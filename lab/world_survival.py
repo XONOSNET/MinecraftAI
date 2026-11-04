@@ -9,6 +9,16 @@ IRON=['Descend a reversible mine staircase','Mine coal for furnace fuel','Mine i
 HOME=['Shear sheep and collect three wool','Craft and place a bed; register home','Obtain food from livestock','Cook food in the furnace','Craft and equip a full iron armor set','Store cooked food and spare iron']
 MISSION_LESSONS={'iron_age':BASE+IRON,'homestead':BASE+IRON+HOME,'home_defense':BASE+IRON+HOME+['Retreat from a controlled monster and close the home door','Defend home with armor and a sword','Return safely to the bed home']}
 
+def home_marker_commands(name,position,display_name):
+    x,y,z=position
+    condition=f'execute if block {x} {y} {z} minecraft:white_bed'
+    commands=[f'kill @e[tag=lab_home_{name}]']
+    for height,scale,content in [(5.75,1.2,dict(text='\u2302',font='minecraft:uniform',color='aqua')),
+                                 (5.0,.55,dict(text=display_name+' · HOME',color='aqua'))]:
+        payload='text:'+json.dumps(json.dumps(content))+f',billboard:"center",background:0,shadow:1b,transformation:{{scale:[{scale}f,{scale}f,{scale}f]}}'
+        commands.append(f'{condition} run summon minecraft:text_display {x+.5} {y+height} {z+.5} '+f'{{Tags:["lab_world_home","lab_home_{name}"],brightness:{{block:15,sky:15}},'+payload+'}')
+    return commands
+
 class SurvivalLessons:
     def cleanup_survival(self):
         for command in ('kill @e[tag=lab_world_survival]','kill @e[tag=lab_world_home]'):
@@ -87,11 +97,9 @@ class SurvivalLessons:
             if not isinstance(p,list) or len(p)!=3 or any(type(v) is not int for v in p):raise ValueError('Invalid bed position.')
             x,y,z=p
             if y!=plot['y'] or not plot['x']-2<=x<=plot['x']+2 or not plot['z']-2<=z<=plot['z']+2:raise ValueError('The bed must be inside this bot’s hut.')
-            self.command(f'kill @e[tag=lab_home_{name}]')
             condition=f'execute if block {x} {y} {z} minecraft:white_bed'
             self.command(f'{condition} run spawnpoint {name} {x} {y} {z}')
-            for entity,height,payload in [('item_display',4.25,'item:{id:"minecraft:white_bed",count:1},transformation:{scale:[0.45f,0.45f,0.45f]},billboard:"center"'),('text_display',4.9,'text:'+json.dumps(json.dumps({'text':display_name+' · HOME','color':'aqua'}))+',billboard:"center",background:0,shadow:1b,transformation:{scale:[0.55f,0.55f,0.55f]}')]:
-                self.command(f'{condition} run summon minecraft:{entity} {x+.5} {y+height} {z+.5} '+f'{{Tags:["lab_world_home","lab_home_{name}"],brightness:{{block:15,sky:15}},'+payload+'}')
+            for command in home_marker_commands(name,p,display_name):self.command(command)
             home=dict(position=p,owner=display_name,run=s['run']);self.saved.setdefault('homes',{})[name]=home;self.save();return home
         if action=='threat':
             if s['mission']!='home_defense' or name not in self.saved.get('homes',{}):raise ValueError('Build and register a bed home before defense practice.')

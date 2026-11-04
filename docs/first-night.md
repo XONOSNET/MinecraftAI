@@ -108,3 +108,5 @@ After falling or being knocked into water, navigation releases a previously comm
 Missing bed planks or cooking fuel now starts a short wood resupply trip and returns through the normal home entrance to resume that task. Shelter interruptions retain priority, and collected wool remains in inventory. Nightfall no longer interrupts the final door, entry or enclosure verification while a bot is inside its physically intact house shell with no hostile inside; the normal closed-door and hut verification still must finish before the lesson is awarded.
 
 Plot-clearing and floor-building returns preserve a committed jump until touchdown, including when the jump crosses into the local construction radius. They wait before planning or working without cancelling the held forward trajectory. Unplanned falls still pause normally.
+
+The spectator HUD header shows elapsed trial time as MM:SS below one hour and HH:MM:SS from one hour onward. It starts at the running trial timestamp, excludes terrain preparation and freezes at the recorded trial finish. Registered bed homes use a flat house glyph and owner label above the roof instead of a three-dimensional bed item.

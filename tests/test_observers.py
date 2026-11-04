@@ -591,6 +591,20 @@ def test_first_night_header_distinguishes_restoration_from_a_zero_score():
     assert 'Policy: 1/8 complete' in first_night_label(world)
 
 
+def test_trial_timer_uses_running_trial_start_and_freezes_when_finished():
+    from lab.observers import trial_timer
+    world={'phase':'running','trial_at':100,'started_at':0}
+    assert trial_timer(world,100)=='00:00'
+    assert trial_timer(world,159)=='00:59'
+    assert trial_timer(world,3699)=='59:59'
+    assert trial_timer(world,3700)=='01:00:00'
+    assert trial_timer(world,3761)=='01:01:01'
+    world.update(phase='finished',finished_at=3761)
+    assert trial_timer(world,9000)=='01:01:01'
+    world['phase']='restoring';assert trial_timer(world,9000) is None
+    assert trial_timer({'phase':'running'},100) is None
+
+
 def test_previous_policy_score_ignores_teacher_other_levels_and_assessments():
     from lab.observers import latest_policy_result
     base={'run':'policy','driver':'student','mission':'first_night','night_level':0,'bots':['LabAI0','LabAI1'],'results':{'LabAI0':{'state':'complete'},'LabAI1':{'state':'stopped'}}}

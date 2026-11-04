@@ -137,6 +137,7 @@ class WorldTraining(SurvivalLessons):
 
     def finish(self):
         s=self.session
+        s['finished_at']=self.clock()
         self.sleep_quorum.restore()
         successful=sorted(((name,r) for name,r in s['results'].items() if r.get('state')=='complete'),key=lambda pair:pair[1].get('seconds',float('inf')))
         for rank,(name,result) in enumerate(successful,1):result['completion_rank']=rank

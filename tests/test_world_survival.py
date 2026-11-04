@@ -54,7 +54,9 @@ def test_bed_home_uses_server_block_guard_and_own_hut_then_allows_owned_threat(t
     assert home['position']==position and world.saved['homes']['LabAI0']['owner']=='Named bot'
     spawn=[c for c in commands if 'run spawnpoint' in c]
     assert len(spawn)==1 and 'if block' in spawn[0] and 'minecraft:white_bed' in spawn[0]
-    assert any('item_display' in c and 'minecraft:white_bed' in c for c in commands)
+    markers=[c for c in commands if 'run summon minecraft:text_display' in c and 'lab_home_LabAI0' in c]
+    assert len(markers)==2 and any('minecraft:uniform' in c for c in markers)
+    assert not any('item_display' in c and 'lab_home_LabAI0' in c for c in commands)
     threat=call(world,action='threat');n=len(commands)
     assert call(world,action='threat')==threat and len(commands)==n
     assert any('summon minecraft:husk' in c and '"lab_combat"' in c and 'lab_world_LabAI0' in c for c in commands)

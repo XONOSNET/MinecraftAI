@@ -12,6 +12,13 @@ DIMENSIONS=('minecraft:overworld','minecraft:the_nether','minecraft:the_end')
 CAMERA_INTERPOLATION_TICKS=4
 MODES=('survival','creative','adventure','spectator')
 
+def trial_timer(world,now):
+    if not world or world.get('phase') not in ('running','finished'):return None
+    start=world.get('trial_at');end=world.get('finished_at') if world.get('phase')=='finished' else now
+    if any(type(v) not in (int,float) or not math.isfinite(v) for v in (start,end)):return None
+    seconds=max(0,int(end-start));hours,rest=divmod(seconds,3600);minutes,seconds=divmod(rest,60)
+    return f'{hours:02d}:{minutes:02d}:{seconds:02d}' if hours else f'{minutes:02d}:{seconds:02d}'
+
 def latest_policy_result(world,history):
     if not world:return None
     for trial in reversed(history):
@@ -311,6 +318,8 @@ class Observers:
             if world.get('learning_cycle'):
                 lines['stage']=f"Learning {world['learning_cycle']} | {world.get('learning_phase','').title()} | {label} {complete}/{len(world['bots'])}"
             if world.get('first_night'):lines['stage']=first_night_label(world,context.get('last_policy'))
+            elapsed=trial_timer(world,now)
+            if elapsed is not None:lines['stage']+=' | Elapsed '+elapsed
         # Keep vitals on the always-visible selected-bot bar. The state bar is
         # hidden for many survival phases or replaced by the shelter countdown.
         def vital_percent(value):
