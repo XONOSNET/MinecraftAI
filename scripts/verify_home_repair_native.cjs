@@ -25,14 +25,18 @@ async function main(){try{
  'fill -1503 211 -1503 -1497 213 -1497 oak_planks hollow','fill -1502 211 -1502 -1498 213 -1498 air','fill -1503 214 -1503 -1497 214 -1497 oak_planks',
  'setblock -1503 211 -1499 crafting_table','setblock -1500 211 -1503 oak_door[facing=south,half=lower,open=false]','setblock -1500 212 -1503 oak_door[facing=south,half=upper,open=false]',
  'fill -1499 208 -1500 -1499 210 -1500 air','setblock -1497 210 -1500 air','setblock -1497 212 -1500 air','setblock -1500 214 -1500 air','setblock -1503 211 -1499 air','fill -1500 211 -1503 -1500 212 -1503 air',
- 'clear @s','give @s oak_planks 32','tp @s -1500.5 211 -1499.5']);
+ 'fill -1501 208 -1505 -1499 210 -1503 air',
+ 'clear @s','give @s oak_planks 32','give @s dirt 64','tp @s -1497.5 211 -1504.5']);
  await admin({action:'gamemode',gamemode:'survival'});await inventory.sync(b);
  const t={run:'native-home-repair',phase:'night_scout',plot:{x:-1500,y:211,z:-1500},campPlots:[],milestones:['hut'],wilderness:{},navigator:{lastPlan:0},walk,place:HutTeacher.prototype.place,craft:async(_b,name,n,table)=>require('../controller/crafting').craft(b,name,n,table)};
  const state={world:{bounds:[-1509,-1491,-1509,-1491]}},motor={pause(){b.clearControlStates();}},started=Date.now();
  result.initial_missing=repair.inspect(t,b).missing.length;
  for(let i=0;i<150&&Date.now()-started<120000;i++){await repair.tick(t,b,motor,state);await wait(80);if(!t.homeRepair)break;}
- await inventory.sync(b);Object.assign(result,{seconds:(Date.now()-started)/1000,phase:t.phase,health:b.health,remaining:repair.inspect(t,b).missing.length,inventory:b.inventory.items().map(i=>({name:i.name,count:i.count}))});
+ await inventory.sync(b);Object.assign(result,{seconds:(Date.now()-started)/1000,phase:t.phase,health:b.health,remaining:repair.inspect(t,b).missing.length,position:b.entity.position.toArray(),missing:repair.inspect(t,b).missing,inventory:b.inventory.items().map(i=>({name:i.name,count:i.count}))});
  assert.equal(t.homeRepair,null);assert.equal(result.remaining,0);assert.equal(t.phase,'night_scout');assert.deepEqual(t.milestones,['hut']);assert.equal(b.blockAt(new Vec3(-1497,210,-1500)).boundingBox,'block');assert.ok(b.inventory.items().filter(i=>i.name==='oak_planks').reduce((s,i)=>s+i.count,0)<32);result.door_facing=b.blockAt(new Vec3(-1500,211,-1503)).getProperties().facing;assert.equal(result.door_facing,'north');
+ for(let x=-1501;x<=-1499;x++)for(let z=-1505;z<=-1503;z++)for(let y=208;y<=210;y++)assert.equal(b.blockAt(new Vec3(x,y,z)).name,'dirt');
+ for(let y=208;y<=209;y++)assert.equal(b.blockAt(new Vec3(-1499,y,-1500)).name,'dirt');
+ assert.equal(b.inventory.items().filter(i=>i.name==='dirt').reduce((s,i)=>s+i.count,0),34);result.crater_backfilled=true;
  // Reproduce a finished repair with its final stance beyond door reach.
  await commands(['setblock -1500 211 -1503 oak_door[facing=north,half=lower,open=true]','setblock -1500 212 -1503 oak_door[facing=north,half=upper,open=true]','tp @s -1505.5 211 -1504.5']);await wait(500);
  t.phase='home_repair';t.homeRepair={stage:'repair',resume:'night_scout',repaired:result.initial_missing};result.finish_start=b.entity.position.toArray();

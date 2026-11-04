@@ -1,25 +1,22 @@
 // Recover an already-earned home with real inventory, recipes and placements.
 const {Vec3}=require('vec3'),house=require('./house'),nav=require('./field_navigation'),space=require('./resource_space');
 const inventory=require('./inventory_sync'),placement=require('./placement_reference'),access=require('./resource_access');
+const terrain=require('./home_terrain');
 const LOG=/^(oak|birch|spruce|jungle|acacia|dark_oak|mangrove|cherry)_log$/;
 const empty=b=>!!b&&['air','cave_air','void_air','light'].includes(b.name)&&b.boundingBox==='empty';
 const count=(b,p)=>b.inventory.items().filter(i=>typeof p==='string'?i.name===p:p(i.name)).reduce((s,i)=>s+i.count,0);
 function matches(b,q){
  const v=b.blockAt(new Vec3(q.x,q.y,q.z));if(!v)return null;
- if(q.kind==='foundation')return v.boundingBox==='block'&&!['magma_block','campfire','soul_campfire'].includes(v.name)&&(!['sand','red_sand','gravel'].includes(v.name)||b.blockAt(v.position.offset(0,-1,0))?.boundingBox==='block');
+ if(q.kind==='foundation')return terrain.solid(v);
  if(q.kind==='planks')return v.name.endsWith('_planks');
  if(q.kind==='door')return v.name.endsWith('_door')&&b.blockAt(new Vec3(q.x,q.y+1,q.z))?.name===v.name&&v.getProperties?.().half==='lower';
  if(q.kind==='bed')return v.name.endsWith('_bed')&&v.getProperties?.().part==='foot'&&b.blockAt(new Vec3(q.x,q.y,q.z+1))?.name===v.name&&b.blockAt(new Vec3(q.x,q.y,q.z+1))?.getProperties?.().part==='head';
  if(q.kind==='torch')return require('./house_lighting').installed(b,q.plot,q.side);
  return v.name===q.kind;
 }
-function expected(t){
+function expected(t,b){
  const h=t.plot,all=[];
- // Bridge blast holes from the surviving perimeter; never fill an entire crater.
- if(t.homeRepair||t.homeDamage?.unsafe){
-  for(let x=-3;x<=3;x++)for(let z=-3;z<=3;z++)if(Math.abs(x)===3||Math.abs(z)===3)all.push({x:h.x+x,y:h.y-1,z:h.z+z,kind:'foundation'});
-  for(let x=-1;x<=1;x++)all.push({x:h.x+x,y:h.y-1,z:h.z-4,kind:'foundation'});
- }
+ if(b&&(t.homeRepair||t.homeDamage?.unsafe))all.push(...terrain.plan(t,b));
  all.push(...house.blueprint(h).map(q=>({...q,kind:q.table?'crafting_table':'planks',structural:true})));
  all.push({x:h.x,y:h.y,z:h.z-3,kind:'door',structural:true});
  for(const [milestone,key,kind] of [['chest','chest','chest'],['furnace','furnace','furnace'],['bed_home','bed','bed']])if(t.milestones.includes(milestone)){const p=house.point(h,key);all.push({x:p.x,y:p.y,z:p.z,kind});}
@@ -28,7 +25,7 @@ function expected(t){
 }
 function inspect(t,b){
  if(!t.plot||!t.milestones.includes('hut'))return null;
- const all=expected(t),missing=[],unknown=[];
+ const all=expected(t,b),missing=[],unknown=[];
  for(const q of all){const ok=matches(b,q);if(ok===null)unknown.push(q);else if(!ok)missing.push(q);}
  return {missing,unknown,unsafe:missing.some(q=>q.structural),checked_at:Date.now()};
 }
@@ -42,7 +39,9 @@ function needsWood(r,b){return count(b,n=>n.endsWith('_planks'))+Math.max(0,coun
 function budget(missing,b,restock=false){
  const cost={planks:1,foundation:1,crafting_table:4,door:6,chest:8,bed:3};
  const carried=q=>q.kind==='door'?count(b,n=>n.endsWith('_door')):q.kind==='bed'?count(b,n=>n.endsWith('_bed')):count(b,q.kind);
- const wood=missing.reduce((s,q)=>s+(q.kind!=='planks'&&q.kind!=='foundation'&&carried(q)?0:cost[q.kind]||0),0)+(restock?8:0);
+ const reserve=missing.some(q=>q.kind==='furnace')?8:0;
+ const fill=missing.filter(q=>q.kind==='foundation').length;
+ const wood=missing.reduce((s,q)=>s+(q.kind!=='planks'&&q.kind!=='foundation'&&carried(q)?0:cost[q.kind]||0),0)-Math.min(fill,terrain.available(b,reserve))+(restock?8:0);
  const torches=missing.filter(q=>q.kind==='torch').length>count(b,'torch'),needsFuel=torches&&!count(b,n=>n==='coal'||n==='charcoal');
  return {woodNeeded:wood+(torches&&!count(b,'stick')?2:0)+(needsFuel?2:0),rawLogs:needsFuel?1:0};
 }
@@ -67,11 +66,17 @@ async function salvage(t,b,motor,state,api,scan,tasks){
 function stance(t,b,q,state){
  const target=new Vec3(q.x,q.y,q.z),p=b.entity.position,candidates=[];
  const id=[q.x,q.y,q.z].join(','),excluded=t.homeRepair?.failedStances?.get(id)||new Set();
- const valid=(g,standing=new Vec3(g[0]+.5,g[1],g[2]+.5),margin=0)=>!excluded.has(g.join(','))&&!(g[0]===q.x&&(g[2]===q.z||q.kind==='bed'&&g[2]===q.z+1)&&g[1]<=q.y+1&&g[1]+2>q.y)&&nav.standable(b,...g)&&space.clearOfPlayers(b,standing)&&placement.references(b,q,{standing}).some(ref=>ref.point.distanceTo(standing.offset(0,b.entity.eyeHeight||1.62,0))<=4.2-margin);
- const current=p.floored();if(valid([current.x,current.y,current.z],p))return [p.x,p.y+.1,p.z];
- for(let x=-4;x<=4;x++)for(let z=-4;z<=4;z++)for(const dy of [0,-1,1]){
-  const g=[target.x+x,t.plot.y+dy,target.z+z];if(Math.hypot(x,z)<1||!valid(g,undefined,.5))continue;
-  const goal=[g[0]+.5,g[1]+.1,g[2]+.5];if(new Vec3(...goal).offset(0,1.62,0).distanceTo(target.offset(.5,.5,.5))>4.2)continue;candidates.push(goal);
+ const valid=(g,standing=new Vec3(g[0]+.5,g[1],g[2]+.5),margin=0)=>!excluded.has(g.join(','))&&!(q.floor&&Math.abs(q.y+1-standing.y)<.25&&q.x<standing.x+.31&&q.x+1>standing.x-.31&&q.z<standing.z+.31&&q.z+1>standing.z-.31)&&!(g[0]===q.x&&(g[2]===q.z||q.kind==='bed'&&g[2]===q.z+1)&&g[1]<=q.y+1&&g[1]+2>q.y)&&nav.standable(b,...g)&&space.clearOfPlayers(b,standing)&&placement.references(b,q,{standing}).some(ref=>ref.point.distanceTo(standing.offset(0,b.entity.eyeHeight||1.62,0))<=4.2-margin);
+ // Work from the rim: descending for a nearer click can let subsequent fill
+ // seal the worker into the crater. Never plan a descent to backfill it.
+ const current=p.floored();if((!q.terrain||p.y>=t.plot.y-.25)&&valid([current.x,current.y,current.z],p))return [p.x,p.y+.1,p.z];
+ const heights=q.terrain?[0,1]:[0,-1,1];
+ for(let x=-4;x<=4;x++)for(let z=-4;z<=4;z++)for(const dy of heights){
+  const g=[target.x+x,t.plot.y+dy,target.z+z];
+  const standing=new Vec3(g[0]+.5,g[1],g[2]+.5);
+  if(q.terrain){standing.x+=Math.sign(target.x+.5-standing.x)*.3;standing.z+=Math.sign(target.z+.5-standing.z)*.3;}
+  if(Math.hypot(x,z)<1||!valid(g,q.terrain?standing:undefined,q.terrain?0:.5))continue;
+  const goal=[standing.x,standing.y+.1,standing.z];if(standing.offset(0,1.62,0).distanceTo(target.offset(.5,.5,.5))>4.2)continue;candidates.push(goal);
  }
  return candidates.sort((a,c)=>new Vec3(...a).distanceTo(p)-new Vec3(...c).distanceTo(p)).slice(0,12).find(g=>nav.route(b,g,24,2048,true,{bounds:state.world.bounds,reversible:true,forbidden:v=>(t.campPlots||[]).some(h=>(h.x!==t.plot.x||h.z!==t.plot.z)&&Math.abs(v[0]-h.x)<=3&&Math.abs(v[2]-h.z)<=3)}).reached)||null;
 }
@@ -79,6 +84,9 @@ function safe(t,b,q,ignoreSelf=false){
  if(q.kind==='bed')return safe(t,b,{...q,kind:'bed_part'},ignoreSelf)&&safe(t,b,{...q,z:q.z+1,kind:'bed_part'},ignoreSelf);
  if(q.kind==='door')return safe(t,b,{...q,kind:'door_part'},ignoreSelf)&&safe(t,b,{...q,y:q.y+1,kind:'door_part'},ignoreSelf);
  const p=new Vec3(q.x,q.y,q.z);
+ if(!terrain.owned(t,q.x,q.z))return false;
+ if(q.terrain&&(!empty(b.blockAt(p))||!terrain.solid(b.blockAt(p.offset(0,-1,0)))))return false;
+ if(q.floor&&empty(b.blockAt(p))&&!terrain.solid(b.blockAt(p.offset(0,-1,0))))return false;
  const occupants=ignoreSelf?space.players(b):[b.entity.position,...space.players(b)];
  if(!space.clearOfPlayers(b,p.offset(.5,.5,.5),1))return false;
  if(q.floor&&occupants.some(w=>Math.abs(q.y+1-w.y)<.25&&q.x<w.x+.31&&q.x+1>w.x-.31&&q.z<w.z+.31&&q.z+1>w.z-.31))return false;
@@ -93,9 +101,9 @@ async function wood(t,b,r,needed){
  t.phase='gather';t.supplyRun=true;t.grove=null;t.tree=null;t.treeApproach=null;t.resourceAt=0;return false;
 }
 async function tick(t,b,motor,state,api,scan,tasks){
- let r=t.homeRepair;const damage=inspect(t,b);if(!damage||damage.unknown.length)return false;
+ let r=t.homeRepair;let damage=inspect(t,b);if(!damage||damage.unknown.length)return false;
  t.homeDamage=damage;
- if(!r){if(!damage.missing.length)return false;r=begin(t,damage);}
+ if(!r){if(!damage.missing.length)return false;r=begin(t,damage);damage=inspect(t,b);t.homeDamage=damage;}
  if(r.stage==='wood'){
   if(needsWood(r,b))return false;r.stage='repair';t.phase='home_repair';t.path=[];t.navigator.lastPlan=-Infinity;return true;
  }
@@ -141,6 +149,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
  const rank=q=>q.kind==='foundation'?0:q.floor?1:q.kind==='crafting_table'?2:q.kind==='planks'?3:q.kind==='door'?4:5;
  let choice=null;
  for(const q of damage.missing.sort((a,c)=>rank(a)-rank(c)||a.y-c.y)){
+  if(['door','chest','furnace','bed'].includes(q.kind)&&!count(b,n=>q.kind==='door'?n.endsWith('_door'):q.kind==='bed'?n.endsWith('_bed'):n===q.kind)&&b.blockAt(house.point(t.plot,'table'))?.name!=='crafting_table')continue;
   if(!safe(t,b,q,true))continue;const goal=stance(t,b,q,state);if(goal){choice={q,goal};break;}
  }
  if(!choice){r.message=t.message='Home repair: no safe supported work stance yet';return true;}
@@ -148,7 +157,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
  if(await t.walk(b,motor,goal,state,api,scan,tasks)!==true)return true;motor.pause();
  if(!safe(t,b,q)){t.message='Rechecking clear footing before home repair';return true;}
  const planks=b.inventory.items().find(i=>i.name.endsWith('_planks'))?.name||'oak_planks';
- let item=q.kind==='planks'||q.kind==='foundation'?planks:q.kind==='door'?(b.inventory.items().find(i=>i.name.endsWith('_door'))?.name||planks.replace('_planks','_door')):q.kind==='bed'?(b.inventory.items().find(i=>i.name.endsWith('_bed'))?.name||'white_bed'):q.kind;
+ let item=q.kind==='foundation'?terrain.material(b,damage.missing.some(v=>v.kind==='furnace')?8:0):q.kind==='planks'?planks:q.kind==='door'?(b.inventory.items().find(i=>i.name.endsWith('_door'))?.name||planks.replace('_planks','_door')):q.kind==='bed'?(b.inventory.items().find(i=>i.name.endsWith('_bed'))?.name||'white_bed'):q.kind;
  if(['bed','door'].includes(q.kind)){
   const cells=[new Vec3(q.x,q.y,q.z),new Vec3(q.x,q.y+(q.kind==='door'?1:0),q.z+(q.kind==='bed'?1:0))];
   const remnant=cells.map(p=>b.blockAt(p)).find(v=>v?.name.endsWith(q.kind==='bed'?'_bed':'_door'));

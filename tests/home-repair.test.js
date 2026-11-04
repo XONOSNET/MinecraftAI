@@ -115,3 +115,39 @@ test('finished repairs approach the open door from inside before closing and res
  await repair.tick(f.t,f.b,f.motor,f.state);assert.equal(closes,1);await repair.tick(f.t,f.b,f.motor,f.state);
  assert.equal(f.t.homeRepair,null);assert.equal(f.t.phase,'night_scout');assert.deepEqual(f.t.milestones,['hut']);
 });
+
+test('blast craters are filled bottom up before restoring the floor and entrance',async()=>{
+ const f=fixture(),terrain=require('../controller/home_terrain');f.items.dirt=40;
+ const holes=[[1,0],[0,-3],[0,-4],[0,-5]];
+ for(const [x,z] of holes)for(let y=61;y<=63;y++)f.set(new Vec3(x,y,z),'air');
+ f.set(new Vec3(0,64,-3),'air');f.set(new Vec3(0,65,-3),'air');
+ f.b.entity.position=new Vec3(1.5,64,-4.5);
+ f.t.homeDamage={unsafe:true};
+ const plans=terrain.plan(f.t,f.b);assert.equal(plans.length,11);
+ const place=f.t.place,placed=[];
+ f.t.place=async(b,q,item)=>{if(q.terrain){assert.ok(b.entity.position.y>=f.t.plot.y,'backfill must be placed from the rim');assert.equal(terrain.solid(b.blockAt(new Vec3(q.x,q.y-1,q.z))),true);assert.equal(item,'dirt');}placed.push({...q,item});return place(b,q,item);};
+ for(let i=0;i<100;i++){await repair.tick(f.t,f.b,f.motor,f.state);if(!f.t.homeRepair)break;}
+ assert.equal(f.t.homeRepair,null,JSON.stringify({position:f.b.entity.position,missing:repair.inspect(f.t,f.b).missing}));assert.equal(f.items.dirt,29);
+ for(const [x,z] of holes)for(let y=61;y<=63;y++)assert.equal(f.b.blockAt(new Vec3(x,y,z)).boundingBox,'block');
+ assert.equal(placed.filter(q=>q.terrain).length,11);
+ assert.equal(f.b.blockAt(new Vec3(1,63,0)).name,'oak_planks');
+});
+
+test('backfill leaves intact floors, fluids, deep voids and other plots alone',()=>{
+ const f=fixture(),terrain=require('../controller/home_terrain');
+ f.set(new Vec3(1,62,0),'air');assert.equal(terrain.plan(f.t,f.b).length,0,'do not fill a cave beneath an intact floor');
+ f.set(new Vec3(1,63,0),'air');f.set(new Vec3(1,61,0),'water');assert.equal(terrain.plan(f.t,f.b).length,1);assert.equal(repair.safe(f.t,f.b,terrain.plan(f.t,f.b)[0]),false);
+ for(let y=57;y<=63;y++)f.set(new Vec3(1,y,0),'air');assert.equal(terrain.plan(f.t,f.b).length,0,'no floating cap over an unbounded hole');
+ f.set(new Vec3(1,60,0),'stone');f.t.campPlots=[{x:4,z:0}];assert.equal(terrain.plan(f.t,f.b).length,0);
+ assert.equal(repair.safe(f.t,f.b,{x:1,y:63,z:0,terrain:true}),false);
+ f.t.campPlots=[];f.set(new Vec3(1,62,0),'sand');assert.equal(terrain.plan(f.t,f.b).length,0);
+});
+
+test('backfill budgeting uses carried rubble while reserving furnace recipe stone',()=>{
+ const f=fixture();f.items.dirt=5;f.items.cobblestone=10;
+ const missing=Array.from({length:10},()=>({kind:'foundation'}));missing.push({kind:'furnace'},{kind:'planks'});
+ assert.equal(repair.budget(missing,f.b).woodNeeded,4);
+ assert.equal(require('../controller/home_terrain').material(f.b,8),'dirt');
+ delete f.items.dirt;f.items.cobblestone=8;
+ assert.equal(require('../controller/home_terrain').material(f.b,8),'oak_planks');
+});

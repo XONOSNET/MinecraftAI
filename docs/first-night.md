@@ -82,3 +82,7 @@ As soon as the indoor torch's upper-wall support exists, building pauses to inst
 
 
 Plot clearing and floor building no longer fail an entire attempt on a single unsuccessful home-route check. They pause safely and re-sense for up to fifteen seconds; a verified route resumes normal travel. Persistent route failures still end with the original return-route diagnosis. Waiting adds no construction or lesson credit, does not permit remote digging, and retains the ordinary trial and stall limits.
+
+Damaged-home recovery backfills blast holes before replacing the floor and doorway. Work is bounded to the seven-by-seven house footprint and a three-wide, two-block-long entrance apron. Only exposed empty columns with a loaded, full solid base within six blocks below walking level qualify; intact floors are not excavated or used as permission to fill natural caves. Columns are filled bottom up from checked reachable stances, avoiding fluids, falling blocks, occupants and other bots' plots. Deep or inaccessible holes remain subject to the normal safe-work checks.
+
+Backfill consumes carried dirt or ordinary solid rubble first, reserving eight cobblestone when a replacement furnace is needed. Wood gathered through the normal survival routines supplies any remaining fill and replacement house parts. The wooden floor, door, earned furnishings and lighting are then restored and verified before the interrupted task resumes. This grants no blocks and changes no lesson criteria.
