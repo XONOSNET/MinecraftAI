@@ -41,5 +41,10 @@ for(const submerged of [true,false]){
  assert.equal(landed,true);if(submerged)assert.equal(surfacingSeen,true);else assert.equal(escapeSeen,true);assert.ok(b.health>=startingHealth);
  result.recovery.push({submerged,escape_seen:escapeSeen,surfacing_seen:surfacingSeen,seconds:(Date.now()-began)/1000,health:b.health,position:b.entity.position.toArray()});motor.pause();motor=null;
 }
-result.passed=true;
+// A solid overhang blocks vertical buoyancy; escape sideways before rising.
+await admin({action:'gamemode',gamemode:'creative'});await commands(['fill -1600 211 -1601 -1599 211 -1600 grass_block','tp @s -1599.5 209.2 -1600.5']);await admin({action:'gamemode',gamemode:'survival'});await wait(300);
+const air=require('../controller/air_escape'),airTeacher={phase:'gather',campPlots:[]},airStart=b.entity.position.clone(),airHealth=b.health,airAt=Date.now();motor=createMotor(b,{move:true,jump:true,turn:true});let breathing=false;
+while(Date.now()-airAt<10000){if(!air.tick(airTeacher,b,motor,{world:{bounds:[-1611,-1589,-1603,-1597]}})){breathing=true;break;}await wait(100);}
+assert.equal(breathing,true);assert.ok(Math.hypot(b.entity.position.x-airStart.x,b.entity.position.z-airStart.z)>.4);assert.ok(b.health>=airHealth);assert.equal(airTeacher.phase,'gather');motor.pause();motor=null;
+result.overhang_escape={seconds:(Date.now()-airAt)/1000,health:b.health,position:b.entity.position.toArray()};result.passed=true;
 }catch(error){result.error=error.stack;result.position=b.entity.position.toArray();process.exitCode=1;}finally{motor?.pause();await admin({action:'gamemode',gamemode:'creative'}).catch(()=>{});if(changed){await commands(['fill -1610 206 -1604 -1590 216 -1596 air']);for(let x=-1610;x<=-1590;x++)for(let z=-1604;z<=-1596;z++)for(let y=206;y<=216;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air');}await admin({action:'teleport-coordinates',x:-153.5,y:225.1,z:160.5});await admin({action:'gamemode',gamemode:'survival'});await admin({action:'deop'});result.cleaned=true;b.quit();fs.writeFileSync('logs/water-crossing-native.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));setTimeout(()=>process.exit(process.exitCode||0),300);}})().catch(e=>{console.error(e);b.quit();process.exit(1);});

@@ -39,6 +39,10 @@ async function follow(nav,goal,oldLanding){
  const start=Date.now();let heldFrames=0;
  while(m.stage!=='done'&&Date.now()-start<20000){await mine.tick(t,b,motor,state);if(b.entity.onGround===false&&motor.committedJump()){assert.equal(b.getControlState('forward'),true,'airborne mine return holds forward');heldFrames++;}await wait(100);}
  assert.equal(m.stage,'done');assert.ok(heldFrames>=4);assert.ok(b.entity.position.y>=214);report.mine_exit={steps:4,held_forward_airborne_frames:heldFrames,seconds:(Date.now()-start)/1000};
+ motor.pause();await commands(['tp @s -1554.86 210 -1558.5']);await b.waitForTicks(8);
+ const stance=new Vec3(-1556,210,-1559),recenterAt=Date.now();t.wilderness.mine={stage:'dig',resource:'stone',entry:stance.toArray(),path:[stance.toArray()],target_y:194,steps:0,flooded:[],ore_target:[-1555,210,-1559]};
+ while(Date.now()-recenterAt<7000&&(!b.entity.position.floored().equals(stance)||b.entity.position.distanceTo(stance.offset(.5,0,.5))>=.25)){await mine.tick(t,b,motor,state);await wait(100);}
+ assert.ok(b.entity.position.floored().equals(stance));assert.ok(b.entity.position.distanceTo(stance.offset(.5,0,.5))<.25);assert.equal(t.wilderness.mine.ore_target,null);report.stance_recovery={seconds:(Date.now()-recenterAt)/1000,position:b.entity.position.toArray()};
  assert.equal(b.health,20);report.health=b.health;report.passed=true;
  }catch(error){report.error=error.stack;process.exitCode=1;}finally{
  motor?.pause();if(physics)b.removeListener('physicsTick',physics);b.clearControlStates();await admin({action:'gamemode',gamemode:'creative'});

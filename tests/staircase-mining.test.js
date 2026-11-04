@@ -186,6 +186,12 @@ test('mine exit leaves a committed jump controller holding forward while airborn
  f.motor.committedJump=()=>true;f.motor.pause=()=>assert.fail('Do not cancel the in-flight jump');f.t.walk=async()=>assert.fail('Wait for landing before replanning');
  await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.exitIndex,1);assert.equal(m.stage,'exit');
 });
+test('a miner across the stance-cell boundary walks back instead of repeatedly failing local centering',async ctx=>{
+ const f=fixture(),m=f.t.wilderness.mine={stage:'dig',resource:'stone',entry:[0,64,0],path:[[0,64,0]],target_y:48,steps:0,flooded:[],ore_target:[1,64,0]};
+ f.b.entity.position=new Vec3(1.1,64,.5);assert.ok(f.b.entity.position.distanceTo(new Vec3(.5,64,.5))<.65);
+ let goal;f.t.walk=async(_b,_m,g)=>{goal=g;};ctx.mock.method(access,'stabilize',async()=>assert.fail('Local centering cannot cross into another cell'));
+ await mine.tick(f.t,f.b,f.motor,f.state);assert.deepEqual(goal,[.5,64.1,.5]);assert.equal(m.ore_target,null);
+});
 
 test('home retreat retires a stale flooded mine in every working stage but requires actual stone',async()=>{
  for(const stage of ['dig','descend','water_retreat','exit']){

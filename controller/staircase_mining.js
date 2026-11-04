@@ -206,7 +206,7 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   }
   m.stage='water_retreat';m.reason='Wet branch abandoned; seeking a dry mining direction';return {handled:true};
  }
- if(b.entity.position.distanceTo(from.offset(.5,0,.5))>.65){await t.walk(b,motor,point(from),state,api,scan,tasks);return {handled:true};}
+ if(!b.entity.position.floored().equals(from)||b.entity.position.distanceTo(from.offset(.5,0,.5))>.65){m.ore_target=null;t.message='Returning to the recorded mining stance before working the next face';await t.walk(b,motor,point(from),state,api,scan,tasks);return {handled:true};}
  if(!b.entity.onGround){motor.pause();return {handled:true};}
  if(Math.hypot(b.entity.position.x-from.x-.5,b.entity.position.z-from.z-.5)>.18){await access.stabilize(b,motor,from);return {handled:true};}
  if(await light(t,b,motor,m))return {handled:true};
@@ -224,7 +224,7 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   const tool=pickaxe(b,ore(v.name,'iron')?'iron':'coal');if(!tool)continue;
   m.ore_target=q.toArray();t.message='Mining exposed '+v.name+' before extending the '+m.resource+' route';
   await t.harvest(b,motor,q,state,api,scan,tasks,tool);
-  if(b.blockAt(q)?.name==='air'&&ore(v.name,'coal'))m.coal_mined++;return {handled:true};
+  if(b.blockAt(q)?.name==='air'){if(ore(v.name,'coal'))m.coal_mined++;m.ore_target=null;}return {handled:true};
  }
  const enough=collected(b,resource)>=amount;
  const unlit=m.steps-m.lit_at>=rules.unlit_steps;

@@ -79,6 +79,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
      recovery.reset();doorway.reset();strafe.reset();jumpLease={goal:jumpGoal,yaw:bot.entity.yaw+angle,until:clock()+1500,airborne:false,gap,label:gap?'Jumping the checked one-block gap':'Stepping up while holding forward'};paused=false;return jumpLease.label;
     }
    }
+   if(task?.air_escape&&task.waypoints?.length){recovery.reset();doorway.reset();strafe.reset();plan={airGoal:task.waypoints[0],label:'Swimming to breathable space'};expires=clock()+1500;paused=false;return plan.label;}
    if(task?.water_route&&task.waypoints?.length){
     const moving=[0,3,5].includes(action),label=moving?'Following checked water crossing':[1,2].includes(action)?'Aligning with checked water crossing':'Policy chose to hold position in water; maintaining buoyancy';
     recovery.reset();doorway.reset();strafe.reset();plan={waterGoal:task.waypoints[0],waterMove:moving,label};expires=clock()+1500;paused=false;return plan.label;
@@ -189,6 +190,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     if(!paused){plan=null;targetYaw=null;paused=true;stalled=true;}
     pauseMotion(bot,permissions);applyPose(bot,!!bot.getControlState('sneak'));return;
    }
+   if(plan?.airGoal){require('./air_escape').drive(bot,plan.airGoal,permissions);return;}
    if(plan?.waterGoal){require('./water_navigation').drive(bot,plan.waterGoal,{...permissions,move:permissions.move&&plan.waterMove});return;}
    let forward=!!plan.forward;
    // Policy replies can arrive late; recheck support while holding an intention.
