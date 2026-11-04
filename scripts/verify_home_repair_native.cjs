@@ -42,7 +42,15 @@ async function main(){try{
  t.phase='home_repair';t.homeRepair={stage:'repair',resume:'night_scout',repaired:result.initial_missing};result.finish_start=b.entity.position.toArray();
  assert.ok(b.entity.position.distanceTo(new Vec3(-1500,211,-1503))>4.5);
  for(let i=0;i<30&&t.homeRepair;i++){await repair.tick(t,b,motor,state);await wait(100);}
- assert.equal(t.homeRepair,null);assert.equal(t.phase,'night_scout');assert.equal(b.blockAt(new Vec3(-1500,211,-1503)).getProperties().open,false);result.distant_finish_passed=true;result.passed=true;
+ assert.equal(t.homeRepair,null);assert.equal(t.phase,'night_scout');assert.equal(b.blockAt(new Vec3(-1500,211,-1503)).getProperties().open,false);result.distant_finish_passed=true;
+ // General escape uses carried blocks to jump out of a two-deep trap.
+ await commands(['fill -1507 209 -1507 -1507 210 -1507 air','tp @s -1506.5 209 -1506.5']);await wait(500);
+ const escape=require('../controller/escape_column'),escapeGoal=[-1504.5,211.1,-1506.5],beforeDirt=b.inventory.items().filter(i=>i.name==='dirt').reduce((s,i)=>s+i.count,0);
+ motor.lockLook=()=>{};
+ assert.equal(await escape.attempt(t,b,motor,escapeGoal,state),true);await wait(500);
+ assert.ok(b.entity.position.y>=210);assert.ok(nav.route(b,escapeGoal,12,512,true,{bounds:state.world.bounds,reversible:true}).reached);
+ assert.equal(await walk(b,motor,escapeGoal),true);assert.ok(b.entity.position.y>=211);
+ assert.equal(b.inventory.items().filter(i=>i.name==='dirt').reduce((s,i)=>s+i.count,0),beforeDirt-1);result.jump_escape_passed=true;result.passed=true;
 }catch(e){result.error=e.stack;process.exitCode=1;}finally{
  b.clearControlStates();await admin({action:'gamemode',gamemode:'creative'}).catch(()=>{});
  if(changed){await commands(['kill @e[type=item,x=-1510,y=207,z=-1510,dx=20,dy=10,dz=20]','fill -1510 207 -1510 -1490 217 -1490 air','clear @s']);for(let x=-1510;x<=-1490;x++)for(let z=-1510;z<=-1490;z++)for(let y=207;y<=217;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air');}

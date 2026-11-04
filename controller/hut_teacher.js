@@ -514,6 +514,7 @@ class HutTeacher{
    if(resumed){this.message='Approaching foliage blocking the home entrance';return resumed.moved===false?false:undefined;}
   }
   const p=bot.entity.position,now=Date.now();this.navigationActive=true;
+  if((this.navigator.status?.no_progress_seconds>=8||this.navigator.status?.state==='blocked'&&this.navigator.status?.no_progress_seconds>=4)&&await require('./escape_column').attempt(this,bot,motor,goal,state))return;
   const portal=this.navigator.portalFor(bot,goal,this.plot,this.campPlots);
   if(portal&&(this.navigator.exitPlot||require('./world_navigation').crossingHome(bot,goal,portal))){
    const door=bot.blockAt(new Vec3(portal.x,portal.y,portal.z-3));

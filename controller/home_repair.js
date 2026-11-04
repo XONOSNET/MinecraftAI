@@ -152,7 +152,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
   if(['door','chest','furnace','bed'].includes(q.kind)&&!count(b,n=>q.kind==='door'?n.endsWith('_door'):q.kind==='bed'?n.endsWith('_bed'):n===q.kind)&&b.blockAt(house.point(t.plot,'table'))?.name!=='crafting_table')continue;
   if(!safe(t,b,q,true))continue;const goal=stance(t,b,q,state);if(goal){choice={q,goal};break;}
  }
- if(!choice){r.message=t.message='Home repair: no safe supported work stance yet';return true;}
+ if(!choice){if(await require('./escape_column').attempt(t,b,motor,[t.plot.x+.5,t.plot.y+.1,t.plot.z-4.5],state))return true;r.message=t.message='Home repair: no safe supported work stance yet';return true;}
  const {q,goal}=choice;
  if(await t.walk(b,motor,goal,state,api,scan,tasks)!==true)return true;motor.pause();
  if(!safe(t,b,q)){t.message='Rechecking clear footing before home repair';return true;}
