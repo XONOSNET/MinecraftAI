@@ -92,3 +92,11 @@ test('home navigation reaches the entrance of a closed hut instead of chasing it
  const nav=new WorldNavigation(),r=nav.plan(b,goal,{plot,bounds:[-30,30,-30,30],now:1000});
  assert.equal(r.blocked,false);assert.deepEqual(nav.status.target,[8.5,69.1,-4.5]);
 });
+
+test('door guidance persists when the occupied threshold waypoint was already consumed',()=>{
+ const {routeDoorway}=require('../controller/world_navigation'),plot={x:0,y:64,z:0};
+ const b={entity:{position:new Vec3(.5247,64,-2.3732)},blockAt:()=>({name:'oak_door',position:new Vec3(0,64,-3),shapes:[[0,0,0,.1875,1,1]],getProperties:()=>({open:true,facing:'north'})})};
+ const outside=[.5,64.1,-3.5],d=routeDoorway(b,plot,[outside],[8.5,64.1,-10.5]);assert.ok(d);assert.equal(d.center,.59375);assert.equal(d.open,true);
+ b.entity.position=new Vec3(.5,64,-1.5);assert.equal(routeDoorway(b,plot,[outside],[8.5,64.1,-10.5]),null,'do not create doorway shortcuts away from the occupied threshold');
+ b.entity.position=new Vec3(.5247,64,-2.3732);assert.equal(routeDoorway(b,plot,[[.5,64.1,-1.5]],[.5,64.1,0]),null,'moving farther inside does not cross the door plane');
+});

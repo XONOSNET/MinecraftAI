@@ -41,10 +41,14 @@ function crossingHome(bot,goal,plot){return insideHome(bot.entity.position,plot)
 function routeDoorway(bot,plot,path,goal){
  if(!plot)return null;
  const index=path.findIndex(q=>Math.floor(q[0])===plot.x&&Math.floor(q[2])===plot.z-3);
- if(index<0)return null;
+ // The occupied door-cell waypoint may already have been consumed. Keep
+ // panel-aware guidance while the body is still in that threshold, rather
+ // than steering a slightly off-center heading into the open side panel.
+ const p=bot.entity.position,inThreshold=Math.floor(p.x)===plot.x&&Math.floor(p.z)===plot.z-3;
+ if(index<0&&!inThreshold)return null;
  // Use the actual crossing direction; the ultimate destination may be behind
  // the house, on the same side of the door plane as the starting room.
- const next=path[index+1],descriptor=doorwayDescriptor(bot,bot.blockAt(new Vec3(plot.x,plot.y,plot.z-3)),next||goal);
+ const next=path[index<0?0:index+1],descriptor=doorwayDescriptor(bot,bot.blockAt(new Vec3(plot.x,plot.y,plot.z-3)),next||goal);
  // Only a route-checked landing can authorize stepping off a raised sill.
  if(descriptor&&next&&next[1]-plot.y<-.6&&next[1]-plot.y> -1.2)descriptor.descent=true;
  return descriptor;
