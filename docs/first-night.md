@@ -66,5 +66,7 @@ After the final home repair, an open door is secured from the verified room inte
 
 A swimmer whose home is outside its loaded chunks may first follow a checked route prefix to nearby dry shore. This leg is limited to twelve waypoints, must make at least four blocks of progress toward home, and must pass the normal water-route checks with a dry endpoint. All-water prefixes remain rejected. Reaching this shore does not count as reaching home; the controller replans the remaining return as chunks load.
 
+The same bounded prefix is available when a loaded, valid dry bank requires more water-capable search than one planning budget permits. A visible home chunk does not imply that its full approach is already searchable. Solid or hazardous destinations do not qualify. Each short leg is checked again, and reaching it never grants construction permission or completes the home return.
+
 
 Plot clearing and floor building no longer fail an entire attempt on a single unsuccessful home-route check. They pause safely and re-sense for up to fifteen seconds; a verified route resumes normal travel. Persistent route failures still end with the original return-route diagnosis. Waiting adds no construction or lesson credit, does not permit remote digging, and retains the ordinary trial and stall limits.

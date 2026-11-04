@@ -122,8 +122,9 @@ class WorldNavigation{
    if(!planned.reached||planned.partial||bot.entity.isInWater){
     const wet=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden,allowWater:true});
     if(wet.reached&&require('./water_navigation').validRoute(bot,wet.path,target)){planned=wet;this.waterRoute=true;}
-    else if(!wet.reached&&unknown){
-     // Home can be outside the swimmer's loaded view. Accept only a short
+    else if(!wet.reached&&(unknown||wet.budget_exhausted&&require('./water_navigation').cell(bot,Math.floor(target[0]),Math.round(target[1]),Math.floor(target[2]))?.wet===false)){
+     // Home can be outside the loaded view, or a loaded bank can require
+     // more search than one bounded water-capable plan. Accept only a short
      // checked prefix ending on dry shore, then replan as home chunks load.
      // A prefix ending in open water is never an acceptable partial return.
      for(let length=Math.min(12,wet.path.length);length>=4;length--){

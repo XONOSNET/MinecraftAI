@@ -138,3 +138,15 @@ test('an unloaded distant home never turns an all-water prefix into a completed 
  b.blockAt=p=>{p=p.floored();if(p.x>=13||p.x<0||Math.abs(p.z)>2)return null;const name=p.y>=61&&p.y<=63?'water':p.y<61?'stone':'air';return {position:p,name,boundingBox:['air','water'].includes(name)?'empty':'block',getProperties:()=>({level:0})};};
  const n=new WorldNavigation(),plan=n.plan(b,[100.5,64.1,.5],{bounds:[-2,110,-3,3]});assert.equal(plan.blocked,true);assert.equal(plan.arrived,false);assert.equal(n.status.partial_route,false);
 });
+
+test('a loaded bank beyond a bounded search advances only a short checked dry-ending prefix',()=>{
+ const {b}=fixture();
+ b.blockAt=p=>{p=p.floored();const name=p.x===50?'lava':p.x===101&&p.y===63?'water':p.y<64?'stone':'air';return {position:p,name,boundingBox:['air','water','lava'].includes(name)?'empty':'block',getProperties:()=>({level:0})};};
+ const goal=[100.5,64.1,.5],n=new WorldNavigation(),plan=n.plan(b,goal,{bounds:[-100,110,-100,100]});
+ assert.equal(standable(b,100,64,0),false,'bank is valid for travel but not dry work');assert.equal(water.cell(b,100,64,0).wet,false);
+ assert.equal(plan.blocked,false);assert.equal(plan.arrived,false);assert.equal(n.status.partial_route,true);assert.ok(plan.path.length<=12);
+ const end=plan.path.at(-1);assert.ok(end[0]<50,'the prefix cannot cross the lava barrier');assert.equal(water.validRoute(b,plan.path,end),true);
+ // A known obstructed destination never qualifies for this search-budget fallback.
+ const at=b.blockAt;b.blockAt=p=>Math.floor(p.x)===100&&Math.floor(p.z)===0&&Math.floor(p.y)===64?{...at(p),name:'stone',boundingBox:'block'}:at(p);
+ assert.equal(new WorldNavigation().plan(b,goal,{bounds:[-100,110,-100,100]}).blocked,true);
+});
