@@ -907,8 +907,15 @@ def _begin_world(d:dict):
     with lock:
         if training_jobs.running or server_control.snapshot()['busy'] or not server_ready():raise HTTPException(409,'Wait for training and server operations to finish.')
         if curriculum.state.get('restore_pending'):raise HTTPException(409,'Wait for champion model restoration.')
-        names=[n for n,a in agents.items() if is_agent(n) and a.get('connected') and time.time()-a.get('last_seen',0)<8]
-        if not names:raise HTTPException(409,'No connected bots.')
+        if world_learning.state.get('enabled'):
+            # tick() already checked the full roster before replay capture and
+            # other work under this lock. Those hooks can age heartbeat times;
+            # never drop a configured bot by re-filtering freshness afterward.
+            names=[f'LabAI{i}' for i in range(AGENT_COUNT)]
+            if any(not agents.get(name,{}).get('connected') for name in names):raise HTTPException(409,'Waiting for the full automatic world roster.')
+        else:
+            names=[n for n,a in agents.items() if is_agent(n) and a.get('connected') and time.time()-a.get('last_seen',0)<8]
+            if not names:raise HTTPException(409,'No connected bots.')
         try:
             frozen=behavior_rules.frozen(d['behavior_snapshot']['config']) if d.get('behavior_snapshot') else behavior_rules.frozen()
             result=world_training.start(d,sorted(names)[:8])
