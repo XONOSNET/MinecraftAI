@@ -595,10 +595,7 @@ def agent_life(d:dict):
     with lock:
         try:
             result=identities.record(d.get('agent'),d.get('event'),d.get('id'));agents.setdefault(d['agent'],{}).update(result)
-            if d.get('event')=='death' and world_training.session and world_training.session['active']:
-                previous=copy.deepcopy(world_training.session['results'].get(d['agent'],{}))
-                previous.update(run=world_training.session['run'],state='stopped',phase='stopped',health=0,message='Died during this world attempt; retrying is allowed next batch.')
-                world_training.report(d['agent'],previous)
+            if d.get('event')=='death':world_training.record_death(d['agent'],d.get('run'))
             return result
         except ValueError as error:raise HTTPException(400,str(error))
 @app.post('/agent-disconnected',dependencies=[Depends(auth)])

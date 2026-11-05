@@ -518,11 +518,24 @@ class WorldTraining(SurvivalLessons):
         self.command(f'gamemode survival {name}')
         self.command(f'effect clear {name} minecraft:slow_falling')
         self.command(f'effect give {name} minecraft:resistance 3 4 true')
+        if name not in s.setdefault('deployed_bots',[]):s['deployed_bots'].append(name)
+
+    def record_death(self,name,run):
+        s=self.session
+        # Identity death counts remain real, but staging/old-run deaths cannot
+        # terminate a new trial while terrain is still being restored.
+        if not s or not s['active'] or s['phase']!='running' or run!=s['run'] or name not in s['bots']:return False
+        previous=copy.deepcopy(s['results'].get(name,{}))
+        previous.update(run=run,state='stopped',phase='stopped',health=0,failure_category='death',message='Died during this world attempt; retrying is allowed next batch.')
+        self.report(name,previous)
+        return True
 
     def report(self,name,data):
         s=self.session
         if not s or not s['active'] or data.get('run')!=s['run'] or name not in s['bots']:return
         if s['results'].get(name,{}).get('state') in ('complete','stopped'):return
+        if data.get('state')=='stopped' and (data.get('failure_category')=='death' or data.get('health')==0) and name not in s.get('deployed_bots',[]):
+            data={**data,'failure_category':'site_unavailable','message':'Site survey failed before a safe ground spawn was deployed; setup death is not a survival-policy result.'}
         if data.get('state') in ('complete','stopped') and s.get('mission') in ADVANCED:self.command(f'kill @e[tag=lab_world_{name}]')
         if data.get('state')=='stopped' and s['results'].get(name,{}).get('state')!='stopped':
             self.command(f'effect give {name} minecraft:fire_resistance 20 0 true');self.park([name])

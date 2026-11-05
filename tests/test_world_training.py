@@ -392,3 +392,32 @@ def test_copy_default_and_limits_are_bounded(tmp_path):
     assert WorldTraining(tmp_path/'world.json',lambda cmd:None,tmp_path/'log').copy_batch_size==2
     for invalid in [0,3,True,1.5]:
         with pytest.raises(ValueError):WorldTraining(tmp_path/'world.json',lambda cmd:None,tmp_path/'log',copy_batch_size=invalid)
+
+
+def test_setup_deaths_are_site_failures_but_deployed_survival_deaths_still_fail(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0','LabAI1']);world.session['phase']='running'
+    run=world.session['run']
+    assert world.record_death('LabAI0',run)
+    assert world.session['results']['LabAI0']['failure_category']=='site_unavailable'
+    world.spawn('LabAI1',[16448.5,64.1,16448.5])
+    assert world.record_death('LabAI1',run)
+    assert world.session['results']['LabAI1']['failure_category']=='death'
+    assert world.session['results']['LabAI1']['health']==0
+
+
+def test_staging_or_stale_run_death_does_not_end_new_world_assignment(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0'])
+    run=world.session['run']
+    assert not world.record_death('LabAI0',run)
+    assert world.session['results']=={}
+    world.session['phase']='running'
+    for stale in (None,'old-world'):
+        assert not world.record_death('LabAI0',stale)
+    assert not world.record_death('LabAI9',run)
+    assert world.session['results']=={}
+
+
+def test_controller_death_report_before_safe_deployment_is_also_rejected_as_setup(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.session['phase']='running'
+    world.report('LabAI0',dict(run=world.session['run'],state='stopped',phase='stopped',health=0,failure_category='death'))
+    assert world.session['results']['LabAI0']['failure_category']=='site_unavailable'

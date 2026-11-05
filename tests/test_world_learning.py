@@ -219,3 +219,17 @@ def test_three_transport_failed_comparisons_stop_instead_of_looping_forever(tmp_
     import pytest
     with pytest.raises(RuntimeError,match='three comparisons'):m.tick()
     assert not lab.reviews
+
+
+def test_setup_death_and_failed_plot_survey_skip_site_together_without_scoring(tmp_path):
+    from test_world_training import fixture as world_fixture
+    m,lab,clock=fixture(tmp_path);m.state['options'].update(mission='first_night',night_level=3,scenario=3)
+    m.tick();run=lab.world['run']
+    world,commands,timer,log=world_fixture(tmp_path);world.start({},['LabAI0','LabAI1'])
+    world.session.update(run=run,phase='running')
+    world.record_death('LabAI0',run)
+    world.report('LabAI1',dict(run=run,state='stopped',phase='stopped',failure_category='site_unavailable',message='survey: No separate flat 7 x 7 build site'))
+    lab.world=world.session;m.tick()
+    assert m.state['phase']=='cooldown' and m.state['options']['scenario']==4
+    assert m.state['options']['night_level']==3
+    assert not lab.reviews and not m.state['history'] and lab.job['status']=='idle'

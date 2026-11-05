@@ -27,7 +27,7 @@ async function spawn(i){if(quitting)return;try{const status=await(await fetch('h
  b.on('error',e=>console.error(name,e.message));b.on('kicked',r=>console.error(name,JSON.stringify(r),JSON.stringify({position:b.entity?.position,yaw:b.entity?.yaw,pitch:b.entity?.pitch,velocity:b.entity?.velocity})));
  function interrupted(reason){motor.pause();if(goal&&!quitting){api('/episode',{agent:name,run:phase,success:false,steps,elapsed_seconds:trialStarted===null?null:(performance.now()-trialStarted)/1000,distance:lastDistance,reason,task:task?.kind,metrics:lastMetrics||{health:0}}).catch(e=>console.error(name,e.message));goal=null;}}
  b.on('entityDead',entity=>combat.death(entity,task,runtime));
- b.on('death',()=>{api('/agent-life',{agent:name,event:'death',id:randomUUID()}).catch(e=>console.error(name,e.message));interrupted('death');
+ b.on('death',()=>{api('/agent-life',{agent:name,event:'death',run:phase,id:randomUUID()}).catch(e=>console.error(name,e.message));interrupted('death');
   if(hutTeacher.died(phase))api('/world/report',{agent:name,run:phase,state:'stopped',phase:'stopped',failure_category:'death',message:hutTeacher.error,health:0,milestones:[...hutTeacher.milestones],plot:hutTeacher.plot,seconds:(Date.now()-hutTeacher.started)/1000}).catch(e=>console.error(name,e.message));
  });
  b.on('end',()=>{guard.dispose();interrupted('disconnect');requestApi('/agent-disconnected',{agent:name}).catch(()=>{});console.log(name,'disconnected');if(!quitting)setTimeout(()=>spawn(i),5000);});

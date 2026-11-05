@@ -31,7 +31,13 @@ function safeResource(bot,p){for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++)f
 function woodDrop(bot,e,match=n=>LOG.test(n)||planks(n)){const key=bot.registry.entitiesByName.item.metadataKeys.indexOf('item'),slot=e.metadata?.[key];if(!slot)return false;try{const item=require('prismarine-item')(bot.registry).fromNotch(slot);return !!item&&match(item.name);}catch{return false;}}
 function surface(bot,x,z){
  // Inspect only the exposed surface, never an air pocket underneath solid ground.
- for(let y=190;y>=(bot.game?.minY??-64);y--){const block=bot.blockAt(new Vec3(x,y,z));if(!block)return null;
+ const column=bot.world?.getColumn?.(Math.floor(x/16),Math.floor(z/16)),states=bot.registry?.blocksByStateId;
+ for(let y=190;y>=(bot.game?.minY??-64);y--){
+  // Loaded empty sections are known air. Skip the section instead of querying
+  // 16 air blocks per column during an all-ocean plot search.
+  if(column&&states){const section=column.sections[Math.floor(y/16)-((bot.game?.minY??-64)>>4)];
+   if(!section||section.palette?.every(id=>{const name=states[id]?.name;return ['air','cave_air','void_air'].includes(name)||name?.endsWith('_leaves');})){y=Math.floor(y/16)*16;continue;}}
+  const block=bot.blockAt(new Vec3(x,y,z));if(!block)return null;
   if(block.name.endsWith('_leaves'))continue;
   if(block.boundingBox==='block'||['water','lava'].includes(block.name))return standable(bot,x,y+1,z)&&!LOG.test(block.name)?y+1:null;
  }return null;
@@ -55,10 +61,10 @@ function usableEntrance(bot,h){
  }
  return true;
 }
-function findPlot(bot,bounds,index,spread,total=8,reserved=[]){
+function findPlot(bot,bounds,index,spread,total=8,reserved=[],heightCache=null){
  const width=bounds[1]-bounds[0],depth=bounds[3]-bounds[2],columns=Math.min(4,total),rows=Math.ceil(total/columns);
  const ox=Math.floor(bounds[0]+(index%columns+.5)*width/columns),oz=Math.floor(bounds[2]+(Math.floor(index/columns)+.5)*depth/rows);
- const cache=new Map(),height=(x,z)=>{const key=x+','+z;if(!cache.has(key))cache.set(key,surface(bot,x,z));return cache.get(key);};
+ const cache=heightCache||new Map(),height=(x,z)=>{const key=x+','+z;if(!cache.has(key))cache.set(key,surface(bot,x,z));return cache.get(key);};
  // Prefer the bot's own sector, then search other loaded land when that
  // sector is water or steep terrain. Keep complete yards apart.
  const limit=Math.max(width,depth);
@@ -70,14 +76,24 @@ function findPlot(bot,bounds,index,spread,total=8,reserved=[]){
   if(flat&&usableEntrance(bot,{x,y,z})){const tableY=height(x-3,z+3);if(tableY!==null&&Math.abs(tableY-y)<3)return {x,y,z,tableY};}
 }return null;
 }
-const plotClaims=new Map();
+const plotClaims=new Map(),siteAudits=new Map();
 function claimPlot(bot,world,run){
  if(!plotClaims.has(run)){plotClaims.set(run,new Map());if(plotClaims.size>2)plotClaims.delete(plotClaims.keys().next().value);}
- const claims=plotClaims.get(run);if(claims.has(world.index))return claims.get(world.index);
+ const claims=plotClaims.get(run);
+ if(bot.world?.getColumn&&Date.now()>=(claims.retryAt||0)&&claims.size<(world.count||8)){
+  const b=world.bounds,loaded=[];for(let x=Math.floor(b[0]/16);x<Math.ceil(b[1]/16);x++)for(let z=Math.floor(b[2]/16);z<Math.ceil(b[3]/16);z++)if(bot.world.getColumn(x,z))loaded.push(x+','+z);
+  const key=loaded.join(';');if(claims.loadedKey!==key){claims.heights=new Map();claims.loadedKey=key;}
+ }
  // Reserve in roster order, independent of which controller ticks first.
- for(let index=0;index<(world.count||8);index++)if(!claims.has(index)){
-  const plot=findPlot(bot,world.bounds,index,world.spread,world.count||8,[...claims.values()]);
+ if(Date.now()>=(claims.retryAt||0))for(let index=0;index<(world.count||8);index++)if(!claims.has(index)){
+  const plot=findPlot(bot,world.bounds,index,world.spread,world.count||8,[...claims.values()],claims.heights??=new Map());
   if(plot)claims.set(index,plot);
+  else{claims.retryAt=Date.now()+2000;break;}
+ }
+ if(world.mission==='first_night'){
+  let audit=siteAudits.get(run);
+  if(!audit||!audit.ok&&Date.now()-(audit.at||0)>2000){audit={...require('./site_suitability').inspect(bot,world,[...claims.values()]),at:Date.now()};siteAudits.set(run,audit);if(siteAudits.size>2)siteAudits.delete(siteAudits.keys().next().value);}
+  if(!audit.ok)return null;
  }
  return claims.get(world.index)||null;
 }
@@ -125,7 +141,7 @@ class HutTeacher{
     let spawn;
     if(w.prepared)spawn=w.camp_anchor&&standable(bot,...w.camp_anchor)?[w.camp_anchor[0]+.5,w.camp_anchor[1]+.1,w.camp_anchor[2]+.5]:findSpawn(bot,w.bounds,{margin:house.config.camp_radius+2});
     else{this.plot=claimPlot(bot,w,state.run);this.campPlots=[...(plotClaims.get(state.run)?.values()||[])];if(this.plot)spawn=[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5];}
-    if(!spawn){this.message=w.prepared?'Surveying loaded terrain for a safe shared spawn':'Searching loaded land for a separate flat house plot';if(now-this.started>30000){this.failureCategory='site_unavailable';throw Error(w.prepared?'No safe natural spawn found. Try another site.':'No separate flat 7 × 7 build site in the loaded trial area. Try another natural scenario.');}}
+    if(!spawn){this.message=siteAudits.get(state.run)?.reason||(w.prepared?'Surveying loaded terrain for a safe shared spawn':'Searching loaded land for a separate flat house plot');if(now-this.started>30000){this.failureCategory=siteAudits.get(state.run)?.complete===false?'infrastructure':'site_unavailable';throw Error(siteAudits.get(state.run)?.reason||(w.prepared?'No safe natural spawn found. Try another site.':'No separate flat 7 × 7 build site in the loaded trial area. Try another natural scenario.'));}}
     else{let destination=spawn;if(w.prepared){const camp=await api('/world/camp',{agent:bot.username,position:spawn});this.campPlots=camp.plots;this.plot=camp.plots[w.index];this.grove=camp.groves[w.index]?.length?camp.groves[w.index]:null;destination=camp.spawn;}await api('/world/spawn',{agent:bot.username,position:destination});this.afterPlotClear='gather';this.phase='clear_plot';survey.release(bot);this.settle=now+1500;if(this.wilderness){this.wilderness.memory.remember('home',[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5]);}}
    }else if(now<this.settle){motor.pause();this.message='Settling on natural ground';}
    else if(!['survey','complete','stopped'].includes(this.phase)&&require('./air_escape').tick(this,bot,motor,state)){/* reach air before ordinary work, loot or surface-only routing */}
