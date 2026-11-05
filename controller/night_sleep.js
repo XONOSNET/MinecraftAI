@@ -23,9 +23,10 @@ async function tick(t,b,motor,walk,now=Date.now()){
  motor.pause();const s=observe(t,b),time=b.time?.timeOfDay;
  const status=text=>{s.status=text;t.wilderness.priority='Shelter watch';t.wilderness.reason=text;return text;};
  if(b.isSleeping)return status('Sleeping in home bed · waiting for morning');
- if(s.morning_seen)return status('Morning verified · finishing survival watch');
  if(!Number.isFinite(time))return status('Sheltered · waiting for server time');
- if(time<12541||time>23458)return status(s.night_seen?'Sheltered · waiting for dawn':'Sheltered · waiting for night');
+ if(time<12541||time>23458)return status(s.morning_seen?'Morning verified · finishing survival watch':s.night_seen?'Sheltered · waiting for dawn':'Sheltered · waiting for night');
+ // A recorded morning proves survival, but must not suppress bed use on a
+ // later night while the full watch is still in progress.
  if(!['overworld','minecraft:overworld'].includes(b.game?.dimension))return status('Sheltered · sleeping is unsafe outside the Overworld');
  if(now<s.retry_at)return status(s.status);
  const bed=b.blockAt(house.point(t.plot,'bed')),head=b.blockAt(house.point(t.plot,'bed').offset(0,0,1));

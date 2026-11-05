@@ -65,3 +65,22 @@ test('nearby monsters do not send an already sheltered watcher back into travel'
  const {t,b,motor}=fixture();b.entities={z:{name:'zombie',position:new Vec3(2,64,0)}};b.world={raycast:()=>null};
  assert.equal(await night.interrupt(t,b,motor,{world:{}}),false);assert.equal(t.phase,'night_hold');
 });
+
+test('a later night prioritizes the home bed even after morning was already verified',async()=>{
+ const {t,b,motor}=fixture();let sleeps=0;b.sleep=async()=>{sleeps++;b.isSleeping=true;};
+ await sleep.tick(t,b,motor);b.isSleeping=false;b.time.timeOfDay=0;
+ assert.match(await sleep.tick(t,b,motor),/Morning verified/);assert.equal(t.wilderness.sleep.morning_seen,true);
+ b.time.timeOfDay=14000;assert.match(await sleep.tick(t,b,motor),/Sleeping in home bed/);assert.equal(sleeps,2);
+ assert.equal(t.phase,'night_hold','sleep still cannot award completion');
+});
+test('a later-night bed rejection still retries instead of falling back to a permanent watch',async()=>{
+ const {t,b,motor}=fixture();Object.assign(sleep.observe(t,b),{morning_seen:true});let sleeps=0;
+ b.sleep=async()=>{if(++sleeps===1)throw Error('monsters nearby');b.isSleeping=true;};
+ assert.match(await sleep.tick(t,b,motor,null,100),/monsters nearby/);
+ assert.match(await sleep.tick(t,b,motor,null,10100),/Sleeping/);assert.equal(sleeps,2);
+});
+test('later-night bed approach targets the owned bed even with a historical morning',async()=>{
+ const {t,b,motor}=fixture();Object.assign(sleep.observe(t,b),{morning_seen:true});b.entity.position=new Vec3(-1.5,64.1,-1.5);
+ let target;assert.match(await sleep.tick(t,b,motor,async g=>{target=g;return true;}),/Walking to home bed/);
+ assert.deepEqual(target,[1.5,64.1,.5]);assert.equal(b.isSleeping,undefined);
+});
