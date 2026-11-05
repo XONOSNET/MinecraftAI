@@ -138,6 +138,7 @@ class WorldLearning:
                 return
             if s['phase']=='baseline':
                 s['baseline']=measured_trial(world);s['before_counts']=self.h['counts']()
+                if 'snapshot_replay' in self.h:s['replay_reference']=self.h['snapshot_replay']()
                 self.begin('teacher','demonstrating',0);return
             if s['phase']=='demonstrating':
                 counts=self.h['counts']();before=s.get('before_counts',{})

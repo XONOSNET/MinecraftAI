@@ -124,3 +124,24 @@ The isolated native staircase-to-construction handoff completed four rises in
 2.925 seconds at full health, with 12 dispatcher updates yielding to the jump
 owner. Its terrain and temporary entities were cleaned afterward. Full survival
 comparisons and the repeated-teacher acceptance target remain pending.
+
+## Replay retention correction
+
+Round 257 produced an 8/8 baseline and a rejected 2/8 candidate. Its expedition
+teacher collected 19,123 examples, exceeding the live replay capacity of 15,000.
+The training report therefore had zero earlier examples and zero earlier
+validation examples. This is a verified retention defect and a plausible
+contributor to forgetting, not proof that it caused every candidate failure.
+
+Before each teacher pass, capture a derived, bounded reference for each world
+skill under `data/world-replay-reference/`. Training mixes this pre-teacher
+reference with fresh examples even when the live deque is entirely replaced.
+Up to 512 earlier examples are withheld from the training selection for the
+existing action-agreement guard. References carry their comparison cycle;
+missing or mismatched references fail visibly instead of silently training on
+fresh data alone. Cold-start skills with no earlier examples report that fact.
+
+The regression test covers the exact 19,123-into-15,000 overwrite case, including
+reference persistence across reload, mixed training, disjoint held-out examples,
+and stale/missing reference rejection. Protected weights and full survival
+candidate selection remain authoritative. Raw demonstrations are preserved.

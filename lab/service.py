@@ -28,7 +28,9 @@ from .world_training import WorldTraining, SCENARIOS, LEVELS, readiness
 from .bot_lights import BotLights
 from .efficiency import completion_timing
 from .world_learning import WorldLearning
-from .world_replay import prepare_replay
+from .world_replay import prepare_replay, ReplayReference
+
+world_replay_reference=ReplayReference('data/world-replay-reference')
 from .identities import Identities
 from .protection import PracticeProtection
 import copy
@@ -130,7 +132,10 @@ def start_training(background=False,world_automatic=False):
         observations=list(replay)
         validation=[];world_mix={}
         if world_automatic:
-            observations,validation,world_mix=prepare_replay(observations,world_learning.state.get('new_examples',{}).get(skill,0),world_learning.state['round'])
+            cycle=world_learning.state['round']
+            reference=world_replay_reference.load(skill,cycle)
+            observations,validation,world_mix=prepare_replay(observations,world_learning.state.get('new_examples',{}).get(skill,0),cycle,reference=reference)
+            world_mix['reference_cycle']=cycle
         mode='paused';training=True
         initial_model=copy.deepcopy(policy.state_dict());initial_optimizer=copy.deepcopy(optimizer.state_dict())
         width=policy.net[0].out_features;inputs=policy.net[0].in_features;actions=policy.net[2].out_features
@@ -1046,6 +1051,10 @@ def dashboard():
 
 WORLD_SKILLS=('expedition','gathering','shelter','combat')
 
+def capture_world_replay():
+    cycle=world_learning.state['round']
+    return {skill:world_replay_reference.capture(skill,cycle,list(skill_bank.get(skill,model)['samples'])) for skill in WORLD_SKILLS}
+
 def protect_world_models():
     root=Path('checkpoints/world-learning');root.mkdir(parents=True,exist_ok=True)
     for skill in WORLD_SKILLS:
@@ -1082,7 +1091,7 @@ world_learning=WorldLearning('data/world-learning.json',{
     'hold_preparation':world_training.hold_preparation,'resume_preparation':world_training.resume_preparation,
     'stop_world':world_training.stop,'cancel':training_jobs.cancel,'job':training_jobs.snapshot,
     'world':lambda:world_training.session,'begin':_begin_world,'train':world_train_skill,
-    'protect':protect_world_models,'restore':restore_world_models,'review':review_world_models,
+    'protect':protect_world_models,'restore':restore_world_models,'review':review_world_models,'snapshot_replay':capture_world_replay,
     'switch':world_learning_switch,'behavior':behavior_rules.frozen,
     'memory':lambda:copy.deepcopy(world_training.saved.get('first_night_memory',{})),
     'ready':lambda:auto_health(recovering=world_learning.state.get('phase')=='recovering' and world_learning.state.get('recovery_cause')=='memory') is None,
