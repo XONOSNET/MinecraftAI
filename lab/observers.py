@@ -92,10 +92,11 @@ def action_pose(distance,height,elapsed,heading=0):
     return math.cos(angle)*radius,elevation,math.sin(angle)*radius,ACTION_SHOTS[index][0]
 
 def shoulder_context(target,distance,height):
-    # Local +X is left in Minecraft. Keep the mount right/back in body yaw;
-    # looking up/down changes aim, rather than swinging the camera underground.
+    # Raise the pivot in world space, then orbit behind the full look rotation.
+    # Minecraft pitch is negative upward: looking up moves the camera down
+    # behind the shoulder while its gaze continues upward along the eye ray.
     elevation=1.6+(height-2)*.15
-    return f'execute at {target} rotated as {target} rotated ~ 0 positioned ^-0.900 ^{elevation:.3f} ^{-distance:.3f}'
+    return f'execute at {target} positioned ~ ~{elevation:.3f} ~ rotated as {target} positioned ^-0.900 ^0 ^{-distance:.3f}'
 
 
 def shoulder_aim(target,tag):

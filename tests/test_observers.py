@@ -662,10 +662,10 @@ def test_roster_stopped_bot_is_gray_even_when_watched(tmp_path):
     assert row['color']=='gold'
 
 
-def test_shoulder_mount_uses_body_yaw_but_aims_along_live_eye_ray(tmp_path):
+def test_shoulder_orbits_live_yaw_and_pitch_around_raised_pivot(tmp_path):
     from lab.observers import shoulder_aim
     move=camera_move('LabAI0','camera','shoulder',3,2,0,heading=99)
-    assert 'rotated as LabAI0 rotated ~ 0 positioned ^-0.900 ^1.600 ^-3.000' in move
+    assert 'positioned ~ ~1.600 ~ rotated as LabAI0 positioned ^-0.900 ^0 ^-3.000' in move
     assert move.endswith('rotated as LabAI0 run tp @e[tag=camera,limit=1] ~ ~ ~ ~ ~')
     assert 'anchored eyes positioned ^ ^ ^24' in shoulder_aim('LabAI0','camera')
     commands=[];o=Observers(tmp_path/'shoulder',commands.append,lambda:100,settle_delay=0)
@@ -673,7 +673,7 @@ def test_shoulder_mount_uses_body_yaw_but_aims_along_live_eye_ray(tmp_path):
     o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':{'connected':True,'last_seen':100,'entity_id':42}},True)
     attach=next(i for i,c in enumerate(commands) if 'run spectate @e[tag=lab_camera_' in c)
     assert any('anchored eyes positioned ^ ^ ^24' in c for c in commands[:attach])
-    assert any('positioned ^-0.900 ^1.600 ^-3.000 run summon' in c for c in commands)
+    assert any('positioned ^-0.900 ^0 ^-3.000 run summon' in c for c in commands)
     commands.clear();o.external_motion=True
     o.motion_frames['Xonosnet']=('LabAI0','lab_camera_xonosnet','shoulder',3,2,100,0,100)
     o.move_cameras()

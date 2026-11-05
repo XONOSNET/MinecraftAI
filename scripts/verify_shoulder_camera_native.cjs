@@ -12,12 +12,13 @@ async function command(c){b.chat('/'+c);await wait(180);}
  for(const yaw of [0,90,180,270])for(const pitch of [-60,0,60]){
   await command(`tp @s -1625.5 225 -1625.5 ${yaw} ${pitch}`);await command(commands[1]);await command(commands[2]);await wait(180);
   const c=Object.values(b.entities).find(e=>e.name==='item_display');assert.ok(c,'fixture camera visible');
-  const y=yaw*Math.PI/180,p=pitch*Math.PI/180,expected=[-1625.5+3*Math.sin(y)-.9*Math.cos(y),226.6,-1625.5-3*Math.cos(y)-.9*Math.sin(y)];
-  assert.ok(c.position.distanceTo({x:expected[0],y:expected[1],z:expected[2]})<.08,'mount stays behind right shoulder independent of pitch '+JSON.stringify({actual:c.position.toArray(),expected,subject:b.entity.position.toArray(),commands}));
+  const y=yaw*Math.PI/180,p=pitch*Math.PI/180,expected=[-1625.5+3*Math.sin(y)*Math.cos(p)-.9*Math.cos(y),226.6+3*Math.sin(p),-1625.5-3*Math.cos(y)*Math.cos(p)-.9*Math.sin(y)];
+  assert.ok(c.position.distanceTo({x:expected[0],y:expected[1],z:expected[2]})<.08,'mount orbits behind right shoulder with live pitch '+JSON.stringify({actual:c.position.toArray(),expected,subject:b.entity.position.toArray(),commands}));
   const target=[-1625.5-Math.sin(y)*Math.cos(p)*24,226.62-Math.sin(p)*24,-1625.5+Math.cos(y)*Math.cos(p)*24],v=target.map((x,i)=>x-c.position.toArray()[i]),len=Math.hypot(...v),dir=[-Math.sin(c.yaw)*Math.cos(c.pitch),Math.sin(c.pitch),-Math.cos(c.yaw)*Math.cos(c.pitch)];
+  assert.ok(pitch===0 || Math.sign(c.pitch)===-Math.sign(pitch),'camera aim follows upward/downward gaze without inversion');
   assert.ok(v.reduce((s,x,i)=>s+x*dir[i],0)/len>.998,'camera focuses along live bot eye ray');
   const toward=[-1625.5-c.position.x,-1625.5-c.position.z],screenRight=[Math.cos(c.yaw),-Math.sin(c.yaw)];assert.ok(toward[0]*screenRight[0]+toward[1]*screenRight[1]<0,'character appears on the left');
-  report.cases.push({yaw,pitch,camera:c.position.toArray()});
+  report.cases.push({yaw,pitch,camera:c.position.toArray(),cameraPitch:c.pitch});
  }
  report.passed=true;
 }catch(e){report.error=e.stack;process.exitCode=1;}finally{
