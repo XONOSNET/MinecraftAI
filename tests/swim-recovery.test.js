@@ -29,3 +29,22 @@ test('a short shore detour is not completion of the original navigation destinat
  f.b.entity.position=new Vec3(4.5,64,.5);f.b.entity.isInWater=false;f.b.entity.onGround=true;
  const next=n.plan(f.b,goal,{...f.options,now:4300});assert.deepEqual(n.status.target,goal);assert.equal(next.arrived,false);assert.equal(n.status.water_recovery,null);
 });
+
+test('brief alignment holds cannot repeatedly erase a blocked swimmer recovery deadline',()=>{
+ const f=fixture();let forward=true;f.b.getControlState=()=>forward;recovery.update(f.n,f.b,{...f.options,now:1000});
+ for(const [now,moving] of [[2000,true],[2500,false],[3000,true],[4000,true],[4500,false],[5000,true]]){forward=moving;assert.equal(recovery.update(f.n,f.b,{...f.options,now}),null);}
+ const escape=recovery.update(f.n,f.b,{...f.options,now:6000});assert.ok(escape?.goal);
+});
+test('long deliberate holds do not count as failed forward swimming',()=>{
+ const f=fixture();let forward=true;f.b.getControlState=()=>forward;recovery.update(f.n,f.b,{...f.options,now:1000});recovery.update(f.n,f.b,{...f.options,now:2000});
+ forward=false;assert.equal(recovery.update(f.n,f.b,{...f.options,now:30000}),null);
+ forward=true;assert.equal(recovery.update(f.n,f.b,{...f.options,now:60000}),null);assert.equal(recovery.update(f.n,f.b,{...f.options,now:61000}),null);assert.ok(recovery.update(f.n,f.b,{...f.options,now:62000})?.goal);
+});
+
+test('navigation applies the shore detour after interrupted forward attempts and retains the task destination',()=>{
+ const f=fixture(),{WorldNavigation}=require('../controller/world_navigation'),n=new WorldNavigation(),goal=[10.5,64.1,.5];let forward=true;f.b.getControlState=()=>forward;
+ for(const [now,moving] of [[1000,true],[2000,true],[2500,false],[3000,true],[4000,true],[4500,false],[5000,true],[6000,true]]){forward=moving;n.plan(f.b,goal,{...f.options,now});}
+ assert.ok(n.status.water_recovery);assert.notDeepEqual(n.status.target,goal);
+ f.b.entity.position=new Vec3(4.5,64,.5);f.b.entity.isInWater=false;f.b.entity.onGround=true;
+ n.plan(f.b,goal,{...f.options,now:6200});assert.deepEqual(n.status.target,goal);assert.equal(n.status.water_recovery,null);
+});

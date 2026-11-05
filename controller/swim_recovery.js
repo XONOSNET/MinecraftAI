@@ -21,14 +21,19 @@ function update(n,bot,{now=Date.now(),bounds,forbidden}={}){
  if(!wet&&bot.entity.onGround!==false||bot.entity.onGround===true&&water.cell(bot,q.x,Math.round(p.y),q.z)?.wet===false){n.swimRecovery=null;return null;}
  if(!wet&&!n.swimRecovery?.goal)return null;
  let s=n.swimRecovery;if(!s)s=n.swimRecovery={anchor:p.clone(),progressAt:now};
- if(Math.hypot(p.x-s.anchor.x,p.z-s.anchor.z)>=.5){s.anchor=p.clone();s.progressAt=now;}
+ const moving=bot.getControlState?.('forward')===true,elapsed=Math.max(0,now-(s.sampleAt??s.progressAt));
+ s.attemptedMs??=0;
+ if(moving&&(s.wasMoving??moving))s.attemptedMs+=elapsed;
+ s.sampleAt=now;s.wasMoving=moving;
+ if(Math.hypot(p.x-s.anchor.x,p.z-s.anchor.z)>=.5){s.anchor=p.clone();s.progressAt=now;s.attemptedMs=0;}
  // Vertical bobbing and changing route lengths never reset this clock.
  if(s.goal){
   if(now-s.progressAt>5000){s.goal=null;s.retryAt=now+500;}
   else return s;
  }
- if(bot.getControlState?.('forward')!==true){s.progressAt=now;return null;}
- if(now-s.progressAt<3000||now<(s.retryAt||0))return null;
+ // Alignment turns and brief decision gaps pause attempted travel; they must
+ // not erase earlier failed swimming. A deliberate policy hold adds no time.
+ if(!moving||s.attemptedMs<3000||now<(s.retryAt||0))return null;
  s.retryAt=now+5000;
  const goal=bank(bot,{bounds,forbidden});if(!goal)return null;
  s.goal=goal;s.progressAt=now;s.anchor=p.clone();return s;
