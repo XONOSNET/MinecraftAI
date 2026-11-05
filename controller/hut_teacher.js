@@ -418,6 +418,22 @@ class HutTeacher{
  async collectWood(bot,motor,drop,state,api,scan,tasks){
   this.collecting=true;this.resourceAccess??={};
   try{
+   if(bot.entity.isInWater){
+    // Floating under a shoreline canopy is not an unfinished dry landing.
+    // Reach a checked clear bank before attempting dry resource work.
+    const water=require('./water_navigation'),now=Date.now();
+    let shore=this.woodShore;
+    if(!shore||shore.run!==state.run)this.woodShore=shore={run:state.run,goal:null,scanAt:0};
+    if(shore.goal&&water.cell(bot,Math.floor(shore.goal[0]),Math.round(shore.goal[1]),Math.floor(shore.goal[2]))?.wet!==false)shore.goal=null;
+    if(!shore.goal&&now>=shore.scanAt){
+     shore.scanAt=now+1000;
+     shore.goal=require('./swim_recovery').bank(bot,{bounds:state.world.bounds,forbidden:q=>(this.campPlots||[]).some(h=>(h.x!==this.plot?.x||h.z!==this.plot?.z)&&require('./world_navigation').privatePlotCell(q,h))});
+    }
+    if(shore.goal){if(await this.walk(bot,motor,shore.goal,state,api,scan,tasks)===false)shore.goal=null;this.message='Reaching clear shore before resuming wood pickup';}
+    else{const p=bot.entity.position;motor.command(4,{kind:'expedition',water_route:true,waypoints:[[p.x,p.y,p.z]]},{},0);this.message='Maintaining buoyancy while checking clear shoreline exits';}
+    return;
+   }
+   this.woodShore=null;
    if(bot.entity.onGround===false){
     if(this.dropTrack?.id===drop.id&&this.pickupTravelGoal)await this.walk(bot,motor,this.pickupTravelGoal,state,api,scan,tasks);
     this.message='Finishing the safe landing before collecting wood';return;

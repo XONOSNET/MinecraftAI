@@ -112,3 +112,5 @@ Plot-clearing and floor-building returns preserve a committed jump until touchdo
 The spectator HUD header shows elapsed trial time as MM:SS below one hour and HH:MM:SS from one hour onward. It starts at the running trial timestamp, excludes terrain preparation and freezes at the recorded trial finish. Registered bed homes use a flat house glyph and owner label above the roof instead of a three-dimensional bed item.
 
 A checked one-block climb immediately outside a door takes priority over the doorway's flat crossing alignment, including while steering toward the climb. This handles a one-cell low spot between the doorway and a raised grass bank without removing terrain or weakening landing checks.
+
+Wood pickup treats surface swimming separately from a dry airborne landing. A collector floating under shoreline leaves first follows a checked route to a clear bank, then resumes ordinary pickup. Blocked canopy exits are rejected by the existing feet/head clearance checks. If no checked bank is available, it maintains buoyancy and retries without fabricating movement, inventory or lesson progress.
