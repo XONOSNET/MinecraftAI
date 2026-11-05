@@ -10,8 +10,8 @@ function doorwayDescriptor(bot,block,goal){
  return {id:`${block.position.x},${block.position.y},${block.position.z}`,axis,plane,center,open:!!properties.open,y:block.position.y};
 }
 function createDoorway(){
- let state=null,finished=new Set(),label=null;
- function reset(){state=null;finished.clear();label=null;}
+ let state=null,finished=new Set(),retryAt=new Map(),label=null;
+ function reset(){state=null;finished.clear();retryAt.clear();label=null;}
  function update(base,sensed,p,yaw,now,permissions){
   const d=sensed.doorway;
   // The checked route owns the climb onto a raised porch. Door alignment
@@ -21,7 +21,7 @@ function createDoorway(){
   // Let the checked route reach the door aisle first. Starting from a diagonal
   // can send the alignment shortcut through a neighboring house wall.
   const inAisle=d&&Math.abs(p[d.axis==='x'?'z':'x']-d.center)<.65;
-  if(!state&&d&&inAisle&&!finished.has(d.id)&&permissions.move&&permissions.turn){state={...d,side:p[d.axis]<d.plane?-1:1,phase:'align',started:now};}
+  if(!state&&d&&inAisle&&!finished.has(d.id)&&now>=(retryAt.get(d.id)||0)&&permissions.move&&permissions.turn){state={...d,side:p[d.axis]<d.plane?-1:1,phase:'align',started:now};}
   if(!state){label=null;return null;}
   if(d?.id===state.id){state.open=d.open;if(d.open)state.center=d.center;state.descent=!!d.descent;}
   const cross=state.axis==='x'?'z':'x',offset=p[state.axis]-state.plane;
@@ -33,7 +33,9 @@ function createDoorway(){
   if(now-state.started>(sensed.enclosedShelter?20000:12000)){
    // Alignment is optional guidance, not a permanent movement veto. Let the
    // checked route handle a lower landing or another approach after timeout.
-   finished.add(state.id);state=null;label=null;return null;
+   // An unfinished crossing may retry after a brief yield; only a physically
+   // completed crossing belongs in finished.
+   retryAt.set(state.id,now+1000);state=null;label=null;return null;
   }
   if(state.phase==='cross'&&offset*state.side< -1.05){finished.add(state.id);state=null;label=null;return null;}
   const lateral=Math.abs(p[cross]-state.center);

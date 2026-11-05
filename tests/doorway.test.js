@@ -112,3 +112,14 @@ test('a timed-out doorway relinquishes control to the checked route instead of h
  assert.equal(c.update(base,s,p,0,12002,permissions),null,'the same stale alignment must not immediately reacquire control');
  c.reset();assert.ok(c.update(base,s,p,0,12003,permissions),'a new task can use doorway guidance again');
 });
+
+test('timed-out open threshold retries alignment after cooldown instead of permanently suppressing it',()=>{
+ const c=createDoorway(),p={x:-.06,y:181,z:.49};
+ assert.ok(c.update(base,sensed(door,()=>false),p,-Math.PI/2,0,permissions));
+ assert.equal(c.update(base,sensed(door,()=>false),p,-Math.PI/2,13000,permissions),null);
+ assert.equal(c.update(base,sensed(),p,-Math.PI/2,13500,permissions),null,'briefly yield to ordinary checked routing');
+ const retry=c.update(base,sensed(),p,-Math.PI/2,14000,permissions);assert.ok(retry);assert.equal(c.active(),true);
+ // A successful crossing remains finished, unlike a timeout.
+ c.update(base,sensed(),{...p,x:1.6},-Math.PI/2,14100,permissions);
+ assert.equal(c.update(base,sensed(),{...p,x:1.7},-Math.PI/2,14200,permissions),null);
+});
