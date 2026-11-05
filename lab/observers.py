@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from .config import is_agent, EPISODES_PER_AGENT
 
-VIEWS=('first_person','trail','side','overhead','orbit','action','stationary','cycle')
+VIEWS=('first_person','trail','side','overhead','orbit','action','shoulder','stationary','cycle')
 DIMENSIONS=('minecraft:overworld','minecraft:the_nether','minecraft:the_end')
 CAMERA_INTERPOLATION_TICKS=4
 MODES=('survival','creative','adventure','spectator')
@@ -91,7 +91,20 @@ def action_pose(distance,height,elapsed,heading=0):
     elevation=framing_spline([max(3.2,min(12,height*s[3])) for s in ACTION_SHOTS],index,u)
     return math.cos(angle)*radius,elevation,math.sin(angle)*radius,ACTION_SHOTS[index][0]
 
+def shoulder_context(target,distance,height):
+    # Local +X is left in Minecraft. Keep the mount right/back in body yaw;
+    # looking up/down changes aim, rather than swinging the camera underground.
+    elevation=1.6+(height-2)*.15
+    return f'execute at {target} rotated as {target} rotated ~ 0 positioned ^-0.900 ^{elevation:.3f} ^{-distance:.3f}'
+
+
+def shoulder_aim(target,tag):
+    # Aim at the bot's eye ray ahead, rather than at its torso behind the action.
+    return f'execute at {target} rotated as {target} anchored eyes positioned ^ ^ ^24 run rotate @e[tag={tag},limit=1] facing ~ ~ ~'
+
+
 def camera_move(target,tag,view,distance,height,elapsed,heading=0):
+    if view=='shoulder':return f'{shoulder_context(target,distance,height)} rotated as {target} run tp @e[tag={tag},limit=1] ~ ~ ~ ~ ~'
     if view=='stationary':return f'execute at {target} run rotate @e[tag={tag},limit=1] facing ~ ~0.9 ~'
     if view=='action':
         x,y,z,_=action_pose(distance,height,elapsed,heading);offset=f'~{x:.3f} ~{y:.3f} ~{z:.3f}';context=''
@@ -119,6 +132,7 @@ def camera_rotation(view,distance,height,elapsed,heading=0):
 def camera_spawn(owner,target,tag,view,distance,height,elapsed,heading=0):
     yaw,pitch=camera_rotation(view,distance,height,elapsed,heading)
     nbt=f'{{Rotation:[{yaw:.5f}f,{pitch:.5f}f],teleport_duration:0,interpolation_duration:3,view_range:2f,Invulnerable:1b,Silent:1b,Tags:["{tag}","lab_observer_camera"]}}'
+    if view=='shoulder':return f'{shoulder_context(target,distance,height)} run summon minecraft:item_display ~ ~ ~ {nbt}'
     if view=='stationary':return f'execute at {owner} run summon minecraft:item_display ~ ~ ~ {nbt}'
     prefix,tail=camera_move(target,tag,view,distance,height,elapsed,heading).split(' run tp ',1)
     coordinates=tail.split(' facing ',1)[0].split(' ',1)[1]
@@ -164,7 +178,7 @@ class Observers:
         owner=player_name(owner)
         s=next((v for k,v in self.sessions.items() if k.casefold()==owner.casefold()),None)
         if not s or not s.get('enabled'):raise ValueError('Start following a bot first')
-        views=('trail','side','overhead','orbit','action','first_person','stationary')
+        views=('trail','side','overhead','orbit','action','first_person','shoulder')
         if key=='Enter':
             index=views.index(s['view']) if s['view'] in views else -1
             s.update(view=views[(index+1)%len(views)],attached=False,attach_ready_at=None)
@@ -425,6 +439,10 @@ class Observers:
             self.kill_camera(s)
             if s['enabled']:s.update(status='waiting',message='Waiting for the server and player to reconnect.')
         self.save()
+    def move_camera(self,target,tag,view,distance,height,elapsed,heading=0):
+        self.command(camera_move(target,tag,view,distance,height,elapsed,heading))
+        if view=='shoulder':self.command(shoulder_aim(target,tag))
+
     def move_cameras(self):
         # Frames are immutable tuples. Movement uses live server-relative targets,
         # so a slow history save cannot freeze position updates behind its lock.
@@ -433,7 +451,7 @@ class Observers:
         gap=1000*(now-previous['last_at']) if frames and previous['last_at'] is not None else 0
         self.motion_stats=dict(last_at=now if frames else None,ticks=previous['ticks']+bool(frames),gap_ms=gap,max_gap_ms=max(previous['max_gap_ms'],gap))
         for target,tag,view,distance,height,started,heading,updated in frames:
-            if now-updated<8:self.command(camera_move(target,tag,view,distance,height,now-started,heading))
+            if now-updated<8:self.move_camera(target,tag,view,distance,height,now-started,heading)
 
     def tick(self,online,states,agents,ready,mode='paused',pause_reason='Movement paused',progress_context=None):
         if not ready:return
@@ -508,13 +526,13 @@ class Observers:
                     self.kill_camera(s)
                     anchor=owner if s['view']=='stationary' else target
                     self.command(camera_spawn(owner,target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
-                    self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
+                    self.move_camera(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0))
                     self.command(f'execute at {target} run data merge entity @e[tag={camera},limit=1] {{teleport_duration:{CAMERA_INTERPOLATION_TICKS}}}')
                     self.command(f"execute at {owner if s['view']=='stationary' else target} run spectate @e[tag={camera},limit=1] {owner}");s['camera_created']=True
                 s.update(attached=True,attach_ready_at=None,attached_at=self.clock());self.save()
             if s['view']!='first_person':
                 if self.external_motion:self.motion_frames[owner]=(target,camera,s['view'],s['distance'],s['height'],s['started_at'],s.get('camera_heading',0),self.clock())
-                else:self.command(camera_move(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
+                else:self.move_camera(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0))
             else:self.motion_frames.pop(owner,None)
             s.update(status='following',message=(f"Watching {target} from a stationary position. Switch bots to look around; use a following view to travel between arenas." if s['view']=='stationary' else f"Following {target}: {s['view'].replace('_',' ')}. Camera follows arena transfers and respawns."),simulation=agent.get('simulation','Waiting'),target_position=agent.get('position'))
 

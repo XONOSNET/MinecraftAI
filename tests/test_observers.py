@@ -660,3 +660,30 @@ def test_roster_stopped_bot_is_gray_even_when_watched(tmp_path):
     o.update_roster(['Xonosnet'],{'LabAI0':{'connected':True,'last_seen':100,'display_name':'AmberRobin'}},'teacher')
     row=json.loads(next(c[len(prefix):] for c in reversed(commands) if c.startswith(prefix)))
     assert row['color']=='gold'
+
+
+def test_shoulder_mount_uses_body_yaw_but_aims_along_live_eye_ray(tmp_path):
+    from lab.observers import shoulder_aim
+    move=camera_move('LabAI0','camera','shoulder',3,2,0,heading=99)
+    assert 'rotated as LabAI0 rotated ~ 0 positioned ^-0.900 ^1.600 ^-3.000' in move
+    assert move.endswith('rotated as LabAI0 run tp @e[tag=camera,limit=1] ~ ~ ~ ~ ~')
+    assert 'anchored eyes positioned ^ ^ ^24' in shoulder_aim('LabAI0','camera')
+    commands=[];o=Observers(tmp_path/'shoulder',commands.append,lambda:100,settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0','view':'shoulder','distance':3,'height':2},['Xonosnet'])
+    o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':{'connected':True,'last_seen':100,'entity_id':42}},True)
+    attach=next(i for i,c in enumerate(commands) if 'run spectate @e[tag=lab_camera_' in c)
+    assert any('anchored eyes positioned ^ ^ ^24' in c for c in commands[:attach])
+    assert any('positioned ^-0.900 ^1.600 ^-3.000 run summon' in c for c in commands)
+    commands.clear();o.external_motion=True
+    o.motion_frames['Xonosnet']=('LabAI0','lab_camera_xonosnet','shoulder',3,2,100,0,100)
+    o.move_cameras()
+    assert len(commands)==2 and commands[1]==shoulder_aim('LabAI0','lab_camera_xonosnet')
+
+
+def test_shoulder_replaces_stationary_slot_in_manual_view_cycle(tmp_path):
+    o=Observers(tmp_path/'shoulder',lambda c:None,lambda:100)
+    o.start({'player':'Xonosnet','target':'LabAI0','view':'first_person'},['Xonosnet'])
+    assert o.adjust('Xonosnet','Enter')['view']=='shoulder'
+    assert o.adjust('Xonosnet','ArrowRight')['height']==5
+    assert o.adjust('Xonosnet','Enter')['view']=='trail'
+    assert o.start({'player':'Xonosnet','target':'LabAI0','view':'stationary'},['Xonosnet'])['view']=='stationary'
