@@ -41,6 +41,7 @@ async function interrupt(t,b,motor,state,api,scan){
  // Keep a sleeping bot still. Awake bots watch from shelter if monsters prevent bed use.
  if(b.isSleeping)return false;
  if(p.kind==='finish enclosure')return false;
+ if(await require('./water_work').tick(t,b,motor,state,api,scan,require('./tasks'),{urgent:['seek cover','retreat','defend'].includes(p.kind)}))return true;
  if(p.kind==='eat'||p.kind==='eat raw'){motor.pause();await inventory.equip(b,(p.kind==='eat'?FOOD:SAFE_RAW).find(n=>count(b,n)));await b.consume();n.foodConsumed++;t.lastProgress=Date.now();return true;}
  if(p.kind==='seek cover'||p.kind==='retreat'&&shelterPolicy.wantsCover(b,state.world))n.shelterWatch=true;
  if(n.shelterWatch&&!shelterPolicy.danger(b))n.shelterWatch=false;

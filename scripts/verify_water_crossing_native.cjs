@@ -56,5 +56,18 @@ Object.assign(collector,{phase:'gather',plot:{x:-1570,y:211,z:-1570},campPlots:[
 const pickupAt=Date.now(),pickupHealth=b.health;motor=createMotor(b,{move:true,jump:true,turn:true});let ashore=false;
 while(Date.now()-pickupAt<20000){const p=b.entity.position,c=require('../controller/water_navigation').cell(b,Math.floor(p.x),Math.round(p.y),Math.floor(p.z));if(c&&!c.wet&&b.entity.onGround){ashore=true;break;}await collector.collectWood(b,motor,{id:999,position:new Vec3(-1596.5,211,-1600.5)},pickupState,pickupApi,scan,tasks);await wait(100);}
 assert.equal(ashore,true,'collector reached a clear bank instead of waiting for a dry landing in water');assert.ok(b.entity.position.x< -1602);assert.ok(b.health>=pickupHealth);assert.equal(collector.phase,'gather');assert.equal(collector.lastProgress,123);motor.pause();motor=null;
-result.leaf_bank_pickup={seconds:(Date.now()-pickupAt)/1000,health:b.health,position:b.entity.position.toArray()};result.passed=true;
+result.leaf_bank_pickup={seconds:(Date.now()-pickupAt)/1000,health:b.health,position:b.entity.position.toArray()};// Replay the same obstruction under ordinary dry-work phases using the shared handoff.
+result.shared_water_work=[];
+for(const phase of ['craft','build','night_stone','return_home']){
+ await admin({action:'gamemode',gamemode:'creative'});await commands(['tp @s -1598.5 210.2 -1600.5']);await admin({action:'gamemode',gamemode:'survival'});await wait(300);
+ collector.phase=phase;collector.waterWork=null;collector.waterTravel=null;collector.navigator=new WorldNavigation();
+ const began=Date.now(),health=b.health;motor=createMotor(b,{move:true,jump:true,turn:true});let landed=false;
+ while(Date.now()-began<20000){
+  const handled=await require('../controller/water_work').tick(collector,b,motor,pickupState,pickupApi,scan,tasks);
+  if(!handled){landed=true;break;}await wait(100);
+ }
+ assert.equal(landed,true,phase+' resumes on dry footing');assert.equal(collector.phase,phase);assert.equal(collector.lastProgress,123);assert.ok(b.health>=health);assert.ok(b.entity.position.x< -1602);
+ result.shared_water_work.push({phase,seconds:(Date.now()-began)/1000,position:b.entity.position.toArray(),health:b.health});motor.pause();motor=null;
+}
+result.passed=true;
 }catch(error){result.error=error.stack;result.position=b.entity.position.toArray();process.exitCode=1;}finally{motor?.pause();await admin({action:'gamemode',gamemode:'creative'}).catch(()=>{});if(changed){await commands(['fill -1610 206 -1604 -1590 216 -1596 air']);for(let x=-1610;x<=-1590;x++)for(let z=-1604;z<=-1596;z++)for(let y=206;y<=216;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air');}await admin({action:'teleport-coordinates',x:-153.5,y:225.1,z:160.5});await admin({action:'gamemode',gamemode:'survival'});await admin({action:'deop'});result.cleaned=true;b.quit();fs.writeFileSync('logs/water-crossing-native.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));setTimeout(()=>process.exit(process.exitCode||0),300);}})().catch(e=>{console.error(e);b.quit();process.exit(1);});

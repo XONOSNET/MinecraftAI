@@ -13,5 +13,5 @@ test('wood pickup routes around leaf-covered banks instead of waiting for water 
 test('unavailable shore keeps buoyancy and retries without inventing an exit',async()=>{
  const f=fixture();f.b.blockAt=p=>({position:p.floored(),name:p.y<=63?'water':'air',boundingBox:'empty',getProperties:()=>({level:0})});let command;
  await f.t.collectWood(f.b,{command:(action,task)=>command={action,task}},f.drop,f.state);
- assert.equal(command.action,4);assert.equal(command.task.water_route,true);assert.equal(f.t.woodShore.goal,null);assert.equal(f.t.lastProgress,123);
+ assert.equal(command.action,4);assert.equal(command.task.water_route,true);assert.equal(f.t.waterWork.goal,null);assert.equal(f.t.lastProgress,123);
 });

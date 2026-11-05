@@ -95,7 +95,7 @@ class HutTeacher{
  async tick(bot,motor,state,api,scan,tasks){
   const now=Date.now(),p=bot.entity.position,w=state.world,rules=forBot(bot);
   if(this.run===state.run&&now<(this.serviceRetryAt||0)){motor.pause();return this.message;}
-  if(this.run!==state.run){this.movementHandoffs=null;this.deathRun=null;this.loot=null;this.buildBlocker=null;this.homeRepair=null;this.homeDamage=null;this.homeInspectAt=0;this.reforest=null;this.floorReturnGoal=null;this.plotReturnGoal=null;this.entranceApproach=null;this.entranceCleared=0;this.plotClearing=null;this.afterPlotClear=null;this.constructionCleared=0;this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();this.dropTrack=null;this.pickupTravelGoal=null;}
+  if(this.run!==state.run){this.waterWork=null;this.waterTravel=null;this.movementHandoffs=null;this.deathRun=null;this.loot=null;this.buildBlocker=null;this.homeRepair=null;this.homeDamage=null;this.homeInspectAt=0;this.reforest=null;this.floorReturnGoal=null;this.plotReturnGoal=null;this.entranceApproach=null;this.entranceCleared=0;this.plotClearing=null;this.afterPlotClear=null;this.constructionCleared=0;this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();this.dropTrack=null;this.pickupTravelGoal=null;}
   if(this.run!==state.run){space.release(bot.username);require('./exploration').release(bot.username);this.resourceAccess={};this.buildAttempts=new Map();this.buildApproach=null;this.floorRecovery=null;this.treeRetry=0;this.focusBlock=null;this.lastNavigation=null;if(this.survival?.deathListener)bot.removeListener('entityDead',this.survival.deathListener);this.survival=null;this.wilderness=null;this.failureCategory=null;this.serviceFailureSince=null;this.serviceRetryAt=0;this.home=null;this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.campPlots=[];this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;this.scanCount=0;this.observedTrees=0;this.quarry=null;this.lastRecoveryReset=0;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
   if(!w.prepared&&plotClaims.has(state.run))this.campPlots=[...plotClaims.get(state.run).values()];
   if(this.phase==='survey')survey.hold(bot);else survey.release(bot);
@@ -129,8 +129,9 @@ class HutTeacher{
     else{let destination=spawn;if(w.prepared){const camp=await api('/world/camp',{agent:bot.username,position:spawn});this.campPlots=camp.plots;this.plot=camp.plots[w.index];this.grove=camp.groves[w.index]?.length?camp.groves[w.index]:null;destination=camp.spawn;}await api('/world/spawn',{agent:bot.username,position:destination});this.afterPlotClear='gather';this.phase='clear_plot';survey.release(bot);this.settle=now+1500;if(this.wilderness){this.wilderness.memory.remember('home',[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5]);}}
    }else if(now<this.settle){motor.pause();this.message='Settling on natural ground';}
    else if(!['survey','complete','stopped'].includes(this.phase)&&require('./air_escape').tick(this,bot,motor,state)){/* reach air before ordinary work, loot or surface-only routing */}
-   else if(this.resourceAccess?.column?.length){await this.workElevated(bot,motor,state,api,scan,tasks);}
    else if(this.wilderness&&!['complete','stopped'].includes(this.phase)&&await firstNight.interrupt(this,bot,motor,state,api,scan)){/* safety priority handled */}
+   else if(await require('./water_work').tick(this,bot,motor,state,api,scan,tasks)){/* finish water transit before ordinary dry work */}
+   else if(this.resourceAccess?.column?.length){await this.workElevated(bot,motor,state,api,scan,tasks);}
    else if(!['survey','complete','stopped'].includes(this.phase)&&require('./movement_handoff').hold(this,motor)){/* ordinary work yields until the checked jump finishes */}
    else if(!['survey','complete','stopped'].includes(this.phase)&&await require('./opportunistic_loot').tick(this,bot,motor,state,api,scan,tasks)){/* bounded useful-item detour */}
    else if(await require('./build_blockers').tick(this,bot,motor,state,api,scan,tasks)){/* clear living construction obstruction */}
@@ -418,22 +419,7 @@ class HutTeacher{
  async collectWood(bot,motor,drop,state,api,scan,tasks){
   this.collecting=true;this.resourceAccess??={};
   try{
-   if(bot.entity.isInWater){
-    // Floating under a shoreline canopy is not an unfinished dry landing.
-    // Reach a checked clear bank before attempting dry resource work.
-    const water=require('./water_navigation'),now=Date.now();
-    let shore=this.woodShore;
-    if(!shore||shore.run!==state.run)this.woodShore=shore={run:state.run,goal:null,scanAt:0};
-    if(shore.goal&&water.cell(bot,Math.floor(shore.goal[0]),Math.round(shore.goal[1]),Math.floor(shore.goal[2]))?.wet!==false)shore.goal=null;
-    if(!shore.goal&&now>=shore.scanAt){
-     shore.scanAt=now+1000;
-     shore.goal=require('./swim_recovery').bank(bot,{bounds:state.world.bounds,forbidden:q=>(this.campPlots||[]).some(h=>(h.x!==this.plot?.x||h.z!==this.plot?.z)&&require('./world_navigation').privatePlotCell(q,h))});
-    }
-    if(shore.goal){if(await this.walk(bot,motor,shore.goal,state,api,scan,tasks)===false)shore.goal=null;this.message='Reaching clear shore before resuming wood pickup';}
-    else{const p=bot.entity.position;motor.command(4,{kind:'expedition',water_route:true,waypoints:[[p.x,p.y,p.z]]},{},0);this.message='Maintaining buoyancy while checking clear shoreline exits';}
-    return;
-   }
-   this.woodShore=null;
+   if(await require('./water_work').tick(this,bot,motor,state,api,scan,tasks))return;
    if(bot.entity.onGround===false){
     if(this.dropTrack?.id===drop.id&&this.pickupTravelGoal)await this.walk(bot,motor,this.pickupTravelGoal,state,api,scan,tasks);
     this.message='Finishing the safe landing before collecting wood';return;
@@ -558,6 +544,7 @@ class HutTeacher{
    this.message=(['return_home','stone_return','light_return','enter'].includes(this.phase)?'Finding a safe way home. ':'')+planned.message;return false;
   }
   if(planned.arrived){motor.pause();if(Math.hypot(goal[0]-p.x,goal[2]-p.z)<.6&&Math.abs(goal[1]-p.y)<.6)return true;this.message='Approaching the home doorway before continuing';return;}
+  if(planned.water_route&&!intent.waterRecovery)this.waterTravel={run:state.run,phase:this.phase,goal:[...goal],at:now};
   const cue=planned.cue;if(!this.inside(new Vec3(...cue),state.world.bounds)){motor.pause();throw Error('Planned route reached the trial boundary.');}
   const passage=routeDoorway(bot,planned.portal,planned.path,goal);
   const skill=this.phase==='enter'?'shelter':'expedition';
