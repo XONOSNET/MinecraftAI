@@ -91,21 +91,22 @@ def action_pose(distance,height,elapsed,heading=0):
     elevation=framing_spline([max(3.2,min(12,height*s[3])) for s in ACTION_SHOTS],index,u)
     return math.cos(angle)*radius,elevation,math.sin(angle)*radius,ACTION_SHOTS[index][0]
 
-def shoulder_context(target,distance,height):
-    # Raise the pivot in world space, then orbit behind the full look rotation.
-    # Minecraft pitch is negative upward: looking up moves the camera down
-    # behind the shoulder while its gaze continues upward along the eye ray.
+def shoulder_context(target,distance,height,rotation_target=None):
+    # Orbit a raised pivot using the camera's attenuated pitch.
     elevation=1.6+(height-2)*.15
-    return f'execute at {target} positioned ~ ~{elevation:.3f} ~ rotated as {target} positioned ^-0.900 ^0 ^{-distance:.3f}'
+    return f'execute at {target} positioned ~ ~{elevation:.3f} ~ rotated as {rotation_target or target} positioned ^-0.900 ^0 ^{-distance:.3f}'
 
 
-def shoulder_aim(target,tag):
-    # Aim at the bot's eye ray ahead, rather than at its torso behind the action.
-    return f'execute at {target} rotated as {target} anchored eyes positioned ^ ^ ^24 run rotate @e[tag={tag},limit=1] facing ~ ~ ~'
+def shoulder_rotation(target,tag):
+    camera=f'@e[tag={tag},limit=1]'
+    # Read live server rotation without telemetry lag. Fixed-point conversion
+    # retains sub-degree precision while halving Minecraft's signed pitch.
+    return (f'execute at {target} rotated as {target} run rotate {camera} ~ ~',
+            f'execute at {target} store result entity {camera} Rotation[1] float 0.0005 run data get entity {target} Rotation[1] 1000')
 
 
 def camera_move(target,tag,view,distance,height,elapsed,heading=0):
-    if view=='shoulder':return f'{shoulder_context(target,distance,height)} rotated as {target} run tp @e[tag={tag},limit=1] ~ ~ ~ ~ ~'
+    if view=='shoulder':return f'{shoulder_context(target,distance,height,f"@e[tag={tag},limit=1]")} run tp @e[tag={tag},limit=1] ~ ~ ~ ~ ~'
     if view=='stationary':return f'execute at {target} run rotate @e[tag={tag},limit=1] facing ~ ~0.9 ~'
     if view=='action':
         x,y,z,_=action_pose(distance,height,elapsed,heading);offset=f'~{x:.3f} ~{y:.3f} ~{z:.3f}';context=''
@@ -119,6 +120,7 @@ def camera_move(target,tag,view,distance,height,elapsed,heading=0):
 
 def viewer_transfer(owner,target,view,distance,height,elapsed,heading=0):
     if view=='first_person':return f'tp {owner} {target}'
+    if view=='shoulder':return f'{shoulder_context(target,distance,height)} run tp {owner} ~ ~ ~ ~ ~'
     return camera_move(target,'transfer',view,distance,height,elapsed,heading).replace('@e[tag=transfer,limit=1]',owner)
 
 def camera_rotation(view,distance,height,elapsed,heading=0):
@@ -441,8 +443,9 @@ class Observers:
             if s['enabled']:s.update(status='waiting',message='Waiting for the server and player to reconnect.')
         self.save()
     def move_camera(self,target,tag,view,distance,height,elapsed,heading=0):
+        if view=='shoulder':
+            for command in shoulder_rotation(target,tag):self.command(command)
         self.command(camera_move(target,tag,view,distance,height,elapsed,heading))
-        if view=='shoulder':self.command(shoulder_aim(target,tag))
 
     def move_cameras(self):
         # Frames are immutable tuples. Movement uses live server-relative targets,
