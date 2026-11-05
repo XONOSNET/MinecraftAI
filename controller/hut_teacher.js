@@ -254,7 +254,7 @@ class HutTeacher{
     const door={x:this.plot.x,y:this.plot.y,z:this.plot.z-3};
     if(bot.blockAt(new Vec3(door.x,door.y,door.z))?.name.endsWith('_door')){this.phase='enter';motor.pause();}
     else if(p.offset(0,1.62,0).distanceTo(new Vec3(door.x+.5,door.y+.5,door.z+.5))>4.2)await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5],state,api,scan,tasks);
-    else{motor.pause();const item=bot.inventory.items().find(i=>i.name.endsWith('_door'));if(!item)throw Error('Crafted door missing.');await bot.look(Math.PI,0,true);await this.place(bot,door,item.name);this.phase='enter';}
+    else{motor.pause();const item=bot.inventory.items().find(i=>i.name.endsWith('_door'));if(!item)throw Error('Crafted door missing.');if(!await require('./station_placement').place(this,bot,motor,new Vec3(door.x,door.y,door.z),item.name,state,api,scan,tasks))return this.message;this.phase='enter';}
    }else if(this.phase==='enter'){
     const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-3));
     if(!door?.name.endsWith('_door'))throw Error('Door placement did not create a usable entrance.');

@@ -25,3 +25,10 @@ test('missing terrain support remains a bounded failure rather than repeated fak
  const f=fixture();f.bot.blockAt=p=>({name:'air',boundingBox:'empty',position:p.floored()});
  await assert.rejects(station.place(f.t,f.bot,f.motor,f.q,'furnace',f.state),{code:'BUILD_OBSTRUCTED'});assert.equal(f.t.lastProgress,undefined);
 });
+
+test('door obstruction keeps the entry task active, settles at another angle and verifies the door',async()=>{
+ const f=fixture(),{q,bot,t,motor,state,cells}=f;t.phase='door';bot.entity.position=new Vec3(.5,64,.5);let calls=0;
+ t.place=async()=>{if(++calls===1)throw Object.assign(Error('Construction obstruction needs a closer safe angle: snow'),{code:'BUILD_OBSTRUCTED'});cells.set(q.toString(),'spruce_door');};
+ assert.equal(await station.place(t,bot,motor,q,'spruce_door',state),false);assert.equal(t.phase,'door');assert.ok(t.stationApproach);
+ assert.equal(await station.place(t,bot,motor,q,'spruce_door',state),true);assert.equal(bot.blockAt(q).name,'spruce_door');assert.equal(calls,2);assert.equal(t.lastProgress,undefined,'repositioning alone cannot award lesson progress');
+});

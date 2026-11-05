@@ -172,6 +172,7 @@ test('a bot in the enlarged room center can place the door without repeatedly re
  Object.assign(bot,{username:'LabAI0',health:20,food:20,game:{gameMode:'survival'},inventory:{items:()=>[{name:'oak_door',count:3}]},look:async()=>{}});
  const state={run:'door-reach',world:{bounds:[-64,64,-64,64]}},motor={pause(){}},api=async()=>{},tasks={createRuntime:()=>({})};
  await t.tick(bot,motor,state,api,null,tasks);Object.assign(t,{phase:'door',plot:{x:0,y:64,z:0},settle:0});let placed=false;
+ const blockAt=bot.blockAt.bind(bot);bot.blockAt=p=>placed&&p.x===0&&p.y===64&&p.z===-3?{name:'oak_door',position:p}:blockAt(p);
  t.place=async()=>{placed=true;};t.walk=async()=>assert.fail('Door is within native placement reach from the room center');
  await t.tick(bot,motor,state,api,null,tasks);assert.equal(placed,true);assert.equal(t.phase,'enter');
 });
