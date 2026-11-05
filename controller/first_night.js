@@ -224,8 +224,11 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   }
   const foot=house.point(t.plot,'bed'),head=foot.offset(0,0,1);
   if(b.blockAt(foot)?.name!=='white_bed'){
-   if(b.blockAt(head)?.name!=='air')throw Error('Bed head space is obstructed');
-   await inventory.equip(b,'white_bed');await b.look(Math.PI,0,true);await new Promise(r=>setTimeout(r,100));await b._placeBlockWithOptions(b.blockAt(foot.offset(0,-1,0)),new Vec3(0,1,0),{forceLook:'ignore',swingArm:'right'});
+   const clearance=require('./construction_clearance');
+   // Both halves need real clearance; preserve furniture and unsafe terrain.
+   await clearance.prepare(t,b,head,'white_bed');await clearance.prepare(t,b,foot,'white_bed');
+   if(!clearance.empty(b.blockAt(head))||!clearance.empty(b.blockAt(foot)))throw Error('Bed space remains obstructed');
+   await inventory.equip(b,'white_bed');await b.look(Math.PI,0);await b.waitForTicks(2);await b._placeBlockWithOptions(b.blockAt(foot.offset(0,-1,0)),new Vec3(0,1,0),{forceLook:'ignore',swingArm:'right'});
   }
   for(let i=0;i<40&&(b.blockAt(foot)?.name!=='white_bed'||b.blockAt(head)?.name!=='white_bed');i++)await new Promise(r=>setTimeout(r,25));
   if(b.blockAt(foot)?.name!=='white_bed'||b.blockAt(head)?.name!=='white_bed')throw Error('Both bed blocks must verify before setting home');
