@@ -6,6 +6,8 @@ function retry(t,bot,q,bounds){
  const candidates=[];
  for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){
   const x=t.plot.x+dx,z=t.plot.z+dz,goal=[x+.5,t.plot.y+.1,z+.5];
+  // Do not select a stance whose body occupies the block being placed.
+  if(x===q.x&&z===q.z&&q.y<t.plot.y+1.8&&q.y+1>t.plot.y)continue;
   if(used.has(x+','+z)||!standable(bot,x,t.plot.y,z)||!space.clearOfPlayers(bot,new Vec3(...goal)))continue;
   if(new Vec3(...goal).offset(0,1.62,0).distanceTo(new Vec3(q.x+.5,q.y+.5,q.z+.5))>4.2)continue;
   const faces=require('./placement_reference').references(bot,q,{standing:new Vec3(...goal)});if(!faces.length)continue;
