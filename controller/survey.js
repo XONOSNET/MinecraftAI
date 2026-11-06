@@ -1,5 +1,5 @@
-// Only spectator surveys may suspend gravity. Survival setup uses the server's
-// slow-falling effect and normal physics until a checked ground spawn is ready.
+// Setup surveys hover in spectator mode near terrain while chunks/entities load.
+// Restore normal gravity immediately when deployment switches to survival.
 function hold(bot){
  if(!['spectator',3].includes(bot.game?.gameMode)){release(bot);return;}
  if(!bot.physics)return;

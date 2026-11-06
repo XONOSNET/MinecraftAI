@@ -33,6 +33,14 @@ SCENARIOS=[dict(id=i,name=name,description=description,spread=spread) for i,(nam
  ('Unseen natural site 12','A final separate natural site for comparing teacher and policy navigation.',22)])]
 
 
+def survey_commands(name,x,z):
+    """Setup-only observer position near terrain; survival starts at checked ground."""
+    return [f'gamemode spectator {name}',f'clear {name}',f'effect clear {name}',
+            f'effect give {name} minecraft:instant_health 1 5 true',
+            f'effect give {name} minecraft:saturation 1 5 true',
+            f'execute positioned {x} 0 {z} positioned over motion_blocking_no_leaves run tp {name} ~ ~2 ~']
+
+
 class WorldTraining(SurvivalLessons):
     def __init__(self,path,command,logpath,clock=time.time,staging=None,persist=None,copy_batch_size=2,sleep_pack_path=None):
         self.path=Path(path);self.command=command;self.logpath=Path(logpath);self.clock=clock
@@ -96,6 +104,7 @@ class WorldTraining(SurvivalLessons):
                 # Keep the camp's surrounding ring while extending to the mine.
                 area=[min(area[0],max(x,(cx-32)//16*16)),max(area[1],min(x+size,(cx+32)//16*16+16)),min(area[2],max(z,(cz-54)//16*16)),max(area[3],min(z+size,(cz+54)//16*16+16))]
             low=max(-64,min(128,cy-8));ys=[low,low+64]
+        self.release_survey()
         self.session=dict(active=True,phase='restoring' if restore else 'snapshotting',run='world-'+str(time.time_ns()),
             scenario=scenario,name=SCENARIOS[scenario]['name'],size=size,bounds=list(area),driver=driver,
             bots=list(names),prepared=prepared,loop=loop,results={},started_at=self.clock(),round=self.saved.get('round',max((r.get('round',0) for r in self.saved['history']),default=0))+1,
@@ -277,6 +286,7 @@ class WorldTraining(SurvivalLessons):
                         # Allow killed entities and their drops to settle before
                         # the existing final item sweep and bot deployment.
                         if self.clock()-s['hostiles_reset_at']<.25:return
+                    if not self.prepare_survey():return
                     template=self.saved['templates'].setdefault(s['template'],{})
                     template.update(bounds=s['bounds'],resource_margin=s.get('resource_margin',0),saved_at=self.clock());self.save()
                     s.update(phase='running',message=(('Survival progression: '+s['mission']+'. ') if s['mission'] in ADVANCED else '')+('Stone-age lessons running: settlement, mining, stone tools, furnace, charcoal and lighting.' if s['mission']=='stone_age' else 'Settlement lessons running: hut, chest, tools and stored supplies.' if s['mission']=='settlement' else 'Survival lessons running: '+s['mission']+'.' if s['mission'] in ADVANCED else 'Hut trial running.')+' Movement and harvesting follow the selected driver. Recipes and building use scripted helpers.',progress=100,trial_at=self.clock(),reset_seconds=round(self.clock()-s['started_at'],1))
@@ -284,15 +294,8 @@ class WorldTraining(SurvivalLessons):
                     x0,x1,z0,z1=s['bounds']
                     self.command(f'kill @e[type=minecraft:item,x={x0},y=-64,z={z0},dx={x1-x0-1},dy=383,dz={z1-z0-1}]')
                     for name in s['bots']:
-                        self.command(f'gamemode survival {name}')
-                        self.command(f'clear {name}')
-                        self.command(f'effect clear {name}')
-                        self.command(f'effect give {name} minecraft:instant_health 1 5 true')
-                        self.command(f'effect give {name} minecraft:resistance 30 4 true')
-                        self.command(f'effect give {name} minecraft:fire_resistance 30 0 true')
-                        self.command(f'effect give {name} minecraft:slow_falling 30 0 true')
-                        self.command(f'effect give {name} minecraft:saturation 1 5 true')
-                        self.command(f'tp {name} {(x0+x1)/2} 196 {(z0+z1)/2}')
+                        for command in survey_commands(name,(x0+x1)/2,(z0+z1)/2):self.command(command)
+                    self.release_survey()
                     return
                 tile=self.jobs.pop(0)
                 warmed=self.preloaded is not None
@@ -352,6 +355,20 @@ class WorldTraining(SurvivalLessons):
                         result=copy.deepcopy(s['results'].get(name,{}))
                         result.update(run=s['run'],state='stopped',phase='stopped',failure_category='deadline',message=f'Trial time budget reached ({budget} s). Returned to the lab; eligible next batch.',seconds=self.clock()-s['trial_at'])
                         self.report(name,result)
+
+    def prepare_survey(self):
+        s=self.session
+        if 'survey_warmup_at' not in s:
+            x0,x1,z0,z1=s['bounds'];x,z=math.floor((x0+x1)/2),math.floor((z0+z1)/2)
+            self.command(f'forceload add {x} {z}')
+            s.update(survey_chunk=[x,z],survey_warmup_at=self.clock())
+            s['message']='Loading the survey viewpoint before choosing checked ground starts.'
+            return False
+        return self.clock()>=s['survey_warmup_at']+1
+
+    def release_survey(self):
+        chunk=(self.session or {}).pop('survey_chunk',None)
+        if chunk:self.command(f'forceload remove {chunk[0]} {chunk[1]}')
 
     def assignment(self,name,loaded_memory_run=None):
         s=self.session
@@ -551,6 +568,7 @@ class WorldTraining(SurvivalLessons):
             self.finish()
 
     def stop(self,reason='World trial paused by you.'):
+        self.release_survey()
         self.sleep_quorum.restore()
         if self.session and 'fauna_queue' in self.session:
             x0,x1,z0,z1=self.session['bounds']

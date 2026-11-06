@@ -57,6 +57,7 @@ function inspect(bot,world,plots){
  if(!missing.length){result.reachable_wood_plots=plots.filter(plot=>hasTreeApproach(bot,plot,[...groups.values()],bounds)).length;if(result.reachable_wood_plots<total)missing.push('checked tree approaches '+result.reachable_wood_plots+'/'+total);}
  result.ok=!missing.length;
  if(!result.ok&&(coreExpected?coreLoaded<coreExpected*.85:loaded<expected*.75)){result.complete=false;result.reason=`Waiting for resource survey chunks ${loaded}/${expected}`;return result;}
+ if(!result.ok)result.survey_reason='Checking natural starting resources for '+total+' bots · '+missing.map(k=>k==='distributed wood'||k.startsWith('checked tree')?k:`${k} ${counts[k]}/${needs[k]} observed`).join(', ')+' · survey still in progress';
  result.reason=result.ok?'Natural starting resources checked for the full roster':`Site lacks starting resources for ${total} bots: ${missing.map(k=>k==='distributed wood'||k.startsWith('checked tree')?k:`${k} ${counts[k]}/${needs[k]}`).join(', ')}`;
  return result;
 }

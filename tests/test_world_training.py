@@ -124,7 +124,7 @@ def test_copy_acknowledged_before_deployment_and_scoped_to_reserved_terrain(tmp_
     acknowledge_tile(world,clock,log)
     assert world.job['phase']=='cleaning';clock[0]+=.3;world.tick();assert world.session['progress']>0;assert any('minecraft:glass' in c for c in commands)
     assert any(c.startswith('forceload remove') for c in commands)
-    world.jobs=[];world.tick();assert world.session['phase']=='running';assert world.assignment('LabAI0')['world']['bounds']==[16384,16512,16384,16512]
+    world.jobs=[];world.tick();clock[0]+=1;world.tick();assert world.session['phase']=='running';assert world.assignment('LabAI0')['world']['bounds']==[16384,16512,16384,16512]
     assert any(c.startswith('clear LabAI0') for c in commands)
     assert world.saved['templates']
 
@@ -190,7 +190,7 @@ def test_prepared_reset_covers_camp_and_surrounding_chunks_with_bounded_clones(t
     xyz=list(map(int,clones[0].split()[1:10]));assert (xyz[3]-xyz[0]+1)*(xyz[4]-xyz[1]+1)*(xyz[5]-xyz[2]+1)==4096
     acknowledge_tile(world,clock,log)
     assert world.job['phase']=='cleaning';clock[0]+=.3;world.tick();assert world.session['active'] and world.job is None
-    world.jobs=[];world.tick()
+    world.jobs=[];world.tick();clock[0]+=1;world.tick()
     assert world.saved['templates']['0-128']['camp_anchor']==[16448,70,16448]
     assert world.assignment('LabAI0')['world']['camp_anchor']==[16448,70,16448]
 
@@ -421,3 +421,36 @@ def test_controller_death_report_before_safe_deployment_is_also_rejected_as_setu
     world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.session['phase']='running'
     world.report('LabAI0',dict(run=world.session['run'],state='stopped',phase='stopped',health=0,failure_category='death'))
     assert world.session['results']['LabAI0']['failure_category']=='site_unavailable'
+
+
+def test_setup_surveys_hover_near_terrain_then_deploy_directly_to_checked_ground(tmp_path):
+    from lab.world_training import survey_commands
+    world,commands,clock,log=fixture(tmp_path)
+    world.start({'prepared':False},['LabAI0','LabAI1']);world.jobs=[];commands.clear();world.tick()
+    assert 'survey_chunk' in world.session
+    assert not any(c.startswith('gamemode spectator') for c in commands)
+    clock[0]+=1;world.tick()
+    assert 'survey_chunk' not in world.session
+    assert world.session['phase']=='running'
+    for name in ['LabAI0','LabAI1']:
+        expected=survey_commands(name,16448.0,16448.0)
+        assert all(c in commands for c in expected)
+        assert commands.index(expected[0])<commands.index(expected[-1])
+    assert not any('slow_falling' in c or ' 196 ' in c or c.startswith('gamemode survival') for c in commands)
+    commands.clear();world.spawn('LabAI0',[16448.5,64.1,16448.5])
+    assert commands[0]=='tp LabAI0 16448.5 64.1 16448.5'
+    assert commands[1]=='gamemode survival LabAI0'
+    assert world.session['deployed_bots']==['LabAI0']
+
+
+def test_cancelling_survey_warmup_releases_only_its_own_chunk(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.jobs=[];commands.clear()
+    world.tick();chunk=world.session['survey_chunk'];assert commands[-1]==f'forceload add {chunk[0]} {chunk[1]}'
+    commands.clear();world.stop();assert f'forceload remove {chunk[0]} {chunk[1]}' in commands
+    assert 'survey_chunk' not in world.session
+
+
+def test_new_start_releases_an_abandoned_survey_warmup(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.jobs=[];world.tick()
+    chunk=world.session['survey_chunk'];world.session['active']=False;commands.clear();world.start({'scenario':1},['LabAI0'])
+    assert f'forceload remove {chunk[0]} {chunk[1]}' in commands

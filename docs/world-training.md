@@ -87,3 +87,23 @@ During night hold, a usable own-home bed remains the first choice on every subse
 Shoulder camera motion now uses camera-only look samples from existing bot heartbeats. A separate 20 Hz camera worker eases the shortest yaw arc and half-pitch, with a larger stationary pitch dead zone to suppress idle head bob. Each frame emits one final teleport/rotation command instead of exposing full-pitch and half-pitch intermediate updates. The boom shortens when looking up to keep its pivoted camera at least 0.5 blocks above the bot's feet; this is a local footing limit, not general wall collision avoidance. Position still follows the live server entity, and look samples are recorded outside slow trial/history work. Cameras reset filtering on identity/target changes and use a level live-heading fallback if look samples are unavailable or stale. These samples do not enter observations or demonstrations.
 
 A failed whole-roster resource survey becomes final when the first bot reaches the setup deadline. Late animal/entity updates cannot replace that rejected decision and release only the remaining bots. Before the deadline, the pending survey may still refresh and pass normally; every fresh run surveys independently. Resource requirements and natural-supply rules are unchanged. This prevents six setup stops followed by two active survivors from becoming a misleading partial-cohort policy evaluation.
+
+
+### Ground deployment after the setup survey
+
+After terrain and fauna restoration, one central chunk is warmed for one second.
+Bots enter spectator mode at the server's terrain height plus two blocks while
+their controllers load chunks, reserve separate safe house plots and audit the
+full roster's resources. They no longer descend from Y=196 with slow falling.
+The temporary chunk ticket is removed after transfer, or when setup is cancelled.
+Each bot teleports to its checked ground position before switching to survival;
+normal gravity returns immediately. Final build sites are selected for flatness,
+spacing and entrance access, rather than random spawn placement. Prepared camps
+retain their shared-start behavior.
+
+Pending resource observations are labelled as an in-progress survey. The final
+shortage report, quotas, thirty-second setup deadline and cohort rejection rules
+remain unchanged. This presentation does not grant sheep or bypass a failed audit.
+The isolated native survey fixture verified zero vertical drift over a tree
+canopy, then a grounded survival arrival with normal gravity, full health and no
+items. Its terrain was cleaned afterward.

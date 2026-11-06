@@ -32,3 +32,11 @@ test('an undecided setup audit may refresh and release the full roster before re
  assert.ok(gate.claimPlot(b,world,run));gate.rejectSiteAudit(run);
  assert.ok(gate.claimPlot(b,{...world,index:1},run),'positive cohort decisions remain usable for all bots');
 });
+
+test('pending livestock visibility uses survey wording while preserving the final shortage and quotas',()=>{
+ const f=fixture();delete f.b.entities.b;const r=inspect(f.b,f.world,f.plots);
+ assert.equal(r.ok,false);assert.equal(r.counts.sheep,1);assert.equal(r.needs.sheep,2);
+ assert.match(r.survey_reason,/Checking natural starting resources.*sheep 1\/2 observed.*survey still in progress/);
+ assert.match(r.reason,/Site lacks starting resources.*sheep 1\/2/);
+ f.b.entities.b={name:'sheep',position:new Vec3(3,65,2)};assert.equal(inspect(f.b,f.world,f.plots).ok,true);
+});
