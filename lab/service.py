@@ -9,6 +9,8 @@ import numpy as np, torch, psutil
 from fastapi import FastAPI,Header,HTTPException,Depends,Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from .model import Policy
+from .brain import BrainView
+brain_view=BrainView()
 from .evolution import ModelEvolution
 from .jobs import TrainingJobs, TrainingCancelled
 from .persistence import TelemetryPersistence
@@ -552,7 +554,7 @@ def step(d:dict):
         policy,optimizer,replay=learning_context(skill)
         if len(d['obs'])!=policy.net[0].in_features or not np.isfinite(d['obs']).all():raise HTTPException(400,'Invalid observation')
         t=time.perf_counter()
-        with torch.no_grad():action=int(policy(torch.tensor(d['obs'],dtype=torch.float32)).argmax())
+        with torch.no_grad():action=int(brain_view.infer(policy,torch.tensor(d['obs'],dtype=torch.float32),agent=d['agent'],skill=skill,run=run,mode=mode).argmax())
         latency=(time.perf_counter()-t)*1000
         if mode=='teacher' or (practice and mode=='heuristic'):
             if not isinstance(d.get('teacher'),int) or not 0<=d['teacher']<policy.net[2].out_features:raise HTTPException(400,'Invalid teacher action')
@@ -562,6 +564,7 @@ def step(d:dict):
         elif mode=='heuristic':action=d['teacher']
         elif mode=='random':action=random.randrange(4)
         elif mode=='paused':action=4
+        brain_view.applied(d['agent'],action)
         previous=agents.get(d['agent'],{})
         agents[d['agent']]={k:d[k] for k in ('position','health','food','goal','steps','reward','perception_ms')}
         agents[d['agent']].update({k:previous.get(k) for k in ('entity_id','dimension','simulation','activity','speed','trial','trial_completed','reset_seconds','reset_steps_left','trial_seconds','display_name','serial','tracked_since','deaths','spawns','trials','successful_trials')})
@@ -1048,6 +1051,19 @@ def autonomy(action:str):
         practice=None
         try:return curriculum.start()
         except ValueError as error:raise HTTPException(409,str(error))
+
+@app.get('/brain',response_class=HTMLResponse)
+def brain_page():
+    return HTMLResponse(Path('lab/brain.html').read_text(encoding='utf-8'),headers={'Cache-Control':'no-store'})
+
+@app.get('/brain/data')
+def brain_data(agent:str=''):
+    if agent and not is_agent(agent):raise HTTPException(400,'Unknown agent')
+    # No global inference/world lock: the viewer must not stall controllers.
+    roster=[{'id':name,'name':value.get('display_name') or name,'connected':value.get('connected',False),
+             'activity':value.get('activity'),'last_seen':value.get('last_seen',0)} for name,value in list(agents.items()) if is_agent(name)]
+    return JSONResponse({'agents':roster,'frame':brain_view.request(agent) if agent else None,'now':time.time(),
+                         'models':list(dict.fromkeys(SKILLS))},headers={'Cache-Control':'no-store'})
 
 @app.get('/',response_class=HTMLResponse)
 def dashboard():

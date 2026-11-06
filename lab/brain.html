@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Live brain · Minecraft AI Laboratory</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0b1318;color:#eaf3f4;font:14px/1.5 system-ui,sans-serif}main{max-width:1400px;margin:auto;padding:24px}a{color:#86e4b6}h1{font-size:28px;margin:6px 0}p{color:#a1b5c0;margin:8px 0}header,.tools,.flow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.tools{margin:18px 0}select,button{font:inherit;border:1px solid #36515e;background:#182b35;color:inherit;padding:8px 12px;border-radius:8px}button{cursor:pointer}button:focus-visible,select:focus-visible,canvas:focus-visible{outline:2px solid #86e4b6}.flow span,.model{border:1px solid #29404b;border-radius:8px;padding:6px 10px}.flow{font-size:12px;color:#a1b5c0}.models{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.model{color:#92a6b0;font-size:12px}.model.active{border-color:#86e4b6;color:#bff4da;background:#1c3a32}.stage{position:relative;background:radial-gradient(ellipse at center,#172b35,#0c171e);border:1px solid #29404b;border-radius:14px;overflow:hidden}canvas{width:100%;height:480px;display:block;touch-action:none;cursor:grab}.legend{position:absolute;top:12px;left:16px;pointer-events:none;color:#a1b5c0;font-size:12px}.legend b{color:#72d5ff}.legend em{color:#ffb46e;font-style:normal}#hover{min-height:24px;color:#c4d8e3}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}.stat{padding:14px;border:1px solid #29404b;border-radius:10px;background:#121f26}.stat strong{display:block;font-size:18px}.stat small{color:#a1b5c0}#outputs{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.output{padding:8px 12px;border:1px solid #29404b;border-radius:8px}.output.chosen{border-color:#86e4b6}#state{color:#f3cf84}.help{font-size:12px}#detail{white-space:pre-wrap}@media(max-width:700px){main{padding:14px}.stats{grid-template-columns:1fr 1fr}canvas{height:380px}.flow{gap:6px}}
+</style></head><body><main><header><div><a href="/" target="_top">← Dashboard</a><h1>Live brain</h1></div></header>
+<p>Inspect a bot’s real neural activity. The specialist policies share weights across bots; controller code selects the model and handles physical actions.</p>
+<div class="tools"><label>Bot <select id="bot" aria-label="Bot"></select></label><button id="pause">Freeze view</button><button id="reset">Reset camera</button><button id="left" aria-label="Rotate left">↶</button><button id="right" aria-label="Rotate right">↷</button><span id="state" role="status">Connecting…</span></div>
+<div class="flow"><span>Observations + task selection</span>→<span>Selected specialist below</span>→<span>Teacher / policy action</span>→<span>Controller navigation + safety</span>→<span>Movement / interaction</span></div>
+<div id="models" class="models" aria-label="Specialist model collection"></div>
+<div class="stage"><div class="legend"><b>Positive activation / weight</b> · <em>Negative</em><br>Drag to orbit · Scroll to zoom · Hover a neuron for its value</div><canvas id="brain" tabindex="0" aria-label="Interactive 3D neural network. Detailed values appear below."></canvas></div>
+<div id="hover">Inputs → tanh hidden neurons → action scores</div>
+<div class="stats"><div class="stat"><small>Active specialist</small><strong id="skill">—</strong></div><div class="stat"><small>Network</small><strong id="shape">—</strong></div><div class="stat"><small>Learned parameters</small><strong id="parameters">—</strong></div><div class="stat"><small>Sample age</small><strong id="age">—</strong></div></div>
+<div id="outputs" aria-label="Action output scores"></div><p id="detail"></p>
+<p class="help">All input and hidden values come from a sampled forward pass, at most twice per second per watched bot. Lines show the three strongest input weights per hidden neuron and eight strongest hidden weights per output; other connections are hidden for readability. Softmax bars are relative scores, not calibrated success probabilities. Biases are included in inference but not drawn. Teacher mode can return a different action from the model’s preference. Final movement may also be changed by controller routines; this view does not yet trace every downstream override. No new sample while sleeping or performing scripted work is normal.</p>
+<script>
+'use strict';
+const $=id=>document.getElementById(id),c=$('brain'),ctx=c.getContext('2d');
+let selected='',frame=null,roster=[],frozen=false,pending=false,lastPayload=null,yaw=-.32,pitch=.12,zoom=1,drag=null,points=[],mouse=null,error='',lastData=0;
+const labels=skill=>skill==='combat'?['Approach','Aim left','Aim right','Back away','Guard / wait','Equip','Attack']:skill==='expedition'?['Move','Align left','Align right','Swim / climb','Wait','Ascend','Descend']:['Forward','Turn left','Turn right','Jump forward','Wait','Gather / interact','Eat'];
+function choose(){selected=$('bot').value;frame=null;points=[];mouse=null;$('hover').textContent='Waiting for the selected bot’s next inference…';if(!pending)poll();}
+$('bot').addEventListener('change',choose);
+$('pause').onclick=()=>{frozen=!frozen;$('pause').textContent=frozen?'Resume live view':'Freeze view';if(!frozen)poll();};
+$('reset').onclick=()=>{yaw=-.32;pitch=.12;zoom=1;};$('left').onclick=()=>yaw-=.2;$('right').onclick=()=>yaw+=.2;
+c.addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY];c.setPointerCapture(e.pointerId);});
+c.addEventListener('pointermove',e=>{const r=c.getBoundingClientRect();mouse=[e.clientX-r.left,e.clientY-r.top];if(drag){yaw+=(e.clientX-drag[0])*.008;pitch=Math.max(-1.1,Math.min(1.1,pitch+(e.clientY-drag[1])*.006));drag=[e.clientX,e.clientY];}});
+c.addEventListener('pointerup',()=>drag=null);c.addEventListener('pointercancel',()=>drag=null);c.addEventListener('pointerleave',()=>mouse=null);
+c.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.55,Math.min(2,zoom*Math.exp(-e.deltaY*.001)));},{passive:false});
+c.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();if(e.key==='ArrowLeft')yaw-=.1;if(e.key==='ArrowRight')yaw+=.1;if(e.key==='ArrowUp')pitch=Math.max(-1.1,pitch-.1);if(e.key==='ArrowDown')pitch=Math.min(1.1,pitch+.1);}});
+function text(id,value){$(id).textContent=value;}
+function update(data){
+ roster=data.agents;lastPayload=data;lastData=Date.now();error='';
+ const previous=selected,ids=roster.map(a=>a.id);if(!ids.includes(selected))selected=ids[0]||'';
+ $('bot').replaceChildren(...roster.map(a=>{const o=document.createElement('option');o.value=a.id;o.textContent=a.name+(a.connected?'':' · offline');return o;}));$('bot').value=selected;
+ if(selected===previous&&data.frame?.agent===selected)frame=data.frame;else if(selected!==previous)frame=null;
+ $('models').replaceChildren(...data.models.map(name=>{const el=document.createElement('span');el.className='model'+(frame?.skill===name?' active':'');el.textContent=name;return el;}));
+ text('skill',frame?.skill||'Waiting');text('shape',frame?`${frame.inputs.length} → ${frame.hidden.length} → ${frame.scores.length}`:'—');text('parameters',frame?frame.parameters.toLocaleString():'—');
+ $('outputs').replaceChildren(...(frame?.scores||[]).map((score,i)=>{const el=document.createElement('div');el.className='output'+(i===frame.policy_action?' chosen':'');el.textContent=`${i}: ${labels(frame.skill)[i]||'Action'} · ${score.toFixed(3)} (${(frame.probabilities[i]*100).toFixed(1)}%)`;return el;}));
+ text('detail',frame?`Mode: ${frame.mode}. Model preference: action ${frame.policy_action}. Returned action: ${frame.returned_action??'pending'}. Run: ${frame.run}.`:'No neural sample yet. This bot may be preparing terrain, sleeping, or doing scripted work.');
+}
+async function poll(){if(pending||frozen||document.hidden)return;pending=true;const requested=selected;try{const r=await fetch('/brain/data'+(requested?'?agent='+encodeURIComponent(requested):''),{cache:'no-store',signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error('Brain telemetry unavailable ('+r.status+')');const data=await r.json();if(!frozen&&requested===selected)update(data);}catch(e){error=e.name==='TimeoutError'?'Telemetry request timed out':e.message;}finally{pending=false;}}
+function project(x,y,z,w,h){const a=x*Math.cos(yaw)+z*Math.sin(yaw),b=-x*Math.sin(yaw)+z*Math.cos(yaw),v=y*Math.cos(pitch)-b*Math.sin(pitch),depth=y*Math.sin(pitch)+b*Math.cos(pitch),scale=zoom*Math.min(w/1050,h/590)*640/(640+depth);return {x:w/2+a*scale,y:h/2+v*scale,scale,depth};}
+function draw(){
+ const r=c.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2),w=r.width,h=r.height;if(c.width!==Math.round(w*dpr)||c.height!==Math.round(h*dpr)){c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);}ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);points=[];
+ const age=frame?Math.max(0,Date.now()/1000-frame.at):null,bot=roster.find(a=>a.id===selected),live=frame&&age<3&&bot?.connected&&Date.now()/1000-bot.last_seen<8&&Date.now()-lastData<6000;
+ text('age',age===null?'—':age.toFixed(1)+' s');text('state',error|| (frozen?'Frozen snapshot':live?'Live · sampled inference':frame?'Last sample · awaiting inference':'Waiting for inference'));
+ if(frame){
+  const layers=[frame.inputs,frame.hidden,frame.scores],names=['Input','Hidden','Output'],groups=layers.map((values,layer)=>values.map((value,i)=>{const cols=layer===2?1:Math.ceil(Math.sqrt(values.length/1.3)),rows=Math.ceil(values.length/cols);const p=project((layer-1)*320,(Math.floor(i/cols)-(rows-1)/2)*26,(i%cols-(cols-1)/2)*26,w,h);const node={...p,layer,index:i,value};points.push(node);return node;}));
+  ctx.globalAlpha=live&&!frozen?1:.55;
+  for(const [layer,source,target,weight] of frame.edges){const a=groups[layer]?.[source],b=groups[layer+1]?.[target];if(!a||!b)continue;ctx.strokeStyle=weight>=0?'#72d5ff':'#ffb46e';ctx.globalAlpha=(live&&!frozen?1:.5)*Math.min(.34,.035+Math.abs(weight)*.22);ctx.lineWidth=.7;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
+  ctx.globalAlpha=live&&!frozen?1:.55;for(const p of [...points].sort((a,b)=>b.depth-a.depth)){ctx.fillStyle=p.value>=0?'#72d5ff':'#ffb46e';ctx.globalAlpha=(live&&!frozen?1:.5)*(.25+.75*Math.min(1,Math.abs(p.value)));ctx.beginPath();ctx.arc(p.x,p.y,(p.layer===2?6:3)*p.scale,0,Math.PI*2);ctx.fill();}
+  ctx.globalAlpha=1;ctx.fillStyle='#c3d6df';ctx.font='13px system-ui';for(let layer=0;layer<3;layer++){const p=project((layer-1)*320,-195,0,w,h);ctx.fillText(names[layer]+' · '+layers[layer].length,p.x-35,p.y);}
+  const hit=mouse&&points.reduce((best,p)=>Math.hypot(p.x-mouse[0],p.y-mouse[1])<10&&(!best||p.depth<best.depth)?p:best,null);text('hover',hit?`${names[hit.layer]} neuron ${hit.index}: ${hit.value.toFixed(6)}`:'Inputs → tanh hidden neurons → action scores');
+ }else{ctx.fillStyle='#a1b5c0';ctx.font='16px system-ui';ctx.textAlign='center';ctx.fillText('Select a bot to inspect its next neural inference',w/2,h/2);ctx.textAlign='left';}
+}
+poll();setInterval(poll,500);setInterval(()=>{if(!document.hidden)draw();},50);
+</script></main></body></html>
