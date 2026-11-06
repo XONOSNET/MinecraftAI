@@ -157,6 +157,7 @@ class HutTeacher{
    else if(!['survey','complete','stopped'].includes(this.phase)&&require('./movement_handoff').hold(this,motor)){/* ordinary work yields until the checked jump finishes */}
    else if(!['survey','complete','stopped'].includes(this.phase)&&await require('./opportunistic_loot').tick(this,bot,motor,state,api,scan,tasks)){/* bounded useful-item detour */}
    else if(await require('./build_blockers').tick(this,bot,motor,state,api,scan,tasks)){/* clear living construction obstruction */}
+   else if(await require('./furnace_return').tick(this,bot,motor,state,api,scan,tasks)){/* resume workstation work only after returning from cover */}
    else if(await require('./early_lighting').tick(this,bot,motor,state,api,scan,tasks)){/* lighting before enclosure and settlement extras */}
    else if(await require('./build_supply').tick(this,bot,motor,state,api,scan,tasks)){/* replace wood consumed by interrupted construction */}
    else if(await require('./reforest').tick(this,bot,motor,state,{opportunity:true})){/* brief nearby replanting opportunity */}
