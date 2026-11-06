@@ -91,22 +91,40 @@ def action_pose(distance,height,elapsed,heading=0):
     elevation=framing_spline([max(3.2,min(12,height*s[3])) for s in ACTION_SHOTS],index,u)
     return math.cos(angle)*radius,elevation,math.sin(angle)*radius,ACTION_SHOTS[index][0]
 
-def shoulder_context(target,distance,height,rotation_target=None):
-    # Orbit a raised pivot using the camera's attenuated pitch.
+def shoulder_pitch(pitch,distance,height):
+    return max(-45,min(45,pitch))
+
+
+def shoulder_distance(pitch,distance,height):
+    # Shorten the boom on upward views rather than orbiting below the feet.
+    # Preserve the requested half-pitch and keep the pivot centered on screen.
     elevation=1.6+(height-2)*.15
-    return f'execute at {target} positioned ~ ~{elevation:.3f} ~ rotated as {rotation_target or target} positioned ^-0.900 ^0 ^{-distance:.3f}'
+    return min(distance,(elevation-.5)/-math.sin(math.radians(pitch))) if pitch<-.001 else distance
 
 
-def shoulder_rotation(target,tag):
-    camera=f'@e[tag={tag},limit=1]'
-    # Read live server rotation without telemetry lag. Fixed-point conversion
-    # retains sub-degree precision while halving Minecraft's signed pitch.
-    return (f'execute at {target} rotated as {target} run rotate {camera} ~ ~',
-            f'execute at {target} store result entity {camera} Rotation[1] float 0.0005 run data get entity {target} Rotation[1] 1000')
+def shoulder_context(target,distance,height,pose=None):
+    elevation=1.6+(height-2)*.15
+    if pose is not None:distance=shoulder_distance(pose[1],distance,height)
+    rotation=f'rotated {pose[0]:.4f} {pose[1]:.4f}' if pose is not None else f'rotated as {target} rotated ~ 0'
+    return f'execute at {target} positioned ~ ~{elevation:.3f} ~ {rotation} positioned ^-0.900 ^0 ^{-distance:.3f}'
 
 
-def camera_move(target,tag,view,distance,height,elapsed,heading=0):
-    if view=='shoulder':return f'{shoulder_context(target,distance,height,f"@e[tag={tag},limit=1]")} run tp @e[tag={tag},limit=1] ~ ~ ~ ~ ~'
+def smooth_camera_angles(previous,target,dt,idle=False):
+    # A fixed angular dead zone removes idle head noise. Retained movement is
+    # exponentially eased with rate limits and shortest-arc yaw across +/-180.
+    dt=max(0,min(.1,dt));result=[]
+    for i,(before,after) in enumerate(zip(previous,target)):
+        delta=(after-before+180)%360-180 if i==0 else after-before
+        dead,rate=(.35,120) if i==0 else (3 if idle else 1.25,60)
+        if abs(delta)<=dead:result.append(before);continue
+        delta-=math.copysign(dead,delta)
+        step=delta*(1-math.exp(-dt/.18))
+        result.append(before+max(-rate*dt,min(rate*dt,step)))
+    return tuple(result)
+
+
+def camera_move(target,tag,view,distance,height,elapsed,heading=0,pose=None):
+    if view=='shoulder':return f'{shoulder_context(target,distance,height,pose)} run tp @e[tag={tag},limit=1] ~ ~ ~ ~ ~'
     if view=='stationary':return f'execute at {target} run rotate @e[tag={tag},limit=1] facing ~ ~0.9 ~'
     if view=='action':
         x,y,z,_=action_pose(distance,height,elapsed,heading);offset=f'~{x:.3f} ~{y:.3f} ~{z:.3f}';context=''
@@ -144,12 +162,12 @@ def camera_spawn(owner,target,tag,view,distance,height,elapsed,heading=0):
 class Observers:
     def __init__(self,path,command,clock=time.time,settle_delay=.8):
         self.path=Path(path);self.command=command;self.clock=clock;self.settle_delay=settle_delay;self.sessions={};self.progress_context={};self.camera_mode='paused'
-        self.external_motion=False;self.motion_frames={};self.hud_commands={};self.motion_stats={'last_at':None,'ticks':0,'max_gap_ms':0}
+        self.external_motion=False;self.motion_frames={};self.camera_poses={};self.shoulder_filters={};self.hud_commands={};self.motion_stats={'last_at':None,'ticks':0,'max_gap_ms':0}
         if self.path.exists():self.sessions=json.loads(self.path.read_text(encoding='utf-8'))
         for s in self.sessions.values():s.setdefault('active_only',True);s.update(hud_ready=False,hud_at=None,attached=False,attach_ready_at=None,camera_created=False,status='waiting',message='Waiting for Minecraft and your player to reconnect.')
     def save(self):
         self.path.parent.mkdir(parents=True,exist_ok=True);tmp=self.path.with_suffix('.tmp');tmp.write_text(json.dumps(self.sessions,indent=2),encoding='utf-8');tmp.replace(self.path)
-    def snapshot(self):return {'views':list(VIEWS),'sessions':copy.deepcopy(list(self.sessions.values()))}
+    def snapshot(self):return {'views':list(VIEWS),'sessions':copy.deepcopy(list(self.sessions.values())),'shoulder_smoothing':True,'fresh_look_samples':sum(self.clock()-p[-1]<8 for p in list(self.camera_poses.values()))}
     def start(self,request,known):
         owner=player_name(request.get('player','Xonosnet'));names={n.casefold():n for n in known}
         if owner.casefold() not in names:raise ValueError('That observer has not joined this server yet')
@@ -225,6 +243,7 @@ class Observers:
     def tags(self,s):
         suffix=s['player'].lower();return 'lab_camera_'+suffix,'lab_return_'+suffix
     def kill_camera(self,s):
+        self.shoulder_filters.pop(self.tags(s)[0],None)
         self.motion_frames.pop(s['player'],None)
         camera,_=self.tags(s)
         for dimension in DIMENSIONS:self.command(f'execute in {dimension} run kill @e[tag={camera}]')
@@ -442,10 +461,26 @@ class Observers:
             self.kill_camera(s)
             if s['enabled']:s.update(status='waiting',message='Waiting for the server and player to reconnect.')
         self.save()
+    def record_camera_pose(self,name,look,entity_id,speed=0):
+        if not is_agent(name) or not isinstance(look,(list,tuple)) or len(look)!=2:return
+        if any(type(v) not in (int,float) or not math.isfinite(v) for v in look):return
+        yaw,pitch=look
+        if abs(yaw)>1e6 or abs(pitch)>math.pi/2+.01:return
+        self.camera_poses[name]=((180-math.degrees(yaw)+180)%360-180,-math.degrees(pitch)*.5,entity_id,type(speed) in (int,float) and math.isfinite(speed) and speed<.1,self.clock())
+
     def move_camera(self,target,tag,view,distance,height,elapsed,heading=0):
+        pose=None
         if view=='shoulder':
-            for command in shoulder_rotation(target,tag):self.command(command)
-        self.command(camera_move(target,tag,view,distance,height,elapsed,heading))
+            sample=self.camera_poses.get(target);now=self.clock()
+            if sample and now-sample[-1]<8:
+                desired=(sample[0],shoulder_pitch(sample[1],distance,height))
+                key=(target,sample[2],distance,height);previous=self.shoulder_filters.get(tag)
+                pose=desired if previous is None or previous[0]!=key or now-previous[2]>8 else smooth_camera_angles(previous[1],desired,now-previous[2],idle=sample[3])
+                self.shoulder_filters[tag]=(key,pose,now)
+            else:self.shoulder_filters.pop(tag,None)
+        else:self.shoulder_filters.pop(tag,None)
+        # One final pose packet: never expose raw/half-pitch intermediate frames.
+        self.command(camera_move(target,tag,view,distance,height,elapsed,heading,pose))
 
     def move_cameras(self):
         # Frames are immutable tuples. Movement uses live server-relative targets,

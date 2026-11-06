@@ -54,7 +54,12 @@ def test_assignment_uses_direct_json_encoding_outside_the_controller_lock():
         def __exit__(self,*args):self.held=False
     lock=Lock()
     def encode(data):assert not lock.held;return JSONResponse(data)
-    env=dict(lock=lock,_assignment=lambda d:{'run':'world-one','world':{'bounds':[0,10,0,10]}},world_training=NS(session={}),behavior_rules=NS(effective=lambda *args:{'revision':'one'}),JSONResponse=encode)
+    samples=[]
+    def sample(*args):
+        assert not lock.held
+        samples.append(args)
+    env=dict(is_agent=lambda name:True,observers=NS(record_camera_pose=sample),lock=lock,_assignment=lambda d:{'run':'world-one','world':{'bounds':[0,10,0,10]}},world_training=NS(session={}),behavior_rules=NS(effective=lambda *args:{'revision':'one'}),JSONResponse=encode)
     tree=ast.parse((Path(__file__).parents[1]/'lab/service.py').read_text(encoding='utf-8'));fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='assignment');fn.decorator_list=[]
     exec(compile(ast.Module(body=[fn],type_ignores=[]),'assignment-route','exec'),env)
-    assert json.loads(env['assignment']({'agent':'LabAI0'}).body)['world']['bounds']==[0,10,0,10]
+    assert json.loads(env['assignment']({'agent':'LabAI0','index':0,'camera_look':[0,.2],'entity_id':5,'speed':0}).body)['world']['bounds']==[0,10,0,10]
+    assert samples==[('LabAI0',[0,.2],5,0)]

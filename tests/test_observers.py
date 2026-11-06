@@ -1,3 +1,4 @@
+import math
 import pytest
 from lab.observers import Observers, VIEWS, camera_move, viewer_transfer, camera_spawn
 from lab.config import AGENT_COUNT, validate_agents
@@ -662,21 +663,59 @@ def test_roster_stopped_bot_is_gray_even_when_watched(tmp_path):
     assert row['color']=='gold'
 
 
-def test_shoulder_halves_live_pitch_and_orbits_character_pivot(tmp_path):
-    from lab.observers import shoulder_rotation
-    move=camera_move('LabAI0','camera','shoulder',3,2,0,heading=99)
-    assert 'positioned ~ ~1.600 ~ rotated as @e[tag=camera,limit=1] positioned ^-0.900 ^0 ^-3.000' in move
+def test_shoulder_sends_one_smoothed_pose_and_keeps_half_pitch(tmp_path):
     commands=[];o=Observers(tmp_path/'shoulder',commands.append,lambda:100,settle_delay=0)
+    o.record_camera_pose('LabAI0',[math.pi,math.radians(30)],42)
     o.start({'player':'Xonosnet','target':'LabAI0','view':'shoulder','distance':3,'height':2},['Xonosnet'])
     o.tick(['Xonosnet'],{'Xonosnet':{'mode':1,'seen':100}},{'LabAI0':{'connected':True,'last_seen':100,'entity_id':42}},True)
-    attach=next(i for i,c in enumerate(commands) if 'run spectate @e[tag=lab_camera_' in c)
-    assert any('Rotation[1] float 0.0005' in c for c in commands[:attach])
-    assert any('positioned ^-0.900 ^0 ^-3.000 run summon' in c for c in commands)
     commands.clear();o.external_motion=True
     o.motion_frames['Xonosnet']=('LabAI0','lab_camera_xonosnet','shoulder',3,2,100,0,100)
     o.move_cameras()
-    assert commands==[*shoulder_rotation('LabAI0','lab_camera_xonosnet'),camera_move('LabAI0','lab_camera_xonosnet','shoulder',3,2,0)]
-    assert 'anchored eyes' not in ''.join(commands)
+    assert len(commands)==1
+    assert 'rotated 0.0000 -15.0000' in commands[0]
+    assert ' run tp ' in commands[0] and 'store result' not in commands[0]
+    assert 'positioned ~ ~1.600 ~' in commands[0]
+
+
+def test_camera_filter_holds_idle_noise_and_eases_real_turns():
+    from lab.observers import smooth_camera_angles
+    pose=(0,0)
+    for i in range(80):
+        pose=smooth_camera_angles(pose,(.2 if i%2 else -.2,.8 if i%2 else -.8),.05)
+    assert pose==(0,0)
+    samples=[]
+    for _ in range(40):
+        pose=smooth_camera_angles(pose,(60,30),.05);samples.append(pose)
+    assert all(0<=p[0]<=60 and 0<=p[1]<=30 for p in samples)
+    assert all(0<=b[0]-a[0]<=6.001 and 0<=b[1]-a[1]<=3.001 for a,b in zip(samples,samples[1:]))
+    assert samples[-1][0]>59 and samples[-1][1]>28
+    yaw,_=smooth_camera_angles((179,0),(-179,0),.05)
+    assert 179<yaw<181
+
+
+def test_shoulder_low_orbit_stays_above_feet_for_all_supported_settings():
+    from lab.observers import shoulder_pitch,shoulder_distance
+    for distance in (1,3,7,16):
+        for height in (2,4,12):
+            pitch=shoulder_pitch(-45,distance,height)
+            assert 1.6+(height-2)*.15+shoulder_distance(pitch,distance,height)*math.sin(math.radians(pitch))>=.5-1e-8
+            assert -45<=pitch<=0
+    assert shoulder_pitch(30,3,2)==30
+
+
+def test_shoulder_filter_resets_for_new_identity_and_stale_samples(tmp_path):
+    now=[100.];commands=[];o=Observers(tmp_path/'shoulder',commands.append,lambda:now[0])
+    o.record_camera_pose('LabAI0',[math.pi,0],1)
+    o.move_camera('LabAI0','camera','shoulder',3,2,0)
+    now[0]+=.05;o.record_camera_pose('LabAI0',[0,0],2)
+    o.move_camera('LabAI0','camera','shoulder',3,2,0)
+    assert o.shoulder_filters['camera'][1][0]==-180
+    assert o.snapshot()['shoulder_smoothing'] and o.snapshot()['fresh_look_samples']==1
+    now[0]+=9;o.move_camera('LabAI0','camera','shoulder',3,2,0)
+    assert 'camera' not in o.shoulder_filters and 'rotated ~ 0' in commands[-1]
+    assert o.snapshot()['fresh_look_samples']==0
+    for invalid in ([float('nan'),0],[0,float('inf')],[0,10],None,['0',0]):o.record_camera_pose('LabAI1',invalid,3)
+    assert 'LabAI1' not in o.camera_poses
 
 
 def test_shoulder_replaces_stationary_slot_in_manual_view_cycle(tmp_path):
@@ -686,3 +725,12 @@ def test_shoulder_replaces_stationary_slot_in_manual_view_cycle(tmp_path):
     assert o.adjust('Xonosnet','ArrowRight')['height']==5
     assert o.adjust('Xonosnet','Enter')['view']=='trail'
     assert o.start({'player':'Xonosnet','target':'LabAI0','view':'stationary'},['Xonosnet'])['view']=='stationary'
+
+
+def test_idle_shoulder_filter_rejects_repetitive_pitch_scans_but_follows_deliberate_looks():
+    from lab.observers import smooth_camera_angles
+    pose=(0,-15)
+    for i in range(100):pose=smooth_camera_angles(pose,(0,-15+(2.8 if i%2 else -2.8)),.05,idle=True)
+    assert pose==(0,-15)
+    changed=smooth_camera_angles(pose,(0,-25),.05,idle=True)
+    assert -18<=changed[1]<-15

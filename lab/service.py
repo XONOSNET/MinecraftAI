@@ -478,6 +478,9 @@ def nearby_memory(agent:str):
         return {'agent':agent,'source':'previously observed; may be stale','blocks':[dict(zip(('x','y','z','block','last_observed'),r)) for r in rows]}
 @app.post('/assignment',dependencies=[Depends(auth)])
 def assignment(d:dict):
+    # Camera-only look sample, independent of slower trial/history work.
+    if is_agent(d.get('agent')) and d.get('agent')==f"LabAI{d.get('index')}":
+        observers.record_camera_pose(d['agent'],d.get('camera_look'),d.get('entity_id'),d.get('speed',0))
     with lock:
         response=_assignment(d)
         frozen=(world_training.session or {}).get('behavior_snapshot') if world_training.session else None
