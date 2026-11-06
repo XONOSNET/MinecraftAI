@@ -77,6 +77,12 @@ function findPlot(bot,bounds,index,spread,total=8,reserved=[],heightCache=null){
 }return null;
 }
 const plotClaims=new Map(),siteAudits=new Map();
+function rejectSiteAudit(run){
+ const audit=siteAudits.get(run);
+ // Once any roster member rejects setup, later entity/chunk updates cannot
+ // release only the remaining bots into an already invalid cohort trial.
+ if(audit&&!audit.ok)audit.final=true;
+}
 function claimPlot(bot,world,run){
  if(!plotClaims.has(run)){plotClaims.set(run,new Map());if(plotClaims.size>2)plotClaims.delete(plotClaims.keys().next().value);}
  const claims=plotClaims.get(run);
@@ -92,7 +98,7 @@ function claimPlot(bot,world,run){
  }
  if(world.mission==='first_night'){
   let audit=siteAudits.get(run);
-  if(!audit||!audit.ok&&Date.now()-(audit.at||0)>2000){audit={...require('./site_suitability').inspect(bot,world,[...claims.values()]),at:Date.now()};siteAudits.set(run,audit);if(siteAudits.size>2)siteAudits.delete(siteAudits.keys().next().value);}
+  if(!audit||!audit.final&&!audit.ok&&Date.now()-(audit.at||0)>2000){audit={...require('./site_suitability').inspect(bot,world,[...claims.values()]),at:Date.now()};siteAudits.set(run,audit);if(siteAudits.size>2)siteAudits.delete(siteAudits.keys().next().value);}
   if(!audit.ok)return null;
  }
  return claims.get(world.index)||null;
@@ -141,7 +147,7 @@ class HutTeacher{
     let spawn;
     if(w.prepared)spawn=w.camp_anchor&&standable(bot,...w.camp_anchor)?[w.camp_anchor[0]+.5,w.camp_anchor[1]+.1,w.camp_anchor[2]+.5]:findSpawn(bot,w.bounds,{margin:house.config.camp_radius+2});
     else{this.plot=claimPlot(bot,w,state.run);this.campPlots=[...(plotClaims.get(state.run)?.values()||[])];if(this.plot)spawn=[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5];}
-    if(!spawn){this.message=siteAudits.get(state.run)?.reason||(w.prepared?'Surveying loaded terrain for a safe shared spawn':'Searching loaded land for a separate flat house plot');if(now-this.started>30000){this.failureCategory=siteAudits.get(state.run)?.complete===false?'infrastructure':'site_unavailable';throw Error(siteAudits.get(state.run)?.reason||(w.prepared?'No safe natural spawn found. Try another site.':'No separate flat 7 × 7 build site in the loaded trial area. Try another natural scenario.'));}}
+    if(!spawn){this.message=siteAudits.get(state.run)?.reason||(w.prepared?'Surveying loaded terrain for a safe shared spawn':'Searching loaded land for a separate flat house plot');if(now-this.started>30000){rejectSiteAudit(state.run);this.failureCategory=siteAudits.get(state.run)?.complete===false?'infrastructure':'site_unavailable';throw Error(siteAudits.get(state.run)?.reason||(w.prepared?'No safe natural spawn found. Try another site.':'No separate flat 7 × 7 build site in the loaded trial area. Try another natural scenario.'));}}
     else{let destination=spawn;if(w.prepared){const camp=await api('/world/camp',{agent:bot.username,position:spawn});this.campPlots=camp.plots;this.plot=camp.plots[w.index];this.grove=camp.groves[w.index]?.length?camp.groves[w.index]:null;destination=camp.spawn;}await api('/world/spawn',{agent:bot.username,position:destination});this.afterPlotClear='gather';this.phase='clear_plot';survey.release(bot);this.settle=now+1500;if(this.wilderness){this.wilderness.memory.remember('home',[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5]);}}
    }else if(now<this.settle){motor.pause();this.message='Settling on natural ground';}
    else if(!['survey','complete','stopped'].includes(this.phase)&&require('./air_escape').tick(this,bot,motor,state)){/* reach air before ordinary work, loot or surface-only routing */}
@@ -578,4 +584,4 @@ class HutTeacher{
   const motorLabel=motor.command(result.action,task,{...sensed,...sensedScan.proximity,doorway:passage,focusPoint:cue,cueDistance:Math.hypot(cue[0]-p.x,cue[2]-p.z)},angle);this.lastNavigation.motor_after=motor.diagnostic?.();if(motorLabel)this.message=motorLabel;
  }
 }
-module.exports={HutTeacher,secureInterior,blueprint,intact,findPlot,claimPlot,findSpawn,surface,reference,usableEntrance};
+module.exports={HutTeacher,rejectSiteAudit,secureInterior,blueprint,intact,findPlot,claimPlot,findSpawn,surface,reference,usableEntrance};
