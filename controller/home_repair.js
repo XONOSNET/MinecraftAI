@@ -101,12 +101,21 @@ async function wood(t,b,r,needed){
  t.phase='gather';t.supplyRun=true;t.grove=null;t.tree=null;t.treeApproach=null;t.resourceAt=0;return false;
 }
 async function tick(t,b,motor,state,api,scan,tasks){
- let r=t.homeRepair;let damage=inspect(t,b);if(!damage||damage.unknown.length)return false;
+ let r=t.homeRepair;
+ // A resupply trip can finish outside the loaded house area. Resume travel
+ // before inspecting that area or asking the 24-block local stance planner.
+ if(r?.stage==='wood'&&!needsWood(r,b)){
+  r.stage='repair';t.phase='home_repair';t.path=[];t.navigator.lastPlan=-Infinity;return true;
+ }
+ if(r&&t.phase==='home_repair'&&(Math.hypot(b.entity.position.x-t.plot.x-.5,b.entity.position.z-t.plot.z-.5)>12||Math.abs(b.entity.position.y-t.plot.y)>3)){
+  r.message=t.message='Returning replacement supplies to the damaged home';
+  if(await t.walk(b,motor,require('./world_navigation').homeApproach(t.plot,b),state,api,scan,tasks)===false)throw Error('No safe return route to the damaged home');
+  return true;
+ }
+ let damage=inspect(t,b);if(!damage||damage.unknown.length)return false;
  t.homeDamage=damage;
  if(!r){if(!damage.missing.length)return false;r=begin(t,damage);damage=inspect(t,b);t.homeDamage=damage;}
- if(r.stage==='wood'){
-  if(needsWood(r,b))return false;r.stage='repair';t.phase='home_repair';t.path=[];t.navigator.lastPlan=-Infinity;return true;
- }
+ if(r.stage==='wood')return false;
  if(r.stage==='stone'){
   if(count(b,'cobblestone')<8)return false;
   const m=t.wilderness?.mine;if(m&&m.stage!=='done'){if(!['exit','approach'].includes(m.stage)){m.stage='exit';m.exitIndex=m.path.length-1;}return false;}

@@ -42,6 +42,23 @@ test('missing supplies start real wood gathering and cannot be satisfied by phan
  assert.equal(await repair.tick(f.t,f.b,f.motor,f.state),false);assert.equal(f.b.blockAt(new Vec3(3,65,0)).name,'air');
  f.items.oak_planks=4;await repair.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.phase,'home_repair');
 });
+
+test('a distant repair supply trip returns before inspecting unloaded house cells or planning local work stances',async()=>{
+ const f=fixture();f.set(new Vec3(3,65,0),'air');f.items.oak_planks=0;
+ await repair.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.phase,'gather');
+ f.b.entity.position=new Vec3(25.5,64,25.5);f.items.oak_planks=4;
+ const blockAt=f.b.blockAt;f.b.blockAt=p=>Math.hypot(p.x-f.b.entity.position.x,p.z-f.b.entity.position.z)>16?null:blockAt(p);
+ assert.equal(await repair.tick(f.t,f.b,f.motor,f.state),true);assert.equal(f.t.phase,'home_repair');
+ assert.equal(f.t.homeRepair.stage,'repair');assert.equal(f.t.homeRepair.repaired,0);
+ const walk=f.t.walk;let returns=0,arrive=false;
+ f.t.walk=async(...args)=>{returns++;assert.ok(Math.hypot(args[2][0],args[2][2])<8);if(arrive)return walk(...args);return undefined;};
+ await repair.tick(f.t,f.b,f.motor,f.state);assert.equal(returns,1);assert.equal(f.t.homeRepair.repaired,0);
+ arrive=true;await repair.tick(f.t,f.b,f.motor,f.state);assert.equal(returns,2);
+ for(let i=0;i<20&&f.t.homeRepair;i++)await repair.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.homeRepair,null);assert.equal(f.t.phase,'night_scout');
+ assert.equal(f.b.blockAt(new Vec3(3,65,0)).name,'oak_planks');assert.equal(f.items.oak_planks,3);
+ assert.deepEqual(f.t.milestones,['hut']);
+});
 test('replacement furnishings are crafted and verified, the chest is restocked and the bed home re-registered',async ctx=>{
  const milestones=['hut','chest','stocked','furnace','bed_home'],f=fixture(milestones),calls=[];
  f.items.oak_planks=29;
