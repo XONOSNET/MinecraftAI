@@ -117,7 +117,7 @@ class HutTeacher{
  async tick(bot,motor,state,api,scan,tasks){
   const now=Date.now(),p=bot.entity.position,w=state.world,rules=forBot(bot);
   if(this.run===state.run&&now<(this.serviceRetryAt||0)){motor.pause();return this.message;}
-  if(this.run!==state.run){this.waterWork=null;this.waterTravel=null;this.movementHandoffs=null;this.deathRun=null;this.loot=null;this.buildBlocker=null;this.homeRepair=null;this.homeDamage=null;this.homeInspectAt=0;this.reforest=null;this.floorReturnGoal=null;this.plotReturnGoal=null;this.entranceApproach=null;this.entranceCleared=0;this.plotClearing=null;this.afterPlotClear=null;this.constructionCleared=0;this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();this.dropTrack=null;this.pickupTravelGoal=null;}
+  if(this.run!==state.run){this.buildSupply=null;this.waterWork=null;this.waterTravel=null;this.movementHandoffs=null;this.deathRun=null;this.loot=null;this.buildBlocker=null;this.homeRepair=null;this.homeDamage=null;this.homeInspectAt=0;this.reforest=null;this.floorReturnGoal=null;this.plotReturnGoal=null;this.entranceApproach=null;this.entranceCleared=0;this.plotClearing=null;this.afterPlotClear=null;this.constructionCleared=0;this.stall=new WorldStall(rules.stationary_timeout_seconds);this.navigator=new WorldNavigation();this.dropTrack=null;this.pickupTravelGoal=null;}
   if(this.run!==state.run){space.release(bot.username);require('./exploration').release(bot.username);this.resourceAccess={};this.buildAttempts=new Map();this.buildApproach=null;this.stationApproach=null;this.floorRecovery=null;this.treeRetry=0;this.focusBlock=null;this.lastNavigation=null;if(this.survival?.deathListener)bot.removeListener('entityDead',this.survival.deathListener);this.survival=null;this.wilderness=null;this.failureCategory=null;this.serviceFailureSince=null;this.serviceRetryAt=0;this.home=null;this.run=state.run;this.phase='survey';this.started=now;this.lastReport=0;this.travelled=0;this.last=p.clone();this.path=[];this.lastPlan=0;this.lastProgress=now;this.anchor=p.clone();this.runtime=tasks.createRuntime();this.harvested=0;this.error=null;this.spawned=false;this.ignoredTrees=new Map();this.ignoredDrops=new Map();this.resourceAt=0;this.grove=null;this.inventoryAt=0;this.plot=null;this.campPlots=[];this.table=null;this.built=0;this.secureAt=null;this.settle=0;this.resources=[];this.destination=null;this.tree=null;this.treeApproach=null;this.pickup=null;this.timing=new WorldTiming(now);this.milestones=[];this.supplyRun=false;this.collecting=false;this.scanCount=0;this.observedTrees=0;this.quarry=null;this.lastRecoveryReset=0;console.log(JSON.stringify({event:'world_controller',agent:bot.username,gameMode:bot.game.gameMode}));}
   if(!w.prepared&&plotClaims.has(state.run))this.campPlots=[...plotClaims.get(state.run).values()];
   if(this.phase==='survey')survey.hold(bot);else survey.release(bot);
@@ -158,6 +158,7 @@ class HutTeacher{
    else if(!['survey','complete','stopped'].includes(this.phase)&&await require('./opportunistic_loot').tick(this,bot,motor,state,api,scan,tasks)){/* bounded useful-item detour */}
    else if(await require('./build_blockers').tick(this,bot,motor,state,api,scan,tasks)){/* clear living construction obstruction */}
    else if(await require('./early_lighting').tick(this,bot,motor,state,api,scan,tasks)){/* lighting before enclosure and settlement extras */}
+   else if(await require('./build_supply').tick(this,bot,motor,state,api,scan,tasks)){/* replace wood consumed by interrupted construction */}
    else if(await require('./reforest').tick(this,bot,motor,state,{opportunity:true})){/* brief nearby replanting opportunity */}
    else if(!['survey','complete','stopped'].includes(this.phase)&&await homeRepair.tick(this,bot,motor,state,api,scan,tasks)){/* verify and repair an already-earned home */}
    else if(this.phase==='clear_plot'){if(await require('./plot_clearance').tick(this,bot,motor,state,api,scan,tasks)){this.phase=this.afterPlotClear||'gather';this.afterPlotClear=null;this.lastProgress=Date.now();}}
@@ -388,6 +389,7 @@ class HutTeacher{
  }
  milestone(name){if(!this.milestones.includes(name))this.milestones.push(name);}
  woodReady(bot){
+  if(this.buildSupply)return require('./build_supply').count(bot)>=this.requiredWood(bot);
   if(homeRepair.collecting(this))return false;
   // Fuel must remain raw: spare planks cannot replace logs for charcoal.
   const logs=count(bot,n=>LOG.test(n));
