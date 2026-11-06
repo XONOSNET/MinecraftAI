@@ -224,3 +224,82 @@ test('a silent server placement refusal is retried and still requires a confirme
  f.b._placeBlockWithOptions=async()=>{if(++attempts===1)throw Error('Server did not answer the placement at (0, 64, 0): Event blockUpdate did not fire within timeout of 5000ms');f.cells.set(cap.toString(),'dirt');};
  assert.equal(await burrow.placeCover(f.b,s,cap,lip,new Vec3(-1,0,0),'dirt'),true);assert.equal(attempts,2);assert.equal(s.coverRefusals,1);
 });
+
+function damagedRefuge(ctx,{roof=false,carried=0,refused=false}={}){
+ const f=fixture(),feet=new Vec3(0,64,0);let dirt=carried;
+ f.b.entities={};f.b.entity.position.y=62;f.t.phase='night_burrow';
+ const s=f.t.wilderness.burrow={feet:feet.toArray(),cap:feet.toArray(),lip:[1,64,0],cap_name:'dirt',lip_name:'dirt',shellVerified:true,stage:'hidden',resume:'gather',progressAt:Date.now()};
+ for(const y of [62,63])f.cells.set(feet.offset(0,y-64,0).toString(),'air');
+ f.cells.set(feet.toString(),roof?'air':'dirt');f.cells.set(feet.offset(1,0,0).toString(),'dirt');
+ const gap=roof?feet:feet.offset(-1,-1,0);f.cells.set(gap.toString(),'air');
+ ctx.mock.method(inventory,'sync',async()=>{});ctx.mock.method(inventory,'equip',async()=>{});
+ f.b.inventory.items=()=>dirt?[{name:'dirt',count:dirt}]:[];f.b.canDigBlock=()=>true;f.b.lookAt=async()=>{};f.b.clearControlStates=()=>{};
+ f.b.world.raycast=(eye,ray,distance)=>({position:eye.plus(ray.scaled(distance+.001)).floored()});
+ ctx.mock.method(require('../controller/placement_reference'),'references',(_b,q)=>{const block=f.b.blockAt(q.offset(roof?1:0,roof?0:-1,0)),face=new Vec3(roof?-1:0,roof?0:1,0);return [{block,face,key:block.position.toString()+':'+face.toString(),point:block.position.offset(.5,1,.5),delta:new Vec3(.5,1,.5)}];});
+ ctx.mock.method(require('../controller/target_scan'),'visibleBlock',()=>true);
+ f.b.dig=async block=>{f.cells.set(block.position.toString(),'air');dirt++;};
+ f.b._placeBlockWithOptions=async(block,face)=>{if(refused)throw Error('Server refused placement');assert.ok(dirt>0);f.cells.set(block.position.plus(face).toString(),'dirt');dirt--;};
+ ctx.mock.method(access,'jumpPlace',async(_b,q)=>{assert.ok(dirt>0);f.cells.set(q.toString(),'dirt');dirt--;f.b.entity.position.y++;return true;});
+ return {...f,s,gap,dirt:()=>dirt,setDirt:n=>{dirt=n;}};
+}
+test('verified refuge recovers real pocket dirt, patches a dry gap and resumes its interrupted task after daylight',async ctx=>{
+ const f=damagedRefuge(ctx);await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.ok(f.s.repairNotch);assert.equal(f.dirt(),1);assert.equal(f.s.shellRepairs||0,0);
+ await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(f.b.blockAt(f.gap).name,'dirt');assert.equal(f.dirt(),0);assert.equal(f.s.shellRepairs,1);
+ await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(f.s.stage,'hidden');assert.equal(burrow.walls(f.b,new Vec3(...f.s.feet),f.s),true);
+ f.b.time.timeOfDay=6000;
+ for(let i=0;i<8&&f.t.wilderness.burrow;i++)await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.wilderness.burrow,null);assert.equal(f.t.phase,'gather');assert.equal(f.b.entity.position.y,64);assert.deepEqual(f.t.milestones,[]);
+});
+test('a breached owned roof is patched with carried dirt before a safe watch resumes',async ctx=>{
+ const f=damagedRefuge(ctx,{roof:true,carried:1});await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.s.shellRepairs,1);assert.equal(burrow.sealed(f.b,f.s),true);assert.equal(f.dirt(),0);
+ await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(f.s.shellRecovery.status,'Shell restored and rechecked');assert.equal(f.s.stage,'hidden');
+});
+test('refused roof placements exhaust one bounded budget without granting progress or resetting it each tick',async ctx=>{
+ const f=damagedRefuge(ctx,{roof:true,carried:1,refused:true}),progress=f.s.progressAt;
+ for(let i=0;i<6;i++)await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.s.shellRecovery.attempts,6);assert.equal(f.s.progressAt,progress);assert.equal(f.dirt(),1);assert.equal(f.s.shellRepairs||0,0);
+ await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/roof was breached/);
+});
+test('repair refuses hazardous neighbors, missing footing, unverified sites and private plots',async ctx=>{
+ const f=damagedRefuge(ctx,{carried:1}),repair=require('../controller/burrow_repair'),problem=burrow.shellProblem(f.b,new Vec3(...f.s.feet),f.s);
+ for(const hazard of ['water','lava','sand','gravel']){
+  const p=f.gap.offset(-1,0,0);f.cells.set(p.toString(),hazard);assert.equal(await repair.repair(f.t,f.b,f.motor,f.s,problem,f.state),false,hazard);f.cells.delete(p.toString());
+ }
+ f.cells.set(new Vec3(0,61,0).toString(),'air');assert.equal(await repair.repair(f.t,f.b,f.motor,f.s,problem,f.state),false);f.cells.delete(new Vec3(0,61,0).toString());
+ f.s.shellVerified=false;assert.equal(await repair.repair(f.t,f.b,f.motor,f.s,problem,f.state),false);f.s.shellVerified=true;
+ f.t.campPlots=[{x:0,z:0}];assert.equal(await repair.repair(f.t,f.b,f.motor,f.s,problem,f.state),false);assert.equal(f.dirt(),1);
+});
+test('waiting for a missing dirt pickup expires without resetting physical progress',async ctx=>{
+ const f=damagedRefuge(ctx),repair=require('../controller/burrow_repair'),problem=burrow.shellProblem(f.b,new Vec3(...f.s.feet),f.s),progress=f.s.progressAt;
+ f.b.canDigBlock=()=>false;
+ assert.equal(await repair.repair(f.t,f.b,f.motor,f.s,problem,f.state),true);assert.equal(f.s.progressAt,progress);
+ f.s.shellRecovery.at=Date.now()-15001;assert.equal(await repair.repair(f.t,f.b,f.motor,f.s,problem,f.state),false);
+});
+
+test('a support changing during the awaited turn prevents repair placement',async ctx=>{
+ const f=damagedRefuge(ctx,{carried:1});let placements=0;
+ f.b.lookAt=async()=>f.cells.set(f.gap.offset(0,-1,0).toString(),'air');
+ f.b._placeBlockWithOptions=async()=>placements++;
+ await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/no longer dry/);
+ assert.equal(placements,0);assert.equal(f.dirt(),1);
+});
+
+test('repair pocket targeting checks exposed face heights when the block center is occluded',()=>{
+ const f=fixture(),feet=new Vec3(0,64,0),q=feet.offset(1,-2,0),repair=require('../controller/burrow_repair');f.b.entity.position.y=62;
+ let probes=0;f.b.world.raycast=(_eye,ray,distance)=>{probes++;const end=f.b.entity.position.offset(0,1.62,0).plus(ray.scaled(distance-.02));return {position:end.y>62.7?q:q.offset(0,1,0)};};
+ assert.deepEqual(repair.pocketFace(f.b,feet,q).toArray(),[1,62.8,.5]);assert.equal(probes,1);
+ f.b.world.raycast=()=>({position:q.offset(0,1,0)});assert.equal(repair.pocketFace(f.b,feet,q),null);
+});
+
+test('repair dirt recovery leaves a separate checked exit reserve when a cover drop is missing',async ctx=>{
+ const f=damagedRefuge(ctx);let now=Date.now();ctx.mock.method(Date,'now',()=>now);
+ await burrow.tick(f.t,f.b,f.motor,f.state);await burrow.tick(f.t,f.b,f.motor,f.state);assert.ok(f.s.repairNotch);
+ f.b.time.timeOfDay=6000;await burrow.tick(f.t,f.b,f.motor,f.state);await burrow.tick(f.t,f.b,f.motor,f.state);await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.s.stage,'climb');f.setDirt(1);
+ await burrow.tick(f.t,f.b,f.motor,f.state);now+=1600;await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.ok(f.s.exitNotch);assert.notDeepEqual(f.s.exitNotch,f.s.repairNotch);assert.equal(f.dirt(),2);
+ for(let i=0;i<5&&f.t.wilderness.burrow;i++)await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.wilderness.burrow,null);assert.equal(f.t.phase,'gather');assert.equal(f.b.entity.position.y,64);assert.deepEqual(f.t.milestones,[]);
+});

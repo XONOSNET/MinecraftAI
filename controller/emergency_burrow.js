@@ -11,20 +11,21 @@ function threats(b,standing=b.entity.position){
  const proxy=Object.create(b);proxy.entity={...b.entity,position:standing};
  return Object.values(b.entities||{}).filter(e=>alive(b,e)&&MOBS.has(e.name)&&e.position?.distanceTo(standing)<18&&combat.visible(proxy,e));
 }
-function walls(b,feet,s){
+function shellProblem(b,feet,s){
  // Two removed earth cells, an untouched floor, and a raised surface cap
  // supported by one protective dirt lip. Every surrounding cell stays solid.
  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let y=feet.y-4;y<=feet.y-1;y++){
   if(dx===0&&dz===0&&y>feet.y-3)continue;
   const cell=new Vec3(feet.x+dx,y,feet.z+dz);
-  if(s?.exitNotch&&cell.equals(new Vec3(...s.exitNotch))&&safeNotch(b,feet,cell)&&openCell(b.blockAt(cell)))continue;
-  const q=b.blockAt(cell);if(!q||!SOLID.has(q.name)||q.boundingBox!=='block'||q.getProperties?.().waterlogged)return false;
+  if([s?.exitNotch,s?.repairNotch].filter(Boolean).some(p=>cell.equals(new Vec3(...p)))&&safeNotch(b,feet,cell)&&openCell(b.blockAt(cell)))continue;
+  const q=b.blockAt(cell);if(!q||!SOLID.has(q.name)||q.boundingBox!=='block'||q.getProperties?.().waterlogged)return {position:cell.toArray(),block:q?.name||null,reason:!q?'unloaded shell':q.getProperties?.().waterlogged?'waterlogged shell':'changed supporting shell',patchable:openCell(q)};
  }
  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let dy=0;dy<=2;dy++){
-  const q=b.blockAt(feet.offset(dx,dy,dz));if(!q||DANGER.has(q.name)||q.name.endsWith('_concrete_powder')||q.getProperties?.().waterlogged)return false;
+  const cell=feet.offset(dx,dy,dz),q=b.blockAt(cell);if(!q||DANGER.has(q.name)||q.name.endsWith('_concrete_powder')||q.getProperties?.().waterlogged)return {position:cell.toArray(),block:q?.name||null,reason:!q?'unloaded surface':'fluid or falling-block hazard',patchable:false};
  }
- return true;
+ return null;
 }
+function walls(b,feet,s){return !shellProblem(b,feet,s);}
 // One capped side pocket supplies a real extra exit block if the lip drop stayed above.
 // Its ceiling, floor and exterior remain solid; never open a passage to surface or water.
 function safeNotch(b,feet,q){
@@ -95,7 +96,7 @@ async function placeCover(b,s,target,support,face,name){
  }
  return false;
 }
-function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,waiting_for:s.waitReason||null,exit_blocks:s.exitBlocks??null,cover_refusals:s.coverRefusals||0,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
+function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,waiting_for:s.waitReason||null,exit_blocks:s.exitBlocks??null,cover_refusals:s.coverRefusals||0,shell_failure:s.shellFailure||null,shell_repairs:s.shellRepairs||0,shell_recovery:s.shellRecovery?.status||null,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
 function retrySurface(t,b,s,reason){
  const feet=new Vec3(...s.feet),p=b.entity.position,q=p.floored();
  // Abandon excavation only while still on checked surface footing. A damaged
@@ -134,15 +135,19 @@ async function tick(t,b,motor,state,api,scan,tasks){
   if(Math.hypot(p.x-feet.x-.5,p.z-feet.z-.5)<.45&&Math.abs(p.y-feet.y)<.2){
    if(threats(b).some(e=>e.name==='creeper'&&e.position.distanceTo(p)<4||Math.hypot(e.position.x-feet.x-.5,e.position.z-feet.z-.5)<.65&&Math.abs(e.position.y-feet.y)<2)){n.burrow=null;claims.delete(b.username);t.phase=s.resume;n.burrowSearchAt=0;t.message='Threat occupies the excavation site: seeking another earth refuge';return true;}
    if(!site(t,b,feet,w)){if(retrySurface(t,b,s,'Refuge terrain changed before excavation'))return true;throw Error('Emergency refuge terrain changed; refusing excavation');}
-   if(await access.stabilize(b,motor,feet)){s.stage='dig';s.progressAt=now;}
+   if(await access.stabilize(b,motor,feet)){s.shellVerified=true;s.stage='dig';s.progressAt=now;}
   }
   t.message='Emergency cover: reaching a verified dry earth patch';return true;
  }
  motor.pause();
- if(!walls(b,feet,s)){
-  if(s.stage==='dig'&&retrySurface(t,b,s,'Refuge shell changed before descent'))return true;
-  throw Error('Emergency refuge walls or floor are no longer dry and supported');
+ const problem=shellProblem(b,feet,s);
+ if(problem){
+  s.shellFailure={...problem,stage:s.stage};
+  if(retrySurface(t,b,s,'Refuge shell changed before descent'))return true;
+  if(await require('./burrow_repair').repair(t,b,motor,s,problem,state))return true;
+  throw Error('Emergency refuge walls or floor are no longer dry and supported: '+JSON.stringify(problem));
  }
+ if(s.shellRecovery&&(s.stage!=='hidden'||sealed(b,s)))s.shellRecovery.status='Shell restored and rechecked';
  if(s.stage==='dig'){
   if(!b.entity.onGround){t.message='Emergency cover: settling after a one-block descent';return true;}
   const y=Math.round(p.y);if(y<=feet.y-2){s.stage='seal';s.progressAt=now;return true;}
@@ -181,7 +186,12 @@ async function tick(t,b,motor,state,api,scan,tasks){
   s.cap_name=item.name;s.stage='hidden';t.lastProgress=s.progressAt=Date.now();t.message='Emergency burrow sealed: waiting for daylight and a clear exit';return true;
  }
  if(s.stage==='hidden'){
-  if(!sealed(b,s))throw Error('Emergency shelter roof was breached');
+  if(!sealed(b,s)){
+   const block=b.blockAt(cap),problem={position:cap.toArray(),block:block?.name||null,reason:'breached owned roof',patchable:openCell(block)};
+   s.shellFailure={...problem,stage:s.stage};
+   if(await require('./burrow_repair').repair(t,b,motor,s,problem,state))return true;
+   throw Error('Emergency shelter roof was breached: '+JSON.stringify(problem));
+  }
   const time=b.time?.timeOfDay,day=Number.isFinite(time)&&time>=0&&time<12000;
   const nearby=threats(b,feet.offset(.5,0,.5));
   const blocker=nearby.find(e=>ARCHERS.has(e.name)||e.position.distanceTo(feet.offset(.5,0,.5))<12);
@@ -282,4 +292,4 @@ async function seek(t,b,motor,state,api,scan,tasks){
  else motor.pause();
  t.message='Seeking safe earth cover; refusing exposed work or combat'+(n.burrow_status?' · '+n.burrow_status:'');
 }
-module.exports={EARTH,walls,site,find,sealed,report,tick,seek,cover,openCell,safeNotch,placeCover,defendOpening};
+module.exports={EARTH,SOLID,DANGER,shellProblem,walls,site,find,sealed,report,tick,seek,cover,openCell,safeNotch,placeCover,defendOpening};

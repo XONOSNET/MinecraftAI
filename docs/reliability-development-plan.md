@@ -145,3 +145,42 @@ The regression test covers the exact 19,123-into-15,000 overwrite case, includin
 reference persistence across reload, mixed training, disjoint held-out examples,
 and stale/missing reference rejection. Protected weights and full survival
 candidate selection remain authoritative. Raw demonstrations are preserved.
+
+
+## Burrow shell recovery (November 5)
+
+Recent student trials 632, 633, 635, 639 and 642 stopped after a refuge shell
+changed in the dig, lip or hidden stage. All reported taking cover from a
+creeper, but the old boolean shell check did not identify the changed cell;
+these records do not establish that an explosion caused every failure.
+
+Shell reports now identify the exact cell, block, stage and hazard. While still
+on checked surface footing, a bot can reject the changed site and search again.
+Underground, a previously verified refuge can repair a reachable dry air gap or
+its owned roof using real carried dirt. With no dirt, it may mine one checked,
+closed side pocket. A separate checked pocket remains available for exit
+recovery if a cover drop cannot be collected. Both pockets must retain solid
+ceilings, floors, exterior walls and sides; this does not open a tunnel.
+
+Repairs require grounded dry footing, an exposed supporting face, player and
+plot clearance, and fresh safety checks after turning. Fluids, falling blocks,
+unloaded terrain, missing footing and unverified sites still reject repair.
+The repair episode is limited to 15 seconds and six placement attempts. Waiting
+or refused placement does not count as physical progress. The complete shell
+and roof must pass their original checks before the normal watch/exit resumes.
+No items, lesson credit or synthetic successes are supplied.
+
+Validation: 657 JavaScript tests pass, including damaged refuge to real dirt
+recovery to repair to daylight exit and task resumption; missing exit drops;
+refused placement budgets; changed support; and hazardous/protected terrain.
+The isolated native empty-inventory wall-breach fixture repaired in 2.506
+seconds and exited in 4.444 seconds at 20 health, resuming gathering. Fixture
+terrain and entities were cleaned. The separate empty-inventory roof-breach
+fixture repaired in 1.441 seconds and exited in 6.782 seconds at 20 health.
+Both fixtures resumed gathering; only the diagnostic client's time sensor was
+changed for the exit test, not global server time.
+
+Full survival completion gains remain unproven until new comparisons finish.
+Large or unsafe breaches still fail with a precise diagnosis. Next priorities
+remain repeated teacher validation and the next recurring mining-exit failure,
+without adding difficulty before the teacher reliability gate is met.

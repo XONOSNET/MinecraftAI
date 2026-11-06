@@ -23,6 +23,16 @@ async function main(){try{
  if(process.argv.includes('--blocked-opening'))assert.equal(result.opening_attacked,true,'native hostile at the roof was attacked before sealing');
  assert.equal(t.wilderness.burrow?.stage,'hidden','real shaft sealed');assert.equal(b.entity.position.y,209);assert.equal(burrow.sealed(b,t.wilderness.burrow),true);result.sealed_seconds=(Date.now()-started)/1000;result.hidden_health=b.health;
  await wait(3000);assert.ok(b.health>=result.hidden_health,'sealed roof prevents further damage; normal regeneration is allowed');assert.ok(b.health>0);
+ // Deterministic damage only inside this isolated empty-inventory survival fixture.
+ if(process.argv.includes('--shell-breach')||process.argv.includes('--roof-breach')){
+  const roof=process.argv.includes('--roof-breach'),gap=roof?feet:feet.offset(-1,-1,0);
+  await commands(['kill @e[tag=lab_burrow_fixture]',`setblock ${gap.x} ${gap.y} ${gap.z} air`]);
+  const repairAt=Date.now();
+  while((t.wilderness.burrow.shellRepairs||0)<1&&Date.now()-repairAt<18000){await burrow.tick(t,b,motor,state);await wait(80);}
+  assert.equal(t.wilderness.burrow.shellRepairs,1,'real dirt repaired the damaged shell');
+  assert.equal(b.blockAt(gap)?.name,'dirt');assert.equal(burrow.walls(b,feet,t.wilderness.burrow),true);assert.equal(burrow.sealed(b,t.wilderness.burrow),true);
+  result.repair={roof,seconds:(Date.now()-repairAt)/1000,closed_pocket:!!t.wilderness.burrow.repairNotch,report:burrow.report(t)};
+ }
  // Simulate ordinary grass spreading onto both fixture soil covers.
  await commands(['setblock -1300 211 -1300 grass_block','setblock -1299 211 -1300 grass_block','kill @e[tag=lab_burrow_fixture]']);await wait(1200);
  assert.equal(burrow.sealed(b,t.wilderness.burrow),true);result.grass_cover_verified=true;
