@@ -72,10 +72,10 @@ def test_periodic_fauna_runs_only_during_active_natural_training_with_a_cooldown
     world,commands,clock,log=fixture(tmp_path)
     world.start(dict(mission='first_night',night_level=1),['LabAI0'])
     world.session.update(phase='running',trial_at=0);commands.clear()
-    clock[0]=29;world.tick();assert not any('lab_replenished_fauna' in c for c in commands)
-    clock[0]=30;world.tick();assert sum('lab_replenished_fauna' in c for c in commands)==30
-    commands.clear();clock[0]=89;world.tick();assert not any('lab_replenished_fauna' in c for c in commands)
-    clock[0]=90;world.tick();assert sum('lab_replenished_fauna' in c for c in commands)==30
+    clock[0]=1.9;world.tick();assert not any('lab_replenished_fauna' in c for c in commands)
+    clock[0]=2;world.tick();assert sum('lab_replenished_fauna' in c for c in commands)==30
+    commands.clear();clock[0]=61.9;world.tick();assert not any('lab_replenished_fauna' in c for c in commands)
+    clock[0]=62;world.tick();assert sum('lab_replenished_fauna' in c for c in commands)==30
     assert world.session['fauna_replenishment']['waves']==2
     assert world.session['fauna_replenishment']['caps']['sheep']==32
     assert world.session['fauna_replenishment']['sheep_births_per_wave']==8

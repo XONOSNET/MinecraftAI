@@ -107,3 +107,18 @@ remain unchanged. This presentation does not grant sheep or bypass a failed audi
 The isolated native survey fixture verified zero vertical drift over a tree
 canopy, then a grounded survival arrival with normal gravity, full health and no
 items. Its terrain was cleaned afterward.
+
+
+The first configured livestock maintenance wave now runs two seconds after trial
+setup begins, before the thirty-second resource-audit deadline; subsequent waves
+keep their configured interval. The prior thirty-second first wave raced the
+thirty-second client survey and could reject all eight bots while the missing
+sheep update was still arriving. Population caps, per-wave birth limits, grass
+and clearance checks, assessment exclusions and resource quotas are unchanged.
+
+During setup only, the audit can also use the maintenance wave's server-verified
+sheep count for the reserved region. This prevents distant animals outside one
+client's entity tracking radius from appearing absent. Counts must belong to the
+current trial and be at most eight seconds old; they combine with visible counts
+using max, never addition. These setup counts are omitted after ground deployment
+and are not supplied as policy observations or resource coordinates.

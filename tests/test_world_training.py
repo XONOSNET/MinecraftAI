@@ -454,3 +454,13 @@ def test_new_start_releases_an_abandoned_survey_warmup(tmp_path):
     world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);world.jobs=[];world.tick()
     chunk=world.session['survey_chunk'];world.session['active']=False;commands.clear();world.start({'scenario':1},['LabAI0'])
     assert f'forceload remove {chunk[0]} {chunk[1]}' in commands
+
+
+def test_regional_livestock_counts_are_fresh_current_trial_and_setup_only(tmp_path):
+    world,commands,clock,log=fixture(tmp_path);world.start({},['LabAI0']);s=world.session
+    s.update(phase='running',trial_at=10,fauna_replenishment={'counts_verified_at':11,'loaded_sheep':15});clock[0]=12
+    assert world.assignment('LabAI0')['world']['setup_livestock']=={'sheep':15,'verified_at':11}
+    s['deployed_bots']=['LabAI0'];assert 'setup_livestock' not in world.assignment('LabAI0')['world']
+    s['deployed_bots']=[];clock[0]=20;assert 'setup_livestock' not in world.assignment('LabAI0')['world']
+    clock[0]=12;s['fauna_replenishment']['counts_verified_at']=9
+    assert 'setup_livestock' not in world.assignment('LabAI0')['world']

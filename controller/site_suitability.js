@@ -52,6 +52,11 @@ function inspect(bot,world,plots){
  }
  result.loaded_chunks=loaded;result.expected_chunks=expected;result.loaded_core_chunks=coreLoaded;result.expected_core_chunks=coreExpected;
  for(const e of Object.values(bot.entities||{}))if(e.isValid!==false&&edible.has(e.name)&&e.position.x>=bounds[0]&&e.position.x<bounds[1]&&e.position.z>=bounds[2]&&e.position.z<bounds[3]){counts.food_animals++;if(e.name==='sheep')counts.sheep++;}
+ const herd=world.setup_livestock,age=Date.now()/1000-herd?.verified_at;
+ if(herd&&Number.isInteger(herd.sheep)&&herd.sheep>=0&&herd.sheep<=32&&Number.isFinite(age)&&age>=-1&&age<=8){
+  // Sheep are also edible. max avoids counting the same visible entities twice.
+  counts.sheep=Math.max(counts.sheep,herd.sheep);counts.food_animals=Math.max(counts.food_animals,herd.sheep);result.livestock_source='Verified reserved-region server count';
+ }
  result.allocated_logs=allocate([...groups.values()],plots,woodPerBot);result.complete=true;
  const missing=Object.keys(needs).filter(k=>counts[k]<needs[k]);if(result.allocated_logs<needs.logs&&!missing.includes('logs'))missing.push('distributed wood');
  if(!missing.length){result.reachable_wood_plots=plots.filter(plot=>hasTreeApproach(bot,plot,[...groups.values()],bounds)).length;if(result.reachable_wood_plots<total)missing.push('checked tree approaches '+result.reachable_wood_plots+'/'+total);}

@@ -40,3 +40,12 @@ test('pending livestock visibility uses survey wording while preserving the fina
  assert.match(r.reason,/Site lacks starting resources.*sheep 1\/2/);
  f.b.entities.b={name:'sheep',position:new Vec3(3,65,2)};assert.equal(inspect(f.b,f.world,f.plots).ok,true);
 });
+
+test('setup may use fresh server-verified regional sheep counts without double-counting visible animals',ctx=>{
+ const f=fixture();ctx.mock.method(Date,'now',()=>100000);delete f.b.entities.b;
+ f.world.setup_livestock={sheep:2,verified_at:99};let r=inspect(f.b,f.world,f.plots);
+ assert.equal(r.ok,true);assert.equal(r.counts.sheep,2);assert.equal(r.counts.food_animals,2);assert.match(r.livestock_source,/server count/);
+ for(const herd of [{sheep:2,verified_at:90},{sheep:2,verified_at:102},{sheep:99,verified_at:99},{sheep:2,verified_at:null}]){
+  f.world.setup_livestock=herd;r=inspect(f.b,f.world,f.plots);assert.equal(r.ok,false);assert.equal(r.counts.sheep,1);
+ }
+});

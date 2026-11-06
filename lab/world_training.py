@@ -250,7 +250,7 @@ class WorldTraining(SurvivalLessons):
         if not s['active']:return
         if s['phase']=='running' and s.get('first_night') and not s['first_night'].get('stations') and not s.get('assessment'):
             interval=RESOURCE_CONFIG.get('livestock_replenish_seconds',120)
-            refill=s.setdefault('fauna_replenishment',dict(waves=0,next_at=s.get('trial_at',self.clock())+30,interval_seconds=interval,caps=RESOURCE_CONFIG.get('livestock_caps',{}),sheep_births_per_wave=RESOURCE_CONFIG.get('sheep_births_per_wave',2)))
+            refill=s.setdefault('fauna_replenishment',dict(waves=0,next_at=s.get('trial_at',self.clock())+2,interval_seconds=interval,caps=RESOURCE_CONFIG.get('livestock_caps',{}),sheep_births_per_wave=RESOURCE_CONFIG.get('sheep_births_per_wave',2)))
             if refill.get('pending_counts'):
                 text,refill['log_offset']=self._read(refill['log_offset'])
                 refill['count_log']=(refill.get('count_log','')+text)[-16384:]
@@ -376,6 +376,13 @@ class WorldTraining(SurvivalLessons):
         if s['results'].get(name,{}).get('state') in ('complete','stopped'):return None
         world=dict(bounds=s['bounds'],index=s['bots'].index(name),count=len(s['bots']),spread=SCENARIOS[s['scenario']]['spread'],driver=s['driver'],prepared=s['prepared'],camp_anchor=s.get('camp_anchor'),mission=s['mission'],lessons=s['lessons'],time_budget_seconds=s['time_budget_seconds'])
         if s.get('resource_policy'):world['resource_policy']=copy.deepcopy(s['resource_policy'])
+        refill=s.get('fauna_replenishment',{})
+        # Setup sees a verified count for the reserved region, not only entities
+        # inside one client's tracking radius. Never carry it into policy work.
+        verified=refill.get('counts_verified_at')
+        if name not in s.get('deployed_bots',[]) and verified is not None and verified>=s.get('trial_at',0) and 0<=self.clock()-verified<=8 and type(refill.get('loaded_sheep')) is int:
+            world['setup_livestock']={'sheep':refill['loaded_sheep'],'verified_at':verified}
+
         if s.get('first_night'):
             world.update(first_night=s['first_night'],assessment=s['assessment'])
             if loaded_memory_run!=s['run']:world['memory']={} if s['assessment'] else s['memory_snapshot'].get(s['template'],{}).get(name,{})
