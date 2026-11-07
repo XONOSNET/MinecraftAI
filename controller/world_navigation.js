@@ -135,6 +135,10 @@ class WorldNavigation{
    if(!planned.reached||planned.partial||bot.entity.isInWater){
     let wet=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden,allowWater:true});
     const water=require('./water_navigation');
+    if(wet.reached&&!water.validRoute(bot,wet.path,target)){
+     const bounded=route(bot,target,radius,16384,true,{bounds,reversible:true,forbidden,allowWater:true,boundedWater:true});
+     if(bounded.reached&&water.validRoute(bot,bounded.path,target)||!bounded.reached&&bounded.budget_exhausted)wet=bounded;
+    }
     if(wet.reached&&!water.validRoute(bot,wet.path,target)&&bot.entity.onGround===true&&water.cell(bot,Math.floor(p.x),Math.round(p.y),Math.floor(p.z))?.wet===false){
      // A short geometric route can require an overlong swim. A supported bank
      // is valid transit even when dry-work footing rejects adjacent water.

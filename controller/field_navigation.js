@@ -41,13 +41,21 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
   start=candidates[0];escape=[start[0]+.5,start[1]+.1,start[2]+.5];
  }
 
+ // Keep the uninterrupted water distance in search state for safety-aware retries.
+ // The same cell reached from a nearby bank may permit a crossing that a
+ // cheaper, already-tired approach cannot finish. Dry routes keep their keys.
+ const boundedWater=options.allowWater&&options.boundedWater===true;
+ if(boundedWater)start=[...start,0];
  const distance=n=>{const horizontal=Math.abs(Math.floor(goal[0])-n[0])+Math.abs(Math.floor(goal[2])-n[2]),height=Math.abs(Math.round(goal[1])-n[1]);return Math.max(horizontal,height)+height*.4;};
  let best=start,bestDistance=distance(start),open=[{n:start,g:0,f:bestDistance}],visited=new Set(),costs=new Map([[key(start),0]]),parent=new Map(),jumps=new Map(),expanded=0;
+ const waterLabels=new Map();
  const less=(a,b)=>a.f<b.f||a.f===b.f&&a.g>b.g;
  const push=v=>{open.push(v);let i=open.length-1;while(i){const parent=(i-1)>>1;if(!less(open[i],open[parent]))break;[open[i],open[parent]]=[open[parent],open[i]];i=parent;}};
  const pop=()=>{const first=open[0],last=open.pop();if(open.length){open[0]=last;let i=0;while(true){let child=i*2+1;if(child>=open.length)break;if(child+1<open.length&&less(open[child+1],open[child]))child++;if(!less(open[child],open[i]))break;[open[i],open[child]]=[open[child],open[i]];i=child;}}return first;};
  while(open.length&&expanded<maxNodes){
-  const {n,g}=pop(),id=key(n);if(visited.has(id))continue;visited.add(id);expanded++;
+  const {n,g}=pop(),id=key(n);if(visited.has(id))continue;
+  if(boundedWater&&(waterLabels.get(n.slice(0,3).join(','))||[]).some(v=>v.wet<=n[3]&&v.g<=g&&(v.wet<n[3]||v.g<g)))continue;
+  visited.add(id);expanded++;
   const d=distance(n);if(d<bestDistance){best=n;bestDistance=d;}if(n[0]===Math.floor(goal[0])&&n[2]===Math.floor(goal[2])&&Math.abs(n[1]-goal[1])<.6){best=n;break;}
   for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])for(const dy of [0,1,-1]){
    const next=[n[0]+dx,n[1]+dy,n[2]+dz];
@@ -58,7 +66,13 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
    // An ascending jump also needs clearance above the departure block.
    if(dy===1&&!(options.allowWater&&require('./water_navigation').isWater(bot.blockAt(new Vec3(...n))))){const over=terrain.blockAt(new Vec3(n[0],n[1]+2,n[2]));if(!safe(over)||over.boundingBox!=='empty')continue;}
    if(options.reversible&&dy===-1){const over=terrain.blockAt(new Vec3(next[0],next[1]+2,next[2]));if(!passable(over))continue;}
+   if(boundedWater){const wet=transit(...next).wet;next.push(wet?n[3]+1:0);if(next[3]>24)continue;}
    const k=key(next),ng=g+(options.allowWater?transit(...next).cost:1)+(dy!==0?.4:0);
+   if(boundedWater){
+    const cellKey=next.slice(0,3).join(','),labels=waterLabels.get(cellKey)||[];
+    if(labels.some(v=>v.wet<=next[3]&&v.g<=ng))break;
+    waterLabels.set(cellKey,[...labels.filter(v=>!(next[3]<=v.wet&&ng<=v.g)),{wet:next[3],g:ng}]);
+   }
    if(ng<(costs.get(k)??Infinity)){costs.set(k,ng);parent.set(k,n);jumps.delete(k);push({n:next,g:ng,f:ng+distance(next)});}break;
   }
   if(options.allowGaps&&!options.allowWater)for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){

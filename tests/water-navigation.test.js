@@ -201,3 +201,22 @@ test('waterlogged solid blocks and bubble columns are not treated as harmless aq
  const {b}=fixture(),at=b.blockAt;b.blockAt=p=>Math.floor(p.x)===4&&Math.floor(p.y)===63?{...at(p),name:'oak_leaves',getProperties:()=>({waterlogged:true})}:at(p);
  assert.equal(water.cell(b,3,63,0),null);assert.equal(water.isWater(b.blockAt(new Vec3(4,63,0))),false);assert.equal(water.isWater({name:'bubble_column',boundingBox:'empty'}),false);
 });
+
+
+test('crossing search detours through a dry island instead of discarding a safe alternative',()=>{
+ const {b}=fixture();b.entity.position=new Vec3(.5,64,.5);
+ b.blockAt=p=>{p=p.floored();const island=p.x===13&&p.z===3;
+  const wet=p.x>=1&&p.x<=26&&!island&&p.y>=61&&p.y<=63;
+  const name=wet?'water':p.y<64?'stone':'air';return {position:p,name,boundingBox:['air','water'].includes(name)?'empty':'block',getProperties:()=>({level:0})};};
+ const goal=[28.5,64.1,.5],bounds=[-3,33,-7,8];
+ const direct=route(b,goal,96,8192,true,{bounds,allowWater:true});
+ assert.equal(direct.reached,true);assert.equal(water.validRoute(b,direct.path,goal),false);
+ const plan=new WorldNavigation().plan(b,goal,{bounds});
+ assert.equal(plan.blocked,false);assert.equal(water.validRoute(b,plan.path,goal),true);
+ assert.ok(plan.path.some(q=>Math.floor(q[0])===13&&Math.floor(q[2])===3),'land on the island before the next crossing');
+ assert.deepEqual(plan.path.at(-1),goal);
+ // The same water body with no island still has no admissible crossing.
+ const original=b.blockAt;b.blockAt=p=>{const v=original(p);return p.x>=13&&p.x<14&&p.z>=3&&p.z<4&&p.y>=61&&p.y<=63?{...v,name:'water',boundingBox:'empty'}:v;};
+ const denied=route(b,goal,96,8192,true,{bounds,allowWater:true,boundedWater:true});
+ assert.equal(denied.reached,false);assert.ok(denied.expanded<=8192);
+});

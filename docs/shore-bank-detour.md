@@ -23,3 +23,7 @@ without interrupting its candidate. The rollout restores protected models,
 restarts only controllers and starts a fresh same-controller comparison. Treat
 both changes as queued until the rollout report verifies the live revision,
 eight fresh connections, Minecraft/dashboard health and learning progress.
+Rollout of `ce72127` completed after comparison 312. The worker verified live
+revision `92c4b5452889cbaa`, unchanged Minecraft PID and protected model weights,
+eight fresh bot connections, and fresh baseline progress. That comparison
+rejected a 4/8 candidate against 5/8 baseline before deployment.
