@@ -25,3 +25,16 @@ Deployment is queued after comparison 314. The worker restores any unvalidated
 candidate, restarts only bots, verifies protected weights and Minecraft PID,
 then starts and verifies a fresh comparison on one controller version.
 The source is not live until the rollout report confirms that verification.
+
+
+Rollout verification: `faf6013` loaded as `fbf92577a66b14b9` after
+comparison 314 finished (6/8 baseline, 4/8 rejected candidate). The worker
+verified unchanged protected weights and Minecraft PID, eight fresh
+connections, and a progressing fresh comparison. Comparison 316 is using
+that controller. Its first policy baseline finished 2/8: three deaths,
+one failed changed-burrow-shell recovery, one clear-plot movement stall,
+and one light-return doorway stall. There were no final long-crossing
+rejection reports in that baseline, but the low overall completion rate
+means an aggregate reliability improvement has not been established.
+The prior teacher finished 8/8; repeated same-controller evaluation remains
+necessary before drawing a conclusion from the mixed baseline failures.
