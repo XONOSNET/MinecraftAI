@@ -183,6 +183,20 @@ for(const plant of ['seagrass','tall_seagrass','kelp','kelp_plant'])test('swimmi
  cells.set(new Vec3(4,64,0).toString(),'water');assert.equal(water.cell(b,4,63,0),null,'underwater head space is not surface air');
  cells.delete(new Vec3(4,64,0).toString());b.entity.isInWater=false;b.labOxygen=3;assert.equal(water.cell(b,4,63,0),null,'low-air entry guard still applies');
 });
+
+test('a supported bank takes a checked dry detour when the geometric shortcut exceeds the swim limit',()=>{
+ const {b}=fixture();b.entity.position=new Vec3(.5,64,.5);
+ b.blockAt=p=>{p=p.floored();const wall=(p.z===-1&&p.x>=-60&&p.x<=60&&p.x!==0||Math.abs(p.x)===1&&p.z<=-1&&p.z>=-44)&&p.y>=64&&p.y<=68;
+  const wet=p.x===0&&p.z<=-1&&p.z>=-44&&p.y===63;
+  const name=wall?'stone':wet?'water':p.y<64?'stone':'air';return {position:p,name,boundingBox:['air','water'].includes(name)?'empty':'block',getProperties:()=>({level:0})};};
+ const goal=[.5,64.1,-45.5],bounds=[-80,10,-50,10];
+ const shortcut=route(b,goal,96,8192,true,{bounds,reversible:true,allowWater:true});
+ assert.equal(shortcut.reached,true);assert.equal(water.validRoute(b,shortcut.path,goal),false,'44-cell swim remains forbidden');
+ const n=new WorldNavigation(),plan=n.plan(b,goal,{bounds});
+ assert.equal(plan.blocked,false);assert.equal(plan.arrived,false);assert.ok(plan.path.length>0);
+ assert.ok(plan.path.every(q=>water.cell(b,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2]))?.wet===false));
+ assert.equal(water.validRoute(b,plan.path,plan.path.at(-1)),true);
+});
 test('waterlogged solid blocks and bubble columns are not treated as harmless aquatic plants',()=>{
  const {b}=fixture(),at=b.blockAt;b.blockAt=p=>Math.floor(p.x)===4&&Math.floor(p.y)===63?{...at(p),name:'oak_leaves',getProperties:()=>({waterlogged:true})}:at(p);
  assert.equal(water.cell(b,3,63,0),null);assert.equal(water.isWater(b.blockAt(new Vec3(4,63,0))),false);assert.equal(water.isWater({name:'bubble_column',boundingBox:'empty'}),false);

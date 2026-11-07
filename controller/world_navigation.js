@@ -133,7 +133,18 @@ class WorldNavigation{
    if(!planned.reached&&!planned.waiting_for_ground&&(unknown||planned.budget_exhausted&&standable(bot,Math.floor(target[0]),Math.round(target[1]),Math.floor(target[2])))&&planned.path.length>=4&&gain>=4){planned={...planned,reached:true,partial:true,path:planned.path.slice(0,12)};this.best=Infinity;}
    this.waterRoute=false;
    if(!planned.reached||planned.partial||bot.entity.isInWater){
-    const wet=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden,allowWater:true});
+    let wet=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden,allowWater:true});
+    const water=require('./water_navigation');
+    if(wet.reached&&!water.validRoute(bot,wet.path,target)&&bot.entity.onGround===true&&water.cell(bot,Math.floor(p.x),Math.round(p.y),Math.floor(p.z))?.wet===false){
+     // A short geometric route can require an overlong swim. A supported bank
+     // is valid transit even when dry-work footing rejects adjacent water.
+     // Try a bounded bank-only detour; keep every normal swim/current guard.
+     const cells=new Map(),bank=route(bot,target,radius,8192,true,{bounds,reversible:true,allowWater:true,forbidden:q=>{
+      const key=q.join(',');if(!cells.has(key))cells.set(key,!!water.cell(bot,...q)?.wet);
+      return forbidden(q)||cells.get(key);
+     }});
+     if(bank.reached||bank.budget_exhausted)wet=bank;
+    }
     if(wet.reached&&require('./water_navigation').validRoute(bot,wet.path,target)){planned=wet;this.waterRoute=true;}
     else if(!wet.reached&&(unknown||wet.budget_exhausted&&require('./water_navigation').cell(bot,Math.floor(target[0]),Math.round(target[1]),Math.floor(target[2]))?.wet===false)){
      // Home can be outside the loaded view, or a loaded bank can require
