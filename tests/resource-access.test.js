@@ -108,3 +108,25 @@ test('a server-rejected jump placement returns failure and releases jump control
  assert.equal(await access.jumpPlace(b,feet,b.heldItem),false);assert.equal(controls.jump,false);
  b.placeBlock=async()=>{throw Error('Unexpected connection error');};await assert.rejects(access.jumpPlace(b,feet,b.heldItem),/connection/);assert.equal(controls.jump,false);
 });
+
+
+test('a tracked dirt column that grows grass can recenter and descend without losing its task',async()=>{
+ const b=fixture(),q=new Vec3(0,64,0),state={column:[{position:q,name:'dirt'}],tree:[1,0]},motor={pause(){},lockLook(){}};
+ b.set(0,64,0,'grass_block');b.entity.position=new Vec3(.53,65,.5);
+ b.clearControlStates=()=>{};b.setControlState=()=>{};b.waitForTicks=async()=>{};
+ b.look=async(y,p)=>{b.entity.yaw=y;b.entity.pitch=p;};b.world={raycast:()=>({position:q})};b.canDigBlock=()=>true;
+ assert.equal(await access.recoverColumn(b,motor,state),true);
+ b.entity.position.x=.5;let removed=0;b.dig=async block=>{assert.equal(block.name,'grass_block');assert.deepEqual(block.position,q);removed++;b.set(0,64,0,'air');b.entity.position.y=64;};
+ assert.equal(await access.descend(b,motor,state),true);assert.equal(removed,1);assert.equal(state.column.length,0);assert.deepEqual(state.tree,[1,0]);
+});
+
+test('grass tolerance stays limited to the owned dirt cell and dry supported descent',async()=>{
+ for(const changed of ['stone','coarse_dirt','oak_planks']){
+  const b=fixture();b.entity.position=new Vec3(.5,65,.5);b.set(0,64,0,changed);
+  await assert.rejects(access.descend(b,{pause(){},lockLook(){}},{column:[{position:new Vec3(0,64,0),name:'dirt'}]}),/changed/);
+ }
+ const b=fixture(),state={column:[{position:new Vec3(0,64,0),name:'coarse_dirt'}]},motor={pause(){},lockLook(){}};
+ b.entity.position=new Vec3(.5,65,.5);b.set(0,64,0,'grass_block');await assert.rejects(access.descend(b,motor,state),/changed/);
+ state.column[0].name='dirt';b.set(1,64,0,'water');await assert.rejects(access.descend(b,motor,state),/changed/);
+ assert.equal(await access.recoverColumn(b,motor,{column:[]}),false);
+});

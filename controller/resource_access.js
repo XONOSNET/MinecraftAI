@@ -74,11 +74,17 @@ async function stabilize(bot,motor,feet){
   return true;
  });
 }
+function trackedSupport(block,entry){
+ // Grass can spread onto this exact, server-confirmed dirt support while the
+ // bot harvests. That surface change does not authorize a different column.
+ return !!block&&block.boundingBox==='block'&&!block.getProperties?.().waterlogged&&
+  (block.name===entry.name||entry.name==='dirt'&&block.name==='grass_block');
+}
 async function recoverColumn(bot,motor,state){
  const entry=state.column?.at(-1),p=bot.entity.position;if(!entry)return false;
  const feet=entry.position.offset(0,1,0),support=bot.blockAt(entry.position);
  // Recovery is local to the exact tracked support, never a jump across a gap.
- if(!bot.entity.onGround||Math.abs(p.y-feet.y)>.15||!p.floored().equals(feet)||support?.name!==entry.name)return false;
+ if(!bot.entity.onGround||Math.abs(p.y-feet.y)>.15||!p.floored().equals(feet)||!trackedSupport(support,entry))return false;
  return stabilize(bot,motor,feet);
 }
 async function jumpPlace(bot,position,item){
@@ -129,7 +135,7 @@ async function descend(bot,motor,state){
  // Never mine a natural support, another bot's block, or a column left behind.
  if(Math.hypot(p.x-q.x-.5,p.z-q.z-.5)>.2||Math.abs(p.y-q.y-1)>.15||!bot.entity.onGround)throw Error('Temporary column descent needs a centered, settled stance');
  const b=bot.blockAt(q),floor=bot.blockAt(q.offset(0,-1,0));
- if(b?.name!==entry.name||floor?.boundingBox!=='block'||!dry(bot,q))throw Error('Temporary column changed; cannot descend safely: '+JSON.stringify({support:q.toArray(),expected:entry.name,actual:b?.name||'unloaded',floor:floor?.name||'unloaded',neighbors:[[0,0,0],[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]].map(d=>bot.blockAt(q.offset(...d))?.name||'unloaded')}));
+ if(!trackedSupport(b,entry)||floor?.boundingBox!=='block'||!dry(bot,q))throw Error('Temporary column changed; cannot descend safely: '+JSON.stringify({support:q.toArray(),expected:entry.name,actual:b?.name||'unloaded',floor:floor?.name||'unloaded',neighbors:[[0,0,0],[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]].map(d=>bot.blockAt(q.offset(...d))?.name||'unloaded')}));
  motor.lockLook(true);let removed;try{removed=await dig(bot,b);}finally{motor.lockLook(false);}
  if(!removed){
   // Keep the exact tracked support and retry after the next settled ticks.
