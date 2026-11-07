@@ -2,6 +2,8 @@
 
 Local research prototype for eight configurable neural agents in one persistent Paper survival world. Nine curriculum tracks cover navigation and bounded survival foundations in elevated practice arenas. Normal world survival remains enabled. This is an initial learning experiment, not a complete autonomous survival player.
 
+This project is 100% stand-alone and requires no third-party minecraft plugins to work. There is also no client-side mod.
+
 ## Run
 
 From PowerShell in this directory:
