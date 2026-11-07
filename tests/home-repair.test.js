@@ -81,6 +81,20 @@ test('damaged homes are not eligible retreat shelters',()=>{
  assert.equal(require('../controller/first_night').priority(f.b,f.t,{first_night:{hostiles:true}}).kind,'seek cover');
 });
 
+test('an entrance-only crater starts real backfill even when the house shell and door remain intact',async()=>{
+ const f=fixture();f.items.dirt=2;
+ const holes=[new Vec3(0,63,-4),new Vec3(0,62,-4)];for(const p of holes)f.set(p,'air');
+ const damage=repair.inspect(f.t,f.b);
+ assert.equal(damage.unsafe,true);assert.equal(damage.missing.length,2);
+ assert.ok(damage.missing.every(q=>q.kind==='foundation'&&q.z===-4));
+ const planks=f.items.oak_planks;
+ for(let i=0;i<30;i++){await repair.tick(f.t,f.b,f.motor,f.state);if(!f.t.homeRepair)break;}
+ assert.equal(f.t.homeRepair,null);assert.equal(f.t.phase,'night_scout');
+ for(const p of holes)assert.equal(f.b.blockAt(p).name,'dirt');
+ assert.equal(f.items.dirt,0);assert.equal(f.items.oak_planks,planks);
+ assert.equal(repair.inspect(f.t,f.b).unsafe,false);assert.deepEqual(f.t.milestones,['hut']);
+});
+
 test('a bot moves off a damaged work cell before replacing it and checks both halves of a bed',()=>{
  const f=fixture(),q={x:0,y:64,z:0,kind:'chest'};assert.equal(repair.safe(f.t,f.b,q),false);assert.equal(repair.safe(f.t,f.b,q,true),true);
  const g=repair.stance(f.t,f.b,q,f.state);assert.ok(g);assert.ok(Math.floor(g[0])!==q.x||Math.floor(g[2])!==q.z);

@@ -16,7 +16,8 @@ function matches(b,q){
 }
 function expected(t,b){
  const h=t.plot,all=[];
- if(b&&(t.homeRepair||t.homeDamage?.unsafe))all.push(...terrain.plan(t,b));
+ // Entrance craters can strand a returning bot while every house block is intact.
+ if(b)all.push(...terrain.plan(t,b));
  all.push(...house.blueprint(h).map(q=>({...q,kind:q.table?'crafting_table':'planks',structural:true})));
  all.push({x:h.x,y:h.y,z:h.z-3,kind:'door',structural:true});
  for(const [milestone,key,kind] of [['chest','chest','chest'],['furnace','furnace','furnace'],['bed_home','bed','bed']])if(t.milestones.includes(milestone)){const p=house.point(h,key);all.push({x:p.x,y:p.y,z:p.z,kind});}
