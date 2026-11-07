@@ -36,3 +36,28 @@ test('carried logs are crafted before requesting wood and complete houses need n
  assert.equal(await supply.tick(t,b,motor,state),false);
  t.requiredWood=()=>0;items.splice(0);assert.equal(await supply.tick(t,b,motor,state),false);
 });
+
+
+test('resumed construction crafts and restores its missing workbench before ordinary wall placement',async ctx=>{
+ const f=fixture(),table=require('../controller/house').point(f.t.plot,'table');
+ f.cells.delete(table.toString());f.items.push({name:'birch_planks',count:16});
+ f.t.craft=async(_b,name,n,workbench)=>{assert.equal(name,'crafting_table');assert.equal(n,1);assert.equal(workbench,null);f.items.find(i=>i.name==='birch_planks').count-=4;f.items.push({name,count:1});};
+ let placements=0;ctx.mock.method(require('../controller/station_placement'),'place',async(_t,_b,_m,q,name)=>{
+  assert.equal(name,'crafting_table');assert.deepEqual(q,table);placements++;f.cells.set(q.toString(),name);return true;
+ });
+ const original=[...f.cells.entries()];
+ assert.equal(await supply.tick(f.t,f.b,f.motor,f.state),true);assert.equal(placements,0);
+ // A shelter interruption retains the pending table and construction phase.
+ f.t.phase='night_burrow';assert.equal(await supply.tick(f.t,f.b,f.motor,f.state),false);
+ f.t.phase='build';assert.equal(await supply.tick(f.t,f.b,f.motor,f.state),true);assert.equal(placements,1);
+ assert.equal(await supply.tick(f.t,f.b,f.motor,f.state),false);
+ assert.equal(f.t.phase,'build');assert.deepEqual([...f.cells.entries()].filter(([k])=>k!==table.toString()),original);
+});
+
+test('a carried table is placed even when no more wood is needed and unrelated table-slot blocks are preserved',async ctx=>{
+ const f=fixture(),table=require('../controller/house').point(f.t.plot,'table');f.t.requiredWood=()=>0;
+ f.cells.delete(table.toString());f.items.push({name:'crafting_table',count:1});
+ let calls=0;ctx.mock.method(require('../controller/station_placement'),'place',async()=>{calls++;return false;});
+ assert.equal(await supply.tick(f.t,f.b,f.motor,f.state),true);assert.equal(calls,1);
+ f.cells.set(table.toString(),'birch_planks');assert.equal(await supply.tick(f.t,f.b,f.motor,f.state),false);assert.equal(calls,1);assert.equal(f.cells.get(table.toString()),'birch_planks');
+});
