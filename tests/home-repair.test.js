@@ -95,6 +95,18 @@ test('an entrance-only crater starts real backfill even when the house shell and
  assert.equal(repair.inspect(f.t,f.b).unsafe,false);assert.deepEqual(f.t.milestones,['hut']);
 });
 
+test('ordinary entrance step-downs do not mark an intact refuge unsafe or start repairs',async()=>{
+ const f=fixture();
+ f.set(new Vec3(0,63,-5),'air');f.set(new Vec3(1,63,-5),'air');
+ assert.equal(repair.inspect(f.t,f.b).unsafe,false);assert.equal(await repair.tick(f.t,f.b,f.motor,f.state),false);
+ // Two successive one-block descents are still a walkable slope.
+ f.set(new Vec3(0,63,-4),'air');f.set(new Vec3(0,62,-5),'air');
+ assert.equal(repair.inspect(f.t,f.b).missing.length,0);assert.equal(await repair.tick(f.t,f.b,f.motor,f.state),false);
+ assert.equal(f.t.phase,'night_scout');assert.equal(f.t.homeRepair,undefined);
+ // A two-block drop on either walking step still requires backfill.
+ f.set(new Vec3(0,61,-5),'air');assert.equal(repair.inspect(f.t,f.b).unsafe,true);
+});
+
 test('a bot moves off a damaged work cell before replacing it and checks both halves of a bed',()=>{
  const f=fixture(),q={x:0,y:64,z:0,kind:'chest'};assert.equal(repair.safe(f.t,f.b,q),false);assert.equal(repair.safe(f.t,f.b,q,true),true);
  const g=repair.stance(f.t,f.b,q,f.state);assert.ok(g);assert.ok(Math.floor(g[0])!==q.x||Math.floor(g[2])!==q.z);

@@ -24,9 +24,16 @@ function plan(t,b){
  }
  return result;
 }
+function entranceDrop(t,b){
+ const h=t.plot;
+ const depth=dz=>{let n=0;for(let d=1;d<=3;d++){if(!air(b.blockAt(new Vec3(h.x,h.y-d,h.z+dz))))break;n++;}return n;};
+ const near=depth(-4),far=depth(-5);
+ // One downward block per walking step is ordinary terrain, not damage.
+ return near>1||far>near+1;
+}
 function available(b,reserve=0){const items=b.inventory.items();return items.filter(i=>FILL.includes(i.name)&&i.name!=='cobblestone').reduce((s,i)=>s+i.count,0)+Math.max(0,items.filter(i=>i.name==='cobblestone').reduce((s,i)=>s+i.count,0)-reserve);}
 function material(b,reserve=0){
  for(const name of FILL){const n=b.inventory.items().filter(i=>i.name===name).reduce((s,i)=>s+i.count,0);if(n>(name==='cobblestone'?reserve:0))return name;}
  return b.inventory.items().find(i=>i.name.endsWith('_planks'))?.name;
 }
-module.exports={plan,solid,owned,available,material,FILL};
+module.exports={plan,solid,owned,available,material,FILL,entranceDrop};

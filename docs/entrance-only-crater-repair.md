@@ -7,7 +7,8 @@ only after another structural defect had already marked the house unsafe or
 started repair. An entrance crater alone could therefore go undetected while
 the returning bot became stranded below the doorway.
 
-Home inspection now includes the existing terrain plan independently. Missing
+Home inspection now includes the existing terrain plan when the approach has
+a drop greater than one block per walking step, independently of shell damage. Missing
 supported approach cells can start real backfill even if the walls, floor and
 door remain intact. This uses the same narrow owned footprint, bottom-up
 placement and carried-material budget; fluids, unloaded ground, deep voids,
@@ -16,5 +17,13 @@ intact floors and other homes retain their existing protections.
 The regression leaves the entire house intact, removes two approach blocks,
 verifies that inspection finds the damage, repairs both cells using two carried
 dirt blocks and resumes the original lesson without consuming house planks or
-awarding extra milestones. All 670 JavaScript tests passed. Full survival
+awarding extra milestones. All 671 JavaScript tests passed. Full survival
 comparisons are still needed to assess completion-rate effects.
+
+The first activation change also classified normal one-block slopes as unsafe.
+A native read-only inspection of SolarSwift's stopped house found its enclosure
+and door intact, with only two one-block-low outdoor cells. The corrected
+detector permits those cells and successive single-block descents. Repeating
+that inspection reports no missing parts. A regression checks both the valid
+slope and a larger drop on either approach step. Diagnostic accounts disconnected
+without changing terrain or granting supplies.
