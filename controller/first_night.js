@@ -46,6 +46,7 @@ async function interrupt(t,b,motor,state,api,scan){
  if(p.kind==='seek cover'||p.kind==='retreat'&&shelterPolicy.wantsCover(b,state.world))n.shelterWatch=true;
  if(n.shelterWatch&&!shelterPolicy.danger(b))n.shelterWatch=false;
  if(p.kind==='defend'&&await require('./survival_defense').tick(t,b,motor,state,api,scan))return true;
+ if(await require('./mine_cover_exit').tick(t,b,motor,state,api,scan,require('./tasks'),p.kind))return true;
  if(await require('./emergency_burrow').tick(t,b,motor,state,api,scan,require('./tasks')))return true;
  if(p.kind==='seek cover'){
   // Retry verified refuge selection; never fall through to harvesting or combat.
