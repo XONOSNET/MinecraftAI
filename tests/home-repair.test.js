@@ -194,3 +194,14 @@ test('backfill budgeting uses carried rubble while reserving furnace recipe ston
  delete f.items.dirt;f.items.cobblestone=8;
  assert.equal(require('../controller/home_terrain').material(f.b,8),'oak_planks');
 });
+
+
+for(const position of [[4.5,68,.5],[13.5,64,.5]])test('loaded damaged home repairs from a checked nearby stance at '+position.join(','),async ctx=>{
+ const f=fixture(),q=new Vec3(3,66,0);f.set(q,'air');f.items.oak_planks=0;
+ await repair.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.homeRepair.stage,'wood');
+ f.items.oak_planks=4;f.b.entity.position=new Vec3(...position);if(position[1]===68)f.set(new Vec3(4,67,0),'stone');
+ await repair.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.phase,'home_repair');
+ ctx.mock.method(require('../controller/world_navigation'),'homeApproach',()=>assert.fail('Repair must not demand the damaged entrance first'));
+ for(let i=0;i<15&&f.t.homeRepair;i++)await repair.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.homeRepair,null);assert.equal(f.t.phase,'night_scout');assert.equal(f.b.blockAt(q).name,'oak_planks');assert.equal(f.items.oak_planks,3);assert.deepEqual(f.t.milestones,['hut']);
+});
