@@ -6,7 +6,7 @@ async function admin(data){for(let i=0;i<12;i++){const r=await fetch('http://127
 async function commands(list){await admin({action:'op'});await wait(1000);try{for(const c of list){b.chat('/'+c);await wait(700);}}finally{await admin({action:'deop'});await wait(500);}}
 (async()=>{try{
  await once(b,'spawn');await wait(1500);await admin({action:'gamemode',gamemode:'creative'});await admin({action:'teleport-coordinates',x:-1399.5,y:214,z:-1399.5});await wait(1600);
- for(let x=-1403;x<=-1397;x++)for(let z=-1403;z<=-1397;z++)for(let y=209;y<=213;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air','fixture starts empty');
+ for(let x=-1403;x<=-1397;x++)for(let z=-1403;z<=-1397;z++)for(let y=209;y<=214;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air','fixture starts empty');
  changed=true;
  const motor=require('../controller/locomotion').createMotor(b,{move:true,jump:true,turn:true}),physics=()=>motor.tick();b.on('physicsTick',physics);
  async function crossing(goal,gap){
@@ -22,11 +22,13 @@ async function commands(list){await admin({action:'op'});await wait(1000);try{fo
  try{
   await commands(['fill -1403 210 -1403 -1397 210 -1397 dirt','setblock -1400 211 -1400 stone','tp @s -1400.5 211 -1399.5 -90 0']);await admin({action:'gamemode',gamemode:'survival'});await b.waitForTicks(5);
   report.step=await crossing([-1399.5,212.1,-1399.5],false);
-  await admin({action:'gamemode',gamemode:'creative'});await commands(['setblock -1400 211 -1400 air','fill -1401 210 -1403 -1401 210 -1397 air','tp @s -1401.5 211 -1399.5 -90 0']);await admin({action:'gamemode',gamemode:'survival'});await b.waitForTicks(5);
-  report.gap=await crossing([-1399.5,211.1,-1399.5],true);assert.equal(b.health,20);report.passed=true;
+  await admin({action:'gamemode',gamemode:'creative'});await commands(['setblock -1400 211 -1400 air','fill -1401 210 -1403 -1401 210 -1397 air','tp @s -1401.88 211 -1399.5 -90 0']);await admin({action:'gamemode',gamemode:'survival'});await b.waitForTicks(5);
+  report.gap=await crossing([-1399.5,211.1,-1399.5],true);assert.equal(b.health,20);
+  await admin({action:'gamemode',gamemode:'creative'});await commands(['setblock -1401 214 -1400 oak_leaves[persistent=true]']);
+  report.covered_gap_rejected=!require('../controller/checked_jump').gap(b,[-1402,211,-1400],[-1400,211,-1400]);assert.equal(report.covered_gap_rejected,true);report.passed=true;
  }finally{motor.pause();b.removeListener('physicsTick',physics);}
  }catch(error){report.error=error.stack;process.exitCode=1;}finally{
  b.clearControlStates();await admin({action:'gamemode',gamemode:'creative'});
- if(changed){await commands(['fill -1403 209 -1403 -1397 213 -1397 air','kill @e[type=item,x=-1403,y=-64,z=-1403,dx=6,dy=384,dz=6]','clear @s']);for(let x=-1403;x<=-1397;x++)for(let z=-1403;z<=-1397;z++)for(let y=209;y<=213;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air');}
+ if(changed){await commands(['fill -1403 209 -1403 -1397 214 -1397 air','kill @e[type=item,x=-1403,y=-64,z=-1403,dx=6,dy=384,dz=6]','clear @s']);for(let x=-1403;x<=-1397;x++)for(let z=-1403;z<=-1397;z++)for(let y=209;y<=214;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air');}
  await admin({action:'deop'});report.cleaned=true;b.quit();fs.writeFileSync('logs/movement-native.json',JSON.stringify(report,null,2));console.log(JSON.stringify(report));
  }})().then(()=>setTimeout(()=>process.exit(process.exitCode||0),200)).catch(error=>{console.error(error);b.quit();process.exit(1)});

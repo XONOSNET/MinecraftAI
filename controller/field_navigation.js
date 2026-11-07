@@ -60,7 +60,7 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
   for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])for(const dy of [0,1,-1]){
    const next=[n[0]+dx,n[1]+dy,n[2]+dz];
    if(options.bounds&&(next[0]+.5<=options.bounds[0]+1||next[0]+.5>=options.bounds[1]-2||next[2]+.5<=options.bounds[2]+1||next[2]+.5>=options.bounds[3]-2))continue;
-   if(options.forbidden?.(next))continue;
+   if(options.forbidden?.(next)||options.forbiddenEdge?.(n,next))continue;
    if(Math.abs(next[0]-start[0])>radius||Math.abs(next[2]-start[2])>radius||!stand(...next))continue;
    if(others.length&&!space.stepClear(key(n)===key(start)&&!escape?p:{x:n[0]+.5,y:n[1],z:n[2]+.5},{x:next[0]+.5,y:next[1],z:next[2]+.5},others,require('./behavior').forBot(bot).player_clearance))continue;
    // An ascending jump also needs clearance above the departure block.
@@ -77,7 +77,7 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
   }
   if(options.allowGaps&&!options.allowWater)for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
    const next=[n[0]+dx*2,n[1],n[2]+dz*2];
-   if(Math.abs(next[0]-start[0])>radius||Math.abs(next[2]-start[2])>radius||!require('./checked_jump').gap(bot,n,next,options))continue;
+   if(options.forbiddenEdge?.(n,next)||Math.abs(next[0]-start[0])>radius||Math.abs(next[2]-start[2])>radius||!require('./checked_jump').gap(bot,n,next,options))continue;
    const k=key(next),ng=g+2.8;if(ng<(costs.get(k)??Infinity)){costs.set(k,ng);parent.set(k,n);jumps.set(k,n);push({n:next,g:ng,f:ng+distance(next)});}
   }
  }

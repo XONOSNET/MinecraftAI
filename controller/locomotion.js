@@ -67,7 +67,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    if(jumpLease){
     // A grounded takeoff can still be cancelled; once airborne keep the
     // checked forward trajectory until landing rather than stuttering mid-jump.
-    if(bot.entity.onGround===true&&!jumpLease.airborne&&![0,3].includes(action)){jumpLease=null;}
+    if(bot.entity.onGround===true&&!jumpLease.airborne&&![0,3].includes(action)&&!(jumpLease.approaching&&[1,2].includes(action))){jumpLease=null;}
     else return jumpLease.label;
    }
    const jumpGoal=task?.waypoints?.[0],p0=bot.entity?.position;
@@ -75,8 +75,9 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
     const from=[Math.floor(p0.x),Math.round(p0.y),Math.floor(p0.z)],to=[Math.floor(jumpGoal[0]),Math.round(jumpGoal[1]),Math.floor(jumpGoal[2])];
     const gap=!!task.gap_jump&&require('./checked_jump').gap(bot,from,to,{bounds:task.bounds});
     const step=!!task.auto_step&&Math.hypot(jumpGoal[0]-p0.x,jumpGoal[2]-p0.z)<1.35&&require('./checked_jump').step(bot,jumpGoal);
+    if((gap||step)&&require('./jump_attempts').blocked(bot,from,to,clock())){clear();return 'Repeated jump failed; waiting for a different checked route';}
     if((gap||step)&&space.clearOfPlayers(bot,new Vec3(...jumpGoal),1)){
-     recovery.reset();doorway.reset();strafe.reset();jumpLease={goal:jumpGoal,yaw:bot.entity.yaw+angle,until:clock()+1500,airborne:false,gap,label:gap?'Jumping the checked one-block gap':'Stepping up while holding forward'};paused=false;return jumpLease.label;
+     recovery.reset();doorway.reset();strafe.reset();jumpLease={from,goal:jumpGoal,yaw:bot.entity.yaw+angle,until:clock()+(gap?2000:1500),airborne:false,gap,approaching:gap,label:gap?'Approaching takeoff for the checked one-block gap':'Stepping up while holding forward'};paused=false;return jumpLease.label;
     }
    }
    if(task?.air_escape&&task.waypoints?.length){recovery.reset();doorway.reset();strafe.reset();plan={airGoal:task.waypoints[0],label:'Swimming to breathable space'};expires=clock()+1500;paused=false;return plan.label;}
@@ -173,7 +174,26 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    if(legacy||!bot.entity)return;
    if(jumpLease){
     const j=jumpLease,p=bot.entity.position;
-    if(clock()>=j.until||j.airborne&&bot.entity.onGround===true){jumpLease=null;plan=null;paused=true;pauseMotion(bot,permissions);return;}
+    if(clock()>=j.until||j.airborne&&bot.entity.onGround===true){
+     const landed=bot.entity.onGround===true&&Math.hypot(p.x-j.goal[0],p.z-j.goal[2])<.65&&Math.abs(p.y-j.goal[1])<.6;
+     require('./jump_attempts').finish(bot,j.from,j.goal,landed,clock());
+     jumpLease=null;plan=null;paused=true;pauseMotion(bot,permissions);return;}
+    if(j.approaching&&bot.entity.onGround===true){
+     const to=[Math.floor(j.goal[0]),Math.round(j.goal[1]),Math.floor(j.goal[2])];
+     if(!require('./checked_jump').gap(bot,j.from,to)){
+      require('./jump_attempts').finish(bot,j.from,j.goal,false,clock());clear();return;
+     }
+     const dx=Math.sign(to[0]-j.from[0]),dz=Math.sign(to[2]-j.from[2]);
+     const x=j.from[0]+.5+dx*.22,z=j.from[2]+.5+dz*.22,d=Math.hypot(x-p.x,z-p.z);
+     const along=(p.x-j.from[0]-.5)*dx+(p.z-j.from[2]-.5)*dz,lateral=Math.abs((p.x-j.from[0]-.5)*dz-(p.z-j.from[2]-.5)*dx);
+     for(const k of ['back','left','right','sneak','sprint','jump'])bot.setControlState(k,false);
+     if(d>.08&&!(along>=.15&&lateral<.12)){
+      const yaw=Math.atan2(-(x-p.x),-(z-p.z));
+      bot.setControlState('forward',Math.abs(wrap(yaw-bot.entity.yaw))<.2);
+      if(permissions.turn&&bot.look)Promise.resolve(bot.look(yaw,0,true)).catch(()=>clear());return;
+     }
+     j.approaching=false;j.until=clock()+1500;j.yaw=Math.atan2(-(j.goal[0]-p.x),-(j.goal[2]-p.z));j.label='Jumping the checked one-block gap';
+    }
     if(bot.entity.onGround===false)j.airborne=true;
     for(const k of ['back','left','right','sneak'])bot.setControlState(k,false);
     const along=-(j.goal[0]-p.x)*Math.sin(j.yaw)-(j.goal[2]-p.z)*Math.cos(j.yaw);

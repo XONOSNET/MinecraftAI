@@ -7,7 +7,7 @@ function gap(b,from,to,{bounds,forbidden}={}){
  const nav=require('./field_navigation');if(!nav.standable(b,...from)||!nav.standable(b,...to))return false;
  for(const q of [from,middle,to]){
   if(bounds&&(q[0]+.5<=bounds[0]+1||q[0]+.5>=bounds[1]-2||q[2]+.5<=bounds[2]+1||q[2]+.5>=bounds[3]-2)||forbidden?.(q))return false;
-  for(let y=q[1];y<=q[1]+2;y++)if(!air(b.blockAt(new Vec3(q[0],y,q[2]))))return false;
+  for(let y=q[1];y<=q[1]+3;y++)if(!air(b.blockAt(new Vec3(q[0],y,q[2]))))return false;
  }
  return space.stepClear(new Vec3(from[0]+.5,from[1],from[2]+.5),new Vec3(to[0]+.5,to[1],to[2]+.5),space.players(b),1);
 }

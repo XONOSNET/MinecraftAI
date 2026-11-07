@@ -97,6 +97,7 @@ class WorldNavigation{
   const permitted=plots.filter(h=>samePlot(h,this.exitPlot)||privatePlotCell(occupied,h)||samePlot(h,plot)&&(constructionWork||insideHome(new Vec3(...goal),h)));
   const forbidden=q=>plots.some(h=>!permitted.some(a=>samePlot(a,h))&&privatePlotCell(q,h));
   if(key!==this.destination){this.destination=key;this.path=[];this.best=Infinity;this.progressAt=now;this.lastPlan=-Infinity;this.blocked=false;}
+  const forbiddenEdge=(a,c)=>require('./jump_attempts').blocked(bot,a,c,now);
   const previous=this.lastPosition;this.lastPosition=[p.x,p.y,p.z];
   // A waypoint crossed in midair is still the landing target. Advancing or
   // replanning before touchdown can replace it with an unsupported start cell.
@@ -109,7 +110,8 @@ class WorldNavigation{
   }
   const corridor=[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,3)];
   const offRoute=this.path.length&&corridorDistance(p,corridor)>.85;
-  const invalid=this.path.slice(0,3).some(q=>forbidden([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])])||!(this.waterRoute?require('./water_navigation').cell(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])):standable(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2]))));
+  const failedCrossing=this.path.slice(0,3).some((q,i)=>forbiddenEdge(i?this.path[i-1]:[p.x,p.y,p.z],q));
+  const invalid=failedCrossing||this.path.slice(0,3).some(q=>forbidden([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])])||!(this.waterRoute?require('./water_navigation').cell(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])):standable(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2]))));
   // Keep a valid route while making progress. Periodic shortest-path swaps
   // around moving neighbors were sending bots between opposite house aisles.
   const due=now-this.lastPlan>=forBot(bot).route_replan_ms&&(!this.path.length||this.blocked||now-this.progressAt>2500);
@@ -122,8 +124,8 @@ class WorldNavigation{
    // The expedition region is wider than the old 96-cell search radius.
    // Keep room beyond a distant goal for the last turn around a hill/house.
    const radius=Math.min(192,Math.max(96,Math.ceil(Math.hypot(target[0]-p.x,target[2]-p.z))+16));
-   let planned=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden,allowGaps:true});this.lastPlan=now;this.anchor=[p.x,p.y,p.z];
-   if(!planned.reached&&!planned.waiting_for_ground&&memory){const remembered=memory.detour(bot,target,bounds);if(remembered&&!remembered.some(q=>forbidden([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])]))){planned={...planned,reached:true,path:remembered};memory.replans++;}}
+   let planned=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden,forbiddenEdge,allowGaps:true});this.lastPlan=now;this.anchor=[p.x,p.y,p.z];
+   if(!planned.reached&&!planned.waiting_for_ground&&memory){const remembered=memory.detour(bot,target,bounds);if(remembered&&!remembered.some((q,i)=>forbiddenEdge(i?remembered[i-1]:[p.x,p.y,p.z],q)||forbidden([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])]))){planned={...planned,reached:true,path:remembered};memory.replans++;}}
    // A distant remembered home can be outside the client's loaded chunks.
    // Advance a short, actually checked prefix toward that unknown destination
    // instead of discarding the entire valid route. Solid blocked goals never
@@ -133,17 +135,17 @@ class WorldNavigation{
    if(!planned.reached&&!planned.waiting_for_ground&&(unknown||planned.budget_exhausted&&standable(bot,Math.floor(target[0]),Math.round(target[1]),Math.floor(target[2])))&&planned.path.length>=4&&gain>=4){planned={...planned,reached:true,partial:true,path:planned.path.slice(0,12)};this.best=Infinity;}
    this.waterRoute=false;
    if(!planned.reached||planned.partial||bot.entity.isInWater){
-    let wet=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden,allowWater:true});
+    let wet=route(bot,target,radius,8192,true,{bounds,reversible:true,forbidden,forbiddenEdge,allowWater:true});
     const water=require('./water_navigation');
     if(wet.reached&&!water.validRoute(bot,wet.path,target)){
-     const bounded=route(bot,target,radius,16384,true,{bounds,reversible:true,forbidden,allowWater:true,boundedWater:true});
+     const bounded=route(bot,target,radius,16384,true,{bounds,reversible:true,forbidden,forbiddenEdge,allowWater:true,boundedWater:true});
      if(bounded.reached&&water.validRoute(bot,bounded.path,target)||!bounded.reached&&bounded.budget_exhausted)wet=bounded;
     }
     if(wet.reached&&!water.validRoute(bot,wet.path,target)&&bot.entity.onGround===true&&water.cell(bot,Math.floor(p.x),Math.round(p.y),Math.floor(p.z))?.wet===false){
      // A short geometric route can require an overlong swim. A supported bank
      // is valid transit even when dry-work footing rejects adjacent water.
      // Try a bounded bank-only detour; keep every normal swim/current guard.
-     const cells=new Map(),bank=route(bot,target,radius,8192,true,{bounds,reversible:true,allowWater:true,forbidden:q=>{
+     const cells=new Map(),bank=route(bot,target,radius,8192,true,{bounds,reversible:true,forbiddenEdge,allowWater:true,forbidden:q=>{
       const key=q.join(',');if(!cells.has(key))cells.set(key,!!water.cell(bot,...q)?.wet);
       return forbidden(q)||cells.get(key);
      }});
@@ -182,6 +184,7 @@ class WorldNavigation{
   this.status={home,target:[...target],partial_route:!!this.partial,route_intent:foreign?'Exit neighboring house':plot&&insideHome(new Vec3(...goal),plot)?'Return to own house':'Travel outside private houses',state:this.waiting&&this.blocked?'landing':this.blocked?'blocked':arrived?'arrived':'following',height_delta:Math.round(((home||target)[1]-p.y)*10)/10,
    water_route:!!this.waterRoute,route_complete:!this.blocked,remaining_blocks:Math.round(remaining*10)/10,waypoints:this.path.length,no_progress_seconds:Math.floor(idle),reset_seconds:Math.max(0,Math.ceil(timeout-idle)),expanded:this.expanded||0};
   if(idle>=timeout)throw Error('No route progress for '+timeout+' seconds; ended this attempt instead of circling.');
+  this.status.jump_recovery=require('./jump_attempts').report(bot,now);
   this.status.smoothed_waypoints=skipped>0?skipped:0;
   this.status.water_recovery=swim?.goal?'Checked shore escape after stationary swimming':null;
   return {water_route:!!this.waterRoute,path:this.path,cue:smooth||travelCue(p,this.path)||target,corridor:[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,5)],blocked:this.blocked,arrived,message:this.reason,portal};
