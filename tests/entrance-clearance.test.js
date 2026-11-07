@@ -57,3 +57,22 @@ test('neighbor plots, fluid-adjacent leaves, unrelated destinations and blocked 
  // A refused approach remains a navigation failure, never a fabricated clear.
  assert.equal(await entrance.tick(t,b,motor,[.5,64.1,-4.5],state,async()=>false),false);
 });
+
+
+test('outdoor lighting clears its bounded entrance canopy before placing and verifying the torch',async ctx=>{
+ const f=fixture(),canopy=require('../controller/lighting_canopy'),lighting=require('../controller/house_lighting'),house=require('../controller/house');
+ f.t.phase='light_place';f.b.entity.position=new Vec3(.5,64,-3.5);f.b.entity.velocity=new Vec3(0,0,0);f.t.walk=f.walk;
+ const mount=house.torchMount(f.t.plot,'outdoor');
+ f.cells.set(mount.position.toString(),'spruce_leaves');f.cells.set(new Vec3(0,66,-4).toString(),'spruce_leaves');
+ const outside=new Vec3(2,66,-4),wood=new Vec3(1,65,-6);f.cells.set(outside.toString(),'spruce_leaves');f.cells.set(wood.toString(),'oak_planks');
+ ctx.mock.method(access,'dig',async(_b,block,{validate})=>{assert.equal(validate(block),true);assert.equal(block.name,'spruce_leaves');f.cells.set(block.position.toString(),'air');return true;});
+ for(let i=0;i<2;i++)assert.equal(await canopy.tick(f.t,f.b,f.motor,f.state),true);
+ assert.equal(await canopy.tick(f.t,f.b,f.motor,f.state),false);
+ assert.equal(f.cells.get(outside.toString()),'spruce_leaves');assert.equal(f.cells.get(wood.toString()),'oak_planks');assert.equal(f.t.phase,'light_place');
+ const inv=require('../controller/inventory_sync');ctx.mock.method(inv,'sync',async()=>{});ctx.mock.method(inv,'equip',async(_b,name)=>assert.equal(name,'torch'));
+ const original=f.b.blockAt;f.b.blockAt=p=>{const block=original(p);return {...block,getProperties:()=>({facing:'north'})};};
+ f.b.placeBlock=async(support,face)=>{assert.deepEqual(support.position,mount.support);assert.deepEqual(face,mount.face);f.cells.set(mount.position.toString(),'wall_torch');};
+ await lighting.place(f.b,f.t.plot,'outdoor',f.t);assert.equal(lighting.installed(f.b,f.t.plot,'outdoor'),true);
+ assert.equal(await canopy.tick(f.t,f.b,f.motor,f.state),false);
+ f.t.phase='night_burrow';assert.equal(await canopy.tick(f.t,f.b,f.motor,f.state),false);
+});
