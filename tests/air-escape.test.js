@@ -19,3 +19,20 @@ test('emergency submerged movement overrides work without completing its interru
 test('underwater escape holds forward beneath a roof while keeping buoyancy',()=>{
  const f=fixture();f.b.entity.yaw=-Math.PI/2;assert.equal(air.drive(f.b,[1.5,61.1,.5],{move:true,jump:true,turn:true}),true);assert.equal(f.controls.forward,true);assert.equal(f.controls.jump,true);
 });
+
+
+test('a flowing-water boundary keeps sensed underwater buoyancy without authorizing travel through currents',()=>{
+ const f=fixture(),original=f.b.blockAt;f.b.entity.isInWater=false;
+ f.b.blockAt=p=>{const v=original(p);return v.name==='water'?{...v,getProperties:()=>({level:8})}:v;};
+ const t={phase:'gather',campPlots:[]},commands=[],motor={command:(action,task)=>commands.push({action,task})};
+ assert.equal(air.plan(f.b,{bounds:f.state.world.bounds}),null);
+ assert.equal(air.tick(t,f.b,motor,f.state),true);
+ assert.equal(commands[0].task.air_escape,true);assert.equal(commands[0].task.water_route,undefined);
+ const goal=commands[0].task.waypoints[0];assert.equal(goal[0],f.b.entity.position.x);assert.equal(goal[2],f.b.entity.position.z);
+ assert.equal(air.drive(f.b,goal,{move:true,jump:true,turn:true}),false);
+ assert.equal(f.controls.forward,false);assert.equal(f.controls.jump,true);assert.equal(t.phase,'gather');
+ air.drive(f.b,goal,{move:true,jump:false,turn:true});assert.equal(f.controls.jump,false);
+ f.b.entity.position=new Vec3(2.5,62.2,.5);
+ air.drive(f.b,[2.5,63.2,.5],{move:true,jump:true,turn:true});assert.equal(f.controls.jump,false);
+ assert.equal(air.tick(t,f.b,motor,f.state),false);assert.equal(t.airEscape,null);
+});

@@ -34,7 +34,11 @@ function drive(b,goal,permissions){
  }
  const desired=Math.atan2(-(goal[0]-p.x),-(goal[2]-p.z)),angle=Math.atan2(Math.sin(desired-b.entity.yaw),Math.cos(desired-b.entity.yaw));
  for(const k of ['back','left','right','sneak','sprint'])b.setControlState(k,false);
- b.setControlState('forward',!!permissions.move&&safe&&d>.12&&Math.abs(angle)<.4);b.setControlState('jump',!!permissions.jump&&!!b.entity.isInWater);
+ b.setControlState('forward',!!permissions.move&&safe&&d>.12&&Math.abs(angle)<.4);
+ // The physics flag can briefly be false at a flowing-water boundary even
+ // while the sensed eye cell is underwater. Preserve buoyancy until breathing.
+ const submerged=water.isWater(b.blockAt(p.offset(0,b.entity.eyeHeight||1.62,0).floored()));
+ b.setControlState('jump',!!permissions.jump&&(!!b.entity.isInWater||submerged));
  if(permissions.turn&&d>.1)Promise.resolve(b.look(b.entity.yaw+Math.max(-.18,Math.min(.18,angle)),0,true)).catch(()=>{});
  return safe;
 }
@@ -46,7 +50,9 @@ function tick(t,b,motor,state){
  if(!s||!s.path?.length&&now-s.at>500||now-(s.progressAt||s.at)>2500||s.path?.some(q=>!cell(b,new Vec3(Math.floor(q[0]),Math.floor(q[1]),Math.floor(q[2]))))){s=t.airEscape={at:now,progressAt:now,anchor:p.clone(),path:plan(b,{bounds:state.world.bounds,plots:(t.campPlots||[]).filter(h=>h.x!==t.plot?.x||h.z!==t.plot?.z)})};}
  while(s.path?.length&&Math.hypot(s.path[0][0]-p.x,s.path[0][2]-p.z)<.4&&Math.abs(s.path[0][1]-p.y)<.4)s.path.shift();
  if(s.path?.length)motor.command(0,{kind:'expedition',air_escape:true,waypoints:[s.path[0]]},{},0);
- else motor.command(4,{kind:'expedition',water_route:true,waypoints:[[p.x,p.y,p.z]]},{},0);
+ // No complete air route does not mean the bot has reached surface water.
+ // Hold position and buoyancy through the submerged driver while replanning.
+ else motor.command(0,{kind:'expedition',air_escape:true,waypoints:[[p.x,p.y+1,p.z]]},{},0);
  t.navigationActive=true;t.message=s.path?.length?'Emergency air escape: swimming to a checked breathable opening':'Emergency air escape: rising while checking for a loaded breathable opening';
  t.lastNavigation={phase:t.phase,position:p.toArray(),velocity:b.entity.velocity?.toArray?.(),in_water:true,oxygen:b.labOxygen,water_recovery:'Submerged air escape',target:s.path?.at(-1)||null,sampled_at:now};return true;
 }
