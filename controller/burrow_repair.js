@@ -66,6 +66,9 @@ async function repair(t,b,motor,s,problem,state){
   catch(error){if(!/Server refused|Server did not answer|blockUpdate.*timeout/i.test(error.message))throw error;}
  }finally{motor.lockLook(false);}
  if(b.blockAt(q)?.name!==item.name){r.status='Retrying a refused repair face';t.message='Emergency refuge repair: '+r.status;return true;}
+ // Confirmed placements are progress, not failed retries. Keep the original
+ // 15-second recovery deadline across every breach in this damaged shell.
+ r.attempts=0;
  s.shellRepairs=(s.shellRepairs||0)+1;t.lastProgress=s.progressAt=Date.now();r.status='Placed real dirt; rechecking refuge safety';t.message='Patched the damaged refuge shell; rechecking before waiting';return true;
 }
 module.exports={repair,safeCell,stable,pocketFace};

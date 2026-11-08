@@ -303,3 +303,20 @@ test('repair dirt recovery leaves a separate checked exit reserve when a cover d
  for(let i=0;i<5&&f.t.wilderness.burrow;i++)await burrow.tick(f.t,f.b,f.motor,f.state);
  assert.equal(f.t.wilderness.burrow,null);assert.equal(f.t.phase,'gather');assert.equal(f.b.entity.position.y,64);assert.deepEqual(f.t.milestones,[]);
 });
+
+
+test('successful shell patches do not exhaust the failed-placement budget or extend its deadline',async ctx=>{
+ const f=damagedRefuge(ctx,{carried:8});let now=Date.now();ctx.mock.method(Date,'now',()=>now);
+ const repair=require('../controller/burrow_repair'),problem=burrow.shellProblem(f.b,new Vec3(...f.s.feet),f.s);
+ const started=now;
+ for(let i=0;i<7;i++){
+  f.cells.set(f.gap.toString(),'air');now+=100;
+  assert.equal(await repair.repair(f.t,f.b,f.motor,f.s,problem,f.state),true);
+  assert.equal(f.b.blockAt(f.gap).name,'dirt');assert.equal(f.s.shellRecovery.attempts,0);
+  assert.equal(f.s.shellRecovery.at,started+100);
+ }
+ assert.equal(f.s.shellRepairs,7);assert.equal(f.dirt(),1);
+ f.cells.set(f.gap.toString(),'air');now=started+15101;
+ assert.equal(await repair.repair(f.t,f.b,f.motor,f.s,problem,f.state),false);
+ assert.equal(f.dirt(),1);assert.equal(f.s.shellRecovery.status,'Bounded repair exhausted');
+});
