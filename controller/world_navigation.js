@@ -101,7 +101,7 @@ class WorldNavigation{
   const previous=this.lastPosition;this.lastPosition=[p.x,p.y,p.z];
   // A waypoint crossed in midair is still the landing target. Advancing or
   // replanning before touchdown can replace it with an unsupported start cell.
-  while((bot.entity.onGround!==false||this.waterRoute&&(bot.entity.isInWater||this.path[0]&&Math.hypot(this.path[0][0]-p.x,this.path[0][2]-p.z)<.45))&&this.path.length&&Math.abs(this.path[0][1]-p.y)<(this.waterRoute?1.4:.4)){
+  while((bot.entity.onGround!==false||this.waterRoute&&(bot.entity.isInWater||this.path[0]&&Math.hypot(this.path[0][0]-p.x,this.path[0][2]-p.z)<.45))&&this.path.length&&Math.abs(this.path[0][1]-p.y)<(this.waterRoute&&require('./water_navigation').swimmingSegment(bot,this.path[0])?1.4:.4)){
    const q=this.path[0],near=Math.hypot(q[0]-p.x,q[2]-p.z)<(this.waterRoute ? .45 : q.centering ? .15 : .4);
    const crossed=previous&&Math.abs(previous[1]-p.y)<.4&&Math.hypot(previous[0]-p.x,previous[2]-p.z)<=4&&segmentDistance({x:q[0],z:q[2]},previous,[p.x,p.y,p.z])<.12;
    // Momentum can pass a landing center before the first grounded reply.
@@ -174,7 +174,7 @@ class WorldNavigation{
   }else this.replanned=false;
   // Replace tiny grid zigzags with a short, body-safe direct leg. Remove the
   // bypassed cells so the follower never turns back to visit old grid corners.
-  const smooth=this.path[0]?.gapFrom?this.path[0]:require('./route_smoothing').smoothCue(bot,p,this.path,{bounds,forbidden,allowWater:this.waterRoute});
+  const smooth=this.path[0]?.gapFrom?this.path[0]:require('./route_smoothing').smoothCue(bot,p,this.path,{bounds,forbidden,allowWater:this.waterRoute,strictHeight:this.waterRoute&&!require('./water_navigation').swimmingSegment(bot,this.path[0])});
   const skipped=this.path.indexOf(smooth);
   if(skipped>0){this.path.splice(0,skipped);this.anchor=[p.x,p.y,p.z];}
   let remaining=0,from=[p.x,p.y,p.z];for(const point of this.path){remaining+=Math.hypot(point[0]-from[0],point[2]-from[2])+Math.abs(point[1]-from[1])*.4;from=point;}

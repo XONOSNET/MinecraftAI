@@ -37,6 +37,13 @@ function validRoute(bot,path,goal){
  for(const q of path){const c=cell(bot,Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2]));if(!c)return false;wet=c.wet?wet+1:0;if(wet>24)return false;}
  return true;
 }
+// A water-capable route can contain long dry stretches. Only its local wet
+// segment needs swimming controls and buoyancy-height waypoint tolerances.
+function swimmingSegment(bot,goal){
+ const p=bot.entity.position;
+ if(bot.entity.isInWater||isWater(bot.blockAt(p.floored())))return true;
+ return !!goal&&cell(bot,Math.floor(goal[0]),Math.round(goal[1]),Math.floor(goal[2]))?.wet===true;
+}
 function drive(bot,goal,permissions){
  const p=bot.entity.position,q=new Vec3(Math.floor(goal[0]),Math.round(goal[1]),Math.floor(goal[2])),target=cell(bot,q.x,q.y,q.z),d=Math.hypot(goal[0]-p.x,goal[2]-p.z);
  // Recheck the next short segment at physics rate, including body/player space.
@@ -52,4 +59,4 @@ function drive(bot,goal,permissions){
  if(permissions.turn&&Math.abs(angle)>.002)Promise.resolve(bot.look(bot.entity.yaw+Math.max(-.18,Math.min(.18,angle)),0,true)).catch(()=>{});
  return safe;
 }
-module.exports={cell,validRoute,drive,isWater};
+module.exports={cell,validRoute,drive,isWater,swimmingSegment};

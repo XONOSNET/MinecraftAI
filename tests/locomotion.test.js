@@ -255,3 +255,23 @@ test('a checked step keeps forward through the airborne interval even between po
  assert.equal(motor.diagnostic().owner,'checked_jump');assert.equal(motor.diagnostic().expired,false,'jump expiry must not use the unrelated old walking timer');
  motor.pause();assert.equal(controls.forward,false,'explicit safety cancellation always wins');
 });
+
+test('a dry bank step on a water-capable route approaches before takeoff then preserves the jump',()=>{
+ const {Vec3}=require('vec3');let now=0;const controls={};
+ const b={players:{},entity:{position:new Vec3(.5,63,.038),yaw:-Math.PI,pitch:0,onGround:true,isInWater:false},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,async look(y,p){this.entity.yaw=y;this.entity.pitch=p;},blockAt(p){const q=p.floored(),solid=q.y<(q.z>=1?64:63);return {position:q,name:solid?'stone':'air',boundingBox:solid?'block':'empty'};}};
+ const motor=createMotor(b,permissions,{clock:()=>now}),task={kind:'expedition',water_route:true,auto_step:true,safe_walk:true,strict_ground:true,waypoints:[[.5,64.1,1.5]]};
+ motor.command(3,task,safe,0);now+=50;motor.tick();
+ assert.equal(motor.diagnostic().owner,'checked_jump');assert.equal(controls.forward,true);assert.equal(controls.jump,false,'do not jump from the back of the departure block');
+ b.entity.position.z=.66;now+=50;motor.tick();assert.equal(controls.forward,true);assert.equal(controls.jump,true);
+ b.entity.onGround=false;b.entity.position.y=63.4;motor.command(1,task,safe,.3);now+=50;motor.tick();assert.equal(controls.forward,true);assert.equal(controls.jump,false);
+ b.entity.onGround=true;b.entity.position=new Vec3(.5,64,1.5);now+=50;motor.tick();assert.equal(controls.forward,false);
+ assert.equal(require('../controller/jump_attempts').report(b,now).blocked_crossings.length,0);
+});
+
+test('dry flat legs of water-capable routes use ground controls and actual water retains swimming',()=>{
+ const {Vec3}=require('vec3');let now=0;const controls={};
+ const b={players:{},entity:{position:new Vec3(.5,64,.5),yaw:0,onGround:true,isInWater:false},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,blockAt(p){const q=p.floored(),name=q.y<64?'stone':'air';return {position:q,name,boundingBox:name==='stone'?'block':'empty'};}};
+ const motor=createMotor(b,permissions,{clock:()=>now}),task={kind:'expedition',water_route:true,waypoints:[[.5,64.1,-.5]]};
+ motor.command(0,task,safe,0);now+=50;motor.tick();assert.notEqual(motor.diagnostic().owner,'surface_swim');
+ b.entity.isInWater=true;motor.command(0,task,safe,0);now+=50;motor.tick();assert.equal(motor.diagnostic().owner,'surface_swim');assert.equal(controls.jump,true);
+});

@@ -74,14 +74,15 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    if(jumpGoal&&bot.blockAt&&permissions.move&&permissions.jump&&bot.entity.onGround===true&&[0,3].includes(action)&&Math.abs(angle)<.18){
     const from=[Math.floor(p0.x),Math.round(p0.y),Math.floor(p0.z)],to=[Math.floor(jumpGoal[0]),Math.round(jumpGoal[1]),Math.floor(jumpGoal[2])];
     const gap=!!task.gap_jump&&require('./checked_jump').gap(bot,from,to,{bounds:task.bounds});
-    const step=!!task.auto_step&&Math.hypot(jumpGoal[0]-p0.x,jumpGoal[2]-p0.z)<1.35&&require('./checked_jump').step(bot,jumpGoal);
+    const bankStep=!!task.water_route&&!require('./water_navigation').swimmingSegment(bot,jumpGoal);
+    const step=!!task.auto_step&&Math.hypot(jumpGoal[0]-p0.x,jumpGoal[2]-p0.z)<(bankStep?1.8:1.35)&&require('./checked_jump').step(bot,jumpGoal);
     if((gap||step)&&require('./jump_attempts').blocked(bot,from,to,clock())){clear();return 'Repeated jump failed; waiting for a different checked route';}
     if((gap||step)&&space.clearOfPlayers(bot,new Vec3(...jumpGoal),1)){
-     recovery.reset();doorway.reset();strafe.reset();jumpLease={from,goal:jumpGoal,yaw:bot.entity.yaw+angle,until:clock()+(gap?2000:1500),airborne:false,gap,approaching:gap,label:gap?'Approaching takeoff for the checked one-block gap':'Stepping up while holding forward'};paused=false;return jumpLease.label;
+     recovery.reset();doorway.reset();strafe.reset();jumpLease={from,goal:jumpGoal,yaw:bot.entity.yaw+angle,until:clock()+(gap?2000:1500),airborne:false,gap,approaching:gap||bankStep&&step,label:gap?'Approaching takeoff for the checked one-block gap':bankStep?'Approaching takeoff for the checked bank step':'Stepping up while holding forward'};paused=false;return jumpLease.label;
     }
    }
    if(task?.air_escape&&task.waypoints?.length){recovery.reset();doorway.reset();strafe.reset();plan={airGoal:task.waypoints[0],label:'Swimming to breathable space'};expires=clock()+1500;paused=false;return plan.label;}
-   if(task?.water_route&&task.waypoints?.length){
+   if(task?.water_route&&task.waypoints?.length&&require('./water_navigation').swimmingSegment(bot,task.waypoints[0])){
     const moving=[0,3,5].includes(action),label=moving?'Following checked water crossing':[1,2].includes(action)?'Aligning with checked water crossing':'Policy chose to hold position in water; maintaining buoyancy';
     recovery.reset();doorway.reset();strafe.reset();plan={waterGoal:task.waypoints[0],waterMove:moving,label};expires=clock()+1500;paused=false;return plan.label;
    }
@@ -180,7 +181,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
      jumpLease=null;plan=null;paused=true;pauseMotion(bot,permissions);return;}
     if(j.approaching&&bot.entity.onGround===true){
      const to=[Math.floor(j.goal[0]),Math.round(j.goal[1]),Math.floor(j.goal[2])];
-     if(!require('./checked_jump').gap(bot,j.from,to)){
+     if(!(j.gap?require('./checked_jump').gap(bot,j.from,to):require('./checked_jump').step(bot,j.goal))){
       require('./jump_attempts').finish(bot,j.from,j.goal,false,clock());clear();return;
      }
      const dx=Math.sign(to[0]-j.from[0]),dz=Math.sign(to[2]-j.from[2]);
@@ -192,7 +193,7 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
       bot.setControlState('forward',Math.abs(wrap(yaw-bot.entity.yaw))<.2);
       if(permissions.turn&&bot.look)Promise.resolve(bot.look(yaw,0,true)).catch(()=>clear());return;
      }
-     j.approaching=false;j.until=clock()+1500;j.yaw=Math.atan2(-(j.goal[0]-p.x),-(j.goal[2]-p.z));j.label='Jumping the checked one-block gap';
+     j.approaching=false;j.until=clock()+1500;j.yaw=Math.atan2(-(j.goal[0]-p.x),-(j.goal[2]-p.z));j.label=j.gap?'Jumping the checked one-block gap':'Stepping up while holding forward';
     }
     if(bot.entity.onGround===false)j.airborne=true;
     for(const k of ['back','left','right','sneak'])bot.setControlState(k,false);

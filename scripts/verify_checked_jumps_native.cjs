@@ -9,19 +9,21 @@ async function commands(list){await admin({action:'op'});await wait(1000);try{fo
  for(let x=-1403;x<=-1397;x++)for(let z=-1403;z<=-1397;z++)for(let y=209;y<=214;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air','fixture starts empty');
  changed=true;
  const motor=require('../controller/locomotion').createMotor(b,{move:true,jump:true,turn:true}),physics=()=>motor.tick();b.on('physicsTick',physics);
- async function crossing(goal,gap){
+ async function crossing(goal,gap,bank=false){
   let airborne=false;const start=b.entity.position.clone(),end=Date.now()+7000;
   try{while(Date.now()<end){
    const p=b.entity.position;airborne ||= b.entity.onGround===false;
    if(airborne&&b.entity.onGround&&Math.hypot(goal[0]-p.x,goal[2]-p.z)<.55&&Math.abs(goal[1]-p.y)<.4)return {passed:true,position:p.toArray(),airborne};
    const desired=Math.atan2(-(goal[0]-p.x),-(goal[2]-p.z)),angle=Math.atan2(Math.sin(desired-b.entity.yaw),Math.cos(desired-b.entity.yaw));
-   motor.command(Math.abs(angle)>.05?(angle>0?1:2):0,{kind:'expedition',auto_step:true,gap_jump:gap,safe_walk:true,strict_ground:true,waypoints:[goal]},require('../controller/perception').proximity(b),angle);await wait(100);
+   motor.command(Math.abs(angle)>.05?(angle>0?1:2):0,{kind:'expedition',auto_step:true,gap_jump:gap,water_route:bank,safe_walk:true,strict_ground:true,waypoints:[goal]},require('../controller/perception').proximity(b),angle);await wait(100);
   }}finally{motor.pause();}
   throw Error('Checked jump failed: '+JSON.stringify({gap,start:start.toArray(),end:b.entity.position.toArray(),airborne}));
  }
  try{
   await commands(['fill -1403 210 -1403 -1397 210 -1397 dirt','setblock -1400 211 -1400 stone','tp @s -1400.5 211 -1399.5 -90 0']);await admin({action:'gamemode',gamemode:'survival'});await b.waitForTicks(5);
   report.step=await crossing([-1399.5,212.1,-1399.5],false);
+  await admin({action:'gamemode',gamemode:'creative'});await commands(['tp @s -1400.962 211 -1399.5 -90 0']);await admin({action:'gamemode',gamemode:'survival'});await b.waitForTicks(5);
+  report.dry_bank_step=await crossing([-1399.5,212.1,-1399.5],false,true);
   await admin({action:'gamemode',gamemode:'creative'});await commands(['setblock -1400 211 -1400 air','fill -1401 210 -1403 -1401 210 -1397 air','tp @s -1401.88 211 -1399.5 -90 0']);await admin({action:'gamemode',gamemode:'survival'});await b.waitForTicks(5);
   report.gap=await crossing([-1399.5,211.1,-1399.5],true);assert.equal(b.health,20);
   await admin({action:'gamemode',gamemode:'creative'});await commands(['setblock -1401 214 -1400 oak_leaves[persistent=true]']);

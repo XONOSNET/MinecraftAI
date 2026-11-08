@@ -334,3 +334,13 @@ test('a long loaded route advances a verified prefix after exhausting its search
  const n=new WorldNavigation(),plan=n.plan(b,[100.5,64.1,.5],{bounds:[-10,130,-110,110],now:1000});
  assert.equal(n.partial,true);assert.equal(n.blocked,false);assert.ok(n.path.length>0&&n.path.length<=12);assert.equal(plan.arrived,false);
 });
+
+test('a water-capable route keeps a dry landing until touchdown rather than consuming it at swimming height',()=>{
+ const {WorldNavigation}=require('../controller/world_navigation');
+ const b=fixture();b.players={};b.entity.position=new Vec3(.5,64.9,1.5);b.entity.onGround=false;b.entity.isInWater=false;
+ const landing=[.5,64.1,1.5],goal=[.5,64.1,3.5],n=new WorldNavigation();
+ Object.assign(n,{destination:goal.join(','),path:[landing,[.5,64.1,2.5],goal],anchor:[.5,65.1,.5],lastPlan:1000,progressAt:1000,waterRoute:true});
+ const falling=n.plan(b,goal,{now:1100});assert.equal(falling.path.includes(landing),true);assert.equal(falling.cue,landing);assert.equal(n.replanned,false);
+ b.entity.position.y=64;b.entity.onGround=true;
+ const grounded=n.plan(b,goal,{now:1200});assert.equal(grounded.path.includes(landing),false);assert.ok(grounded.cue[2]>b.entity.position.z);
+});

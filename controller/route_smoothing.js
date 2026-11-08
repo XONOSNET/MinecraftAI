@@ -27,8 +27,8 @@ function clearFlatLeg(bot,p,q,options={}){
  return bot.entity.onGround===true&&Math.abs(q[1]-p.y)<.4&&Math.hypot(q[0]-p.x,q[2]-p.z)<=4&&flatCheck(bot,p,Math.round(q[1]),options)(q);
 }
 function smoothCue(bot,p,path,options={}){
- const {allowWater=false}=options,first=path[0];
- if(!first||first.gapFrom||first.centering&&!first.routeCenter||!allowWater&&bot.entity.onGround===false||Math.abs(first[1]-p.y)>(allowWater?1.4:.4))return first;
+ const {allowWater=false,strictHeight=false}=options,first=path[0];
+ if(!first||first.gapFrom||first.centering&&!first.routeCenter||!allowWater&&bot.entity.onGround===false||Math.abs(first[1]-p.y)>(allowWater&&!strictHeight?1.4:.4))return first;
  const clear=flatCheck(bot,p,Math.round(first[1]),options);
  let cue=first,distance=0,previous=[p.x,p.y,p.z];
  for(let i=0;i<Math.min(path.length,12);i++){
