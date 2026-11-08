@@ -190,7 +190,13 @@ async function tick(t,b,motor,state,api,scan,tasks){
   if(!item){t.message='Emergency cover: collecting excavated dirt for the roof';return true;}
   if(p.y+1.8>cap.y||!b.entity.onGround)throw Error('Insufficient headroom for the emergency roof');
   if(!space.clearOfPlayers(b,cap.offset(.5,.5,.5),1)){t.message='Emergency cover: waiting for another player to leave the opening';return true;}
-  const lip=new Vec3(...s.lip),face=cap.minus(lip);if(!cover(b.blockAt(lip),s.lip_name))throw Error('Emergency roof support changed');
+  const lip=new Vec3(...s.lip),face=cap.minus(lip);if(!cover(b.blockAt(lip),s.lip_name)){
+   // Rebuild only our previously placed, now empty support. The ordinary lip
+   // stage rechecks shell, footing, inventory, players and the placement result;
+   // the existing work deadline is not reset merely by selecting recovery.
+   if(s.shellVerified&&s.lip_name&&openCell(b.blockAt(lip))){s.stage='lip';t.message='Emergency roof support lost: rebuilding the owned dirt lip';return true;}
+   throw Error('Emergency roof support changed: '+(b.blockAt(lip)?.name||'unloaded'));
+  }
   if(!await placeCover(b,s,cap,lip,face,item.name)){t.message='Emergency roof refused: retrying checked cover face';return true;}
   s.cap_name=item.name;s.stage='hidden';t.lastProgress=s.progressAt=Date.now();t.message='Emergency burrow sealed: waiting for daylight and a clear exit';return true;
  }

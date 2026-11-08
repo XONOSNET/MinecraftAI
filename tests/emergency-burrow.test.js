@@ -349,3 +349,27 @@ test('corner handling still rejects hazards and prioritizes exposed inward walls
  f.b.blockAt=p=>p.equals(wall)?null:original(p);
  assert.deepEqual(burrow.shellProblem(f.b,feet,f.s).position,wall.toArray());
 });
+
+
+test('a verified refuge rebuilds its destroyed owned lip before sealing and resuming its task',async ctx=>{
+ const f=damagedRefuge(ctx,{carried:2}),lip=new Vec3(...f.s.lip);
+ f.cells.set(f.gap.toString(),'dirt');f.cells.set(new Vec3(...f.s.cap).toString(),'air');f.cells.set(lip.toString(),'air');f.s.stage='seal';
+ const before=f.s.progressAt;
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.s.stage,'lip');assert.equal(f.s.progressAt,before);assert.equal(f.dirt(),2);
+ for(let i=0;i<3;i++)await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.s.stage,'hidden');assert.equal(f.b.blockAt(lip).name,'dirt');assert.equal(burrow.sealed(f.b,f.s),true);assert.equal(f.dirt(),0);
+ f.b.time.timeOfDay=6000;
+ for(let i=0;i<8&&f.t.wilderness.burrow;i++)await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.phase,'gather');assert.equal(f.b.entity.position.y,64);assert.deepEqual(f.t.milestones,[]);
+});
+
+test('roof support recovery never replaces a foreign obstruction or invents progress while waiting for dirt',async ctx=>{
+ const f=damagedRefuge(ctx),lip=new Vec3(...f.s.lip);
+ f.cells.set(f.gap.toString(),'dirt');f.cells.set(new Vec3(...f.s.cap).toString(),'air');f.s.stage='seal';f.setDirt(1);
+ f.cells.set(lip.toString(),'oak_planks');await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/roof support changed: oak_planks/);
+ f.cells.set(lip.toString(),'air');await burrow.tick(f.t,f.b,f.motor,f.state);f.setDirt(0);
+ f.s.progressAt=Date.now()-30001;
+ await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/no physical progress/);
+ assert.equal(f.b.blockAt(lip).name,'air');assert.equal(f.dirt(),0);
+});
