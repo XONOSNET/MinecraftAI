@@ -14,11 +14,20 @@ function threats(b,standing=b.entity.position){
 function shellProblem(b,feet,s){
  // Two removed earth cells, an untouched floor, and a raised surface cap
  // supported by one protective dirt lip. Every surrounding cell stays solid.
- for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let y=feet.y-4;y<=feet.y-1;y++){
+ const offsets=[];for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)offsets.push([dx,dz]);
+ // Check the actual enclosure before corners behind it. An exposed wall must
+ // remain the repair target even when a diagonal void is also present.
+ offsets.sort((a,c)=>Math.abs(a[0])+Math.abs(a[1])-Math.abs(c[0])-Math.abs(c[1]));
+ for(const [dx,dz] of offsets)for(let y=feet.y-4;y<=feet.y-1;y++){
   if(dx===0&&dz===0&&y>feet.y-3)continue;
   const cell=new Vec3(feet.x+dx,y,feet.z+dz);
   if([s?.exitNotch,s?.repairNotch].filter(Boolean).some(p=>cell.equals(new Vec3(...p)))&&safeNotch(b,feet,cell)&&openCell(b.blockAt(cell)))continue;
-  const q=b.blockAt(cell);if(!q||!SOLID.has(q.name)||q.boundingBox!=='block'||q.getProperties?.().waterlogged)return {position:cell.toArray(),block:q?.name||null,reason:!q?'unloaded shell':q.getProperties?.().waterlogged?'waterlogged shell':'changed supporting shell',patchable:openCell(q)};
+  const q=b.blockAt(cell);
+  // After excavation, an air-only corner behind two intact inward walls does
+  // not open the shaft. Keep initial site selection strict and reject fluids,
+  // unloaded cells and every missing cardinal wall or center floor as before.
+  if(s?.shellVerified&&dx&&dz&&openCell(q)&&[new Vec3(feet.x+dx,y,feet.z),new Vec3(feet.x,y,feet.z+dz)].every(p=>{const v=b.blockAt(p);return v&&SOLID.has(v.name)&&v.boundingBox==='block'&&!v.getProperties?.().waterlogged;}))continue;
+  if(!q||!SOLID.has(q.name)||q.boundingBox!=='block'||q.getProperties?.().waterlogged)return {position:cell.toArray(),block:q?.name||null,reason:!q?'unloaded shell':q.getProperties?.().waterlogged?'waterlogged shell':'changed supporting shell',patchable:openCell(q)};
  }
  for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let dy=0;dy<=2;dy++){
   const cell=feet.offset(dx,dy,dz),q=b.blockAt(cell);if(!q||DANGER.has(q.name)||q.name.endsWith('_concrete_powder')||q.getProperties?.().waterlogged)return {position:cell.toArray(),block:q?.name||null,reason:!q?'unloaded surface':'fluid or falling-block hazard',patchable:false};

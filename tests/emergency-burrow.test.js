@@ -320,3 +320,32 @@ test('successful shell patches do not exhaust the failed-placement budget or ext
  assert.equal(await repair.repair(f.t,f.b,f.motor,f.s,problem,f.state),false);
  assert.equal(f.dirt(),1);assert.equal(f.s.shellRecovery.status,'Bounded repair exhausted');
 });
+
+
+test('verified refuge keeps sheltering behind intact walls when an inaccessible diagonal corner is air',async ctx=>{
+ const f=damagedRefuge(ctx,{carried:2}),feet=new Vec3(...f.s.feet);
+ f.cells.set(f.gap.toString(),'dirt');f.cells.set(feet.offset(1,-2,-1).toString(),'air');
+ assert.equal(burrow.shellProblem(f.b,feet,f.s),null);
+ assert.equal(burrow.site(f.t,f.b,feet,f.state.world),false);
+ f.b._placeBlockWithOptions=async()=>assert.fail('No repair through an intact wall');
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.s.stage,'hidden');assert.equal(f.dirt(),2);assert.equal(f.s.shellRepairs||0,0);
+ f.b.time.timeOfDay=6000;
+ for(let i=0;i<8&&f.t.wilderness.burrow;i++)await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.phase,'gather');assert.equal(f.b.entity.position.y,64);
+});
+
+test('corner handling still rejects hazards and prioritizes exposed inward walls and missing shaft floors',async ctx=>{
+ const f=damagedRefuge(ctx,{carried:1}),feet=new Vec3(...f.s.feet),corner=feet.offset(-1,-2,-1),wall=feet.offset(0,-2,-1);
+ f.cells.set(f.gap.toString(),'dirt');
+ for(const name of ['water','lava','sand','gravel']){
+  f.cells.set(corner.toString(),name);assert.deepEqual(burrow.shellProblem(f.b,feet,f.s).position,corner.toArray());
+ }
+ f.cells.set(corner.toString(),'air');f.cells.set(wall.toString(),'air');
+ assert.deepEqual(burrow.shellProblem(f.b,feet,f.s).position,wall.toArray());
+ f.cells.set(wall.toString(),'dirt');const floor=feet.offset(0,-3,0);f.cells.set(floor.toString(),'air');
+ assert.deepEqual(burrow.shellProblem(f.b,feet,f.s).position,floor.toArray());
+ f.cells.set(floor.toString(),'dirt');const original=f.b.blockAt;
+ f.b.blockAt=p=>p.equals(wall)?null:original(p);
+ assert.deepEqual(burrow.shellProblem(f.b,feet,f.s).position,wall.toArray());
+});
