@@ -5,6 +5,13 @@ function lower(bot,block){
  if(!block?.name.endsWith('_door')||block.name==='iron_door')return null;
  return block.getProperties().half==='upper'?bot.blockAt(block.position.offset(0,-1,0)):block;
 }
+// The upper panel can occlude the lower panel from a nearby standing eye.
+function openingTarget(bot,block){
+ block=lower(bot,block);if(!block||block.getProperties().open)return null;
+ const eye=bot.entity.position.offset(0,bot.entity.eyeHeight||1.62,0),upper=bot.blockAt(block.position.offset(0,1,0));
+ return [block,...(upper?.name===block.name&&upper.getProperties?.().half==='upper'?[upper]:[])].find(part=>
+  eye.distanceTo(part.position.offset(.5,.5,.5))<4.2&&require('./target_scan').visibleBlock(bot,part))||null;
+}
 function geometry(block){const axis=['north','south'].includes(block.getProperties().facing)?'z':'x';return {axis,cross:axis==='x'?'z':'x',plane:block.position[axis]+.5};}
 function occupied(bot,block){
  const d=geometry(block),p=block.position;
@@ -64,4 +71,4 @@ function createDoorCare(bot){
  }
  return {update,reset};
 }
-module.exports={createDoorCare,closeDoor,occupied};
+module.exports={createDoorCare,closeDoor,occupied,openingTarget};

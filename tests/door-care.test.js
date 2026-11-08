@@ -35,3 +35,23 @@ test('approaching then detouring around a door does not count as crossing it',as
  f.b.entity.position.z=1.7;await f.care.update(1400);
  assert.equal(f.clicks,0);
 });
+
+test('a resumed gathering route opens the visible upper panel when it occludes the lower door half',async ctx=>{
+ const {HutTeacher}=require('../controller/hut_teacher'),{openingTarget}=require('../controller/door_care'),scan=require('../controller/target_scan');
+ let open=false,clicked=null;const p=new Vec3(0,64,-3);
+ const b={entity:{position:new Vec3(.5,64,-1.5),eyeHeight:1.62},blockAt(q){if(q.x!==0||q.z!==-3||![64,65].includes(q.y))return null;return {position:q.clone(),name:'oak_door',getProperties:()=>({open,half:q.y===64?'lower':'upper',facing:'north'})};},async activateBlock(part){clicked=part.position.toArray();open=true;}};
+ ctx.mock.method(scan,'visibleBlock',(_b,part)=>part.position.y===65);
+ const t=new HutTeacher();t.phase='night_wool';t.plot={x:0,y:64,z:0};t.campPlots=[];t.navigator={status:{},portalFor:()=>t.plot,lastPlan:0};t.path=[];
+ let paused=false;await t.walk(b,{pause(){paused=true;}},[.5,64.1,-4.5],{world:{bounds:[-20,20,-20,20]}},null,null,null,{entranceWork:true});
+ assert.deepEqual(clicked,[0,65,-3]);assert.equal(paused,true);assert.equal(t.phase,'night_wool');assert.deepEqual(t.path,[]);assert.equal(t.navigator.lastPlan,-Infinity);
+ assert.equal(openingTarget(b,b.blockAt(p)),null,'a verified open door must not be toggled shut');
+});
+
+test('door opening still requires a visible in-reach panel of the same wooden door',async ctx=>{
+ const {openingTarget}=require('../controller/door_care'),scan=require('../controller/target_scan');
+ const f=fixture();await f.b.activateBlock();const p=new Vec3(0,70,0),original=f.b.blockAt;
+ ctx.mock.method(scan,'visibleBlock',()=>false);assert.equal(openingTarget(f.b,f.b.blockAt(p)),null);
+ scan.visibleBlock=(_b,part)=>part.position.y===71;
+ f.b.blockAt=q=>q.y===71?{...original(q),name:'iron_door'}:original(q);assert.equal(openingTarget(f.b,f.b.blockAt(p)),null);
+ f.b.blockAt=original;f.b.entity.position=new Vec3(.5,70,8);assert.equal(openingTarget(f.b,f.b.blockAt(p)),null);
+});
