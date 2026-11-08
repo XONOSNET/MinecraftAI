@@ -373,3 +373,15 @@ test('roof support recovery never replaces a foreign obstruction or invents prog
  await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/no physical progress/);
  assert.equal(f.b.blockAt(lip).name,'air');assert.equal(f.dirt(),0);
 });
+
+
+test('burrow failure reports preserve terminal footing instead of stale approach navigation',async ctx=>{
+ const f=damagedRefuge(ctx,{carried:4}),p=new Vec3(.81,62,.5);f.b.entity.position=p;f.b.entity.onGround=false;f.b.entity.velocity=new Vec3(.1,-.2,0);
+ f.t.lastNavigation={position:[.5,64,.5]};f.cells.set(p.floored().offset(0,-1,0).toString(),'air');
+ const error=Error('Emergency shaft footing changed');burrow.captureFailure(f.t,f.b,error);
+ const result=burrow.report(f.t).failure_context;
+ assert.deepEqual(result.position,[.81,62,.5]);assert.deepEqual(result.velocity,[.1,-.2,0]);assert.equal(result.floor.block,'air');assert.equal(result.on_ground,false);assert.equal(result.centered,false);assert.equal(result.earth_blocks,4);
+ f.b.entity.position=new Vec3(8,64,8);assert.deepEqual(burrow.report(f.t).failure_context.position,[.81,62,.5]);
+ assert.deepEqual(f.t.lastNavigation.position,[.5,64,.5]);assert.deepEqual(f.t.milestones,[]);assert.equal(f.t.phase,'night_burrow');
+ f.b.blockAt=()=>{throw Error('disconnected');};burrow.captureFailure(f.t,f.b,error);assert.equal(burrow.report(f.t).failure_context.capture_error,'disconnected');
+});

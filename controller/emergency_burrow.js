@@ -105,7 +105,19 @@ async function placeCover(b,s,target,support,face,name){
  }
  return false;
 }
-function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,waiting_for:s.waitReason||null,exit_blocks:s.exitBlocks??null,cover_refusals:s.coverRefusals||0,shell_failure:s.shellFailure||null,shell_repairs:s.shellRepairs||0,shell_recovery:s.shellRecovery?.status||null,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
+// Preserve the actual failure pose; the last travel report can predate digging.
+function captureFailure(t,b,error){
+ const s=t.wilderness?.burrow;if(!s)return;
+ try{
+  const p=b.entity.position,feet=p.floored(),sample=q=>{const v=b.blockAt(q);return {position:q.toArray(),block:v?.name||null,shape:v?.boundingBox||null,waterlogged:!!v?.getProperties?.().waterlogged};};
+  s.failureContext={message:error.message,at:Date.now(),position:p.toArray(),velocity:b.entity.velocity?.toArray?.()||null,on_ground:b.entity.onGround===true,in_water:!!b.entity.isInWater,in_lava:!!b.entity.isInLava,
+   centered:Math.abs(p.x-s.feet[0]-.5)<=.3&&Math.abs(p.z-s.feet[2]-.5)<=.3,
+   body:sample(feet),head:sample(p.offset(0,b.entity.eyeHeight||1.62,0).floored()),floor:sample(feet.offset(0,-1,0)),
+   cap:sample(new Vec3(...s.cap)),lip:sample(new Vec3(...s.lip)),
+   earth_blocks:b.inventory.items().filter(i=>['dirt','coarse_dirt','rooted_dirt'].includes(i.name)).reduce((n,i)=>n+i.count,0)};
+ }catch(captureError){s.failureContext={message:error.message,capture_error:captureError.message};}
+}
+function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,waiting_for:s.waitReason||null,exit_blocks:s.exitBlocks??null,cover_refusals:s.coverRefusals||0,failure_context:s.failureContext||null,shell_failure:s.shellFailure||null,shell_repairs:s.shellRepairs||0,shell_recovery:s.shellRecovery?.status||null,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
 function retrySurface(t,b,s,reason){
  const feet=new Vec3(...s.feet),p=b.entity.position,q=p.floored();
  // Abandon excavation only while still on checked surface footing. A damaged
@@ -307,4 +319,4 @@ async function seek(t,b,motor,state,api,scan,tasks){
  else motor.pause();
  t.message='Seeking safe earth cover; refusing exposed work or combat'+(n.burrow_status?' · '+n.burrow_status:'');
 }
-module.exports={EARTH,SOLID,DANGER,shellProblem,walls,site,find,sealed,report,tick,seek,cover,openCell,safeNotch,placeCover,defendOpening};
+module.exports={captureFailure,EARTH,SOLID,DANGER,shellProblem,walls,site,find,sealed,report,tick,seek,cover,openCell,safeNotch,placeCover,defendOpening};

@@ -368,7 +368,7 @@ class HutTeacher{
    }else if(survival.handles(this.phase)){await survival.tick(this,bot,motor,state,api,scan,tasks);}
    else motor.pause();
    if(!firstNight.handles(this.phase)&&!survival.handles(this.phase)&&!['survey','gather','craft','door_craft','supply_craft','chest','tools','stock_chest','quarry','fuel_log','stone_tools','furnace','smelt','torch_craft','shelter','complete','stopped'].includes(this.phase)&&now-this.lastProgress>60000)throw Error('No construction or movement progress for 60 seconds.');
-  }catch(error){motor.pause();if(error.code==='BUILD_ENTITY_BLOCKED'){this.message='An animal is blocking construction; clearing it before retrying';}else{connectionRetry=serviceErrors.recover(this,error);if(!connectionRetry){survey.release(bot);this.error=this.phase+': '+error.message;this.phase='stopped';}}}
+  }catch(error){require('./emergency_burrow').captureFailure(this,bot,error);motor.pause();if(error.code==='BUILD_ENTITY_BLOCKED'){this.message='An animal is blocking construction; clearing it before retrying';}else{connectionRetry=serviceErrors.recover(this,error);if(!connectionRetry){survey.release(bot);this.error=this.phase+': '+error.message;this.phase='stopped';}}}
   // A death during an awaited action remains terminal even after native respawn.
   if(this.deathRun===state.run){this.died(state.run);motor.pause();}
   // Only try spare saplings after the primary action has finished naturally.
