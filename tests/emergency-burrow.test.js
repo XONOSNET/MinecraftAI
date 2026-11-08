@@ -385,3 +385,27 @@ test('burrow failure reports preserve terminal footing instead of stale approach
  assert.deepEqual(f.t.lastNavigation.position,[.5,64,.5]);assert.deepEqual(f.t.milestones,[]);assert.equal(f.t.phase,'night_burrow');
  f.b.blockAt=()=>{throw Error('disconnected');};burrow.captureFailure(f.t,f.b,error);assert.equal(burrow.report(f.t).failure_context.capture_error,'disconnected');
 });
+
+
+test('a damaged refuge waits for a short dry descent, repairs after touchdown and resumes sheltering',async ctx=>{
+ const f=damagedRefuge(ctx,{carried:1});f.s.stage='dig';f.b.entity.position.y=62.89;f.b.entity.onGround=false;
+ f.cells.set(new Vec3(...f.s.cap).toString(),'air');const progress=f.s.progressAt;
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.dirt(),1);assert.equal(f.s.shellRepairs||0,0);assert.equal(f.s.progressAt,progress);assert.match(f.t.message,/settling/);
+ f.b.entity.position.y=62;f.b.entity.onGround=true;
+ await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(f.s.shellRepairs,1);assert.equal(f.dirt(),0);assert.equal(f.s.shellSettlingAt,undefined);
+ await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(f.s.stage,'seal');assert.equal(burrow.walls(f.b,new Vec3(...f.s.feet),f.s),true);
+});
+
+test('airborne repair waiting expires and never accepts fluid, missing footing or a fall below the shaft',async ctx=>{
+ const f=damagedRefuge(ctx,{carried:1});let now=Date.now();ctx.mock.method(Date,'now',()=>now);
+ f.s.stage='dig';f.b.entity.position.y=62.89;f.b.entity.onGround=false;f.cells.set(new Vec3(...f.s.cap).toString(),'air');
+ await burrow.tick(f.t,f.b,f.motor,f.state);now+=2000;
+ await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/no longer dry/);assert.equal(f.dirt(),1);
+ for(const name of ['water','lava','air']){
+  delete f.s.shellSettlingAt;f.cells.set(new Vec3(0,61,0).toString(),name);
+  await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/no longer dry/);
+ }
+ f.cells.set(new Vec3(0,61,0).toString(),'dirt');f.b.entity.position.y=61.5;
+ await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/no longer dry/);assert.equal(f.s.shellRepairs||0,0);
+});

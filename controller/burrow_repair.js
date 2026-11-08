@@ -4,15 +4,27 @@ function stable(b){
  const p=b.entity.position,floor=b.blockAt(new Vec3(Math.floor(p.x),Math.floor(p.y)-1,Math.floor(p.z)));
  return b.health>0&&b.entity.onGround===true&&!b.entity.isInWater&&!b.entity.isInLava&&floor?.boundingBox==='block'&&require('./emergency_burrow').SOLID.has(floor.name)&&!floor.getProperties?.().waterlogged;
 }
-function safeCell(t,b,q,state){
+function safeTarget(t,b,q,state){
  const refuge=require('./emergency_burrow'),bounds=state.world.bounds;
- if(!stable(b)||!refuge.openCell(b.blockAt(q))||q.x<bounds[0]+1||q.x>=bounds[1]-1||q.z<bounds[2]+1||q.z>=bounds[3]-1)return false;
+ if(!refuge.openCell(b.blockAt(q))||q.x<bounds[0]+1||q.x>=bounds[1]-1||q.z<bounds[2]+1||q.z>=bounds[3]-1)return false;
  if((t.campPlots||[]).some(h=>Math.abs(q.x-h.x)<=4&&Math.abs(q.z-h.z)<=4))return false;
  if(!space.clearOfPlayers(b,q.offset(.5,.5,.5),1))return false;
  for(const [x,y,z] of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]){
   const block=b.blockAt(q.offset(x,y,z));if(!block||refuge.DANGER.has(block.name)||block.name.endsWith('_concrete_powder')||block.getProperties?.().waterlogged)return false;
  }
  return true;
+}
+function safeCell(t,b,q,state){return stable(b)&&safeTarget(t,b,q,state);}
+function settlingFooting(b,feet){
+ const refuge=require('./emergency_burrow'),p=b.entity.position;
+ if(b.health<=0||b.entity.onGround!==false||b.entity.isInWater||b.entity.isInLava||p.y<feet.y-2||p.y>feet.y+.2)return false;
+ for(let y=Math.floor(p.y);y<=Math.floor(p.y+1.8);y++)if(!refuge.openCell(b.blockAt(new Vec3(feet.x,y,feet.z))))return false;
+ for(let y=Math.floor(p.y)-1;y>=Math.floor(p.y)-2;y--){
+  const v=b.blockAt(new Vec3(feet.x,y,feet.z));if(!v)return false;
+  if(refuge.SOLID.has(v.name)&&v.boundingBox==='block'&&!v.getProperties?.().waterlogged)return y+1>=feet.y-2;
+  if(!refuge.openCell(v))return false;
+ }
+ return false;
 }
 function pocketFace(b,feet,q){
  const face=new Vec3(feet.x-q.x,0,feet.z-q.z),eye=b.entity.position.offset(0,b.entity.eyeHeight??1.62,0);
@@ -28,9 +40,18 @@ async function repair(t,b,motor,s,problem,state){
  const refuge=require('./emergency_burrow'),now=Date.now(),feet=new Vec3(...s.feet),q=new Vec3(...problem.position);
  const ownedRoof=q.equals(new Vec3(...s.cap))&&s.stage==='hidden';
  const shell=Math.abs(q.x-feet.x)<=1&&Math.abs(q.z-feet.z)<=1&&q.y>=feet.y-4&&q.y<feet.y&&!(q.x===feet.x&&q.z===feet.z&&q.y>feet.y-3);
- if(!s.shellVerified||(!ownedRoof&&!shell)||!problem.patchable||!safeCell(t,b,q,state))return false;
+ if(!s.shellVerified||(!ownedRoof&&!shell)||!problem.patchable||!safeTarget(t,b,q,state))return false;
  // Stay inside the exact verified shaft; no improvised tunnelling or blind exits.
  const p=b.entity.position;if(Math.abs(p.x-feet.x-.5)>.3||Math.abs(p.z-feet.z-.5)>.3)return false;
+ if(!stable(b)){
+  // A repair needs grounded footing, but a confirmed short descent is not yet
+  // a failed repair. Hold controls briefly while the body settles on dry earth.
+  if(!settlingFooting(b,feet))return false;
+  s.shellSettlingAt??=now;if(now-s.shellSettlingAt>=2000)return false;
+  motor.pause();t.message='Emergency refuge repair: settling on checked dry footing';return true;
+ }
+ delete s.shellSettlingAt;
+
  const recovery=s.shellRecovery;
  if(!recovery||recovery.status==='Shell restored and rechecked')s.shellRecovery={at:now,attempts:0,status:'Checking the damaged refuge'};
  const r=s.shellRecovery;if(now-r.at>15000||r.attempts>=6){r.status='Bounded repair exhausted';return false;}
