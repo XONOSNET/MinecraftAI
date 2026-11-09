@@ -1,10 +1,11 @@
 // Resume an unfinished enclosure after lighting or safety work spends its wood.
 const count=b=>b.inventory.items().reduce((n,i)=>n+(i.name.endsWith('_planks')?i.count:i.name.endsWith('_log')?i.count*4:0),0);
 async function tick(t,b,motor,state,api,scan,tasks){
- if(!t.buildSupply&&t.phase!=='build')return false;
- if(t.phase==='build'){
-  const needed=t.requiredWood(b);
+ if(!t.buildSupply&&!['build','table'].includes(t.phase))return false;
+ if(['build','table'].includes(t.phase)){
   const table=require('./house').point(t.plot,'table'),missingTable=b.blockAt(table)?.name!=='crafting_table';
+  if(t.phase==='table'&&(!missingTable||b.inventory.items().some(i=>i.name==='crafting_table'&&i.count>0)))return false;
+  const needed=t.phase==='table'?4:t.requiredWood(b);
   if(!needed&&!missingTable)return false;
   // Convert carried logs before deciding that another harvesting trip is needed.
   const logs=b.inventory.items().filter(i=>i.name.endsWith('_log'));
@@ -23,7 +24,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
    }
    return false;
   }
-  motor.pause();t.buildSupply={};t.phase='gather';t.grove=null;t.resourceAt=0;
+  motor.pause();t.buildSupply={resumePhase:t.phase};t.phase='gather';t.grove=null;t.resourceAt=0;
   t.tree=null;t.treeApproach=null;t.pickup=null;t.path=[];t.navigator.lastPlan=-Infinity;
   t.message='Gathering missing wall and roof materials before resuming construction';return true;
  }
@@ -35,7 +36,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
  }
  if(t.phase==='build_resupply_return'){
   if(await t.walk(b,motor,[t.plot.x+.5,t.plot.y+.1,t.plot.z+.5],state,api,scan,tasks)===true){
-   motor.pause();t.buildSupply=null;t.phase='build';t.lastProgress=Date.now();
+   motor.pause();t.phase=t.buildSupply.resumePhase||'build';t.buildSupply=null;t.lastProgress=Date.now();
   }
   t.message='Returning replacement materials to the unfinished house';return true;
  }

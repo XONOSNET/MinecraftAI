@@ -61,3 +61,17 @@ test('a carried table is placed even when no more wood is needed and unrelated t
  assert.equal(await supply.tick(f.t,f.b,f.motor,f.state),true);assert.equal(calls,1);
  f.cells.set(table.toString(),'birch_planks');assert.equal(await supply.tick(f.t,f.b,f.motor,f.state),false);assert.equal(calls,1);assert.equal(f.cells.get(table.toString()),'birch_planks');
 });
+
+test('a workbench lost during sheltering gathers replacements and resumes the table phase without rebuilding',async ctx=>{
+ const f=fixture(),table=require('../controller/house').point(f.t.plot,'table');f.t.phase='table';f.cells.delete(table.toString());
+ const preserved=[...f.cells.entries()];f.t.lastProgress=123;f.t.navigator={lastPlan:0};f.t.walk=async()=>true;
+ await supply.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.phase,'gather');assert.equal(f.t.buildSupply.resumePhase,'table');assert.equal(f.t.lastProgress,123);
+ f.t.phase='night_burrow';assert.equal(await supply.tick(f.t,f.b,f.motor,f.state),false);f.t.phase='gather';
+ f.items.push({name:'birch_log',count:4});await supply.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.phase,'build_resupply_return');
+ await supply.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.phase,'table');await supply.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.items.find(i=>i.name==='birch_planks').count,16);
+ f.t.craft=async(_b,name)=>{assert.equal(name,'crafting_table');f.items.find(i=>i.name==='birch_planks').count-=4;f.items.push({name,count:1});};
+ await supply.tick(f.t,f.b,f.motor,f.state);assert.equal(f.items.find(i=>i.name==='crafting_table').count,1);
+ assert.equal(await supply.tick(f.t,f.b,f.motor,f.state),false,'normal table placement can resume with its real crafted item');
+ assert.deepEqual([...f.cells.entries()],preserved);assert.deepEqual(f.t.milestones,[]);
+});
