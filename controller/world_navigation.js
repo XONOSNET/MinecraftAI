@@ -187,7 +187,10 @@ class WorldNavigation{
   this.status.jump_recovery=require('./jump_attempts').report(bot,now);
   this.status.smoothed_waypoints=skipped>0?skipped:0;
   this.status.water_recovery=swim?.goal?'Checked shore escape after stationary swimming':null;
-  return {water_route:!!this.waterRoute,path:this.path,cue:smooth||travelCue(p,this.path)||target,corridor:[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,5)],blocked:this.blocked,arrived,message:this.reason,portal};
+  const cue=smooth||travelCue(p,this.path)||target;
+  const alignment=!this.blocked&&!arrived&&!this.path[0]?.gapFrom?require('./route_alignment').alignmentCue(bot,cue):null;
+  this.status.footing_alignment=!!alignment;
+  return {water_route:!!this.waterRoute,path:this.path,cue:alignment||cue,corridor:[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,5)],blocked:this.blocked,arrived,message:this.reason,portal};
  }
 }
 module.exports={WorldNavigation,homeApproach,approachGoal,corridorDistance,insideHome,crossingHome,routeDoorway,privatePlotCell,travelCue,passedLanding};
