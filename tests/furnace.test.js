@@ -25,3 +25,10 @@ test('repeated furnace operations release their protocol listener on window clos
  client.write=(packet,data)=>{const w=b.currentWindow;if(data.slot===2){w.selectedItem=w.slots[2];w.slots[2]=null;}else if(data.slot===3){w.slots[3]=w.selectedItem;w.selectedItem=null;}queueMicrotask(()=>b.emit('setWindowItems:1'));};
  for(let i=0;i<3;i++){await smelt(b,{},'raw_iron','iron_ingot',n=>n==='coal');assert.equal(client.listenerCount('craft_progress_bar'),0);}
 });
+
+test('a destroyed furnace is detected before opening, including destruction during a pending open',async()=>{
+ const {Vec3}=require('vec3'),registry=require('minecraft-data')('1.21.4');let name='air',opens=0;
+ const block={name:'furnace',position:new Vec3(0,64,0)},b={registry,blockAt:()=>({name}),openFurnace:async()=>{opens++;name='air';throw Error('Event windowOpen did not fire within timeout of 20000ms');}};
+ const changed=e=>e.code==='BUILD_STATION_CHANGED';await assert.rejects(smelt(b,block),changed);assert.equal(opens,0);
+ name='furnace';await assert.rejects(smelt(b,block),e=>{assert.equal(require('../controller/service_errors').recover({phase:'smelt'},e,0),true);return changed(e);});assert.equal(opens,1);
+});

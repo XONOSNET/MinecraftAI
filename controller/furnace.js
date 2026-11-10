@@ -1,5 +1,7 @@
 // Server-authoritative furnace slots, including the ten-second smelting wait.
 async function smelt(bot,block,input='oak_log',output='charcoal',fuel=n=>n.endsWith('_planks')){
+ const changed=()=>!!bot.blockAt&&!!block?.position&&bot.blockAt(block.position)?.name!=='furnace';
+ const stationError=()=>{const e=Error('Furnace workstation changed; rechecking damaged construction');e.code='BUILD_STATION_CHANGED';return e;};
  const Item=require('prismarine-item')(bot.registry);let window;
  const click=async(slot,button=0,mode=0)=>{
   await new Promise((resolve,reject)=>{
@@ -13,7 +15,8 @@ async function smelt(bot,block,input='oak_log',output='charcoal',fuel=n=>n.endsW
   await click(source.slot);await click(dest,1);if(window.selectedItem)await click(source.slot);
  };
  try{
-  window=await bot.openFurnace(block);await click(-999,2,5);
+  if(changed())throw stationError();
+  try{window=await bot.openFurnace(block);}catch(error){if(changed())throw stationError();throw error;}await click(-999,2,5);
   if(!window.slots[0]&&!window.slots[2])await one(n=>input==='oak_log'?n.endsWith('_log'):n===input,0);
   if(!window.slots[1]&&!window.slots[2])await one(fuel,1);
   const deadline=Date.now()+30000;

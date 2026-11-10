@@ -205,3 +205,22 @@ for(const position of [[4.5,68,.5],[13.5,64,.5]])test('loaded damaged home repai
  for(let i=0;i<15&&f.t.homeRepair;i++)await repair.tick(f.t,f.b,f.motor,f.state);
  assert.equal(f.t.homeRepair,null);assert.equal(f.t.phase,'night_scout');assert.equal(f.b.blockAt(q).name,'oak_planks');assert.equal(f.items.oak_planks,3);assert.deepEqual(f.t.milestones,['hut']);
 });
+
+test('blast damage before the hut milestone restores the earned floor and stations then resumes smelting',async ctx=>{
+ const f=fixture(['furnace']);f.t.phase='smelt';f.items.dirt=1;
+ // The shell is still unfinished: recovery must not build it or grant hut credit.
+ for(const q of house.blueprint(f.t.plot))if(!q.floor&&!q.table)f.set(new Vec3(q.x,q.y,q.z),'air');
+ f.set(new Vec3(0,64,-3),'air');f.set(new Vec3(0,65,-3),'air');
+ const table=house.point(f.t.plot,'table'),hearth=house.point(f.t.plot,'furnace');
+ f.set(table,'air');f.set(hearth,'crafting_table');f.set(new Vec3(1,63,0),'air');f.set(new Vec3(1,62,0),'air');
+ const before=f.items.oak_planks;let recovered=0;
+ ctx.mock.method(require('../controller/resource_access'),'dig',async(b,v,{validate})=>{assert.equal(v.name,'crafting_table');assert.equal(validate(v),true);f.set(v.position,'air');recovered++;return true;});
+ for(let i=0;i<80;i++){await repair.tick(f.t,f.b,f.motor,f.state);if(!f.t.homeRepair)break;}
+ assert.equal(f.t.homeRepair,null);assert.equal(f.t.phase,'smelt');assert.equal(recovered,1);assert.equal(f.b.blockAt(table).name,'crafting_table');assert.equal(f.b.blockAt(hearth).name,'furnace');
+ assert.equal(f.b.blockAt(new Vec3(1,62,0)).name,'dirt');assert.equal(f.b.blockAt(new Vec3(1,63,0)).name,'oak_planks');
+ assert.equal(f.items.dirt,0);assert.equal(f.items.cobblestone,0);assert.equal(f.items.oak_planks,before-5);assert.deepEqual(f.t.milestones,['furnace']);assert.equal(f.b.blockAt(new Vec3(3,64,0)).name,'air');
+});
+
+test('unfinished homes without an earned workstation are not fabricated into repair progress',()=>{
+ const f=fixture([]);assert.equal(repair.inspect(f.t,f.b),null);
+});

@@ -18,20 +18,21 @@ function expected(t,b){
  const h=t.plot,all=[];
  // Entrance craters can strand a returning bot while every house block is intact.
  if(b&&(t.homeRepair||t.homeDamage?.unsafe||terrain.entranceDrop(t,b)))all.push(...terrain.plan(t,b));
- all.push(...house.blueprint(h).map(q=>({...q,kind:q.table?'crafting_table':'planks',structural:true})));
- all.push({x:h.x,y:h.y,z:h.z-3,kind:'door',structural:true});
+ const partial=!t.milestones.includes('hut');
+ all.push(...house.blueprint(h).filter(q=>!partial||q.floor||q.table).map(q=>({...q,kind:q.table?'crafting_table':'planks',structural:true})));
+ if(!partial)all.push({x:h.x,y:h.y,z:h.z-3,kind:'door',structural:true});
  for(const [milestone,key,kind] of [['chest','chest','chest'],['furnace','furnace','furnace'],['bed_home','bed','bed']])if(t.milestones.includes(milestone)){const p=house.point(h,key);all.push({x:p.x,y:p.y,z:p.z,kind});}
  if(t.milestones.includes('torch'))for(const side of ['indoor','outdoor']){const p=house.torchMount(h,side).position;all.push({x:p.x,y:p.y,z:p.z,kind:'torch',plot:h,side});}
  return all;
 }
 function inspect(t,b){
- if(!t.plot||!t.milestones.includes('hut'))return null;
+ if(!t.plot||!t.milestones.includes('hut')&&!t.milestones.includes('furnace'))return null;
  const all=expected(t,b),missing=[],unknown=[];
  for(const q of all){const ok=matches(b,q);if(ok===null)unknown.push(q);else if(!ok)missing.push(q);}
  return {missing,unknown,unsafe:missing.some(q=>q.structural),checked_at:Date.now()};
 }
 function observe(t,b){
- if(!t.plot||!t.milestones.includes('hut')||Date.now()<(t.homeInspectAt||0))return;
+ if(!t.plot||!t.milestones.includes('hut')&&!t.milestones.includes('furnace')||Date.now()<(t.homeInspectAt||0))return;
  t.homeInspectAt=Date.now()+2000;
  if(Math.hypot(b.entity.position.x-t.plot.x,b.entity.position.z-t.plot.z)>32)return;
  const damage=inspect(t,b);if(damage&&!damage.unknown.length)t.homeDamage=damage;
@@ -173,6 +174,14 @@ async function tick(t,b,motor,state,api,scan,tasks){
  const {q,goal}=choice;
  if(await t.walk(b,motor,goal,state,api,scan,tasks)!==true)return true;motor.pause();
  if(!safe(t,b,q)){t.message='Rechecking clear footing before home repair';return true;}
+ // Recover an owned misplaced workbench only after foundation repair and a
+ // checked approach. Preserve player support and all normal digging guards.
+ if(q.kind==='furnace'&&b.blockAt(new Vec3(q.x,q.y,q.z))?.name==='crafting_table'&&safe(t,b,{...q,floor:true})){
+  const block=b.blockAt(new Vec3(q.x,q.y,q.z));
+  if(await access.dig(b,block,{validate:v=>v.name==='crafting_table'&&safe(t,b,{...q,floor:true})})){t.lastProgress=Date.now();t.message='Recovering the misplaced workbench before restoring the furnace';}
+  return true;
+ }
+
  const planks=b.inventory.items().find(i=>i.name.endsWith('_planks'))?.name||'oak_planks';
  let item=q.kind==='foundation'?terrain.material(b,damage.missing.some(v=>v.kind==='furnace')?8:0):q.kind==='planks'?planks:q.kind==='door'?(b.inventory.items().find(i=>i.name.endsWith('_door'))?.name||planks.replace('_planks','_door')):q.kind==='bed'?(b.inventory.items().find(i=>i.name.endsWith('_bed'))?.name||'white_bed'):q.kind;
  if(['bed','door'].includes(q.kind)){
