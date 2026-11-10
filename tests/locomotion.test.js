@@ -275,3 +275,17 @@ test('dry flat legs of water-capable routes use ground controls and actual water
  motor.command(0,task,safe,0);now+=50;motor.tick();assert.notEqual(motor.diagnostic().owner,'surface_swim');
  b.entity.isInWater=true;motor.command(0,task,safe,0);now+=50;motor.tick();assert.equal(motor.diagnostic().owner,'surface_swim');assert.equal(controls.jump,true);
 });
+
+test('a bed-height departure uses checked descent and still rejects fluid or unsupported landings',()=>{
+ const {Vec3}=require('vec3'),{proximity}=require('../controller/perception');let now=0,hazard=null;const controls={};
+ const bot={players:{},entity:{position:new Vec3(.5,64.5625,.09),yaw:0,pitch:0,onGround:true,velocity:new Vec3(0,0,0)},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,blockAt(p){
+  const q=p.floored();if(q.z<0&&q.y===63&&hazard==='unloaded')return null;
+  if(q.z<0&&q.y===63&&hazard)return {name:hazard,position:q,boundingBox:'empty'};
+  if(q.y===64&&q.z===0)return {name:'red_bed',position:q,boundingBox:'block',shapes:[[0,0,0,1,.5625,1]]};
+  return {name:q.y<64?'stone':'air',position:q,boundingBox:q.y<64?'block':'empty'};
+ }};
+ const task={kind:'expedition',safe_walk:true,strict_ground:true,waypoints:[[.5,64.1,-.5]],safety_focus:[.5,64.1,-.5]},motor=createMotor(bot,permissions,{clock:()=>now});
+ let sensed=proximity(bot,{recovery:false});assert.equal(sensed.canWalk(0,.35),false);assert.equal(sensed.canStepDown(0,.35),true);
+ motor.command(0,task,{...safe,...sensed},0);now+=100;motor.tick();assert.equal(controls.forward,true);assert.equal(!!controls.jump,false);assert.equal(!!controls.sprint,false);
+ for(const name of ['water','lava','unloaded','air']){hazard=name;sensed=proximity(bot,{recovery:false});motor.command(0,task,{...safe,...sensed},0);now+=100;motor.tick();assert.equal(controls.forward,false,name);}
+});
