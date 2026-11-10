@@ -68,6 +68,7 @@ async function salvage(t,b,motor,state,api,scan,tasks){
 function stance(t,b,q,state){
  const target=new Vec3(q.x,q.y,q.z),p=b.entity.position,candidates=[];
  const id=[q.x,q.y,q.z].join(','),excluded=t.homeRepair?.failedStances?.get(id)||new Set();
+ const footing=p=>[-.29,.29].every(dx=>[-.29,.29].every(dz=>terrain.solid(b.blockAt(p.offset(dx,-.05,dz).floored()))&&[.05,1.79].every(dy=>b.blockAt(p.offset(dx,dy,dz).floored())?.boundingBox==='empty')));
  const valid=(g,standing=new Vec3(g[0]+.5,g[1],g[2]+.5),margin=0)=>!excluded.has(g.join(','))&&!(q.floor&&Math.abs(q.y+1-standing.y)<.25&&q.x<standing.x+.31&&q.x+1>standing.x-.31&&q.z<standing.z+.31&&q.z+1>standing.z-.31)&&!(g[0]===q.x&&(g[2]===q.z||q.kind==='bed'&&g[2]===q.z+1)&&g[1]<=q.y+1&&g[1]+2>q.y)&&nav.standable(b,...g)&&space.clearOfPlayers(b,standing)&&placement.references(b,q,{standing}).some(ref=>ref.point.distanceTo(standing.offset(0,b.entity.eyeHeight||1.62,0))<=4.2-margin);
  // Work from the rim: descending for a nearer click can let subsequent fill
  // seal the worker into the crater. Never plan a descent to backfill it.
@@ -75,12 +76,20 @@ function stance(t,b,q,state){
  const heights=q.terrain?[0,1]:[0,-1,1];
  for(let x=-4;x<=4;x++)for(let z=-4;z<=4;z++)for(const dy of heights){
   const g=[target.x+x,t.plot.y+dy,target.z+z];
-  const standing=new Vec3(g[0]+.5,g[1],g[2]+.5);
-  if(q.terrain){standing.x+=Math.sign(target.x+.5-standing.x)*.3;standing.z+=Math.sign(target.z+.5-standing.z)*.3;}
-  if(Math.hypot(x,z)<1||!valid(g,q.terrain?standing:undefined,q.terrain?0:.5))continue;
-  const goal=[standing.x,standing.y+.1,standing.z];if(standing.offset(0,1.62,0).distanceTo(target.offset(.5,.5,.5))>4.2)continue;candidates.push(goal);
+  let standing=new Vec3(g[0]+.5,g[1],g[2]+.5);
+  if(Math.hypot(x,z)<1)continue;
+  if(q.terrain){
+   const edge=standing.offset(Math.sign(target.x+.5-standing.x)*.3,0,Math.sign(target.z+.5-standing.z)*.3);
+   // A nominally valid grid cell can overhang the crater at its inward edge.
+   // Prefer its center if the complete body fits and placement remains in reach.
+   if(valid(g,edge,0)){
+    if(footing(edge)||!valid(g,standing,0)||!footing(standing)||standing.offset(0,1.62,0).distanceTo(target.offset(.5,.5,.5))>4.2)standing=edge;
+   }else if(!valid(g,standing,0))continue;
+  }
+  else if(!valid(g,undefined,.5))continue;
+  const goal=[standing.x,standing.y+.1,standing.z];if(standing.offset(0,1.62,0).distanceTo(target.offset(.5,.5,.5))>4.2)continue;candidates.push({goal,supported:!q.terrain||footing(standing)});
  }
- return candidates.sort((a,c)=>new Vec3(...a).distanceTo(p)-new Vec3(...c).distanceTo(p)).slice(0,12).find(g=>nav.route(b,g,24,2048,true,{bounds:state.world.bounds,reversible:true,forbidden:v=>(t.campPlots||[]).some(h=>(h.x!==t.plot.x||h.z!==t.plot.z)&&Math.abs(v[0]-h.x)<=3&&Math.abs(v[2]-h.z)<=3)}).reached)||null;
+ return candidates.sort((a,c)=>Number(c.supported)-Number(a.supported)||new Vec3(...a.goal).distanceTo(p)-new Vec3(...c.goal).distanceTo(p)).slice(0,12).map(v=>v.goal).find(g=>nav.route(b,g,24,2048,true,{bounds:state.world.bounds,reversible:true,forbidden:v=>(t.campPlots||[]).some(h=>(h.x!==t.plot.x||h.z!==t.plot.z)&&Math.abs(v[0]-h.x)<=3&&Math.abs(v[2]-h.z)<=3)}).reached)||null;
 }
 function safe(t,b,q,ignoreSelf=false){
  if(q.kind==='bed')return safe(t,b,{...q,kind:'bed_part'},ignoreSelf)&&safe(t,b,{...q,z:q.z+1,kind:'bed_part'},ignoreSelf);

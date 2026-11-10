@@ -224,3 +224,12 @@ test('blast damage before the hut milestone restores the earned floor and statio
 test('unfinished homes without an earned workstation are not fabricated into repair progress',()=>{
  const f=fixture([]);assert.equal(repair.inspect(f.t,f.b),null);
 });
+
+test('crater stances do not overhang unsupported corners and can fall back to a supported cell center',()=>{
+ const f=fixture(),q={x:1,y:62,z:0,kind:'foundation',terrain:true,structural:true};
+ f.b.entity.position=new Vec3(10.5,64,.5);f.set(new Vec3(1,62,0),'air');f.set(new Vec3(1,63,0),'air');
+ const goal=repair.stance(f.t,f.b,q,f.state);assert.ok(goal,'a supported alternative should remain reachable');
+ const p=new Vec3(goal[0],Math.round(goal[1]),goal[2]);
+ for(const dx of [-.29,.29])for(const dz of [-.29,.29])assert.equal(require('../controller/home_terrain').solid(f.b.blockAt(p.offset(dx,-.05,dz))),true,'the full stance must fit on supported ground');
+ assert.equal(repair.safe(f.t,f.b,q,true),true);assert.equal(f.b.blockAt(new Vec3(1,63,0)).name,'air');
+});
