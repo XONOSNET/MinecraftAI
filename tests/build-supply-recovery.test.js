@@ -81,3 +81,19 @@ test('refused placements prefer a visible support over a closer occluded stance'
  t.buildAttempts=new Map();b.world.raycast=()=>null;
  assert.equal(retry(t,b,q,[-20,20,-20,20]),true);
 });
+
+test('construction approach settles before spending a placement retry, then resumes the same unfinished block',async()=>{
+ const {b,t,state}=fixture([{name:'oak_planks',count:64}]),house=require('../controller/house'),cells=new Map();
+ for(const q of house.blueprint(t.plot))cells.set(new Vec3(q.x,q.y,q.z).toString(),q.table?'crafting_table':'oak_planks');
+ const q=house.blueprint(t.plot).find(q=>!q.table&&q.y===64&&q.z===0);cells.delete(new Vec3(q.x,q.y,q.z).toString());
+ const base=b.blockAt;b.blockAt=p=>{const name=cells.get(p.floored().toString());return name?{...base(p),name,boundingBox:'block'}:base(p);};
+ t.phase='build';t.requiredWood=()=>0;t.buildApproach=[.5,64.1,.5];t.walk=async()=>true;t.buildAttempts=new Map();
+ const progress=t.lastProgress;let placed=0,paused=0;
+ t.place=async(_b,target)=>{assert.equal(b.entity.onGround,true);assert.ok(Math.hypot(b.entity.velocity.x,b.entity.velocity.z)<=.025);placed++;cells.set(new Vec3(target.x,target.y,target.z).toString(),'oak_planks');};
+ const motor={pause(){paused++;}};
+ b.entity.velocity=new Vec3(.11,0,.04);await t.tick(b,motor,state,async()=>({}),null,{});
+ assert.equal(t.phase,'build');assert.equal(placed,0);assert.equal(t.buildAttempts.size,0);assert.equal(t.lastProgress,progress);assert.match(t.message,/Settling/);
+ b.entity.velocity=new Vec3(0,0,0);b.entity.onGround=false;await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(placed,0);
+ b.entity.onGround=true;await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(placed,1);assert.ok(paused>=3);assert.equal(t.phase,'build');assert.equal(t.error,undefined);
+ await t.tick(b,motor,state,async()=>({}),null,{});assert.equal(t.phase,'door');assert.equal(placed,1);
+});

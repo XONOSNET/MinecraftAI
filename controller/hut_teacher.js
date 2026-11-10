@@ -249,6 +249,10 @@ class HutTeacher{
     if(this.buildApproach){const moved=await this.walk(bot,motor,this.buildApproach,state,api,scan,tasks);if(moved===false)throw Error('No safe route to retry the refused wall placement');if(moved!==true){this.message='Taking another safe angle for the refused wall block';return this.message;}this.buildApproach=null;}
     if(Math.abs(p.x-this.plot.x-.5)>2.2||Math.abs(p.z-this.plot.z-.5)>2.2||Math.abs(p.y-this.plot.y)>.3){await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5],state,api,scan,tasks);this.message='Taking position inside the hut';}
     else{
+    motor.pause();
+    // Native placement validates the actual eye/body position. Let approach
+    // momentum settle before spending a supporting-face or stance retry.
+    if(bot.entity.onGround!==true||Math.hypot(bot.entity.velocity?.x||0,bot.entity.velocity?.z||0)>.025){this.message='Settling on the construction stance before placing hut blocks';return this.message;}
     const remaining=blueprint(this.plot).filter(q=>!matches(bot,q));
     this.built=house.total-remaining.length;
     if(!remaining.length){this.phase='door';motor.pause();}
