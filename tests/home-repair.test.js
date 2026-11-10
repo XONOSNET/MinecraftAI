@@ -233,3 +233,24 @@ test('crater stances do not overhang unsupported corners and can fall back to a 
  for(const dx of [-.29,.29])for(const dz of [-.29,.29])assert.equal(require('../controller/home_terrain').solid(f.b.blockAt(p.offset(dx,-.05,dz))),true,'the full stance must fit on supported ground');
  assert.equal(repair.safe(f.t,f.b,q,true),true);assert.equal(f.b.blockAt(new Vec3(1,63,0)).name,'air');
 });
+
+test('repair fills the dry entrance column beside runoff, steps clear of the torch, and resumes',async ctx=>{
+ const f=fixture(['hut','torch']);f.items.dirt=2;f.items.torch=1;
+ const lower=new Vec3(1,62,-5),upper=lower.offset(0,1,0),water=lower.offset(1,0,0);
+ const torch=house.torchMount(f.t.plot,'outdoor').position;
+ f.set(lower,'air');f.set(upper,'air');f.set(water,'water',{level:'2'});f.set(torch,'air');
+ f.b.entity.position=new Vec3(-.495,64,-4.098);
+ const placements=[],place=f.t.place;
+ f.t.place=async(b,q,name,validate)=>{assert.equal(validate(),true);placements.push([q.x,q.y,q.z]);await place(b,q,name);};
+ ctx.mock.method(require('../controller/house_lighting'),'place',async(b,plot,side)=>{
+  assert.equal(side,'outdoor');assert.equal(repair.safe(f.t,b,{x:torch.x,y:torch.y,z:torch.z,kind:'torch'}),true);
+  f.items.torch--;f.set(torch,'wall_torch',{facing:house.torchMount(plot,side).facing});
+ });
+ const q={x:lower.x,y:lower.y,z:lower.z,kind:'foundation',terrain:true};
+ for(const level of ['0','8']){f.set(water,'water',{level});assert.equal(repair.safe(f.t,f.b,q,true),false);}
+ f.set(water,'water',{level:'2'});f.set(lower,'water',{level:'3'});assert.equal(repair.safe(f.t,f.b,q,true),false);f.set(lower,'air');
+ f.b.entity.onGround=false;assert.equal(repair.safe(f.t,f.b,q),false);f.b.entity.onGround=true;
+ for(let i=0;i<20;i++){await repair.tick(f.t,f.b,f.motor,f.state);if(!f.t.homeRepair)break;}
+ assert.deepEqual(placements,[lower.toArray(),upper.toArray()]);assert.equal(f.items.dirt,0);assert.equal(f.items.torch,0);
+ assert.equal(f.b.blockAt(water).name,'water');assert.equal(f.t.homeRepair,null);assert.equal(f.t.phase,'night_scout');assert.deepEqual(f.t.milestones,['hut','torch']);
+});

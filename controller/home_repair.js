@@ -65,11 +65,19 @@ async function salvage(t,b,motor,state,api,scan,tasks){
  else await t.walk(b,motor,g,state,api,scan,tasks);
  t.message='Recovering dropped home supplies before crafting replacements';return true;
 }
+function overlaps(q,p){
+ if(q.kind==='bed')return overlaps({...q,kind:'bed_part'},p)||overlaps({...q,kind:'bed_part',z:q.z+1},p);
+ if(q.kind==='door')return overlaps({...q,kind:'door_part'},p)||overlaps({...q,kind:'door_part',y:q.y+1},p);
+ return q.x<p.x+.31&&q.x+1>p.x-.31&&q.z<p.z+.31&&q.z+1>p.z-.31&&
+  (q.y<p.y+1.8&&q.y+1>p.y+.05||q.floor&&Math.abs(q.y+1-p.y)<.25);
+}
+const sideWater=(b,p)=>[[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]].some(d=>b.blockAt(p.offset(...d))?.name==='water');
+const footing=(b,p)=>[-.29,.29].every(dx=>[-.29,.29].every(dz=>terrain.solid(b.blockAt(p.offset(dx,-.05,dz).floored()))&&[.05,1.79].every(dy=>b.blockAt(p.offset(dx,dy,dz).floored())?.boundingBox==='empty')));
 function stance(t,b,q,state){
  const target=new Vec3(q.x,q.y,q.z),p=b.entity.position,candidates=[];
  const id=[q.x,q.y,q.z].join(','),excluded=t.homeRepair?.failedStances?.get(id)||new Set();
- const footing=p=>[-.29,.29].every(dx=>[-.29,.29].every(dz=>terrain.solid(b.blockAt(p.offset(dx,-.05,dz).floored()))&&[.05,1.79].every(dy=>b.blockAt(p.offset(dx,dy,dz).floored())?.boundingBox==='empty')));
- const valid=(g,standing=new Vec3(g[0]+.5,g[1],g[2]+.5),margin=0)=>!excluded.has(g.join(','))&&!(q.floor&&Math.abs(q.y+1-standing.y)<.25&&q.x<standing.x+.31&&q.x+1>standing.x-.31&&q.z<standing.z+.31&&q.z+1>standing.z-.31)&&!(g[0]===q.x&&(g[2]===q.z||q.kind==='bed'&&g[2]===q.z+1)&&g[1]<=q.y+1&&g[1]+2>q.y)&&nav.standable(b,...g)&&space.clearOfPlayers(b,standing)&&placement.references(b,q,{standing}).some(ref=>ref.point.distanceTo(standing.offset(0,b.entity.eyeHeight||1.62,0))<=4.2-margin);
+ const wetRim=q.terrain&&sideWater(b,target);
+ const valid=(g,standing=new Vec3(g[0]+.5,g[1],g[2]+.5),margin=0)=>!excluded.has(g.join(','))&&!overlaps(q,standing)&&(!wetRim||footing(b,standing))&&nav.standable(b,...g)&&space.clearOfPlayers(b,standing)&&placement.references(b,q,{standing}).some(ref=>ref.point.distanceTo(standing.offset(0,b.entity.eyeHeight||1.62,0))<=4.2-margin);
  // Work from the rim: descending for a nearer click can let subsequent fill
  // seal the worker into the crater. Never plan a descent to backfill it.
  const current=p.floored();if((!q.terrain||p.y>=t.plot.y-.25)&&valid([current.x,current.y,current.z],p))return [p.x,p.y+.1,p.z];
@@ -83,11 +91,11 @@ function stance(t,b,q,state){
    // A nominally valid grid cell can overhang the crater at its inward edge.
    // Prefer its center if the complete body fits and placement remains in reach.
    if(valid(g,edge,0)){
-    if(footing(edge)||!valid(g,standing,0)||!footing(standing)||standing.offset(0,1.62,0).distanceTo(target.offset(.5,.5,.5))>4.2)standing=edge;
+    if(footing(b,edge)||!valid(g,standing,0)||!footing(b,standing)||standing.offset(0,1.62,0).distanceTo(target.offset(.5,.5,.5))>4.2)standing=edge;
    }else if(!valid(g,standing,0))continue;
   }
   else if(!valid(g,undefined,.5))continue;
-  const goal=[standing.x,standing.y+.1,standing.z];if(standing.offset(0,1.62,0).distanceTo(target.offset(.5,.5,.5))>4.2)continue;candidates.push({goal,supported:!q.terrain||footing(standing)});
+  const goal=[standing.x,standing.y+.1,standing.z];if(standing.offset(0,1.62,0).distanceTo(target.offset(.5,.5,.5))>4.2)continue;candidates.push({goal,supported:!q.terrain||footing(b,standing)});
  }
  return candidates.sort((a,c)=>Number(c.supported)-Number(a.supported)||new Vec3(...a.goal).distanceTo(p)-new Vec3(...c.goal).distanceTo(p)).slice(0,12).map(v=>v.goal).find(g=>nav.route(b,g,24,2048,true,{bounds:state.world.bounds,reversible:true,forbidden:v=>(t.campPlots||[]).some(h=>(h.x!==t.plot.x||h.z!==t.plot.z)&&Math.abs(v[0]-h.x)<=3&&Math.abs(v[2]-h.z)<=3)}).reached)||null;
 }
@@ -100,9 +108,15 @@ function safe(t,b,q,ignoreSelf=false){
  if(q.floor&&empty(b.blockAt(p))&&!terrain.solid(b.blockAt(p.offset(0,-1,0))))return false;
  const occupants=ignoreSelf?space.players(b):[b.entity.position,...space.players(b)];
  if(!space.clearOfPlayers(b,p.offset(.5,.5,.5),1))return false;
- if(q.floor&&occupants.some(w=>Math.abs(q.y+1-w.y)<.25&&q.x<w.x+.31&&q.x+1>w.x-.31&&q.z<w.z+.31&&q.z+1>w.z-.31))return false;
- for(const who of occupants)if(q.x<who.x+.31&&q.x+1>who.x-.31&&q.z<who.z+.31&&q.z+1>who.z-.31&&q.y<who.y+1.8&&q.y+1>who.y+.05)return false;
- return [[0,0,0],[1,0,0],[-1,0,0],[0,-1,0],[0,1,0],[0,0,1],[0,0,-1]].every(([x,y,z])=>{const v=b.blockAt(p.offset(x,y,z));return v&&!['water','lava','fire','soul_fire'].includes(v.name)&&!v.getProperties?.().waterlogged;});
+ if(occupants.some(w=>overlaps(q,w)))return false;
+ return [[0,0,0],[1,0,0],[-1,0,0],[0,-1,0],[0,1,0],[0,0,1],[0,0,-1]].every(([x,y,z])=>{
+  const v=b.blockAt(p.offset(x,y,z));
+  if(v?.name==='water'&&q.kind==='foundation'&&q.terrain&&y===0&&(x||z)&&Math.abs(q.x-t.plot.x)<=1&&q.z>=t.plot.z-5&&q.z<=t.plot.z-4){
+   const level=Number(v.getProperties?.().level);
+   return level>=1&&level<=7&&(ignoreSelf||b.entity.onGround===true&&!b.entity.isInWater&&!b.entity.isInLava&&b.entity.position.y>=t.plot.y-.25&&footing(b,b.entity.position));
+  }
+  return v&&!require('./water_navigation').isWater(v)&&!['lava','fire','soul_fire','bubble_column'].includes(v.name)&&!v.getProperties?.().waterlogged;
+ });
 }
 async function wood(t,b,r,needed){
  if(count(b,n=>n.endsWith('_planks'))>=needed&&count(b,n=>LOG.test(n))>=r.rawLogs)return true;
@@ -110,6 +124,11 @@ async function wood(t,b,r,needed){
  if(log&&count(b,n=>LOG.test(n))>r.rawLogs){await t.craft(b,log.name.replace('_log','_planks'),1,null);return false;}
  Object.assign(r,{stage:'wood',woodNeeded:Math.max(needed,r.woodNeeded||0)});if(t.wilderness)t.wilderness.fuelTrip=false;
  t.phase='gather';t.supplyRun=true;t.grove=null;t.tree=null;t.treeApproach=null;t.resourceAt=0;return false;
+}
+function rejectStance(r,b,q){
+ r.failedStances??=new Map();const id=[q.x,q.y,q.z].join(',');
+ if(!r.failedStances.has(id))r.failedStances.set(id,new Set());
+ r.failedStances.get(id).add(b.entity.position.floored().toArray().join(','));
 }
 async function tick(t,b,motor,state,api,scan,tasks){
  let r=t.homeRepair,damage=null;
@@ -182,7 +201,10 @@ async function tick(t,b,motor,state,api,scan,tasks){
  if(!choice){if(await require('./escape_column').attempt(t,b,motor,[t.plot.x+.5,t.plot.y+.1,t.plot.z-4.5],state))return true;r.message=t.message='Home repair: no safe supported work stance yet';return true;}
  const {q,goal}=choice;
  if(await t.walk(b,motor,goal,state,api,scan,tasks)!==true)return true;motor.pause();
- if(!safe(t,b,q)){t.message='Rechecking clear footing before home repair';return true;}
+ if(!safe(t,b,q)){
+  if(overlaps(q,b.entity.position))rejectStance(r,b,q);
+  r.message=t.message='Rechecking clear footing before home repair';return true;
+ }
  // Recover an owned misplaced workbench only after foundation repair and a
  // checked approach. Preserve player support and all normal digging guards.
  if(q.kind==='furnace'&&b.blockAt(new Vec3(q.x,q.y,q.z))?.name==='crafting_table'&&safe(t,b,{...q,floor:true})){
@@ -227,11 +249,10 @@ async function tick(t,b,motor,state,api,scan,tasks){
     if(!await access.dig(b,occupied,{validate:v=>require('./floor_builder').safeFoundation(b,v)&&safe(t,b,q)}))return true;
    }
    if(q.kind==='door')await b.look(Math.PI,0,true);
-   try{await t.place(b,q,item);}catch(error){
+   try{await t.place(b,q,item,q.terrain?()=>safe(t,b,q):null);}catch(error){
+    if(error.code==='BUILD_REPAIR_CHANGED'){r.message=t.message='Crater changed before placement; checking it again';return true;}
     if(error.code!=='BUILD_OBSTRUCTED')throw error;
-    r.failedStances??=new Map();const id=[q.x,q.y,q.z].join(',');
-    if(!r.failedStances.has(id))r.failedStances.set(id,new Set());
-    const p=b.entity.position.floored();r.failedStances.get(id).add([p.x,p.y,p.z].join(','));
+    rejectStance(r,b,q);
     t.path=[];t.navigator.lastPlan=-Infinity;t.message='Repair support changed; checking another reachable work position';return true;
    }
   }

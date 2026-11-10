@@ -411,7 +411,9 @@ class HutTeacher{
  }
  inside(p,b){return p.x>b[0]+1&&p.x<b[1]-2&&p.z>b[2]+1&&p.z<b[3]-2;}
  async craft(bot,name,count,table){return crafting.craft(bot,name,count,table);}
- async place(bot,q,name){
+ async place(bot,q,name,validate=null){
+  const check=()=>{if(validate&&!validate()){const error=Error('Repair target or footing changed');error.code='BUILD_REPAIR_CHANGED';throw error;}};
+  check();
   this.timing?.mark(this.phase,'building');
   await require('./construction_clearance').prepare(this,bot,q,name);
   const rejected=new Set();
@@ -423,7 +425,7 @@ class HutTeacher{
    await inventorySync.equip(bot,item.name,{synced:true});
    // Forced look updates local angles immediately; physics sends the rotation
    // later. Door orientation uses the server's angle at placement time.
-   try{await aim(bot,ref.point);if(item.name.endsWith('_door')){await bot.look(0,0,true);await bot.waitForTicks(2);}await bot._placeBlockWithOptions(ref.block,ref.face,{swingArm:'right',forceLook:'ignore',delta:ref.delta});if(bot.blockAt(new Vec3(q.x,q.y,q.z))?.name!==item.name)throw Error('Server refused to confirm '+item.name+' at '+new Vec3(q.x,q.y,q.z));return;}catch(error){if(!String(error.message).includes('Server refused'))throw error;rejected.add(ref.key);await new Promise(r=>setTimeout(r,150));}
+   try{await aim(bot,ref.point);if(item.name.endsWith('_door')){await bot.look(0,0,true);await bot.waitForTicks(2);}check();await bot._placeBlockWithOptions(ref.block,ref.face,{swingArm:'right',forceLook:'ignore',delta:ref.delta});if(bot.blockAt(new Vec3(q.x,q.y,q.z))?.name!==item.name)throw Error('Server refused to confirm '+item.name+' at '+new Vec3(q.x,q.y,q.z));return;}catch(error){if(!String(error.message).includes('Server refused'))throw error;rejected.add(ref.key);await new Promise(r=>setTimeout(r,150));}
   }
   const error=Error('Server refused all reachable supporting faces');error.code='BUILD_OBSTRUCTED';throw error;
  }
