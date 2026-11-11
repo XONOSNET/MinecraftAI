@@ -52,10 +52,15 @@ async function tick(t,b,motor,state,api,scan,tasks){
  else if(t.phase==='survival_mine_up')await move(s.station.entrance,'mine_return');
  else if(t.phase==='survival_mine_return'){await move(homeGoal(t),'iron_smelt');if(t.phase==='survival_iron_smelt')t.milestone('mine_return');}
  else if(t.phase==='survival_iron_smelt'){
+  s.smelted=Math.max(s.smelted,count(b,'iron_ingot'));
   motor.pause();t.timing.mark(t.phase,'smelting');t.message=`Smelting iron ${s.smelted} / ${s.station.iron_target}; furnace takes about 10 seconds per ingot`;
   if(s.smelted>=s.station.iron_target&&count(b,'iron_ingot')>=s.station.iron_target){t.milestone('iron_smelt');next('iron_tools');}
-  else if(count(b,'raw_iron')){await furnace.smelt(b,hearth(t,b),'raw_iron','iron_ingot',n=>n==='coal');await inventory.sync(b);s.smelted++;t.lastProgress=Date.now();}
-  else throw Error('Iron smelting output did not match harvested ore');
+  else{
+   const amount=s.station.iron_target-s.smelted;
+   const made=await furnace.smelt(b,hearth(t,b),'raw_iron','iron_ingot',n=>n==='coal',{amount,collect:Math.min(3,amount)});
+   if(!made)throw Error('Iron smelting output did not match harvested ore');
+   await inventory.sync(b);s.smelted+=made;t.lastProgress=Date.now();
+  }
  }else if(t.phase==='survival_iron_tools'){
   motor.pause();const tool=['iron_pickaxe','shears','iron_sword'].find(n=>!count(b,n));
   if(tool){if(tool!=='shears'&&count(b,'stick')<2){if(!b.inventory.items().some(i=>i.name.endsWith('_planks')))throw Error('No planks left for iron tool handles');await t.craft(b,'stick',1,null);}await t.craft(b,tool,1,table(t,b));t.milestone(tool);t.lastProgress=Date.now();}
@@ -96,7 +101,11 @@ async function tick(t,b,motor,state,api,scan,tasks){
  }else if(t.phase==='survival_food_return')await move(homeGoal(t),'cook');
  else if(t.phase==='survival_cook'){
   motor.pause();t.timing.mark(t.phase,'smelting');t.message='Cooking food in the furnace';
-  if(count(b,'cooked_beef')<2){await furnace.smelt(b,hearth(t,b),'beef','cooked_beef',n=>n==='coal');await inventory.sync(b);t.lastProgress=Date.now();}
+  if(count(b,'cooked_beef')<2){
+   const made=await furnace.smelt(b,hearth(t,b),'beef','cooked_beef',n=>n==='coal',{amount:2-count(b,'cooked_beef')});
+   if(!made)throw Error('Cooking output did not match gathered beef');
+   await inventory.sync(b);t.lastProgress=Date.now();
+  }
   else{t.milestone('cooked');next('armor');}
  }else if(t.phase==='survival_armor'){
   motor.pause();const parts=[['iron_helmet','head',5],['iron_chestplate','torso',6],['iron_leggings','legs',7],['iron_boots','feet',8]],part=parts.find(([name,,slot])=>b.inventory.slots[slot]?.name!==name);

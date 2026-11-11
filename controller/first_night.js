@@ -212,10 +212,12 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
  else if(t.phase==='night_cook'){
   motor.pause();const d=door();if(d?.getProperties().open&&!await closeDoor(b,d))return;
   if(meals(b)>=4){t.milestone('cooked_meals');t.milestone('provisioned');next('wool');return;}
-  const input=Object.keys(RAW).find(name=>count(b,name));if(!input){next('food');return;}
+  const input=n.cookInput||Object.keys(RAW).find(name=>count(b,name));if(!input){next('food');return;}
   t.message='Cooking '+input+' · '+meals(b)+' / 4 ready meals';
-  if(!b.inventory.items().some(i=>i.name.endsWith('_planks')||i.name==='charcoal'||i.name==='coal')){const log=b.inventory.items().find(i=>i.name.endsWith('_log'));if(!log){require('./wood_resupply').request(t,'night_cook');return;}await t.craft(b,log.name.replace('_log','_planks'),1,null);}
-  await furnace.smelt(b,b.blockAt(house.point(t.plot,'furnace')),input,RAW[input],n=>n.endsWith('_planks')||n==='charcoal'||n==='coal'||n==='stick');await inventory.sync(b);t.lastProgress=Date.now();
+  if(!n.cookInput&&!b.inventory.items().some(i=>i.name.endsWith('_planks')||i.name==='charcoal'||i.name==='coal')&&count(b,'stick')<2){const log=b.inventory.items().find(i=>i.name.endsWith('_log'));if(!log){require('./wood_resupply').request(t,'night_cook');return;}await t.craft(b,log.name.replace('_log','_planks'),1,null);}
+  n.cookInput=input;
+  const cooked=await furnace.smelt(b,b.blockAt(house.point(t.plot,'furnace')),input,RAW[input],n=>n.endsWith('_planks')||n==='charcoal'||n==='coal'||n==='stick',{amount:4-meals(b),allowEmpty:true});
+  n.cookInput=null;await inventory.sync(b);if(cooked)t.lastProgress=Date.now();
  }else if(t.phase==='night_wool_home')await move(home,'bed');
  else if(t.phase==='night_bed'){
   motor.pause();await inventory.sync(b);

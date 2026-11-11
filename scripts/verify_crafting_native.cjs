@@ -1,4 +1,77 @@
-const mineflayer=require('mineflayer'),fs=require('fs'),{Vec3}=require('vec3'),{craft}=require('../controller/crafting');const token=fs.readFileSync('data/api-token','utf8').trim();
-const b=mineflayer.createBot({host:'127.0.0.1',port:25565,username:'LabCraftCheck',version:'1.21.4'});
-const post=async(data)=>{const r=await fetch('http://127.0.0.1:8000/admin/action',{method:'POST',headers:{'X-Lab-Token':token,'Content-Type':'application/json'},body:JSON.stringify(data)});if(!r.ok)throw Error(await r.text());return r.json();};
-b.once('spawn',async()=>{let table;const result={};try{await new Promise(r=>setTimeout(r,4000));await post({action:'op',player:'LabCraftCheck'});b.chat('/clear @s');b.chat('/give @s spruce_log 4');b.chat('/gamemode survival @s');await new Promise(r=>setTimeout(r,500));await post({action:'deop',player:'LabCraftCheck'});result.fixture='Four logs granted only to this isolated protocol test player; production hut trials harvest their own materials.';await post({action:'teleport-coordinates',player:'LabCraftCheck',x:-16.5,y:181,z:16.5});await new Promise(r=>setTimeout(r,1200));result.before=b.inventory.items().map(i=>[i.name,i.count]);const log=b.inventory.items().find(i=>i.name==='spruce_log');if(log)await craft(b,'spruce_planks',Math.min(log.count,4),null);result.afterPlanks=b.inventory.items().map(i=>[i.name,i.count]);await craft(b,'crafting_table',1,null);result.afterTable=b.inventory.items().map(i=>[i.name,i.count]);const item=b.inventory.items().find(i=>i.name==='crafting_table');await b.equip(item,'hand');await b.placeBlock(b.blockAt(new Vec3(-15,180,16)),new Vec3(0,1,0));table=b.blockAt(new Vec3(-15,181,16));await craft(b,'spruce_door',1,table);result.afterDoor=b.inventory.items().map(i=>[i.name,i.count]);result.success=true;}catch(e){result.error=e.message;result.inventory=b.inventory.items().map(i=>[i.name,i.count]);}finally{await post({action:'deop',player:'LabCraftCheck'}).catch(()=>{});if(table)await b.dig(table).catch(()=>{});console.log(JSON.stringify(result));fs.writeFileSync('docs/crafting-native.json',JSON.stringify(result,null,2));b.quit();setTimeout(()=>process.exit(),300);}});setTimeout(()=>{b.quit();process.exit();},30000).unref();
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const mineflayer=require('mineflayer'),{Vec3}=require('vec3');
+const {craft}=require('../controller/crafting'),{smelt}=require('../controller/furnace');
+const inventory=require('../controller/inventory_sync');
+const token=fs.readFileSync('data/api-token','utf8').trim(),wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const player='LabCraftCheck',b=mineflayer.createBot({host:'127.0.0.1',port:25565,username:player,version:'1.21.4'});
+inventory.attach(b);
+const result={fixture:'Isolated survival player and temporary sky platform'};
+const table=new Vec3(-310,210,-343),hearth=new Vec3(-310,210,-345);
+let changed=false,finished=false;
+async function post(data){
+ const response=await fetch('http://127.0.0.1:8000/admin/action',{
+  method:'POST',headers:{'X-Lab-Token':token,'Content-Type':'application/json'},body:JSON.stringify({player,...data}),signal:AbortSignal.timeout(10000)
+ });
+ if(!response.ok)throw Error(await response.text());
+}
+async function commands(list){
+ await post({action:'op'});await wait(900);
+ try{for(const command of list){b.chat('/'+command);await wait(200);}await wait(650);}
+ finally{await post({action:'deop'});}
+}
+function checkEmpty(){
+ for(let x=-314;x<=-307;x++)for(let z=-348;z<=-340;z++)for(let y=209;y<=211;y++){
+  assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air','fixture volume must be empty');
+ }
+}
+const count=name=>b.inventory.items().filter(item=>item.name===name).reduce((sum,item)=>sum+item.count,0);
+async function finish(){
+ if(finished)return;
+ finished=true;
+ try{
+  if(changed){
+   await commands(['gamemode creative @s','clear @s','fill -314 209 -348 -307 211 -340 air']);
+   checkEmpty();
+  }
+  await post({action:'teleport-coordinates',x:-153.5,y:225.1,z:160.5});
+  result.cleaned=true;
+ }catch(error){result.cleanup_error=error.message;result.success=false;}
+ finally{
+  await post({action:'deop'}).catch(()=>{});
+  fs.writeFileSync('logs/crafting-native.json',JSON.stringify(result,null,2));
+  console.log(JSON.stringify(result));b.quit();
+  setTimeout(()=>process.exit(result.success?0:1),300);
+ }
+}
+b.on('error',error=>{result.error=error.message;result.success=false;void finish();});
+b.once('spawn',async()=>{
+ try{
+  await wait(3500);
+  await post({action:'gamemode',gamemode:'creative'});
+  await post({action:'teleport-coordinates',x:-311.5,y:216,z:-344.5});await wait(1800);checkEmpty();
+  changed=true;
+  await commands(['fill -314 209 -348 -307 209 -340 grass_block','setblock -310 210 -343 crafting_table',
+   'setblock -310 210 -345 furnace','clear @s','give @s spruce_log 8','give @s beef 5','give @s oak_planks 5',
+   'tp @s -311.5 210 -344.5','gamemode survival @s']);
+  await wait(500);assert.equal(b.game.gameMode,'survival');
+  const clicks=[];const write=b._client.write.bind(b._client);
+  b._client.write=(name,data)=>{if(name==='window_click')clicks.push([data.slot,data.mode,data.mouseButton]);return write(name,data);};
+  await craft(b,'spruce_planks',4);
+  assert.equal(count('spruce_log'),4);assert.equal(count('spruce_planks'),16);
+  assert.equal(clicks.filter(([slot,mode])=>slot===0&&mode===1).length,1);
+  result.planks={produced:16,logsRemaining:4,shiftClicks:1};
+  clicks.length=0;
+  await craft(b,'spruce_door',2,b.blockAt(table));
+  assert.equal(count('spruce_door'),6);assert.equal(count('spruce_planks'),4);
+  assert.equal(clicks.filter(([slot,mode])=>slot===0&&mode===1).length,1);
+  result.doors={produced:6,planksRemaining:4,shiftClicks:1};
+  clicks.length=0;
+  const made=await smelt(b,b.blockAt(hearth),'beef','cooked_beef',name=>name==='oak_planks',{amount:3});
+  assert.equal(made,3);assert.equal(count('cooked_beef'),3);assert.equal(count('beef'),2);assert.equal(count('oak_planks'),3);
+  assert.deepEqual(clicks.filter(([slot,mode])=>[0,1].includes(slot)&&mode===0),[[0,0,0],[1,0,0]]);
+  result.beef={cooked:made,rawRemaining:2,planksConsumed:2,inputAndFuelDeposits:2};
+  result.success=true;
+ }catch(error){result.error=error.stack;result.success=false;}
+ finally{await finish();}
+});
+setTimeout(()=>{result.error='Native verification deadline';result.success=false;void finish();},100000).unref();

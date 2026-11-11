@@ -42,7 +42,7 @@ Automated tests cover support removal, natural-resource API restrictions, hostil
 
 ## First group-run corrections
 
-Production failures exposed a fuel assumption that the original fixture missed: cooking was allowed to select sticks, but the furnace helper supplied just one. The inspected failed furnaces contained raw beef, no remaining fuel and a 100-tick burn duration against a 200-tick cooking recipe. The helper now queues replacement fuel as it burns, including several sticks when needed. A native regression cooks real beef using sticks only.
+Crafting loads the requested number of ingredients into the grid and takes a repeated recipe's results together. Furnaces load the requested batch that available fuel can finish and account for fuel already burning or queued. This includes sticks, which burn for 100 ticks against a 200-tick cooking recipe. Cooking still takes the normal time per item. The native crafting fixture checks exact input and fuel use in a real survival inventory.
 
 The early workbench now uses a close placement stance and retries a rejected interaction. Already-owned tools receive their verification milestones, including the early axe. Local routes center the body beside adjacent tables/walls before taking a corner; centering waypoints retain a tighter arrival radius. A committed doorway's safe back-off is allowed outside the inward route corridor, while obstacle, support and player checks remain active. Native regressions reconstruct the reported floor-corner and doorway-start positions. See first-night-regressions-native.json. These are controller repairs, not evidence that the previous failures were all deficiencies in the neural policy.
 
