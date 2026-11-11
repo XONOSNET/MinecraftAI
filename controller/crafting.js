@@ -21,6 +21,8 @@ async function craft(bot,name,times=1,table=null){
   if(window.selectedItem)throw Error('Server did not return crafted item to inventory');
  };
  let opened=false;
+ const personal=table?null:Symbol('personal crafting');
+ if(personal)bot.labObserverCraft=personal;
  try{
   if(table){const promise=new Promise((resolve,reject)=>{const timer=setTimeout(()=>{bot.removeListener('windowOpen',done);reject(Error('Crafting table did not open'));},3000);const done=()=>{clearTimeout(timer);resolve();};bot.once('windowOpen',done);});await bot.activateBlock(table);await promise;opened=true;}
   for(let i=0;i<times;i++){
@@ -34,6 +36,9 @@ async function craft(bot,name,times=1,table=null){
    await sync();if(window.slots[0]?.type!==id)throw Error('Server did not produce recipe result for '+name);
    await click(0);if(window.selectedItem?.type!==id)throw Error('Server did not release crafted '+name);await stow();
   }
- }finally{if(opened&&bot.currentWindow){await stow().catch(()=>{});await bot.closeWindow(bot.currentWindow);}}
+ }finally{
+  if(personal&&bot.labObserverCraft===personal)delete bot.labObserverCraft;
+  if(opened&&bot.currentWindow){await stow().catch(()=>{});await bot.closeWindow(bot.currentWindow);}
+ }
 }
 module.exports={craft,recipeSlots};

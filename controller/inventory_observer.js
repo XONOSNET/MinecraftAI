@@ -13,8 +13,11 @@ function snapshot(bot,now=Date.now()){
   for(let i=0;i<36;i++)player[9+i]=stack(window.slots[window.inventoryStart+i]);
  }
  const slots=window?window.slots.slice(0,Math.min(90,window.inventoryStart??0)).map(stack):player.slice(0,5);
- const type=window?String(window.type||'container').slice(0,80):slots.some(Boolean)?'crafting_2x2':'inventory';
- return {at:now,bot:bot.username,player,selected:bot.quickBarSlot??0,window:{type,slots},cursor:stack((window||inv).selectedItem)};
+ const type=window?String(window.type||'container').slice(0,80):bot.labObserverCraft||slots.some(Boolean)?'crafting_2x2':'inventory';
+ const metric=(value)=>Number.isFinite(value)?value:null;
+ return {at:now,bot:bot.username,player,selected:bot.quickBarSlot??0,window:{type,slots},cursor:stack((window||inv).selectedItem),
+  vitals:{health:metric(bot.health),food:metric(bot.food),air:metric(bot.labOxygen),
+   level:metric(bot.experience?.level),xp:metric(bot.experience?.progress)}};
 }
 async function publish(root,bots,now=Date.now()){
  const dir=path.join(root,'data','inventory-observer');

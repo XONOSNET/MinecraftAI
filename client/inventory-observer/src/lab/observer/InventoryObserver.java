@@ -14,6 +14,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
@@ -26,21 +27,29 @@ public final class InventoryObserver implements ClientModInitializer {
     private volatile String viewer;
     private volatile View view;
     private Path root;
-    private boolean enabled;
+    private boolean enabled = true;
+    private boolean detailed;
     private String leased;
     private long renewAt;
     private record View(String owner, String bot, long at, String type, ItemStack[] player,
-                        ItemStack[] window, ItemStack cursor, int selected) {}
+                        ItemStack[] window, ItemStack cursor, int selected,
+                        double health, double food, double air, int level, double xp) {}
 
     @Override public void onInitializeClient() {
         try {
             Path config = FabricLoader.getInstance().getConfigDir().resolve("ai-lab-observer.json");
             root = Path.of(read(config).get("labDirectory").getAsString()).toAbsolutePath().normalize();
         } catch (IOException | RuntimeException ignored) {}
-        var toggle = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+        var panel = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.ai_lab_observer.toggle", InputConstants.KEY_F8, KeyMapping.Category.MISC));
+        var toggle = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+            "key.ai_lab_observer.hud", InputConstants.KEY_F7, KeyMapping.Category.MISC));
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (toggle.consumeClick()) enabled = !enabled;
+            while (panel.consumeClick()) {
+                detailed = !detailed;
+                if (detailed) enabled = true;
+            }
             var server = client.getCurrentServer();
             var player = client.player;
             String name = player == null ? "" : player.getGameProfile().name();
@@ -95,10 +104,17 @@ public final class InventoryObserver implements ClientModInitializer {
                 return;
             }
             var window = data.getAsJsonObject("window");
+            var vitals = data.getAsJsonObject("vitals");
             view = new View(owner, target, at, window.get("type").getAsString(),
                 stacks(data.getAsJsonArray("player"), 46), stacks(window.getAsJsonArray("slots"), 90),
-                stack(data.get("cursor")), data.get("selected").getAsInt());
+                stack(data.get("cursor")), data.get("selected").getAsInt(),
+                metric(vitals,"health"), metric(vitals,"food"), metric(vitals,"air"),
+                (int) metric(vitals,"level"), metric(vitals,"xp"));
         } catch (IOException | RuntimeException e) { view = null; }
+    }
+    private static double metric(JsonObject values, String key) {
+        var value = values == null ? null : values.get(key);
+        return value == null || value.isJsonNull() ? -1 : value.getAsDouble();
     }
 
     private static ItemStack[] stacks(JsonArray items, int limit) {
@@ -127,27 +143,79 @@ public final class InventoryObserver implements ClientModInitializer {
             g.itemDecorations(Minecraft.getInstance().font, item, x+1, y+1);
         }
     }
+    private static void sprite(GuiGraphicsExtractor g, String name, int x, int y, int w, int h) {
+        g.blitSprite(RenderPipelines.GUI_TEXTURED, Identifier.fromNamespaceAndPath("minecraft","hud/"+name),x,y,w,h);
+    }
+    private static void hotbar(GuiGraphicsExtractor g, View v) {
+        int x = (g.guiWidth()-182)/2, y = g.guiHeight()-23;
+        if (x < 0 || y < 55) return;
+        sprite(g,"hotbar",x,y,182,22);
+        if (v.selected>=0 && v.selected<9) sprite(g,"hotbar_selection",x-1+20*v.selected,y-1,24,24);
+        var font = Minecraft.getInstance().font;
+        for (int i=0;i<9;i++) {
+            var item=at(v.player,36+i);
+            if (!item.isEmpty()) {
+                g.fakeItem(item,x+3+i*20,y+3);
+                g.itemDecorations(font,item,x+3+i*20,y+3);
+            }
+        }
+        var offhand=at(v.player,45);
+        if (x>=28 && !offhand.isEmpty()) {
+            sprite(g,"hotbar_offhand_left",x-29,y-1,29,24);
+            g.fakeItem(offhand,x-25,y+3);
+            g.itemDecorations(font,offhand,x-25,y+3);
+        }
+        for (int i=0;i<10;i++) {
+            if (v.health>=0) {
+                sprite(g,"heart/container",x+i*8,y-18,9,9);
+                double fill=v.health-2*i;
+                if (fill>0) sprite(g,fill>1?"heart/full":"heart/half",x+i*8,y-18,9,9);
+            }
+            if (v.food>=0) {
+                int right=x+173-i*8;
+                sprite(g,"food_empty",right,y-18,9,9);
+                double fill=v.food-2*i;
+                if (fill>0) sprite(g,fill>1?"food_full":"food_half",right,y-18,9,9);
+            }
+            if(v.air>=0 && v.air<20) sprite(g,v.air>2*i?"air":"air_empty",x+173-i*8,y-28,9,9);
+        }
+        if (v.xp>=0) {
+            sprite(g,"experience_bar_background",x,y-7,182,5);
+            int width=(int)(182*Math.clamp(v.xp,0,1));
+            if(width>0) {
+                g.enableScissor(x,y-7,x+width,y-2);
+                try { sprite(g,"experience_bar_progress",x,y-7,182,5); }
+                finally { g.disableScissor(); }
+            }
+            if(v.level>0) g.centeredText(font,Integer.toString(v.level),g.guiWidth()/2,y-17,0xffa8ff43);
+        }
+    }
     private void render(GuiGraphicsExtractor g) {
         String owner = viewer;
         if (owner == null) return;
         View v = view;
         if (v == null || !owner.equals(v.owner) || System.currentTimeMillis()-v.at > 1500) {
+            if (!detailed) return;
             g.fill(6, 6, Math.min(286,g.guiWidth()-6), 23, BG);
             text(g, root == null ? "AI Lab viewer: configure the lab directory" : "AI Lab viewer: waiting for your operator follow session", 10, 10, 0xffd4dce8, Math.min(270,g.guiWidth()-20));
             return;
         }
-        boolean crafting = v.type.contains("crafting"), personal = v.type.equals("crafting_2x2");
+        hotbar(g,v);
+        if (!detailed && v.type.equals("inventory")) return;
+        boolean personal = v.type.equals("inventory") || v.type.equals("crafting_2x2");
+        boolean crafting = personal || v.type.contains("crafting");
         int rows = crafting ? (personal ? 2 : 3) : (v.window.length+8)/9;
-        boolean menu = !v.type.equals("inventory") && v.window.length > 0;
+        boolean menu = personal || v.window.length > 0;
         int height = 134 + (menu ? 15 + rows*19 : 0);
-        float scale = Math.min(1f, Math.min((g.guiWidth()-12)/184f, (g.guiHeight()-12)/(float)height));
+        float scale = Math.min(1f, Math.min((g.guiWidth()-12)/184f, (g.guiHeight()-64)/(float)height));
         if (scale <= 0) return;
         var pose = g.pose();
         pose.pushMatrix();
         try {
             pose.translate(6,6).scale(scale);
             g.fill(0,0,184,height,BG);
-            String label = v.type.startsWith("minecraft:generic_9x") ? "Container · "+v.window.length+" slots"
+            String label = personal ? "Personal crafting (2 × 2)"
+                : v.type.startsWith("minecraft:generic_9x") ? "Container · "+v.window.length+" slots"
                 : v.type.replace("minecraft:","").replace('_',' ');
             text(g,v.bot+"  |  live inventory",7,6,0xffedf4ff,170);
             text(g,"Armor / offhand          Cursor",7,21,0xffacbaca,170);

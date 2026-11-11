@@ -21,6 +21,12 @@ test('open container uses its live player slots without losing equipment or curs
  assert.equal(view.player[45].id,'minecraft:shield');
  assert.equal(view.cursor.count,5);
  assert.equal(view.selected,3);
+ b.health=13.5;b.food=12;b.labOxygen=7;b.experience={level:3,progress:.4};
+ assert.deepEqual(snapshot(b).vitals,{health:13.5,food:12,air:7,level:3,xp:.4});
+ b.currentWindow=null;b.labObserverCraft=Symbol();
+ assert.equal(snapshot(b).window.type,'crafting_2x2','opens even before an ingredient enters the grid');
+ delete b.labObserverCraft;
+ assert.equal(snapshot(b).window.type,'inventory');
  b.currentWindow=null;b.inventory.slots[0]=item('oak_planks',4);b.inventory.slots[1]=item('oak_log',1);
  assert.equal(snapshot(b).window.type,'crafting_2x2');
  assert.equal(snapshot(b).window.slots[0].count,4);

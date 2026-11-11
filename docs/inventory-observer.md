@@ -2,18 +2,20 @@
 
 1. In Minecraft Launcher, choose **AI Lab Observer (26.3)** and play.
 2. Join the lab from this PC at `localhost:25565` as a Minecraft operator.
-3. Use the dashboard's regular **Follow** camera and press **F8** to toggle
-   the overlay. The key can be changed under Controls → Key Binds.
+3. Use the dashboard's regular **Follow** camera. Press **F8** to pin or unpin
+   the full inventory, or **F7** to turn the viewer off or on. Both keys can be
+   changed under Controls → Key Binds.
 
-The overlay follows the lab camera's selected bot, including camera cycling.
-It shows the 27 inventory slots, nine hotbar slots, selected hotbar slot, armor,
-offhand and cursor stack. While a menu is open it also shows all container
-slots, including both rows of a personal crafting grid or the three rows and
-result of a workbench. Other menus (including furnaces) use slot order.
-The view displays item types and counts; it does not replicate item metadata,
-recipes, furnace progress bars or the bot's mouse input.
+The bottom HUD follows the lab camera's selected bot and shows its hotbar,
+selected slot, offhand, health, hunger, air when depleted, and XP. The full
+inventory panel opens automatically during personal 2×2 crafting and while a
+crafting table, chest, furnace, or other supported menu is open. It shows
+the bot's inventory, armor, offhand, cursor stack, and the menu's slots.
+Pinning the panel lets you inspect the personal crafting grid when it is empty.
+Item previews show types and counts. Recipe lists, item metadata, furnace
+progress, and mouse movement are outside the current view.
 
-The viewer starts off. It requires a local multiplayer connection, spectator
+The viewer starts on in the dedicated profile. It requires a local multiplayer connection, spectator
 mode and an enabled, attached lab camera session for a Paper operator. A short
 local request renews while the viewer is on; closing the client, leaving the
 server or turning the viewer off stops that request. The controller samples
