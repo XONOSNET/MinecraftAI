@@ -226,7 +226,8 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    }
    if(plan.strictGround&&plan.back&&bot.blockAt&&bot.entity.onGround!==false&&!proximity(bot,{recovery:false}).canWalk(bot.entity.yaw+Math.PI,.75)){plan.back=false;plan.label='Holding: unsafe ground behind me';}
    if(plan.corridor?.length>1&&forward){
-    const p=bot.entity.position,q={x:p.x-Math.sin(bot.entity.yaw)*.7,z:p.z-Math.cos(bot.entity.yaw)*.7};
+    const p=bot.entity.position,span=routeProbe(p,plan.preciseFocus?plan.focusPoint:null,.7);
+    const q={x:p.x-Math.sin(bot.entity.yaw)*span,z:p.z-Math.cos(bot.entity.yaw)*span};
     if(corridorDistance(q,plan.corridor)>.65){forward=false;plan.label='Aligning with the verified route';}
    }
    if(plan.safetyFocus&&forward){

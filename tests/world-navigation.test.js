@@ -344,3 +344,15 @@ test('a water-capable route keeps a dry landing until touchdown rather than cons
  b.entity.position.y=64;b.entity.onGround=true;
  const grounded=n.plan(b,goal,{now:1200});assert.equal(grounded.path.includes(landing),false);assert.ok(grounded.cue[2]>b.entity.position.z);
 });
+
+test('a water-capable return route reaches the dry centering point before turning',()=>{
+ const {WorldNavigation}=require('../controller/world_navigation'),b=fixture(),n=new WorldNavigation();
+ b.entity.position=new Vec3(.5,64,.88);b.entity.onGround=true;
+ const center=[.5,64.1,.5],goal=[2.5,64.1,.5];center.centering=true;
+ Object.assign(n,{destination:goal.join(','),path:[center,[1.5,64.1,.5],goal],anchor:[.5,64.1,1.5],lastPlan:1000,progressAt:1000,waterRoute:true});
+ assert.equal(n.plan(b,goal,{now:1100}).cue,center);
+ assert.equal(n.path[0],center);
+ b.entity.position.z=.56;
+ assert.notEqual(n.plan(b,goal,{now:1200}).cue,center);
+ assert.equal(n.path.includes(center),false);
+});

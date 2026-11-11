@@ -101,8 +101,12 @@ class WorldNavigation{
   const previous=this.lastPosition;this.lastPosition=[p.x,p.y,p.z];
   // A waypoint crossed in midair is still the landing target. Advancing or
   // replanning before touchdown can replace it with an unsupported start cell.
-  while((bot.entity.onGround!==false||this.waterRoute&&(bot.entity.isInWater||this.path[0]&&Math.hypot(this.path[0][0]-p.x,this.path[0][2]-p.z)<.45))&&this.path.length&&Math.abs(this.path[0][1]-p.y)<(this.waterRoute&&require('./water_navigation').swimmingSegment(bot,this.path[0])?1.4:.4)){
-   const q=this.path[0],near=Math.hypot(q[0]-p.x,q[2]-p.z)<(this.waterRoute ? .45 : q.centering ? .15 : .4);
+  while(this.path.length){
+   const q=this.path[0],distance=Math.hypot(q[0]-p.x,q[2]-p.z),swimming=this.waterRoute&&require('./water_navigation').swimmingSegment(bot,q);
+   if(bot.entity.onGround===false&&!(this.waterRoute&&(bot.entity.isInWater||distance<.45)))break;
+   if(Math.abs(q[1]-p.y)>=(swimming?1.4:.4))break;
+   const tolerance=q.centering&&!swimming ? .15 : this.waterRoute ? .45 : .4;
+   const near=distance<tolerance;
    const crossed=previous&&Math.abs(previous[1]-p.y)<.4&&Math.hypot(previous[0]-p.x,previous[2]-p.z)<=4&&segmentDistance({x:q[0],z:q[2]},previous,[p.x,p.y,p.z])<.12;
    // Momentum can pass a landing center before the first grounded reply.
    // Use the checked body corridor rather than returning to a passed center.
@@ -190,7 +194,8 @@ class WorldNavigation{
   const cue=smooth||travelCue(p,this.path)||target;
   const alignment=!this.blocked&&!arrived&&!this.path[0]?.gapFrom?require('./route_alignment').alignmentCue(bot,cue):null;
   this.status.footing_alignment=!!alignment;
-  return {water_route:!!this.waterRoute,path:this.path,cue:alignment||cue,corridor:[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,5)],blocked:this.blocked,arrived,message:this.reason,portal};
+  const guardedCorridor=alignment?[[p.x,p.y,p.z],alignment,...this.path.slice(0,4)]:[this.anchor||[p.x,p.y,p.z],...this.path.slice(0,5)];
+  return {water_route:!!this.waterRoute,path:this.path,cue:alignment||cue,corridor:guardedCorridor,blocked:this.blocked,arrived,message:this.reason,portal};
  }
 }
 module.exports={WorldNavigation,homeApproach,approachGoal,corridorDistance,insideHome,crossingHome,routeDoorway,privatePlotCell,travelCue,passedLanding};
