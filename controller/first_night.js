@@ -12,8 +12,10 @@ function init(t,w){t.wilderness={exploration:new Exploration(),memory:new Wilder
 function priority(b,t,w){
  const n=t.wilderness,sheltered=t.milestones.includes('hut')&&!t.homeDamage?.unsafe,threat=shelterPolicy.threats(b).find(e=>e.position.distanceTo(b.entity.position)<10);
  const needsHealing=b.health<18&&b.food<18;
- if(meals(b)&&(b.food<=16||needsHealing))return {kind:'eat',reason:'Restore hunger before continuing'};
- if((b.food<=10||n.resume&&needsHealing)&&SAFE_RAW.some(name=>count(b,name)))return {kind:'eat raw',reason:'Emergency food while cooking is unavailable'};
+ if(Date.now()>=(n.eatRetryAt||0)){
+  if(meals(b)&&(b.food<=16||needsHealing))return {kind:'eat',reason:'Restore hunger before continuing'};
+  if((b.food<=10||n.resume&&needsHealing)&&SAFE_RAW.some(name=>count(b,name)))return {kind:'eat raw',reason:'Emergency food while cooking is unavailable'};
+ }
  const risk=shelterPolicy.assess(b,w);
  // The roof and walls can be finished before the three-second hut lesson
  // awards its milestone. Do not interrupt its final door/entry work to seek
@@ -29,6 +31,25 @@ function priority(b,t,w){
   {kind:'recovery supplies',reason:'Recovery needs food and a hunting tool; resume the interrupted supply lesson in daylight'};
  return {kind:handles(t.phase)?t.phase.replace('night_','').replaceAll('_',' '):t.phase.replaceAll('_',' '),reason:sheltered?'Develop and provision the home':'Gather enough materials for a secure shelter'};
 }
+async function eat(t,b,motor,foods){
+ const name=foods.find(item=>count(b,item));
+ if(!name)return false;
+ motor.pause();await inventory.equip(b,name);
+ const before=count(b,name),food=b.food;
+ if(!before||food>=20)return true;
+ try{await b.consume();}
+ catch(error){
+  if(!['Promise timed out.','Food is full'].includes(error.message))throw error;
+ }
+ if(count(b,name)>=before&&b.food<=food){
+  b.deactivateItem();
+  t.wilderness.eatRetryAt=Date.now()+2000;
+  t.message='Eating was not confirmed; will retry when safe';
+  return true;
+ }
+ t.wilderness.foodConsumed++;t.lastProgress=Date.now();
+ return true;
+}
 async function interrupt(t,b,motor,state,api,scan){
  if(t.wilderness.burrow)return require('./emergency_burrow').tick(t,b,motor,state,api,scan,require('./tasks'));
  const n=t.wilderness,p=priority(b,t,state.world);n.priority=p.kind;n.reason=p.reason;
@@ -42,7 +63,7 @@ async function interrupt(t,b,motor,state,api,scan){
  if(b.isSleeping)return false;
  if(p.kind==='finish enclosure')return false;
  if(await require('./water_work').tick(t,b,motor,state,api,scan,require('./tasks'),{urgent:['seek cover','retreat','defend'].includes(p.kind)}))return true;
- if(p.kind==='eat'||p.kind==='eat raw'){motor.pause();await inventory.equip(b,(p.kind==='eat'?FOOD:SAFE_RAW).find(n=>count(b,n)));await b.consume();n.foodConsumed++;t.lastProgress=Date.now();return true;}
+ if(p.kind==='eat'||p.kind==='eat raw')return eat(t,b,motor,p.kind==='eat'?FOOD:SAFE_RAW);
  if(p.kind==='seek cover'||p.kind==='retreat'&&shelterPolicy.wantsCover(b,state.world))n.shelterWatch=true;
  if(n.shelterWatch&&!shelterPolicy.danger(b))n.shelterWatch=false;
  if(p.kind==='defend'&&await require('./survival_defense').tick(t,b,motor,state,api,scan))return true;
@@ -64,7 +85,7 @@ async function interrupt(t,b,motor,state,api,scan){
   n.forageResume='night_retreat';t.phase='night_forage';t.path=[];t.navigator.lastPlan=-Infinity;
   t.message=p.reason;return true;
  }
- if(b.food<=10&&!['night_food','night_wool','night_forage','night_retreat','night_recover'].includes(t.phase)&&b.inventory.items().some(i=>i.name.endsWith('_axe'))&&!n.forageResume){n.forageResume=t.phase;t.phase='night_forage';return true;}
+ if(b.food<=10&&Date.now()>=(n.eatRetryAt||0)&&!['night_food','night_wool','night_forage','night_retreat','night_recover'].includes(t.phase)&&b.inventory.items().some(i=>i.name.endsWith('_axe'))&&!n.forageResume){n.forageResume=t.phase;t.phase='night_forage';return true;}
  if(!['night_retreat','night_recover','night_seek_cover'].includes(t.phase)&&await require('./tool_recovery').tick(t,b,motor,state,api,scan,require('./tasks')))return true;
  if(require('./wood_resupply').tick(t,b))return true;
  return false;

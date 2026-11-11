@@ -45,6 +45,24 @@ test('visible threats cause a retreat while raw food is an emergency option befo
  b.entities={};b.food=8;b.inventory.items=()=>[{name:'beef',count:1}];assert.equal(night.priority(b,t,{}).kind,'eat raw');
  b.inventory.items=()=>[{name:'chicken',count:1}];assert.notEqual(night.priority(b,t,{}).kind,'eat raw');
 });
+test('an unconfirmed meal keeps recovery active and a late confirmed meal counts once',async ctx=>{
+ const b=bot(),t={phase:'night_recover',milestones:['hut'],navigator:{},lastProgress:100};
+ night.init(t,{});t.wilderness.resume='gather';
+ b.food=15;b.health=11;let stock=2,stops=0;
+ b.inventory.items=()=>stock?[{name:'cooked_beef',count:stock}]:[];
+ ctx.mock.method(require('../controller/inventory_sync'),'equip',async()=>{});
+ b.deactivateItem=()=>stops++;
+ b.consume=async()=>{throw Error('Promise timed out.');};
+ const state={world:{}},motor={pause(){}};
+ assert.equal(await night.interrupt(t,b,motor,state),true);
+ assert.equal(t.phase,'night_recover');assert.equal(t.lastProgress,100);
+ assert.equal(t.wilderness.foodConsumed,0);assert.equal(stops,1);
+ assert.notEqual(night.priority(b,t,state.world).kind,'eat');
+ t.wilderness.eatRetryAt=0;
+ b.consume=async()=>{stock--;b.food=18;throw Error('Promise timed out.');};
+ assert.equal(await night.interrupt(t,b,motor,state),true);
+ assert.equal(t.wilderness.foodConsumed,1);assert.equal(stops,1);
+});
 test('outdoor searches finish crossing the doorway before inspecting resources',async()=>{
  const b=bot(),t={phase:'night_stone',plot:{x:0,y:64,z:0},milestones:[],walk:async()=>false};night.init(t,{});
  await night.tick(t,b,{}, {world:{} });assert.equal(t.wilderness.leaving,true);
