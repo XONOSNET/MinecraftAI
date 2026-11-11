@@ -46,7 +46,7 @@ async function smelt(bot,block,input='oak_log',output='charcoal',fuel=n=>n.endsW
    }).filter(choice=>choice.count>0);
   choices.sort((a,b)=>Math.max(0,needed-a.coverage)-Math.max(0,needed-b.coverage)
    ||Math.max(0,a.coverage-needed)-Math.max(0,b.coverage-needed)||a.count-b.count);
-  if(choices.length)await transfer(window,click,item=>item.name===choices[0].name,1,choices[0].count);
+  if(choices.length)await transfer(window,click,item=>item.name===choices[0].name,1,choices[0].count,{stage:true});
  };
  bot._client?.on?.('craft_progress_bar',onProperty);
  try{
@@ -61,7 +61,7 @@ async function smelt(bot,block,input='oak_log',output='charcoal',fuel=n=>n.endsW
     +stock().filter(fuelMatches).reduce((total,item)=>total+item.count*burnTicks(item.name),0);
    const loading=Math.min(amount-ready()-existing,inventoryCount(window,item=>item.name===source.name),
     (source.stackSize??64)-existing,Math.floor(energy/duration)-existing);
-   if(loading>0)await transfer(window,click,item=>item.name===source.name,0,loading);
+   if(loading>0)await transfer(window,click,item=>item.name===source.name,0,loading,{stage:true});
   }
   const target=Math.min(collect,ready()+(window.slots[0]?.count??0));
   if(!target){

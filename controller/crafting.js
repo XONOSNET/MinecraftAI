@@ -49,7 +49,9 @@ async function craft(bot,name,times=1,table=null){
    const selected=batch>1?bot.recipesFor(id,null,batch*recipe.result.count,table).find(candidate=>JSON.stringify(recipeSlots(candidate,width))===JSON.stringify(entries)):recipe;
    if(!selected)throw Error('Missing materials for '+name);
    for(const {slot,ingredient} of entries){
-    await transfer(window,click,item=>item.type===ingredient.id&&(ingredient.metadata==null||item.metadata===ingredient.metadata),slot,batch);
+    const matches=item=>item.type===ingredient.id&&(ingredient.metadata==null||item.metadata===ingredient.metadata);
+    await transfer(window,click,matches,slot,batch);
+    if(window.slots[slot]?.count!==batch||!matches(window.slots[slot]))throw Error('Timed out synchronizing crafting inventory');
    }
    await sync();if(window.slots[0]?.type!==id)throw Error('Server did not produce recipe result for '+name);
    if(batch===1){
