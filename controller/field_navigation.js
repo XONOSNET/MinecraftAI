@@ -1,6 +1,9 @@
 // Conservative local route planning over loaded, sensed blocks. No world edits.
 const {Vec3}=require('vec3');
 const space=require('./resource_space');
+const water=require('./water_navigation');
+const DIRECTIONS=[[1,0],[-1,0],[0,1],[0,-1]];
+const HEIGHTS=[0,1,-1];
 const BAD=new Set(['water','seagrass','tall_seagrass','kelp','kelp_plant','lava','fire','soul_fire','magma_block','campfire','soul_campfire','sweet_berry_bush','powder_snow','cactus','cobweb','oak_leaves']);
 function safe(block){return !!block&&!BAD.has(block.name)&&!block.name.endsWith('_leaves');}
 function passable(block){return safe(block)&&(block.boundingBox==='empty'||block.name.endsWith('_door')&&block.getProperties?.().open===true);}
@@ -14,10 +17,22 @@ function standable(bot,x,y,z){
  return true;
 }
 function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
- const blocks=new Map(),stands=new Map();const terrain={blockAt(p){const key=p.x+','+p.y+','+p.z;if(!blocks.has(key))blocks.set(key,bot.blockAt(p));return blocks.get(key);}};
+ const blocks=new Map(),stands=new Map();const terrain={blockAt(p){
+  const key=p.x+','+p.y+','+p.z,cached=blocks.get(key);
+  if(cached!==undefined)return cached;
+  const block=bot.blockAt(p,false)??null;blocks.set(key,block);return block;
+ }};
  const waterCells=new Map(),waterBot=Object.create(bot);waterBot.blockAt=terrain.blockAt;
- const transit=(x,y,z)=>{const key=x+','+y+','+z;if(!waterCells.has(key))waterCells.set(key,require('./water_navigation').cell(waterBot,x,y,z));return waterCells.get(key);};
- const stand=(x,y,z)=>{const key=x+','+y+','+z;if(!stands.has(key))stands.set(key,options.allowWater?!!transit(x,y,z):standable(terrain,x,y,z));return stands.get(key);};
+ const transit=(x,y,z)=>{
+  const key=x+','+y+','+z,cached=waterCells.get(key);
+  if(cached!==undefined)return cached;
+  const cell=water.cell(waterBot,x,y,z);waterCells.set(key,cell);return cell;
+ };
+ const stand=options.allowWater?(x,y,z)=>!!transit(x,y,z):(x,y,z)=>{
+  const key=x+','+y+','+z,cached=stands.get(key);
+  if(cached!==undefined)return cached;
+  const clear=standable(terrain,x,y,z);stands.set(key,clear);return clear;
+ };
  const others=avoidPlayers?space.players(bot):[];
  const p=bot.entity.position;let start=[Math.floor(p.x),Math.round(p.y),Math.floor(p.z)];const key=n=>n.join(',');let escape=null;
  // Surface buoyancy lifts the feet above the water cell before onGround can
@@ -35,7 +50,7 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
   // center crosses into the next stair cell. Continue the verified one-block
   // landing instead of sending it back toward the previous stair's center.
   const candidates=[];if(stand(start[0],start[1]-1,start[2]))candidates.push([start[0],start[1]-1,start[2]]);
-  for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])for(const dy of [0,1,-1]){const n=[start[0]+dx,start[1]+dy,start[2]+dz];if(stand(...n))candidates.push(n);}
+  for(const [dx,dz] of DIRECTIONS)for(const dy of HEIGHTS){const n=[start[0]+dx,start[1]+dy,start[2]+dz];if(stand(...n))candidates.push(n);}
   candidates.sort((a,b)=>Math.hypot(a[0]+.5-p.x,a[2]+.5-p.z)-Math.hypot(b[0]+.5-p.x,b[2]+.5-p.z));
   if(!candidates.length)return {path:[],expanded:0,message:'Waiting for safe solid ground and loaded terrain'};
   start=candidates[0];escape=[start[0]+.5,start[1]+.1,start[2]+.5];
@@ -46,7 +61,9 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
  // cheaper, already-tired approach cannot finish. Dry routes keep their keys.
  const boundedWater=options.allowWater&&options.boundedWater===true;
  if(boundedWater)start=[...start,0];
- const distance=n=>{const horizontal=Math.abs(Math.floor(goal[0])-n[0])+Math.abs(Math.floor(goal[2])-n[2]),height=Math.abs(Math.round(goal[1])-n[1]);return Math.max(horizontal,height)+height*.4;};
+ const goalX=Math.floor(goal[0]),goalY=Math.round(goal[1]),goalZ=Math.floor(goal[2]);
+ const atGoal=n=>n[0]===goalX&&n[2]===goalZ&&Math.abs(n[1]-goal[1])<.6;
+ const distance=n=>{const horizontal=Math.abs(goalX-n[0])+Math.abs(goalZ-n[2]),height=Math.abs(goalY-n[1]);return Math.max(horizontal,height)+height*.4;};
  let best=start,bestDistance=distance(start),open=[{n:start,g:0,f:bestDistance}],visited=new Set(),costs=new Map([[key(start),0]]),parent=new Map(),jumps=new Map(),expanded=0;
  const waterLabels=new Map();
  const less=(a,b)=>a.f<b.f||a.f===b.f&&a.g>b.g;
@@ -56,18 +73,20 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
   const {n,g}=pop(),id=key(n);if(visited.has(id))continue;
   if(boundedWater&&(waterLabels.get(n.slice(0,3).join(','))||[]).some(v=>v.wet<=n[3]&&v.g<=g&&(v.wet<n[3]||v.g<g)))continue;
   visited.add(id);expanded++;
-  const d=distance(n);if(d<bestDistance){best=n;bestDistance=d;}if(n[0]===Math.floor(goal[0])&&n[2]===Math.floor(goal[2])&&Math.abs(n[1]-goal[1])<.6){best=n;break;}
-  for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])for(const dy of [0,1,-1]){
+  const d=distance(n);if(d<bestDistance){best=n;bestDistance=d;}if(atGoal(n)){best=n;break;}
+  for(const [dx,dz] of DIRECTIONS)for(const dy of HEIGHTS){
    const next=[n[0]+dx,n[1]+dy,n[2]+dz];
    if(options.bounds&&(next[0]+.5<=options.bounds[0]+1||next[0]+.5>=options.bounds[1]-2||next[2]+.5<=options.bounds[2]+1||next[2]+.5>=options.bounds[3]-2))continue;
    if(options.forbidden?.(next)||options.forbiddenEdge?.(n,next))continue;
-   if(Math.abs(next[0]-start[0])>radius||Math.abs(next[2]-start[2])>radius||!stand(...next))continue;
+   if(Math.abs(next[0]-start[0])>radius||Math.abs(next[2]-start[2])>radius)continue;
+   const waterCell=options.allowWater?transit(...next):null;
+   if(!(options.allowWater?waterCell:stand(...next)))continue;
    if(others.length&&!space.stepClear(key(n)===key(start)&&!escape?p:{x:n[0]+.5,y:n[1],z:n[2]+.5},{x:next[0]+.5,y:next[1],z:next[2]+.5},others,require('./behavior').forBot(bot).player_clearance))continue;
    // An ascending jump also needs clearance above the departure block.
-   if(dy===1&&!(options.allowWater&&require('./water_navigation').isWater(bot.blockAt(new Vec3(...n))))){const over=terrain.blockAt(new Vec3(n[0],n[1]+2,n[2]));if(!safe(over)||over.boundingBox!=='empty')continue;}
+   if(dy===1&&!(options.allowWater&&water.isWater(terrain.blockAt(new Vec3(n[0],n[1],n[2]))))){const over=terrain.blockAt(new Vec3(n[0],n[1]+2,n[2]));if(!safe(over)||over.boundingBox!=='empty')continue;}
    if(options.reversible&&dy===-1){const over=terrain.blockAt(new Vec3(next[0],next[1]+2,next[2]));if(!passable(over))continue;}
-   if(boundedWater){const wet=transit(...next).wet;next.push(wet?n[3]+1:0);if(next[3]>24)continue;}
-   const k=key(next),ng=g+(options.allowWater?transit(...next).cost:1)+(dy!==0?.4:0);
+   if(boundedWater){next.push(waterCell.wet?n[3]+1:0);if(next[3]>24)continue;}
+   const k=key(next),ng=g+(waterCell?.cost??1)+(dy!==0?.4:0);
    if(boundedWater){
     const cellKey=next.slice(0,3).join(','),labels=waterLabels.get(cellKey)||[];
     if(labels.some(v=>v.wet<=next[3]&&v.g<=ng))break;
@@ -75,14 +94,14 @@ function route(bot,goal,radius=48,maxNodes=4096,avoidPlayers=false,options={}){
    }
    if(ng<(costs.get(k)??Infinity)){costs.set(k,ng);parent.set(k,n);jumps.delete(k);push({n:next,g:ng,f:ng+distance(next)});}break;
   }
-  if(options.allowGaps&&!options.allowWater)for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]]){
+  if(options.allowGaps&&!options.allowWater)for(const [dx,dz] of DIRECTIONS){
    const next=[n[0]+dx*2,n[1],n[2]+dz*2];
    if(options.forbiddenEdge?.(n,next)||Math.abs(next[0]-start[0])>radius||Math.abs(next[2]-start[2])>radius||!require('./checked_jump').gap(bot,n,next,options))continue;
    const k=key(next),ng=g+2.8;if(ng<(costs.get(k)??Infinity)){costs.set(k,ng);parent.set(k,n);jumps.set(k,n);push({n:next,g:ng,f:ng+distance(next)});}
   }
  }
  const path=[];let n=best;while(key(n)!==key(start)){const q=[n[0]+.5,n[1]+.1,n[2]+.5];if(jumps.has(key(n)))q.gapFrom=jumps.get(key(n));path.push(q);n=parent.get(key(n));if(!n)break;}
- const reached=best[0]===Math.floor(goal[0])&&best[2]===Math.floor(goal[2])&&Math.abs(best[1]-goal[1])<.6&&stand(...best);
+ const reached=atGoal(best)&&stand(...best);
  path.reverse();if(reached&&Math.hypot(goal[0]-p.x,goal[2]-p.z)>.3)path.push([goal[0],best[1]+.1,goal[2]]);
  // The cell center is clear, but an off-center body can clip an adjacent table
  // or wall when it starts the next leg. Center before taking that corner.

@@ -15,8 +15,9 @@ function equipped(b){
  return weapon&&armor;
 }
 function threats(b){return Object.values(b.entities||{}).filter(e=>{
+ if(e.isValid===false||!hostile(b,e)||!(e.position?.distanceTo(b.entity.position)<24))return false;
  const key=b.registry?.entitiesByName?.[e.name]?.metadataKeys?.indexOf('health'),hp=key>=0?e.metadata?.[key]:undefined;
- return e.isValid!==false&&hp!==0&&hostile(b,e)&&e.position?.distanceTo(b.entity.position)<24&&combat.visible(b,e);
+ return hp!==0&&combat.visible(b,e);
 });}
 function danger(b){const time=b.time?.timeOfDay;return !Number.isFinite(time)||time>=12000||threats(b).length>0;}
 function underground(b){
