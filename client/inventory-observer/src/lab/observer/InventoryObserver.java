@@ -38,7 +38,12 @@ public final class InventoryObserver implements ClientModInitializer {
     @Override public void onInitializeClient() {
         try {
             Path config = FabricLoader.getInstance().getConfigDir().resolve("ai-lab-observer.json");
-            root = Path.of(read(config).get("labDirectory").getAsString()).toAbsolutePath().normalize();
+            var settings = read(config);
+            if (!settings.has("autoReconnect") || settings.get("autoReconnect").getAsBoolean()) {
+                int port = settings.has("reconnectPort") ? settings.get("reconnectPort").getAsInt() : 25565;
+                if (port > 0 && port <= 65535) LocalReconnect.install(port);
+            }
+            root = Path.of(settings.get("labDirectory").getAsString()).toAbsolutePath().normalize();
         } catch (IOException | RuntimeException ignored) {}
         var panel = KeyMappingHelper.registerKeyMapping(new KeyMapping(
             "key.ai_lab_observer.toggle", InputConstants.KEY_F8, KeyMapping.Category.MISC));

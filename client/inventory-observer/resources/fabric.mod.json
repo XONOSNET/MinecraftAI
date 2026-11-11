@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "ai_lab_observer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "name": "AI Lab Inventory Observer",
   "description": "Read-only local inventory overlay for the Minecraft AI Lab spectator camera.",
   "environment": "client",

@@ -1,1 +1,5 @@
-{"key.ai_lab_observer.toggle":"Toggle AI Lab inventory details","key.ai_lab_observer.hud":"Toggle AI Lab spectator HUD"}
+{
+  "key.ai_lab_observer.toggle": "Toggle AI Lab inventory details",
+  "key.ai_lab_observer.hud": "Toggle AI Lab spectator HUD",
+  "ai_lab_observer.reconnecting": "Reconnecting in %s s. Return to the server list to stop."
+}

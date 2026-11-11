@@ -6,6 +6,15 @@
    the full inventory, or **F7** to turn the viewer off or on. Both keys can be
    changed under Controls → Key Binds.
 
+After you join the local lab once, the profile retries unexpected disconnects
+after 5, 10, 20, then 30 seconds between attempts. The disconnect screen shows
+the countdown. Return to the server list or cancel a connection attempt to
+stop retrying. An ordinary **Disconnect** also ends the session. The feature
+applies to the local lab port `25565`. To disable it, set
+`"autoReconnect": false` in the profile's `config/ai-lab-observer.json` and
+relaunch Minecraft. Set `reconnectPort` in the same file if the local lab uses
+a different port.
+
 The bottom HUD follows the lab camera's selected bot and shows its hotbar,
 selected slot, offhand, health, hunger, air when depleted, and XP. The full
 inventory panel opens automatically during personal 2×2 crafting and while a
@@ -22,7 +31,8 @@ server or turning the viewer off stops that request. The controller samples
 the bot's existing inventory state up to four times a second, so transitions
 shorter than one sample may not be visible. The last snapshot per observer is
 overwritten, and the HUD drops stale data and data for a previous camera target.
-There are no new dashboard endpoints, game packets or inventory controls.
+Inventory inspection uses local files. Reconnecting uses the normal Minecraft
+connection screen.
 The lab's local OS account and its data directory are the trust boundary;
 do not share the observer directory with untrusted users.
 
