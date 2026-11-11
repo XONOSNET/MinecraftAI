@@ -12,6 +12,10 @@ DIMENSIONS=('minecraft:overworld','minecraft:the_nether','minecraft:the_end')
 CAMERA_INTERPOLATION_TICKS=4
 MODES=('survival','creative','adventure','spectator')
 
+def world_bot_phase(result,fallback):
+    if result.get('state')=='stopped' or result.get('phase')=='stopped':return 'Dead'
+    return result.get('phase',fallback).title()
+
 def trial_timer(world,now):
     if not world or world.get('phase') not in ('running','finished'):return None
     start=world.get('trial_at');end=world.get('finished_at') if world.get('phase')=='finished' else now
@@ -37,7 +41,7 @@ def first_night_label(world,last_policy=None):
         done=sum(r.get('state')=='complete' for r in world['results'].values())
         stopped=sum(r.get('state')=='stopped' for r in world['results'].values())
         driver='Teacher' if world['driver']=='teacher' else 'Policy'
-        detail=f'{driver}: {done}/{total} complete'+(f', {stopped} stopped' if stopped else '')
+        detail=f'{driver}: {done}/{total} complete'+(f', {stopped} dead' if stopped else '')
     if last_policy:detail+=f" | Last policy {last_policy['completed']}/{last_policy['bots']}"
     return prefix+' | '+detail
 
@@ -324,10 +328,11 @@ class Observers:
         world=context.get('world')
         if world and job.get('status') not in ('running','cancelling'):
             result=world['results'].get(s['target'],{});target=result.get('target_blocks',144);progress=round(100*result.get('blocks',0)/max(1,target))
-            lines['task']=f"{display_name} | {result.get('phase',world['phase']).title()} | Hut {result.get('blocks',0)}/{target}"
+            phase=world_bot_phase(result,world['phase'])
+            lines['task']=f"{display_name} | {phase} | Hut {result.get('blocks',0)}/{target}"
             if result.get('lesson_total',1)>1:
                 progress=round(100*len(result.get('milestones',[]))/result['lesson_total'])
-                lines['task']=f"{display_name} | Lesson {result.get('lesson',1)}/{result['lesson_total']} | {result.get('phase',world['phase']).replace('_',' ').title()}"
+                lines['task']=f"{display_name} | Lesson {result.get('lesson',1)}/{result['lesson_total']} | {phase.replace('_',' ')}"
             lines['state']=str(result.get('message',world['message']))[:110]
             if result.get('wilderness'):
                 lines['state']=(result['wilderness'].get('priority','Survival').title()+' | '+str(result.get('message','')))[:110]
@@ -421,7 +426,7 @@ class Observers:
             if mode=='paused' and getattr(self,'progress_context',{}).get('phase')=='health_wait':activity='Recovering'
             if (mode in ('evaluate','untrained','random','heuristic') or getattr(self,'progress_context',{}).get('phase')=='queued_teacher') and a.get('trial_completed',0)>=getattr(self,'progress_context',{}).get('episodes',3):activity='Done; waiting'
             world=getattr(self,'progress_context',{}).get('world')
-            if world and getattr(self,'progress_context',{}).get('job',{}).get('status') not in ('running','cancelling'):activity=world['results'].get(name,{}).get('phase',world['phase']).title()
+            if world and getattr(self,'progress_context',{}).get('job',{}).get('status') not in ('running','cancelling'):activity=world_bot_phase(world['results'].get(name,{}),world['phase'])
             stopped=bool(world and world.get('results',{}).get(name,{}).get('state')=='stopped')
             color='gray' if stopped else 'gold' if name in watched else 'aqua'
             row=(a.get('display_name') or name,activity,color)

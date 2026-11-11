@@ -41,7 +41,15 @@ test('automatic recovery is distinguished from a manual pause',()=>{
 });
 
 const botActivitySource=html.slice(html.indexOf('function botActivity('),html.indexOf('let observerInitializedFor='));
-const describeBot=vm.runInNewContext(botActivitySource+';botActivity',{Date,activeJob:()=>false});
+const phaseSource=html.slice(html.indexOf('function worldBotPhase('),html.indexOf('function renderTrialHud('));
+const describeBot=vm.runInNewContext(phaseSource+botActivitySource+';botActivity',{Date,activeJob:()=>false});
+test('world bot activity displays Dead and retains the recorded reason',()=>{
+ const agent={};
+ const result={state:'stopped',phase:'stopped',message:'Attempt time limit reached.'};
+ const s={agents:{LabAI0:agent},world_training:{session:{results:{LabAI0:result}}}};
+ assert.equal(describeBot(s,agent),'Dead: Attempt time limit reached.');
+ assert.equal(result.state,'stopped');
+});
 test('combat activity respects missing telemetry, pauses, completion and action meanings',()=>{
  assert.match(describeBot({mode:'paused'},undefined),/Offline/);
  const a={skill:'combat',connected:true,last_seen:Date.now()/1000,action:6,trial_completed:0};

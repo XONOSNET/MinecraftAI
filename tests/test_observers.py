@@ -587,7 +587,7 @@ def test_first_night_header_distinguishes_restoration_from_a_zero_score():
     assert 'Restoring terrain 75%' in label and 'Last policy 5/8' in label
     assert '0/8 complete' not in label
     world.update(phase='running',results={'LabAI0':{'state':'complete'},'LabAI1':{'state':'stopped'}})
-    assert 'Teacher: 1/8 complete, 1 stopped' in first_night_label(world)
+    assert 'Teacher: 1/8 complete, 1 dead' in first_night_label(world)
     world['driver']='student'
     assert 'Policy: 1/8 complete' in first_night_label(world)
 
@@ -656,6 +656,7 @@ def test_roster_stopped_bot_is_gray_even_when_watched(tmp_path):
     prefix='scoreboard players display name lab_row_0 lab_bots '
     row=json.loads(next(c[len(prefix):] for c in reversed(commands) if c.startswith(prefix)))
     assert row['text']=='AmberRobin' and row['color']=='gray'
+    assert row['extra'][0]['text']==': Dead'
     o.progress_context['world']['results']['LabAI0']={'state':'working','phase':'gather'}
     o.roster_at=-10
     o.update_roster(['Xonosnet'],{'LabAI0':{'connected':True,'last_seen':100,'display_name':'AmberRobin'}},'teacher')
