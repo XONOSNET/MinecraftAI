@@ -16,7 +16,7 @@ test('recognizes every registry-style tree sapling plus propagules and azaleas',
 });
 test('planting opportunities wait for healthy stationary outdoor work',ctx=>{
  const {t,b,state}=fixture(ctx);assert.equal(forest.idle(t,b,state),true);
- for(const field of ['navigationActive','harvestTarget','error']){t[field]=true;assert.equal(forest.idle(t,b,state),false);delete t[field];}
+ for(const field of ['navigationActive','harvestTarget','error','homeRepair']){t[field]=true;assert.equal(forest.idle(t,b,state),false);delete t[field];}
  for(const phase of ['night_hold','night_food','clear_plot','build','complete','stopped','survival_combat']){t.phase=phase;assert.equal(forest.idle(t,b,state),false);}t.phase='gather';
  b.entity.velocity.x=.05;assert.equal(forest.idle(t,b,state),false);b.entity.velocity.x=0;
  b.entity.velocity.y=-.0784;assert.equal(forest.idle(t,b,state),true);b.entity.velocity.y=0;
@@ -26,7 +26,7 @@ test('planting opportunities wait for healthy stationary outdoor work',ctx=>{
  b.entities={z:{name:'zombie',position:b.entity.position.offset(9,0,0)}};assert.equal(forest.idle(t,b,state),false);
 });
 test('random nearby choices respect plots, boundaries, space and actual line of sight',ctx=>{
- const {t,b,state}=fixture(ctx),first=forest.choose(t,b,state,()=>0),last=forest.choose(t,b,state,()=>.999);
+ const {t,b,state}=fixture(ctx),first=forest.choose(t,b,state,()=>.001),last=forest.choose(t,b,state,()=>.5);
  assert.ok(first&&last);assert.notDeepEqual(first.positions[0],last.positions[0]);
  t.campPlots=[{x:20,y:64,z:20}];assert.equal(forest.choose(t,b,state),null);
  t.campPlots=[];state.world.count=8;assert.equal(forest.idle(t,b,state),false);state.world.count=1;
@@ -39,6 +39,27 @@ test('does not clear obstructions or plant on unsuitable soil or crowded routes'
  b.blockAt=p=>({...original(p),name:p.y>64?'oak_planks':original(p).name});assert.equal(forest.choose(t,b,state),null);
  b.blockAt=original;t.navigator.path=[];for(let x=17;x<=23;x++)for(let z=17;z<=23;z++)t.navigator.path.push([x+.5,64,z+.5]);assert.equal(forest.choose(t,b,state),null);
 });
+test('keeps the nine-block buffer beyond every plot edge',ctx=>{
+ const {t,b,state}=fixture(ctx),target=new Vec3(22,64,20);
+ t.plot={x:10,y:64,z:20};
+ assert.equal(forest.safe(t,b,state,[target],'oak_sapling'),false);
+ t.plot.x=9;
+ assert.equal(forest.safe(t,b,state,[target],'oak_sapling'),true);
+ t.campPlots=[{x:34,y:63,z:20}];
+ assert.equal(forest.safe(t,b,state,[target],'oak_sapling'),false);
+});
+test('checks lower terraces and keeps distance from saplings across elevations',ctx=>{
+ const {t,b,state,blocks}=fixture(ctx);
+ b.entity.position.y=65;
+ const choice=forest.choose(t,b,state,()=>0);
+ assert.equal(choice.positions[0].y,64);
+ const p=choice.positions[0];
+ blocks.set(p.offset(0,1,0).toArray().join(','),'oak_sapling');
+ assert.equal(forest.safe(t,b,state,[p],choice.name),false);
+ blocks.clear();
+ blocks.set(p.offset(2,1,0).toArray().join(','),'oak_sapling');
+ assert.equal(forest.safe(t,b,state,[p],choice.name),false);
+});
 test('uses collected sapling, verifies the block, restores tool and preserves lesson progress',async ctx=>{
  const {t,b,state,motor,items}=fixture(ctx);let calls=0;const place=b._genericPlace;b._genericPlace=async(...args)=>{calls++;return place.apply(b,args);};
  assert.equal(await forest.tick(t,b,motor,state,{now:100,random:()=>0}),true);
@@ -49,6 +70,16 @@ test('uses collected sapling, verifies the block, restores tool and preserves le
 test('no saplings or safe spot simply skips replanting',async ctx=>{
  const {t,b,state,motor,items}=fixture(ctx);items[0].count=0;
  assert.equal(await forest.tick(t,b,motor,state),false);assert.equal(t.reforest.planted,0);
+});
+test('planting can repeat after twelve seconds of outdoor work but never substitutes for progress',async ctx=>{
+ const {t,b,state,motor}=fixture(ctx);
+ assert.equal(await forest.tick(t,b,motor,state,{now:100,random:()=>0}),true);
+ b.entity.position.x+=8;
+ assert.equal(await forest.tick(t,b,motor,state,{now:12100,random:()=>0}),false);
+ t.lastProgress=13000;
+ assert.equal(await forest.tick(t,b,motor,state,{now:17100,random:()=>0}),true);
+ assert.equal(t.reforest.planted,2);
+ assert.equal(t.lastProgress,13000);
 });
 test('zero cached light allows open sky but rejects a genuinely shaded site',ctx=>{
  const {t,b,state}=fixture(ctx),at=b.blockAt,ray=b.world.raycast;

@@ -1,7 +1,7 @@
 // Short, visible pickup detours; never interrupt shelter, combat or mining exits.
-const {Vec3}=require('vec3'),nav=require('./field_navigation'),space=require('./resource_space'),inventory=require('./inventory_sync');
+const {Vec3}=require('vec3'),nav=require('./field_navigation'),space=require('./resource_space'),inventory=require('./inventory_sync'),{sapling}=require('./reforest');
 const claims=new Map(),MATERIAL=new Set(['leather','coal','charcoal','raw_iron','iron_ingot','stick','cobblestone','white_wool','string','bone','arrow','torch','beef','porkchop','mutton','chicken','rabbit','cooked_beef','cooked_porkchop','cooked_mutton','cooked_chicken','cooked_rabbit','apple','bread']);
-function useful(name){return !!name&&(MATERIAL.has(name)||/_(log|planks|sapling|sword|axe|pickaxe|shovel|helmet|chestplate|leggings|boots)$/.test(name)||['shield','bow','crossbow','mangrove_propagule'].includes(name));}
+function useful(name){return !!name&&(MATERIAL.has(name)||sapling(name)||/_(log|planks|sword|axe|pickaxe|shovel|helmet|chestplate|leggings|boots)$/.test(name)||['shield','bow','crossbow'].includes(name));}
 function visible(b,e){const eye=b.entity.position.offset(0,1.62,0),delta=e.position.offset(0,.1,0).minus(eye),distance=delta.norm(),hit=b.world.raycast(eye,delta.scaled(1/Math.max(.01,distance)),distance);return !hit||hit.intersect&&eye.distanceTo(hit.intersect)>=distance-.2;}
 async function tick(t,b,motor,state,api,scan,tasks){
  if(!t.wilderness||!['gather','night_stone','night_fuel','night_food','night_wool','night_scout','stone_return','return_home','leave_hut','night_food_home','night_wool_home'].includes(t.phase)||b.isSleeping||b.currentWindow||b.health<12||t.wilderness.burrow||t.resourceAccess?.column?.length||t.wilderness.mine&&!['done','approach'].includes(t.wilderness.mine.stage)||require('./shelter_policy').threats(b).length)return false;
