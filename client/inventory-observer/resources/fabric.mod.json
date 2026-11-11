@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "id": "ai_lab_observer",
+  "version": "0.1.0",
+  "name": "AI Lab Inventory Observer",
+  "description": "Read-only local inventory overlay for the Minecraft AI Lab spectator camera.",
+  "environment": "client",
+  "entrypoints": {"client": ["lab.observer.InventoryObserver"]},
+  "depends": {"fabricloader": ">=0.20.1", "fabric-api": "*", "minecraft": "26.3", "java": ">=25"}
+}
