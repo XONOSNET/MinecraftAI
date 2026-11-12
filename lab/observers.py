@@ -243,7 +243,16 @@ class Observers:
             return
         index=available.index(s['target']) if s['target'] in available else -1
         target=available[(index+1)%len(available)]
-        if target!=s['target']:s.update(target=target,attached=False,attach_ready_at=None)
+        if target!=s['target']:
+            agent=agents[target];position=agent.get('position');previous=s.get('last_target_position')
+            token=[agent.get('entity_id'),agent.get('dimension','overworld')]
+            # Retain the attached display so its existing interpolation can
+            # carry the viewpoint between nearby bots in the same arena.
+            glide=(s.get('attached') and s.get('camera_created') and s['view'] not in ('first_person','stationary')
+                   and token[1:]==list(s.get('target_token',[]))[1:] and s.get('follow_run')==agent.get('run')
+                   and position is not None and previous is not None and math.dist(position,previous)<=64)
+            s.update(target=target,attached=bool(glide),attach_ready_at=None)
+            if glide:s.update(target_token=token,last_target_position=copy.deepcopy(position))
     def tags(self,s):
         suffix=s['player'].lower();return 'lab_camera_'+suffix,'lab_return_'+suffix
     def kill_camera(self,s):
