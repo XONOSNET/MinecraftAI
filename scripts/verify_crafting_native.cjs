@@ -9,10 +9,15 @@ const result={fixture:'Isolated survival player and temporary sky platform'};
 const table=new Vec3(-310,210,-343),hearth=new Vec3(-310,210,-345);
 let changed=false,finished=false;
 async function post(data){
- const response=await fetch('http://127.0.0.1:8000/admin/action',{
-  method:'POST',headers:{'X-Lab-Token':token,'Content-Type':'application/json'},body:JSON.stringify({player,...data}),signal:AbortSignal.timeout(10000)
- });
- if(!response.ok)throw Error(await response.text());
+ for(let attempt=0;attempt<10;attempt++){
+  const response=await fetch('http://127.0.0.1:8000/admin/action',{
+   method:'POST',headers:{'X-Lab-Token':token,'Content-Type':'application/json'},body:JSON.stringify({player,...data}),signal:AbortSignal.timeout(10000)
+  });
+  if(response.ok)return;
+  const error=await response.text();
+  if(!error.includes('That player is not online')||attempt===9)throw Error(error);
+  await wait(750);
+ }
 }
 async function commands(list){
  await post({action:'op'});await wait(900);
@@ -70,6 +75,11 @@ b.once('spawn',async()=>{
   assert.equal(made,3);assert.equal(count('cooked_beef'),3);assert.equal(count('beef'),2);assert.equal(count('oak_planks'),3);
   assert.deepEqual(clicks.filter(([slot,mode])=>[0,1].includes(slot)&&mode===0),[[0,0,0],[1,0,0]]);
   result.beef={cooked:made,rawRemaining:2,planksConsumed:2,inputAndFuelDeposits:2};
+  await commands(['clear @s oak_planks','clear @s spruce_planks','give @s oak_planks 2','give @s birch_planks 1','give @s white_wool 3']);
+  assert.equal(count('oak_planks'),2);assert.equal(count('birch_planks'),1);assert.equal(count('white_wool'),3);
+  await craft(b,'white_bed',1,b.blockAt(table));
+  assert.equal(count('white_bed'),1);assert.equal(count('oak_planks')+count('birch_planks')+count('white_wool'),0);
+  result.mixedBed={produced:1,oak:2,birch:1,wool:3};
   result.success=true;
  }catch(error){result.error=error.stack;result.success=false;}
  finally{await finish();}

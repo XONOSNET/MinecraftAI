@@ -7,6 +7,18 @@ function recipeSlots(recipe,width){
  else for(let i=0;i<(recipe.ingredients||[]).length;i++)result.push({slot:1+i,ingredient:recipe.ingredients[i]});
  return result;
 }
+function mixedWhiteBed(bot,window){
+ const wool=bot.registry.itemsByName.white_wool.id;
+ const stock=window.slots.slice(window.inventoryStart,window.inventoryEnd);
+ if(inventoryCount(window,item=>item.type===wool)<3)return null;
+ const planks=[];
+ for(const item of stock){
+  if(!item?.name.endsWith('_planks'))continue;
+  for(let i=0;i<item.count&&planks.length<3;i++)planks.push({id:item.type,metadata:item.metadata});
+  if(planks.length===3)return {inShape:[Array.from({length:3},()=>({id:wool})),planks]};
+ }
+ return null;
+}
 async function craft(bot,name,times=1,table=null){
  const Item=require('prismarine-item')(bot.registry);
  let window=bot.inventory,opened=false;
@@ -43,7 +55,12 @@ async function craft(bot,name,times=1,table=null){
   for(let remaining=times;remaining>0;){
    await sync();await stow();const width=table?3:2;
    for(let slot=1;slot<=width*width;slot++)if(window.slots[slot]){await click(slot);await stow();}
-   const id=bot.registry.itemsByName[name]?.id,recipe=id&&bot.recipesFor(id,null,1,table)[0];if(!recipe)throw Error('Missing materials for '+name);
+   const id=bot.registry.itemsByName[name]?.id;
+   let recipe=id&&bot.recipesFor(id,null,1,table)[0];
+   // Minecraft accepts mixed planks for beds. The recipe library expands the
+   // plank tag into single-species recipes, so check the live workbench stock.
+   if(!recipe&&id&&table&&name==='white_bed'&&remaining===1)recipe=mixedWhiteBed(bot,window);
+   if(!recipe)throw Error('Missing materials for '+name);
    const entries=recipeSlots(recipe,width);
    const batch=entries.reduce((limit,{ingredient})=>Math.min(limit,bot.registry.items[ingredient.id]?.stackSize??1),remaining);
    const selected=batch>1?bot.recipesFor(id,null,batch*recipe.result.count,table).find(candidate=>JSON.stringify(recipeSlots(candidate,width))===JSON.stringify(entries)):recipe;
