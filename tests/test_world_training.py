@@ -347,7 +347,7 @@ def test_production_copy_window_is_two_small_clones_with_one_ordered_fence(tmp_p
     assert sum(c.startswith('clone ') for c in commands)==2
     assert sum(c.startswith('scoreboard players set #world_ack') for c in commands)==1
     # No acknowledgement means no additional work can be queued.
-    clock[0]=5;world.tick();assert sum(c.startswith('clone ') for c in commands)==2
+    clock[0]=2;world.tick();assert sum(c.startswith('clone ') for c in commands)==2
     log.write_text('Successfully cloned 4096 blocks\n'*2+'Set [lab_world] for #world_ack to 1\n')
     world.tick()
     assert world.session['copy_stats']['acknowledged']==2
@@ -356,6 +356,23 @@ def test_production_copy_window_is_two_small_clones_with_one_ordered_fence(tmp_p
     assert world.session['progress']>0
     assert 'slices verified' in world.session['message']
     world.tick();assert sum(c.startswith('clone ') for c in commands)==4
+
+
+def test_slow_copy_ack_yields_then_clones_one_smaller_slice(tmp_path):
+    world,commands,clock,log=fixture(tmp_path,2);world.start({},['LabAI0'])
+    world.tick();clock[0]=1;world.tick()
+    next_y=world.job['next_y']
+    clock[0]=8
+    log.write_text('Successfully cloned 4096 blocks\n'*2+'Set [lab_world] for #world_ack to 1\n')
+    world.tick()
+    assert world.job['phase']=='pacing'
+    assert world.session['copy_stats']['acknowledged']==2
+    assert sum(c.startswith('clone ') for c in commands)==2
+    clock[0]=8.6;world.tick()
+    assert world.job['batch_count']==1 and world.job['next_y']>next_y
+    clone=[c for c in commands if c.startswith('clone ')][-1].split()
+    x,y,z,xx,yy,zz=map(int,clone[1:7])
+    assert y==next_y and (xx-x+1)*(yy-y+1)*(zz-z+1)<=1024
 
 
 def test_two_slice_window_rejects_partial_success_and_never_deploys(tmp_path):

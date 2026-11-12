@@ -189,10 +189,12 @@ class WorldTraining(SurvivalLessons):
         y=job.get('next_y',session['copy_y'][0])
         # Bound each operation to 4096 blocks and the entire in-flight window
         # to 8192. Share one ordered fence, verifying every individual success.
+        stats=session.setdefault('copy_stats',dict(block_limit=4096,inflight_block_limit=8192,batch_size=self.copy_batch_size,sent=0,acknowledged=0,batches=0,max_ack_seconds=0))
+        throttled=stats.get('throttled',False)
         commands=[]
-        for _ in range(self.copy_batch_size):
+        for _ in range(1 if throttled else self.copy_batch_size):
             if y>=session['copy_y'][1]:break
-            height=min(4096//(job['width']*16),session['copy_y'][1]-y)
+            height=min((1024 if throttled else 4096)//(job['width']*16),session['copy_y'][1]-y)
             commands.append(f"clone {job['source']} {y} {job['z']} {job['source']+job['width']-1} {y+height-1} {job['z']+15} {job['dest']} {y} {job['z']} replace force")
             y+=height
         self.offset=self.logpath.stat().st_size if self.logpath.exists() else 0
@@ -200,7 +202,6 @@ class WorldTraining(SurvivalLessons):
         job.update(phase='waiting',at=self.clock(),serial=self.serial,log='',next_y=y,batch_count=len(commands))
         for command in commands:self.command(command)
         self.command(f'scoreboard players set #world_ack lab_world {self.serial}')
-        stats=session.setdefault('copy_stats',dict(block_limit=4096,inflight_block_limit=8192,batch_size=self.copy_batch_size,sent=0,acknowledged=0,batches=0,max_ack_seconds=0))
         stats['sent']+=len(commands);stats['batches']+=1
 
     def clear_tile_items(self,job):
@@ -311,6 +312,8 @@ class WorldTraining(SurvivalLessons):
                 if s['phase']=='restoring':self.reset_hostiles([j['dest'],j['dest']+j['width'],j['z'],j['z']+16])
                 self.clear_tile_items(j)
                 self.copy_slice(j);return
+            if j['phase']=='pacing' and self.clock()-j['at']>=.5:
+                self.copy_slice(j);return
             if j['phase']=='waiting':
                 text,self.offset=self._read(self.offset);j['log']+=text
                 if re.search(r'#world_ack to '+str(j['serial'])+r'(?!\d)',j['log']):
@@ -319,7 +322,13 @@ class WorldTraining(SurvivalLessons):
                     if j['log'].count('Successfully cloned')!=j['batch_count']:
                         self.stop('Terrain copy failed; trial stopped before deploying bots. Inspect the Minecraft console.');return
                     stats=s['copy_stats'];stats['acknowledged']+=j['batch_count']
-                    stats['max_ack_seconds']=round(max(stats['max_ack_seconds'],self.clock()-j['at']),3)
+                    ack_seconds=self.clock()-j['at']
+                    stats['max_ack_seconds']=round(max(stats['max_ack_seconds'],ack_seconds),3)
+                    if ack_seconds>=2.5:
+                        stats.update(throttled=True,quick_acks=0)
+                    elif stats.get('throttled'):
+                        stats['quick_acks']=stats['quick_acks']+1 if ack_seconds<.75 else 0
+                        if stats['quick_acks']>=12:stats.update(throttled=False,quick_acks=0)
                     completed=self.total-len(self.jobs)-1
                     fraction=(j['next_y']-s['copy_y'][0])/(s['copy_y'][1]-s['copy_y'][0])
                     s['progress']=round(100*(completed+fraction)/self.total,1)
@@ -330,9 +339,13 @@ class WorldTraining(SurvivalLessons):
                     eta=f' · estimated {remaining//60}m {remaining%60:02d}s left' if remaining is not None and s['progress']>=2 else ''
                     s['message']=f"{label} · {s['progress']}% · {stats['acknowledged']} slices verified{eta}"
                     if j['next_y']<s['copy_y'][1]:
-                        # The fence has drained the prior commands. Send the next
-                        # bounded window now, without an extra Python tick of idle.
-                        self.copy_slice(j);return
+                        # Leave room for gameplay ticks when clone commands are
+                        # monopolizing the server thread.
+                        if stats.get('throttled'):
+                            j.update(phase='pacing',at=self.clock())
+                            s['message']+=' · smaller batches while Minecraft catches up'
+                        else:self.copy_slice(j)
+                        return
                     x0,x1,z0,z1=s['bounds'];xx=min(j['source'],j['dest']);zz=j['z']
                     end=xx+j['width']-1
                     if xx==x0:self.command(f'fill {xx} -64 {zz} {xx} 191 {zz+15} minecraft:glass')
