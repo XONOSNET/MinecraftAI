@@ -1,4 +1,10 @@
 // Move only the requested quantity using confirmed cursor and slot updates.
+function mismatch(message){
+ const error=Error(message);
+ error.code='INVENTORY_TRANSFER_MISMATCH';
+ return error;
+}
+
 async function transfer(window,click,match,destination,count,{stage=false}={}){
  while(count>0){
   const stock=window.slots[destination];
@@ -11,11 +17,11 @@ async function transfer(window,click,match,destination,count,{stage=false}={}){
   const empty=inventory.findIndex(item=>!item);
   const pick=async(from,quantity,button=0)=>{
    await click(from,button);
-   if(window.selectedItem?.type!==source.type||window.selectedItem.count!==quantity)throw Error('Server did not pick up the requested material');
+   if(window.selectedItem?.type!==source.type||window.selectedItem.count!==quantity)throw mismatch('Server did not pick up the requested material');
   };
   const deposit=async()=>{
    await click(destination);
-   if(window.selectedItem)throw Error('Server did not accept the requested quantity');
+   if(window.selectedItem)throw mismatch('Server did not accept the requested quantity');
   };
   if(!surplus||moved===half){
    await pick(slot,moved,surplus?1:0);await deposit();
@@ -25,17 +31,17 @@ async function transfer(window,click,match,destination,count,{stage=false}={}){
    const staging=window.inventoryStart+empty,split=Math.min(moved,surplus);
    await pick(slot,available);
    for(let i=0;i<split;i++)await click(staging,1);
-   if(window.slots[staging]?.count!==split)throw Error('Server did not split the requested material');
+   if(window.slots[staging]?.count!==split)throw mismatch('Server did not split the requested material');
    if(split===moved){await click(slot);await pick(staging,moved);await deposit();}
    else{await deposit();await pick(staging,surplus);await click(slot);}
   }else{
    // Split directly into the requested slot if staging is unavailable.
    await pick(slot,available);
    for(let i=0;i<moved;i++)await click(destination,1);
-   if(window.selectedItem?.count!==surplus)throw Error('Server did not accept the requested quantity');
+   if(window.selectedItem?.count!==surplus)throw mismatch('Server did not accept the requested quantity');
    await click(slot);
   }
-  if(window.selectedItem)throw Error('Server did not return the remaining material');
+  if(window.selectedItem)throw mismatch('Server did not return the remaining material');
   count-=moved;
  }
 }

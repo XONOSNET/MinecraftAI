@@ -67,7 +67,12 @@ async function craft(bot,name,times=1,table=null){
    if(!selected)throw Error('Missing materials for '+name);
    for(const {slot,ingredient} of entries){
     const matches=item=>item.type===ingredient.id&&(ingredient.metadata==null||item.metadata===ingredient.metadata);
-    await transfer(window,click,matches,slot,batch);
+    try{await transfer(window,click,matches,slot,batch);}
+    catch(error){
+     // The lesson can retry the full request only before any batch was crafted.
+     if(remaining===times&&error.code==='INVENTORY_TRANSFER_MISMATCH')throw Error('Timed out synchronizing crafting inventory',{cause:error});
+     throw error;
+    }
     if(window.slots[slot]?.count!==batch||!matches(window.slots[slot]))throw Error('Timed out synchronizing crafting inventory');
    }
    await sync();if(window.slots[0]?.type!==id)throw Error('Server did not produce recipe result for '+name);

@@ -4,15 +4,19 @@ const errors=require('../controller/service_errors'),crafting=require('../contro
 test('a native inventory timeout resumes crafting from authoritative inventory without restarting the lesson',async()=>{
  const registry=require('minecraft-data')('1.21.4'),Item=require('prismarine-item')(registry),windows=require('prismarine-windows')(registry);
  const bot=new EventEmitter(),window=windows.createWindow(0,'minecraft:inventory'),log=registry.itemsByName.oak_log.id,planks=registry.itemsByName.oak_planks.id;
- bot.registry=registry;bot.inventory=window;window.updateSlot(9,new Item(log,1));
- let failOnce=true,produced=0;
+ bot.registry=registry;bot.inventory=window;window.updateSlot(9,new Item(log,3));
+ let failOnce=true,ignoreReturn=true,produced=0;
  bot.recipesFor=()=>[{inShape:[[{id:log}]],result:{id:planks,count:4}}];
  bot._client={write(_name,p){
   if(failOnce){failOnce=false;return;}
+  if(ignoreReturn&&p.mode===0&&p.slot===9&&window.selectedItem?.count===2){
+   ignoreReturn=false;queueMicrotask(()=>bot.emit('setWindowItems:0'));return;
+  }
   if(p.mode===0){
    const current=window.slots[p.slot];
    if(p.slot===0){assert.equal(current?.type,planks);assert.equal(window.selectedItem,null);window.selectedItem=new Item(planks,4);window.updateSlot(1,null);produced+=4;}
    else if(p.mouseButton===1){assert.ok(window.selectedItem);window.updateSlot(p.slot,new Item(window.selectedItem.type,1));window.selectedItem.count--;if(!window.selectedItem.count)window.selectedItem=null;}
+   else if(current&&current.type===window.selectedItem?.type){window.updateSlot(p.slot,new Item(current.type,current.count+window.selectedItem.count));window.selectedItem=null;}
    else{const cursor=window.selectedItem;window.selectedItem=current;window.updateSlot(p.slot,cursor);}
    window.updateSlot(0,window.slots[1]?.type===log?new Item(planks,4):null);
   }
@@ -21,9 +25,14 @@ test('a native inventory timeout resumes crafting from authoritative inventory w
  const state={phase:'craft',lastProgress:123,milestones:[],run:'same-trial'};
  await assert.rejects(crafting.craft(bot,'oak_planks',1),error=>{assert.equal(errors.recover(state,error,1000),true);return true;});
  assert.equal(state.phase,'craft');assert.equal(state.lastProgress,123);assert.deepEqual(state.milestones,[]);assert.equal(produced,0);
- assert.equal(window.items().find(i=>i.type===log).count,1);
+ assert.equal(window.items().find(i=>i.type===log).count,3);
+ await assert.rejects(crafting.craft(bot,'oak_planks',1),error=>{
+  assert.equal(error.cause?.message,'Server did not return the remaining material');
+  assert.equal(errors.recover(state,error,1500),true);return true;
+ });
+ assert.equal(produced,0);assert.equal(window.slots[1].count,1);assert.equal(window.selectedItem.count,2);
  await crafting.craft(bot,'oak_planks',1);
- assert.equal(produced,4);assert.equal(window.items().some(i=>i.type===log),false);assert.equal(window.items().find(i=>i.type===planks).count,4);assert.equal(window.selectedItem,null);
+ assert.equal(produced,4);assert.equal(window.items().filter(i=>i.type===log).reduce((sum,item)=>sum+item.count,0),2);assert.equal(window.items().find(i=>i.type===planks).count,4);assert.equal(window.selectedItem,null);
 });
 
 test('crafting retries share the existing thirty-second bound and never mask recipe or safety failures',()=>{
