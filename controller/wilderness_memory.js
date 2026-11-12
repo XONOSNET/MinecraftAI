@@ -7,6 +7,7 @@ class WildernessMemory{
   this.roads=new Map((saved.roads||[]).slice(0,512).map(p=>[key(p),p]));
   this.edges=new Map();for(const [a,b] of saved.edges||[])if(this.roads.has(a)&&this.roads.has(b)){this.link(a,b);this.link(b,a);}
   this.visited=new Set();this.rejected=new Map();this.replans=0;
+  this.encounters=(saved.encounters||[]).slice(-32);
  }
  link(a,b){if(!this.edges.has(a))this.edges.set(a,new Set());this.edges.get(a).add(b);}
  remember(kind,p,approach=null){
@@ -32,6 +33,11 @@ class WildernessMemory{
  }
  reject(p,now=Date.now()){this.rejected.set(key(p),now+30000);this.replans++;}
  available(p,now=Date.now()){return now>=(this.rejected.get(key(p))||0);}
+ encounter(enemy,outcome,p){
+  if(typeof enemy!=='string')return;
+  this.encounters.push({enemy,outcome,position:Array.isArray(p)?[...p]:point(p)});
+  if(this.encounters.length>32)this.encounters.shift();
+ }
  // A blocked long search can reconnect to a route that this bot actually walked.
  detour(bot,goal,bounds){
   const valid=p=>standable(bot,Math.floor(p[0]),Math.round(p[1]),Math.floor(p[2]));
@@ -50,6 +56,6 @@ class WildernessMemory{
    if(safe)return full;
   }return null;
  }
- snapshot(){return {resources:this.resources,roads:[...this.roads.values()],edges:[...this.edges].flatMap(([a,bs])=>[...bs].filter(b=>a<b).map(b=>[a,b])).slice(0,1024)};}
+ snapshot(){return {resources:this.resources,roads:[...this.roads.values()],edges:[...this.edges].flatMap(([a,bs])=>[...bs].filter(b=>a<b).map(b=>[a,b])).slice(0,1024),encounters:this.encounters};}
 }
 module.exports={WildernessMemory,key};

@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "burrow_workspace": true,
+  "iron_prospecting": true,
+  "prospect_seconds": 75,
+  "minimum_watch_remaining_seconds": 180,
+  "repair_blocks": 2,
+  "minimum_block_light": 3,
+  "combat": {
+    "equipped_engagements": true,
+    "min_health": 15,
+    "min_food": 14,
+    "min_shield_durability": 20,
+    "creeper_structure_distance": 12,
+    "engagement_range": 9,
+    "reengage_ms": 30000
+  }
+}

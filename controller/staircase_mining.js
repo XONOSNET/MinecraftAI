@@ -2,6 +2,7 @@
 const {Vec3}=require('vec3'),nav=require('./field_navigation'),space=require('./resource_space');
 const access=require('./resource_access'),inventory=require('./inventory_sync'),{visibleBlock}=require('./target_scan');
 const rules=require('../config/mining.json'),claims=new Map();
+const progressRules=require('../config/survival-progression.json'),hazards=require('./mine_hazards');
 const EARTH=new Set(['dirt','grass_block','coarse_dirt','rooted_dirt','podzol','mycelium']);
 const ROCK=new Set(['stone','granite','diorite','andesite','tuff','deepslate','coal_ore','deepslate_coal_ore','iron_ore','deepslate_iron_ore']);
 const BAD=new Set(['sand','red_sand','gravel','water','lava','fire','soul_fire','magma_block','powder_snow']);
@@ -50,7 +51,9 @@ function start(t,b,state,resource){
    // A coal prospect needs an actual rock face, not an empty surface walk.
    if(resource==='coal'&&grade===0&&!candidate.cells.some(p=>ROCK.has(b.blockAt(p)?.name)))continue;
    const seen=candidate.cells.some(p=>ore(b.blockAt(p)?.name,resource)&&visibleBlock(b,b.blockAt(p)));
-   candidates.push({q,d,distance:q.distanceTo(base)-(seen?20:0)});
+   const known=t.wilderness.memory?.resources.find(r=>['mine','cave','flood','lava'].includes(r.kind)&&q.distanceTo(new Vec3(...r.position))<4);
+   const experience=known?(known.kind==='mine'?-2:12):0;
+   candidates.push({q,d,distance:q.distanceTo(base)-(seen?20:0)+experience});
   }
  }
  for(const c of candidates.sort((a,b)=>a.distance-b.distance).slice(0,16))if(nav.route(b,point(c.q),20,2048,true,{bounds:state.world.bounds,reversible:true}).reached){
@@ -58,9 +61,13 @@ function start(t,b,state,resource){
   claims.set(b.username,{run:t.run,owner:b.username,path:m.path});return m;
  }return null;
 }
-function report(t){const m=t.wilderness?.mine;return m?{stage:m.stage,resource:m.resource,target_y:m.target_y,strategy:m.resource!=='stone'&&m.path.at(-1)[1]<=m.target_y?'Horizontal prospecting near target depth':'Safe staircase descent',ore_target:m.ore_target||null,depth:m.entry[1]-m.path.at(-1)[1],steps:m.steps,entry:m.entry,torches:m.torches,coal_mined:m.coal_mined,flooded_branches:m.flooded?.length||0,depth_knowledge:{coal_preferred_y:rules.coal.preferred_y,coal_minimum_y:rules.coal.minimum_y,iron_preferred_y:rules.iron.preferred_y},reason:m.reason||null}:null;}
+function report(t){const m=t.wilderness?.mine;return m?{stage:m.stage,resource:m.resource,target_y:m.target_y,strategy:m.resource!=='stone'&&m.path.at(-1)[1]<=m.target_y?'Horizontal prospecting near target depth':'Safe staircase descent',ore_target:m.ore_target||null,depth:m.entry[1]-m.path.at(-1)[1],steps:m.steps,entry:m.entry,torches:m.torches,coal_mined:m.coal_mined,flooded_branches:m.floodEvents||0,caves:m.caves||0,seals:m.seals||0,block_light:m.blockLight??null,depth_knowledge:{coal_preferred_y:rules.coal.preferred_y,coal_minimum_y:rules.coal.minimum_y,iron_preferred_y:rules.iron.preferred_y},reason:m.reason||null}:null;}
 async function light(t,b,motor,m){
- if(m.steps-m.lit_at<rules.torch_interval)return false;
+ const floor=b.entity.position.floored(),level=b.blockAt(floor)?.light;
+ m.blockLight=Number.isFinite(level)?level:null;
+ if(m.blockLight>=progressRules.minimum_block_light){m.lit_at=m.steps;return false;}
+ if(m.steps===0||m.blockLight===null&&m.steps-m.lit_at<rules.torch_interval)return false;
+ if(Date.now()<(m.lightRetryAt||0))return false;
  if(!count(b,'torch')){
   if(!count(b,'coal')&&!count(b,'charcoal'))return false;
   if(!count(b,'stick')){
@@ -69,14 +76,15 @@ async function light(t,b,motor,m){
   }
   motor.pause();await t.craft(b,'torch',1,null);return true;
  }
- const q=b.entity.position.floored().offset(0,1,0);
+ const q=floor.offset(0,1,0);
  // Side walls survive excavation of the next stair; front-wall torches would
  // be knocked off as soon as mining continued.
  for(const [dx,dz] of [DIRS[(m.dir+1)%4],DIRS[(m.dir+3)%4]]){
   const support=b.blockAt(q.offset(dx,0,dz));if(support?.boundingBox!=='block'||b.blockAt(q)?.boundingBox!=='empty')continue;
   if(!space.clearOfPlayers(b,q.offset(.5,.5,.5),1))return true;
-  motor.pause();await inventory.equip(b,'torch');await b.placeBlock(support,new Vec3(-dx,0,-dz));
-  if(!['torch','wall_torch'].includes(b.blockAt(q)?.name))throw Error('Mine torch placement did not verify');
+  motor.pause();await inventory.equip(b,'torch');m.lightRetryAt=Date.now()+1500;
+  try{await b.placeBlock(support,new Vec3(-dx,0,-dz));}catch{ /* Check the actual torch block. */ }
+  if(!['torch','wall_torch'].includes(b.blockAt(q)?.name))return false;
   m.lit_at=m.steps;m.torches++;t.lastProgress=Date.now();t.message='Lighting the mine staircase';return true;
  }return false;
 }
@@ -101,12 +109,17 @@ async function collectOre(t,b,motor,state,api,scan,tasks,m){
  else await t.walk(b,motor,goal,state,api,scan,tasks);
  t.message='Collecting mined ore before extending the prospect';return true;
 }
-async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}={}){
+async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16,resume=null}={}){
  const n=t.wilderness;let m=n.mine;
  resource=m?.resource||resource;
  if(!['stone','coal','iron'].includes(resource))throw Error('Unsupported prospecting resource: '+resource);
  if(!m){
-  m=n.mine=start(t,b,state,resource);
+  const reusable=resource==='iron'&&resume?.path?.length>1&&resume.steps<64&&resume.path.every(p=>{
+   const q=new Vec3(...p);return dry(b,q)&&nav.standable(b,...p)&&allowed(t,b,q,state.world);
+  });
+  m=n.mine=reusable?{...resume,stage:'approach',path:resume.path.slice(),supports:resume.supports.slice(),
+   flooded:[],resumeIndex:1,next:null,coverExit:false}:start(t,b,state,resource);
+  if(reusable)claims.set(b.username,{run:t.run,owner:b.username,path:m.path});
   if(!m){t.message='Looking for a dry, supported staircase entrance outside house plots';return {handled:false};}
  }
  // Shelter/combat can interrupt any mining stage and bring the bot all the
@@ -129,8 +142,18 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
  const home=new Vec3(...m.entry);
  if(m.stage==='approach'){
   const arrived=await t.walk(b,motor,point(home),state,api,scan,tasks);
-  if(arrived===true)m.stage='dig';
+  if(arrived===true){m.stage=m.resumeIndex?'revisit':'dig';n.memory?.remember('mine',m.entry,point(home));}
   else if(arrived===false){claims.delete(b.username);n.mine=null;return {handled:false};}
+  return {handled:true};
+ }
+ if(m.stage==='revisit'){
+  const q=new Vec3(...m.path[m.resumeIndex]);
+  if(!dry(b,q)||!nav.standable(b,q.x,q.y,q.z)){
+   m.unsafe=true;m.stage='exit';m.exitIndex=m.resumeIndex-1;return {handled:true};
+  }
+  const arrived=await t.walk(b,motor,point(q),state,api,scan,tasks);
+  if(arrived===true&&++m.resumeIndex>=m.path.length){delete m.resumeIndex;m.stage='dig';}
+  else if(arrived===false){m.unsafe=true;m.stage='exit';m.exitIndex=m.resumeIndex-1;}
   return {handled:true};
  }
  if(m.stage==='exit'){
@@ -175,7 +198,12 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   const q=new Vec3(...m.path[m.waterIndex]);
   if(!dry(b,q)||!nav.standable(b,q.x,q.y,q.z))throw Error('Mine water cut off the verified dry retreat route');
   const arrived=await t.walk(b,motor,point(q),state,api,scan,tasks);
-  if(arrived===true){m.path.splice(m.waterIndex+1);m.next=null;m.dir=(m.dir+1)%4;m.stage='dig';t.lastProgress=Date.now();}
+  if(arrived===true){
+   const opening=new Vec3(...m.path[Math.min(m.waterIndex+1,m.path.length-1)]);
+   if(await hazards.seal(b,motor,opening,progressRules.repair_blocks))m.seals=(m.seals||0)+1;
+   m.path.splice(m.waterIndex+1);m.next=null;m.dir=(m.dir+1)%4;m.stage='dig';t.lastProgress=Date.now();
+   if((m.floodEvents||0)>=2){m.stage='exit';m.exitIndex=m.path.length-1;m.reason='Repeated flooding; abandoning this mine';}
+  }
   else if(arrived===false)throw Error('Mine water retreat could not reach dry ground');
   t.message='Water in mine: retreating to dry stairs before changing direction';return {handled:true};
  }
@@ -183,10 +211,31 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   const from=new Vec3(...m.path.at(-1)),next=m.next,q=from.offset(DIRS[next.d][0],next.dy??-1,DIRS[next.d][1]);
   // Keep this committed landing across controller ticks. Re-centering on the
   // previous stair halfway through the move creates an endless out/back loop.
-  if(!dry(b,q)){motor.pause();m.flooded.push(q.toString());m.next=null;m.stage='dig';return {handled:true};}
+  if(!dry(b,q)){
+   motor.pause();m.flooded.push(q.toString());m.next=null;m.stage='dig';
+   const fluid=hazards.fluid(b,q);
+   if(fluid)n.memory?.remember(fluid==='lava'?'lava':'flood',q);
+   if(fluid==='water')m.floodEvents=(m.floodEvents||0)+1;
+   if(fluid==='lava'||m.floodEvents>=2){
+    m.unsafe=true;m.stage='exit';m.exitIndex=m.path.length-1;
+    m.reason=fluid==='lava'?'Lava observed ahead; withdrawing without attempting to seal':'Repeated flooding; abandoning this mine';
+   }
+   return {handled:true};
+  }
+  const cave=m.entry[1]-from.y>=3&&hazards.cave(b,from,q,m.path);
+  const survey=cave&&!m.caveSurveys&&hazards.canSurvey(b,q);
+  if(cave&&!survey){
+   n.memory?.remember('cave',cave,point(from));m.flooded.push(q.toString());m.caves=(m.caves||0)+1;m.next=null;m.dir=(m.dir+1)%4;m.stage='dig';
+   if(await hazards.seal(b,motor,q,progressRules.repair_blocks))m.seals=(m.seals||0)+1;
+   m.reason='Cave opening observed; bypassing it on intact stairs';return {handled:true};
+  }
   if(!nav.standable(b,q.x,q.y,q.z))throw Error('New mine stair has no safe landing');
   const arrived=await t.walk(b,motor,point(q),state,api,scan,tasks);
-  if(arrived===true){m.path.push(q.toArray());m.supports.push(q.toArray());m.steps++;m.dir=next.d;m.next=null;m.turned=false;m.stage='dig';t.lastProgress=Date.now();}
+  if(arrived===true){m.path.push(q.toArray());m.supports.push(q.toArray());n.memory?.observe(b);m.steps++;m.dir=next.d;m.next=null;m.turned=false;m.stage='dig';t.lastProgress=Date.now();}
+  if(arrived===true&&survey){
+   m.caveSurveys=1;m.dir=(next.d+1)%4;
+   n.memory?.remember('cave',cave,point(q));m.reason='Surveyed a lit cave threshold from reversible footing';
+  }
   else if(arrived===false)throw Error('New mine stair cannot be reached safely');
   return {handled:true};
  }
@@ -194,6 +243,15 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
  const from=new Vec3(...m.path.at(-1));
  if(!dry(b,from)){
   motor.pause();m.flooded.push(from.toString());
+  const fluid=hazards.fluid(b,from);
+  if(fluid)n.memory?.remember(fluid==='lava'?'lava':'flood',from);
+  if(fluid==='lava'){
+   m.unsafe=true;m.stage='exit';m.exitIndex=m.path.findLastIndex(p=>dry(b,new Vec3(...p))&&nav.standable(b,...p));
+   m.reason='Lava observed; withdrawing without attempting to seal';
+   if(m.exitIndex<0)throw Error('Lava cut off the verified mine exit');
+   return {handled:true};
+  }
+  m.floodEvents=(m.floodEvents||0)+1;
   if(m.next)m.flooded.push(from.offset(DIRS[m.next.d][0],m.next.dy??-1,DIRS[m.next.d][1]).toString());
   m.waterIndex=m.path.findLastIndex(p=>{const q=new Vec3(...p);return dry(b,q)&&nav.standable(b,q.x,q.y,q.z);});
   if(m.waterIndex<0){
@@ -222,14 +280,15 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   if((!desired&&!usefulCoal&&!usefulIron)||b.entity.position.offset(0,b.entity.eyeHeight||1.62,0).distanceTo(q.offset(.5,.5,.5))>4.2||!allowed(t,b,q,state.world)||!dry(b,q)||!visibleBlock(b,v))continue;
   if(m.path.some(p=>p[0]===q.x&&p[2]===q.z&&q.y<p[1]))continue;
   const tool=pickaxe(b,ore(v.name,'iron')?'iron':'coal');if(!tool)continue;
+  n.memory?.remember(ore(v.name,'iron')?'iron':'coal',q,point(from));
   m.ore_target=q.toArray();t.message='Mining exposed '+v.name+' before extending the '+m.resource+' route';
   await t.harvest(b,motor,q,state,api,scan,tasks,tool);
   if(b.blockAt(q)?.name==='air'){if(ore(v.name,'coal'))m.coal_mined++;m.ore_target=null;}return {handled:true};
  }
  const enough=collected(b,resource)>=amount;
- const unlit=m.steps-m.lit_at>=rules.unlit_steps;
- if(enough||unlit||m.steps>=rules.max_steps||resource==='stone'&&from.y<=m.target_y){
-  m.reason=enough?resource[0].toUpperCase()+resource.slice(1)+' target collected':unlit?'Return for torch supplies before digging deeper':m.steps>=rules.max_steps?'Bounded excavation budget reached':'Bounded mining depth reached';m.stage='exit';m.exitIndex=m.path.length-1;return {handled:true};
+ const unlit=m.steps-m.lit_at>=rules.unlit_steps,maxSteps=resource==='iron'?64:rules.max_steps;
+ if(enough||unlit||m.steps>=maxSteps||resource==='stone'&&from.y<=m.target_y){
+  m.reason=enough?resource[0].toUpperCase()+resource.slice(1)+' target collected':unlit?'Return for torch supplies before digging deeper':m.steps>=maxSteps?'Bounded excavation budget reached':'Bounded mining depth reached';m.stage='exit';m.exitIndex=m.path.length-1;return {handled:true};
  }
  if(m.steps&&m.steps%rules.run_length===0&&!m.turned){m.dir=(m.dir+1)%4;m.turned=true;}
  const dy=resource!=='stone'&&from.y<=m.target_y?0:-1;
@@ -250,7 +309,8 @@ async function tick(t,b,motor,state,api,scan,tasks,{resource='stone',amount=16}=
   if(!b.canDigBlock(v))throw Error('Carried tools cannot mine the next staircase block');
   if(ROCK.has(v.name)){
    if(v.name.includes('iron_ore')&&!pickaxe(b,'iron')){m.next=null;m.stage='exit';m.exitIndex=m.path.length-1;m.reason='Iron requires a stone pickaxe; preserving ore and returning';return {handled:true};}
-   const tool=b.inventory.items().find(i=>/^(netherite|diamond|iron|stone)_pickaxe$/.test(i.name))?.name||'wooden_pickaxe';
+   const tool=pickaxe(b,resource);
+   if(!tool){m.stage='exit';m.exitIndex=m.path.length-1;m.reason='No suitable pickaxe remains; returning on intact stairs';return {handled:true};}
    await t.harvest(b,motor,q,state,api,scan,tasks,tool);
   }else{
    motor.pause();motor.lockLook(true);try{if(await access.dig(b,v,{validate:()=>!!step(t,b,from,DIRS[next.d],state.world,next.dy??-1)})){t.harvested=(t.harvested||0)+1;t.lastProgress=Date.now();}}finally{motor.lockLook(false);}

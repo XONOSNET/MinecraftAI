@@ -7,15 +7,24 @@ function recipeSlots(recipe,width){
  else for(let i=0;i<(recipe.ingredients||[]).length;i++)result.push({slot:1+i,ingredient:recipe.ingredients[i]});
  return result;
 }
-function mixedWhiteBed(bot,window){
- const wool=bot.registry.itemsByName.white_wool.id;
+function mixedPlanks(window,quantity){
  const stock=window.slots.slice(window.inventoryStart,window.inventoryEnd);
- if(inventoryCount(window,item=>item.type===wool)<3)return null;
  const planks=[];
  for(const item of stock){
   if(!item?.name.endsWith('_planks'))continue;
-  for(let i=0;i<item.count&&planks.length<3;i++)planks.push({id:item.type,metadata:item.metadata});
-  if(planks.length===3)return {inShape:[Array.from({length:3},()=>({id:wool})),planks]};
+  for(let i=0;i<item.count&&planks.length<quantity;i++)planks.push({id:item.type,metadata:item.metadata});
+  if(planks.length===quantity)return planks;
+ }
+ return null;
+}
+function mixedWoodRecipe(bot,window,name){
+ if(name==='white_bed'){
+  const wool=bot.registry.itemsByName.white_wool.id,planks=mixedPlanks(window,3);
+  if(planks&&inventoryCount(window,item=>item.type===wool)>=3)return {inShape:[Array.from({length:3},()=>({id:wool})),planks]};
+ }
+ if(name==='shield'){
+  const iron=bot.registry.itemsByName.iron_ingot.id,planks=mixedPlanks(window,6);
+  if(planks&&inventoryCount(window,item=>item.type===iron))return {inShape:[[planks[0],{id:iron},planks[1]],planks.slice(2,5),[{id:-1},planks[5]]]};
  }
  return null;
 }
@@ -57,9 +66,9 @@ async function craft(bot,name,times=1,table=null){
    for(let slot=1;slot<=width*width;slot++)if(window.slots[slot]){await click(slot);await stow();}
    const id=bot.registry.itemsByName[name]?.id;
    let recipe=id&&bot.recipesFor(id,null,1,table)[0];
-   // Minecraft accepts mixed planks for beds. The recipe library expands the
+   // Minecraft accepts mixed planks for beds and shields. The recipe library expands the
    // plank tag into single-species recipes, so check the live workbench stock.
-   if(!recipe&&id&&table&&name==='white_bed'&&remaining===1)recipe=mixedWhiteBed(bot,window);
+   if(!recipe&&id&&table&&remaining===1)recipe=mixedWoodRecipe(bot,window,name);
    if(!recipe)throw Error('Missing materials for '+name);
    const entries=recipeSlots(recipe,width);
    const batch=entries.reduce((limit,{ingredient})=>Math.min(limit,bot.registry.items[ingredient.id]?.stackSize??1),remaining);
@@ -100,4 +109,4 @@ async function craft(bot,name,times=1,table=null){
   }
  }
 }
-module.exports={craft,recipeSlots};
+module.exports={craft,recipeSlots,mixedWoodRecipe};

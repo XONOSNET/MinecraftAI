@@ -10,9 +10,9 @@ function scanTrees(bot,range=32){
  }
  return [...found.values()];
 }
-function visibleBlock(bot,block){
+function visibleBlock(bot,block,point=block?.position.offset(.5,.5,.5)){
  if(!block)return false;
- const eye=bot.entity.position.offset(0,bot.entity.eyeHeight??1.62,0),delta=block.position.offset(.5,.5,.5).minus(eye),distance=delta.norm();
+ const eye=bot.entity.position.offset(0,bot.entity.eyeHeight??1.62,0),delta=point.minus(eye),distance=delta.norm();
  if(!distance)return true;
  const hit=bot.world.raycast(eye,delta.scaled(1/distance),distance+.05);
  return !!hit?.position.equals(block.position);

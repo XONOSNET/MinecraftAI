@@ -41,7 +41,7 @@ const wrap=a=>Math.atan2(Math.sin(a),Math.cos(a));
 function motorPlan(action,permissions,task,sensed,angle,traveling=false){
  if(task?.kind==='combat'){
   const turn=action===1||action===2,hunt=require('./combat').isHunt(task);
-  return {forward:!!permissions.move&&(hunt?[0,1,2,3,4,6].includes(action)&&sensed?.distance>2.1&&Math.abs(angle)<.65&&!sensed?.frontBlocked:action===0||turn&&Math.abs(angle)<.65&&sensed?.distance>2.7&&!sensed?.frontBlocked),
+  return {forward:!!permissions.move&&!task.retreat_only&&(hunt?[0,1,2,3,4,6].includes(action)&&sensed?.distance>2.1&&Math.abs(angle)<.65&&!sensed?.frontBlocked:action===0||turn&&Math.abs(angle)<.65&&sensed?.distance>2.7&&!sensed?.frontBlocked),
    back:!hunt&&!!permissions.move&&action===3&&!!sensed?.rearSafe,jump:false,sneak:false,
    yaw:turn&&permissions.turn?(action===1?1:-1)*Math.min(.8,Math.abs(angle)):0,label:null};
  }

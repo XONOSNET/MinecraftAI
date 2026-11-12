@@ -300,6 +300,21 @@ function worldTimingText(r){
  const t=r.timings||{},p=t.phase_seconds||{},a=t.activity_seconds||{},seconds=v=>Number.isFinite(v)?Math.round(v)+' s':'—';
  return `${navigation}${r.stall_seconds_left!=null&&!['complete','stopped'].includes(r.state)?"No progress: attempt ends in "+r.stall_seconds_left+" s · ":""}${r.completion_rank?"Finish rank #"+r.completion_rank+" · ":""}Total ${seconds(r.seconds)} · Gathering ${seconds(p.gather)} · Aligning ${seconds(a.aligning)} · First log ${seconds(t.first_log_seconds)} · Turn reversals ${t.turn_reversals??'—'} · Target switches ${t.target_switches??'—'} · Scans ${t.acquisition_scans??'—'} · Tree lock ${t.locked_tree?'held':'searching'}`;
 }
+function wildernessProgress(r){
+ const w=r?.wilderness,n=w?.night,e=w?.equipment,c=w?.combat,m=w?.mining,burrow=w?.burrow;
+ if(!n||!e)return '';
+ const details=[];
+ if(n.started)details.push(`Night work ${n.productive_seconds}s · travel ${n.travel_seconds}s · idle ${n.idle_seconds}s`);
+ details.push(`Torches ${e.torches} · raw iron ${e.raw_iron} · ingots ${e.iron}`);
+ if(e.shield!=null||e.armor?.length||e.equipment?.length)details.push([`Shield ${e.shield==null?'unavailable':e.shield+' durability'}`,...new Set([...(e.armor||[]),...(e.equipment||[])])].join(', ').replaceAll('_',' '));
+ if(e.failed)details.push(`Deferred work ${e.failed}: ${e.reason}`);
+ if(m)details.push(`Mine: ${m.steps} steps · light ${m.block_light??'unknown'} · caves ${m.caves||0} · floods ${m.flooded_branches||0}`);
+ if(burrow?.sealed)details.push(burrow.workspace?.lit?'Sealed and lit burrow':'Sealed burrow');
+ if(c?.engagements)details.push(`Combat ${c.defeated}/${c.engagements} defeated · ${c.retreats} retreats`);
+ if(c?.damage&&Object.keys(c.damage).length)details.push('Damage '+Object.entries(c.damage).map(([source,hp])=>`${source.replaceAll('_',' ')} ${Math.round(hp*10)/10}`).join(', '));
+ if(w.death)details.push(`Death during ${w.death.phase.replaceAll('_',' ')} · source ${w.death.source.replaceAll('_',' ')}`);
+ return details.length?' · '+details.join(' · '):'';
+}
 function renderWorldLearning(s){
  const l=s.world_learning;if(!l)return;
  text('world-learning-status',`${l.enabled?'Automatic learning':'Learning '+l.phase} · Cycle ${l.round||0} · ${l.message||'Ready to start.'}`);
@@ -324,7 +339,7 @@ function renderWorld(s){
  $('world-progress').hidden=!w?.active||w.phase==='running';$('world-progress').value=w?.progress||0;
  const history=$('world-history');history.replaceChildren();for(const trial of [...world.history].reverse()){const rows=Object.values(trial.results||{}),complete=rows.filter(r=>r.state==='complete').length,seconds=rows.filter(r=>Number.isFinite(r.seconds));modelCells(history,[`Trial ${trial.round}`,`${trial.name} · ${trial.driver==='teacher'?'Teacher':'Learned movement / harvesting'} · ${trial.mission==='first_night'?'Support '+trial.night_level+' · ':''}${trial.prepared?'Prepared camp':'Raw terrain'} · ${({stone_age:'Stone age',settlement:'Hut + chest + tools',iron_age:'Iron expedition',homestead:'Homestead',home_defense:'Home defense',first_night:'First Night',hut:'Hut'})[trial.mission]||trial.mission}`,`${complete} / ${trial.bots.length}`,seconds.length?`${Math.round(seconds.reduce((n,r)=>n+r.seconds,0)/seconds.length)} s`:'—'])}
  const lessonRoot=$('world-lessons');lessonRoot.replaceChildren();for(const [i,label] of (w?.lessons||[]).entries()){const li=document.createElement('li'),done=Object.values(w.results||{}).filter(r=>(r.milestones?.length||0)>i).length;li.textContent=label+' · '+done+' / '+w.bots.length+' bots verified';lessonRoot.append(li)}
- const root=$('world-bots');root.replaceChildren();for(const name of w?.bots||[]){const r=w.results[name];modelCells(root,[botName(s,name),worldBotPhase(r)?.replace('survival_','').replaceAll('_',' ')||(w.phase==='running'?'Surveying':'Waiting for terrain'),r?`Lesson ${r.lesson||1} / ${r.lesson_total||1} · ${r.milestones?.length||0} verified · ${r.logs||0} carried logs · ${r.blocks||0} / ${r.target_blocks||144} hut blocks · ${Math.round(r.travelled||0)} blocks travelled`:'—',(r?.wilderness?r.wilderness.priority+' · '+r.wilderness.reason+' · ':'')+(r?.message||w.message)+woolStatusText(r)+(r?.wilderness?.exploration?' · '+r.wilderness.exploration.visited_cells+' patches visited · '+r.wilderness.exploration.routes_tested+' routes checked · '+(r.wilderness.exploration.home_distance??0)+'m from home · '+r.wilderness.exploration.state:'')+(r?.home?' · Bed home registered at '+r.home.position.join(', '):''),worldTimingText(r)])}
+ const root=$('world-bots');root.replaceChildren();for(const name of w?.bots||[]){const r=w.results[name];modelCells(root,[botName(s,name),worldBotPhase(r)?.replace('survival_','').replaceAll('_',' ')||(w.phase==='running'?'Surveying':'Waiting for terrain'),r?`Lesson ${r.lesson||1} / ${r.lesson_total||1} · ${r.milestones?.length||0} verified · ${r.logs||0} carried logs · ${r.blocks||0} / ${r.target_blocks||144} hut blocks · ${Math.round(r.travelled||0)} blocks travelled`:'—',(r?.wilderness?r.wilderness.priority+' · '+r.wilderness.reason+' · ':'')+(r?.message||w.message)+woolStatusText(r)+wildernessProgress(r)+(r?.wilderness?.exploration?' · '+r.wilderness.exploration.visited_cells+' patches visited · '+r.wilderness.exploration.routes_tested+' routes checked · '+(r.wilderness.exploration.home_distance??0)+'m from home · '+r.wilderness.exploration.state:'')+(r?.home?' · Bed home registered at '+r.home.position.join(', '):''),worldTimingText(r)])}
  $('world-start').disabled=!!pending||!!w?.active||!!activeJob(s)||!s.server.ready;
  $('world-stop').disabled=!!pending||(!w?.active&&!w?.loop);
  $('world-train').disabled=!!pending||!!w?.active||!!activeJob(s)||(!w&&!world.history.length);
@@ -341,7 +356,7 @@ function renderNight(s){
  text('night-description',(level?.description||'')+' First Night uses 128 × 128 sites, restoring natural animals along with terrain.'+(active?' · '+(session.assessment?'Held-out assessment · no fitting':'Training site'):'') );
  const previous=[...(w?.history||[])].reverse().find(t=>t.driver==='student'&&!t.assessment&&t.mission==='first_night'&&t.night_level===level?.id);
  if(previous){const completed=Object.values(previous.results||{}).filter(r=>r.state==='complete').length;$('night-description').textContent+=` Last completed policy run: ${completed}/${previous.bots.length} complete. Each new trial resets its own counter; advancement requires at least 75% completion in two consecutive automatic comparison cycles.`;}
- const r=w?.readiness||{};text('night-readiness',`Reserved-site assessments: ${r.completed||0} / ${r.attempts||0} complete across ${r.batches||0} batches · ${r.deaths||0} deaths. ${(r.by_level||[]).filter(x=>x.attempts).map(x=>"Level "+x.level+": "+x.completed+"/"+x.attempts).join(" · ")} Supported runs do not certify wilderness readiness.`);
+ const r=w?.readiness||{},n=r.observed_wilderness_nights;text('night-readiness',`Reserved-site assessments: ${r.completed||0} / ${r.attempts||0} complete across ${r.batches||0} batches · ${r.deaths||0} deaths. ${(r.by_level||[]).filter(x=>x.attempts).map(x=>"Level "+x.level+": "+x.completed+"/"+x.attempts).join(" · ")} ${n?.started?' Observed wilderness nights survived: '+n.survived+'/'+n.started+' ('+Math.round(n.survived/n.started*100)+'%).':''}`);
  $('night-assess').disabled=!!pending||!!session?.active||!!s.world_learning?.enabled||!!s.world_learning?.restore_pending||!!activeJob(s)||!s.server.ready;
 }
 $('world-mission').addEventListener('change',()=>{if(current)renderNight(current)});$('night-level').addEventListener('change',()=>{if(current)renderNight(current)});

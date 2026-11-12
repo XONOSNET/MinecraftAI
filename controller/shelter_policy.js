@@ -28,15 +28,17 @@ function underground(b){
  for(const y of [3,5,8,12,16])if(/^(stone|deepslate|dirt|grass_block|granite|diorite|andesite|tuff|sandstone|red_sandstone)$/.test(b.blockAt(p.offset(0,y,0))?.name||''))solid++;
  return solid>=2;
 }
-function assess(b,w){
+function assess(b,w,t=null){
  const time=b.time?.timeOfDay,night=!Number.isFinite(time)||time>=12000,cave=underground(b);
- const nearby=threats(b).filter(e=>e.position.distanceTo(b.entity.position)<( /^(skeleton|stray|bogged|pillager)$/.test(e.name)?18:12));
+ const visible=threats(b),nearby=visible.filter(e=>e.position.distanceTo(b.entity.position)<( /^(skeleton|stray|bogged|pillager)$/.test(e.name)?18:12));
  const weapon=(b.inventory?.items?.()||[]).some(i=>WEAPONS.has(i.name)),armor=[5,6,7,8].filter(i=>/_(helmet|chestplate|leggings|boots)$/.test(b.inventory?.slots?.[i]?.name||'')).length;
  const capacity=(1.5+(weapon?1:0)+armor*.5)*Math.min(1,(b.health??20)/18);
  const pressure=nearby.reduce((s,e)=>s+(e.name==='enderman'?3:/^(skeleton|stray|bogged|pillager|witch|vindicator|creeper)$/.test(e.name)?2:1),0);
  const overwhelmed=nearby.length>0&&((b.health??20)<12||pressure>capacity);
  let mode='work',reason='No immediate hostile encounter';
  if(w.first_night?.hostiles){
+  const engagement=require('./combat_readiness').assess(b,t,w,visible.sort((a,c)=>a.position.distanceTo(b.entity.position)-c.position.distanceTo(b.entity.position)));
+  if(engagement)return {mode:engagement.ready?'fight':'cover',reason:engagement.reason,engagement,underground:cave,night,enemies:nearby.length,pressure,capacity};
   // The survival defense specialist does not implement creeper combat. Never
   // label one manageable and then fall through to gathering without defending.
   if(nearby.some(e=>e.name==='creeper')){mode='cover';reason='Creeper nearby: disengage and seek cover; explosive combat is not supported';}
@@ -46,5 +48,5 @@ function assess(b,w){
  }
  return {mode,reason,underground:cave,night,enemies:nearby.length,pressure,capacity};
 }
-function wantsCover(b,w){return assess(b,w).mode==='cover';}
+function wantsCover(b,w,t){return assess(b,w,t).mode==='cover';}
 module.exports={equipped,threats,danger,underground,assess,wantsCover};

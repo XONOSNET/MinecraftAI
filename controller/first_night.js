@@ -3,6 +3,7 @@ const {Vec3}=require('vec3'),{WildernessMemory}=require('./wilderness_memory'),{
 const livestock=require('./first_night_livestock'),{Exploration}=require('./exploration'),resourceConfig=require('../config/world-resources.json'),resourceScan=require('./resource_scan');
 const nightSleep=require('./night_sleep');
 const shelterPolicy=require('./shelter_policy');
+const shelterWork=require('./shelter_work');
 const RAW={beef:'cooked_beef',porkchop:'cooked_porkchop',mutton:'cooked_mutton',chicken:'cooked_chicken',rabbit:'cooked_rabbit'},FOOD=['cooked_beef','cooked_porkchop','cooked_mutton','cooked_chicken','cooked_rabbit','apple','bread'],ANIMALS=['cow','pig','sheep','chicken','rabbit'];
 const SAFE_RAW=['beef','porkchop','mutton','rabbit'];
 const count=(b,n)=>b.inventory.items().filter(i=>i.name===n).reduce((s,i)=>s+i.count,0),meals=b=>FOOD.reduce((s,n)=>s+count(b,n),0),raw=b=>Object.keys(RAW).reduce((s,n)=>s+count(b,n),0);
@@ -16,7 +17,7 @@ function priority(b,t,w){
   if(meals(b)&&(b.food<=16||needsHealing))return {kind:'eat',reason:'Restore hunger before continuing'};
   if((b.food<=10||n.resume&&needsHealing)&&SAFE_RAW.some(name=>count(b,name)))return {kind:'eat raw',reason:'Emergency food while cooking is unavailable'};
  }
- const risk=shelterPolicy.assess(b,w);
+ const risk=shelterPolicy.assess(b,w,t);
  // The roof and walls can be finished before the three-second hut lesson
  // awards its milestone. Do not interrupt its final door/entry work to seek
  // a burrow from inside that already verified shell.
@@ -64,7 +65,8 @@ async function interrupt(t,b,motor,state,api,scan){
  if(p.kind==='finish enclosure')return false;
  if(await require('./water_work').tick(t,b,motor,state,api,scan,require('./tasks'),{urgent:['seek cover','retreat','defend'].includes(p.kind)}))return true;
  if(p.kind==='eat'||p.kind==='eat raw')return eat(t,b,motor,p.kind==='eat'?FOOD:SAFE_RAW);
- if(p.kind==='seek cover'||p.kind==='retreat'&&shelterPolicy.wantsCover(b,state.world))n.shelterWatch=true;
+ if(p.kind==='seek cover'||p.kind==='retreat'&&shelterPolicy.wantsCover(b,state.world,t))n.shelterWatch=true;
+ if(['seek cover','retreat'].includes(p.kind))require('./survival_defense').disengage(t,b,p.reason);
  if(n.shelterWatch&&!shelterPolicy.danger(b))n.shelterWatch=false;
  if(p.kind==='defend'&&await require('./survival_defense').tick(t,b,motor,state,api,scan))return true;
  if(await require('./mine_cover_exit').tick(t,b,motor,state,api,scan,require('./tasks'),p.kind))return true;
@@ -274,6 +276,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(arrived===true){motor.pause();next('scout_home');}
   else if(arrived===false){n.scoutRejected.add(n.scoutGoal.join(','));n.scoutGoal=null;}
  }else if(t.phase==='night_scout_home'){await move(home,'hold');if(t.phase==='night_hold'){t.milestone('round_trip');n.holdAt=now;}}
+ else if(t.phase==='night_iron')await require('./iron_prospect').tick(t,b,motor,state,api,scan,tasks,home);
  else if(t.phase==='night_retreat'){
   const arrived=await t.walk(b,motor,home,state,api,scan,tasks);
   if(arrived===true){motor.pause();next('recover');}
@@ -286,6 +289,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
  }
  else if(t.phase==='night_recover'){
   motor.pause();const d=door();if(d?.getProperties().open&&!await closeDoor(b,d))return;t.message='Sheltered recovery · health '+b.health+' / 20';
+  if(await shelterWork.atHome(t,b,motor))return;
   if(n.shelterWatch){t.message='Sheltered: waiting for daylight and nearby monsters to clear';return;}
   if(b.food<18&&!meals(b))t.message='Recovery needs food; waiting for a safe opportunity to forage';
  }else if(t.phase==='night_hold'){
@@ -294,11 +298,13 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(!require('./hut_teacher').intact(b,t.plot))throw Error('Shelter enclosure no longer intact');
   n.holdAt??=now;const elapsed=w.first_night.hostiles?(now-t.started)/1000:(now-n.holdAt)/1000,left=Math.max(0,Math.ceil(w.first_night.hold_seconds-elapsed));
   if(meals(b)<1&&b.food<16){if(await nightSleep.wake(t,b,motor))return;next('food');return;}
+  if(left>30&&await shelterWork.atHome(t,b,motor))return;
+  if(require('./iron_prospect').begin(t,b,w,left,meals(b),now))return;
   const sleepStatus=await nightSleep.tick(t,b,motor,goal=>t.walk(b,motor,goal,state,api,scan,tasks),now);
   Object.assign(n.sleep,{watch_seconds_left:left,watch_seconds_total:w.first_night.hold_seconds,watch_updated_at:now/1000});
   t.message=`${sleepStatus} · watch ${left} s left · health ${b.health} · food ${b.food}`;
   if(left===0&&b.health>=12&&b.food>=10&&n.sleep.morning_seen&&!b.isSleeping){t.milestone('survived');t.phase='complete';t.message='First Night complete: morning verified after a safe, provisioned shelter watch';}
  }
 }
-function report(t){const n=t.wilderness;return n?{priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,burrow:require('./emergency_burrow').report(t),mining:require('./staircase_mining').report(t),home_repair:require('./home_repair').report(t),cover_search:{searches:n.coverSearches||0,routes_checked:n.coverRoutesChecked||0,goal:n.coverEscape||null},livestock:n.livestock_status||null,scouting:n.scoutPlanning?{checked:n.scoutPlanning.checked,total:n.scoutPlanning.goals.length,landmark:n.scoutLandmark||null}:null,night_seen:!!n.nightSeen,sleep:n.sleep?{status:n.sleep.status,night_seen:!!n.sleep.night_seen,morning_seen:!!n.sleep.morning_seen,watch_seconds_left:n.sleep.watch_seconds_left,watch_seconds_total:n.sleep.watch_seconds_total,watch_updated_at:n.sleep.watch_updated_at}:null,exploration:n.exploration?.snapshot(t.last||{x:0,z:0},t.plot),memory:n.memory.snapshot()}:null;}
+function report(t,b){const n=t.wilderness;return n?{...require('./survival_observations').report(t),equipment:b?shelterWork.report(t,b):null,prospect:n.prospect||null,priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,burrow:require('./emergency_burrow').report(t),mining:require('./staircase_mining').report(t),home_repair:require('./home_repair').report(t),cover_search:{searches:n.coverSearches||0,routes_checked:n.coverRoutesChecked||0,goal:n.coverEscape||null},livestock:n.livestock_status||null,scouting:n.scoutPlanning?{checked:n.scoutPlanning.checked,total:n.scoutPlanning.goals.length,landmark:n.scoutLandmark||null}:null,night_seen:!!n.nightSeen,sleep:n.sleep?{status:n.sleep.status,night_seen:!!n.sleep.night_seen,morning_seen:!!n.sleep.morning_seen,watch_seconds_left:n.sleep.watch_seconds_left,watch_seconds_total:n.sleep.watch_seconds_total,watch_updated_at:n.sleep.watch_updated_at}:null,exploration:n.exploration?.snapshot(t.last||{x:0,z:0},t.plot),memory:n.memory.snapshot()}:null;}
 module.exports={enabled,handles,init,priority,interrupt,explore,tick,report,approaches,meals,RAW,FOOD};

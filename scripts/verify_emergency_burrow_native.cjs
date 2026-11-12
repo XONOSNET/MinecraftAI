@@ -23,6 +23,19 @@ async function main(){try{
  if(process.argv.includes('--blocked-opening'))assert.equal(result.opening_attacked,true,'native hostile at the roof was attacked before sealing');
  assert.equal(t.wilderness.burrow?.stage,'hidden','real shaft sealed');assert.equal(b.entity.position.y,209);assert.equal(burrow.sealed(b,t.wilderness.burrow),true);result.sealed_seconds=(Date.now()-started)/1000;result.hidden_health=b.health;
  await wait(3000);assert.ok(b.health>=result.hidden_health,'sealed roof prevents further damage; normal regeneration is allowed');assert.ok(b.health>0);
+ if(process.argv.includes('--protected-work')){
+  await commands(['give @s torch 2']);
+  const original=b.time.timeOfDay,workStarted=Date.now();
+  try{
+   while(!t.wilderness.burrow.workspace?.lit&&Date.now()-workStarted<16000){
+    b.time.timeOfDay=14000;await burrow.tick(t,b,motor,state);await wait(100);
+   }
+  }finally{b.time.timeOfDay=original;}
+  const s=t.wilderness.burrow;
+  assert.equal(s.workspace?.lit,true,'a native torch lights the capped alcove');
+  assert.equal(burrow.walls(b,feet,s),true);assert.equal(burrow.sealed(b,s),true);
+  result.protectedWorkspace=s.workspace;
+ }
  // Deterministic damage only inside this isolated empty-inventory survival fixture.
  if(process.argv.includes('--shell-breach')||process.argv.includes('--roof-breach')){
   const roof=process.argv.includes('--roof-breach'),gap=roof?feet:feet.offset(-1,-1,0);
@@ -60,7 +73,7 @@ async function main(){try{
  result.exit_seconds=(Date.now()-exitAt)/1000;result.health=b.health;result.position=b.entity.position.clone();result.no_starting_items=true;result.local_daylight_sensor_only=true;result.passed=true;
 }catch(error){result.error=error.stack;result.burrow=t?.wilderness.burrow;result.position=b.entity.position.clone();result.enemies=Object.values(b.entities).filter(e=>e.name==='skeleton').map(e=>({position:e.position.clone(),valid:e.isValid}));result.cap=t?.wilderness.burrow?b.blockAt(new Vec3(...t.wilderness.burrow.cap))?.name:null;result.items=b.inventory.items().map(i=>({name:i.name,count:i.count}));fs.writeFileSync("logs/emergency-burrow-native-before-cleanup.json",JSON.stringify(result,null,2));throw error;}finally{
  motor?.pause();await admin({action:'gamemode',gamemode:'creative'}).catch(()=>{});
- if(changed){await admin({action:"teleport-coordinates",x:-1300,y:220,z:-1300});await wait(1500);await b.waitForChunksToLoad();await commands(['kill @e[tag=lab_burrow_fixture]','kill @e[type=item,x=-1315,y=205,z=-1315,dx=30,dy=12,dz=30]','kill @e[type=experience_orb,x=-1315,y=205,z=-1315,dx=30,dy=12,dz=30]','fill -1315 205 -1315 -1285 217 -1285 air']);for(let x=-1315;x<=-1285;x++)for(let z=-1315;z<=-1285;z++)for(let y=205;y<=217;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air','fixture cleanup verified');}
+ if(changed){await admin({action:"teleport-coordinates",x:-1300,y:220,z:-1300});await wait(1500);await b.waitForChunksToLoad();await commands(['clear @s','kill @e[tag=lab_burrow_fixture]','kill @e[type=item,x=-1315,y=205,z=-1315,dx=30,dy=12,dz=30]','kill @e[type=experience_orb,x=-1315,y=205,z=-1315,dx=30,dy=12,dz=30]','fill -1315 205 -1315 -1285 217 -1285 air']);for(let x=-1315;x<=-1285;x++)for(let z=-1315;z<=-1285;z++)for(let y=205;y<=217;y++)assert.equal(b.blockAt(new Vec3(x,y,z))?.name,'air','fixture cleanup verified');}
  await admin({action:'teleport-coordinates',x:-153.5,y:225.1,z:160.5}).catch(()=>{});await admin({action:'gamemode',gamemode:'survival'}).catch(()=>{});await admin({action:'deop'}).catch(()=>{});result.cleaned=true;b.quit();fs.writeFileSync('logs/emergency-burrow-native.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));
 }}
 const timer=setTimeout(()=>{motor?.pause();b.quit();process.exitCode=1;},120000);

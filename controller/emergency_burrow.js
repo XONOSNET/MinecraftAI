@@ -21,6 +21,7 @@ function shellProblem(b,feet,s){
  for(const [dx,dz] of offsets)for(let y=feet.y-4;y<=feet.y-1;y++){
   if(dx===0&&dz===0&&y>feet.y-3)continue;
   const cell=new Vec3(feet.x+dx,y,feet.z+dz);
+  if((s?.workspace||s?.furnacePocket)&&require('./burrow_workspace').opening(b,feet,s,cell))continue;
   if([s?.exitNotch,s?.repairNotch].filter(Boolean).some(p=>cell.equals(new Vec3(...p)))&&safeNotch(b,feet,cell)&&openCell(b.blockAt(cell)))continue;
   const q=b.blockAt(cell);
   // After excavation, an air-only corner behind two intact inward walls does
@@ -54,7 +55,7 @@ function site(t,b,feet,w){
 function find(t,b,state){
  const p=b.entity.position,base=p.floored(),offsets=[],enemies=threats(b);
  for(let x=-12;x<=12;x++)for(let z=-12;z<=12;z++)offsets.push([x,z]);offsets.sort((a,c)=>Math.hypot(...a)-Math.hypot(...c));
- const fleeing=require('./shelter_policy').wantsCover(b,state.world);
+ const fleeing=require('./shelter_policy').wantsCover(b,state.world,t);
  for(const urgent of [false,...(fleeing&&enemies.length?[true]:[])]){let checked=0;
  search:for(const [x,z] of offsets)for(const dy of [0,1,-1,2,-2]){
   const feet=base.offset(x,dy,z),goal=[feet.x+.5,feet.y+.1,feet.z+.5];
@@ -117,7 +118,7 @@ function captureFailure(t,b,error){
    earth_blocks:b.inventory.items().filter(i=>['dirt','coarse_dirt','rooted_dirt'].includes(i.name)).reduce((n,i)=>n+i.count,0)};
  }catch(captureError){s.failureContext={message:error.message,capture_error:captureError.message};}
 }
-function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,waiting_for:s.waitReason||null,exit_blocks:s.exitBlocks??null,cover_refusals:s.coverRefusals||0,failure_context:s.failureContext||null,shell_failure:s.shellFailure||null,shell_repairs:s.shellRepairs||0,shell_recovery:s.shellRecovery?.status||null,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
+function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,waiting_for:s.waitReason||null,exit_blocks:s.exitBlocks??null,cover_refusals:s.coverRefusals||0,failure_context:s.failureContext||null,shell_failure:s.shellFailure||null,shell_repairs:s.shellRepairs||0,workspace:s.workspace||null,shell_recovery:s.shellRecovery?.status||null,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
 function retrySurface(t,b,s,reason){
  const feet=new Vec3(...s.feet),p=b.entity.position,q=p.floored();
  // Abandon excavation only while still on checked surface footing. A damaged
@@ -131,8 +132,9 @@ async function tick(t,b,motor,state,api,scan,tasks){
  const n=t.wilderness,w=state.world,now=Date.now();let s=n.burrow;
  if(!s){
   if(!w.first_night?.hostiles||b.isSleeping||b.health<=0)return false;
-  if(require('./shelter_policy').assess(b,w).mode==='fight')return false;
- const shelterPolicy=require('./shelter_policy'),enemies=threats(b),proactive=shelterPolicy.wantsCover(b,w),need=proactive||enemies.some(e=>ARCHERS.has(e.name)&&b.health<19||b.health<=16&&e.position.distanceTo(b.entity.position)<10);
+  const risk=require('./shelter_policy').assess(b,w,t);
+  if(risk.mode==='fight')return false;
+ const enemies=threats(b),need=risk.mode==='cover'||enemies.some(e=>ARCHERS.has(e.name)&&b.health<19||b.health<=16&&e.position.distanceTo(b.entity.position)<10);
   if(!need||require('./refuge_choice').homeReachable(t,b,w))return false;
   if(now<(n.burrowSearchAt||0))return false;n.burrowSearchAt=now+2500;
   const feet=find(t,b,state);if(!feet){n.burrow_status='No safe dry earth refuge found; refusing sand, water or unsupported ground';return false;}
@@ -224,7 +226,14 @@ async function tick(t,b,motor,state,api,scan,tasks){
   const blocker=nearby.find(e=>ARCHERS.has(e.name)||e.position.distanceTo(feet.offset(.5,0,.5))<12);
   s.waitReason=!day?'daylight':blocker?blocker.name+' '+Math.round(blocker.position.distanceTo(feet.offset(.5,0,.5)))+'m above shelter':null;
   t.message='Emergency burrow: '+(s.waitReason?'waiting for '+s.waitReason:'clear daylight exit; preparing to leave');
-  if(day&&!blocker){s.stage='open';s.progressAt=now;}
+  if(day&&!blocker){
+   if(s.workspace&&await require('./burrow_workspace').returnToExit(t,b,motor,s,state,api,scan,tasks))return true;
+   s.stage='open';s.progressAt=now;
+  }
+  else if(now>=(s.workspaceRetryAt||0)){
+   try{if(await require('./burrow_workspace').tick(t,b,motor,s,state,api,scan,tasks))return true;}
+   catch(error){s.workspaceRetryAt=now+30000;s.workspaceFailure=error.message;t.message='Protected work deferred: '+error.message;}
+  }
   return true;
  }
  if(s.stage==='open'){

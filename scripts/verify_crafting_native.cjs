@@ -80,8 +80,25 @@ b.once('spawn',async()=>{
   await craft(b,'white_bed',1,b.blockAt(table));
   assert.equal(count('white_bed'),1);assert.equal(count('oak_planks')+count('birch_planks')+count('white_wool'),0);
   result.mixedBed={produced:1,oak:2,birch:1,wool:3};
+  if(process.argv.includes('--survival-progression')){
+   await commands(['give @s oak_planks 12','give @s stick 4','give @s raw_iron 3']);
+   const work=require('../controller/shelter_work'),t={wilderness:{},craft:(bot,name,times,station)=>craft(bot,name,times,station)};
+   const motor={pause(){}};
+   for(let i=0;i<16&&(!count('iron_sword')||b.inventory.slots[45]?.name!=='shield');i++){
+    const worked=await work.tick(t,b,motor,{table:b.blockAt(table),hearth:b.blockAt(hearth)});
+    assert.ok(worked,t.message||'No protected job was selected');
+    assert.equal(t.wilderness.shelterWork.failures,0,t.message);
+   }
+   assert.equal(b.inventory.slots[45]?.name,'shield');assert.equal(count('iron_sword'),1);
+   assert.equal(count('raw_iron'),0);assert.ok(count('torch')>=4);
+   result.protectedWork={...work.report(t,b),shieldEquipped:true,swordCrafted:true};
+   await commands(['clear @s oak_planks','give @s oak_planks 3','give @s birch_planks 3','give @s iron_ingot 1']);
+   await craft(b,'shield',1,b.blockAt(table));
+   assert.equal(count('shield'),1);assert.equal(count('oak_planks')+count('birch_planks'),0);
+   result.mixedShield=true;
+  }
   result.success=true;
  }catch(error){result.error=error.stack;result.success=false;}
  finally{await finish();}
 });
-setTimeout(()=>{result.error='Native verification deadline';result.success=false;void finish();},100000).unref();
+setTimeout(()=>{result.error='Native verification deadline';result.success=false;void finish();},process.argv.includes('--survival-progression')?155000:100000).unref();

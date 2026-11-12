@@ -5,6 +5,19 @@ from test_world_training import fixture
 from test_world_learning import Lab
 from lab.world_learning import WorldLearning
 
+
+def test_survival_memory_persists_only_bounded_observations_and_nights_have_a_denominator():
+    point=[20,64,20]
+    memory=clean_memory(dict(resources=[dict(kind='cave',position=point,approach=[19,64,20]),
+                                        dict(kind='iron',position=[100,64,20])],
+                             encounters=[dict(enemy='skeleton',outcome='damage',position=point),
+                                         dict(enemy='untrusted value',outcome='death',position=point)]),[0,50,0,50])
+    assert memory['resources']==[dict(kind='cave',position=point,approach=[19,64,20])]
+    assert memory['encounters']==[dict(enemy='skeleton',outcome='damage',position=point)]
+    result=readiness([dict(mission='first_night',driver='student',assessment=True,night_level=3,
+                          results={'LabAI0':dict(state='complete',wilderness=dict(night=dict(started=2,survived=1)))})])
+    assert result['night_survival_rate']==0.5
+
 def test_first_night_support_removes_stations_then_camp_then_hostile_sweep(tmp_path):
     for level in range(4):
         (tmp_path/str(level)).mkdir()

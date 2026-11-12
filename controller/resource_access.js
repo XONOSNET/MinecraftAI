@@ -37,15 +37,15 @@ function canRaise(bot,target,{bounds,plots=[]}={}){
  if(!inside(feet,bounds)||protectedAt(feet,plots)||!space.clearOfPlayers(bot,p)||!support||support.boundingBox!=='block'||!dry(bot,base))return false;
  return [0,1,2,3].every(y=>{const b=bot.blockAt(feet.offset(0,y,0));return b?.name==='air'&&dry(bot,feet.offset(0,y,0));});
 }
-async function dig(bot,block,{validate=null}={}){
- if(!block||!withinReach(bot,block.position)||!visibleBlock(bot,block)||!bot.canDigBlock(block))return false;
+async function dig(bot,block,{validate=null,aimPoint=null}={}){
+ if(!block||!withinReach(bot,block.position)||!visibleBlock(bot,block,aimPoint||undefined)||!bot.canDigBlock(block))return false;
  const type=block.name.endsWith('_planks')?'axe':['dirt','grass_block','coarse_dirt','rooted_dirt'].includes(block.name)?'shovel':material(block.name)?'pickaxe':null;
  const tool=type&&['netherite','diamond','iron','stone','wooden','golden'].map(t=>t+'_'+type).find(n=>bot.inventory.items().some(i=>i.name===n));
  if(tool)await inventory.equip(bot,tool);
- await aim(bot,block.position.offset(.5,.5,.5));
+ await aim(bot,aimPoint||block.position.offset(.5,.5,.5));
  const current=bot.blockAt(block.position);
- if(current?.name!==block.name||!withinReach(bot,block.position)||!visibleBlock(bot,current)||!bot.canDigBlock(current)||validate&&!validate(current))return false;
- await bot.dig(current,true);
+ if(current?.name!==block.name||!withinReach(bot,block.position)||!visibleBlock(bot,current,aimPoint||undefined)||!bot.canDigBlock(current)||validate&&!validate(current))return false;
+ await bot.dig(current,aimPoint?'ignore':true);
  return bot.blockAt(block.position)?.name==='air';
 }
 async function controlled(bot,motor,action){

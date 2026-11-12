@@ -46,14 +46,37 @@ test('unlit mines return rather than continuing indefinitely into darkness',asyn
  assert.equal(f.t.wilderness.mine.steps,10);assert.match(f.t.wilderness.mine.reason,/torch supplies/);assert.equal(f.b.entity.position.y,64);
 });
 
-test('water spilling into a working branch triggers dry retreat and a different heading',async()=>{
+test('water spilling into a working branch triggers dry retreat and a different heading',async ctx=>{
  const f=fixture();
+ ctx.mock.method(inventory,'equip',async()=>{});
+ f.b.placeBlock=async(support,face)=>f.cells.set(support.position.plus(face).toString(),'cobblestone');
  for(let i=0;i<20&&f.t.wilderness.mine?.steps!==3;i++)await mine.tick(f.t,f.b,f.motor,f.state);
  const m=f.t.wilderness.mine;assert.equal(m.steps,3);const wet=new Vec3(...m.path.at(-1));
  f.cells.set(wet.offset(1,0,0).toString(),'water');
  await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.stage,'water_retreat');assert.ok(m.waterIndex<m.path.length-1);
- const oldDir=m.dir;await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.stage,'dig');assert.notEqual(m.dir,oldDir);assert.ok(m.flooded.includes(wet.toString()));
+ const oldDir=m.dir;await mine.tick(f.t,f.b,f.motor,f.state);assert.equal(m.stage,'dig');assert.notEqual(m.dir,oldDir);assert.ok(m.flooded.includes(wet.toString()));assert.equal(m.seals,1);
  assert.equal(mine.step(f.t,f.b,new Vec3(...m.path.at(-1)),[1,0],f.state.world),null,'wet branch stays rejected');
+});
+
+test('a visible cave causes a branch bypass before the bot enters it',async ctx=>{
+ const f=fixture(),hazards=require('../controller/mine_hazards');
+ const m=f.t.wilderness.mine={stage:'descend',entry:[0,64,0],path:[[0,64,0],[1,63,0],[2,62,0],[3,61,0]],steps:3,
+  supports:[[0,64,0],[1,63,0],[2,62,0],[3,61,0]],next:{d:0},flooded:[],dir:0,target_y:48};
+ f.b.entity.position=new Vec3(3.5,61,.5);
+ ctx.mock.method(hazards,'cave',()=>new Vec3(5,60,0));f.t.walk=async()=>assert.fail('must not approach the cave');
+ await mine.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(m.caves,1);assert.equal(m.stage,'dig');assert.equal(m.next,null);
+ assert.ok(m.flooded.includes('(4, 60, 0)'));
+});
+
+test('lava abandons the branch without trying to place blocks near the fluid',async ctx=>{
+ const f=fixture(),hazards=require('../controller/mine_hazards');
+ for(let i=0;i<30&&f.t.wilderness.mine?.steps!==3;i++)await mine.tick(f.t,f.b,f.motor,f.state);
+ const m=f.t.wilderness.mine;assert.equal(m.steps,3);
+ f.cells.set(new Vec3(...m.path.at(-1)).offset(1,0,0).toString(),'lava');
+ ctx.mock.method(hazards,'seal',()=>assert.fail('must not attempt to seal lava'));
+ await mine.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(m.stage,'exit');assert.ok(m.exitIndex<m.path.length-1);assert.match(m.reason,/Lava/);
 });
 
 test('turning back cannot remove the floor of a recorded return stair',()=>{

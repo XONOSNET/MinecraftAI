@@ -71,7 +71,7 @@ async function interact(bot,task,sensed,runtime,action,permissions,now=Date.now(
  }
  const enemy=sensed.enemy;
  if(!ownedTarget(enemy,task))return false;
- if(action===4&&equipment(bot,task).shield){await bot.lookAt(enemy.position.offset(0,.9,0),true);bot.activateItem(true);return true;}
+ if(action===4&&equipment(bot,task).shield){await bot.lookAt(enemy.position.offset(0,.9,0),true);if(!bot.usingHeldItem)bot.activateItem(true);return true;}
  const canStrike=at=>ownedTarget(enemy,task)&&bot.health>0&&bot.heldItem?.name===task.weapon&&bot.entity.position.distanceTo(enemy.position)<=3&&visible(bot,enemy)&&at-(runtime.lastAttack??-Infinity)>=attackDelay(task);
  const readyToJump=bot.heldItem?.name===task.weapon&&bot.entity.position.distanceTo(enemy.position)<=2.7&&visible(bot,enemy)&&!isHunt(task)&&task.critical_hits!==false&&permissions.jump!==false&&now-(runtime.lastAttack??-Infinity)>=attackDelay(task)-400&&critical.safeJump(bot,task);
  if(action!==6||(!canStrike(now)&&!readyToJump))return false;
