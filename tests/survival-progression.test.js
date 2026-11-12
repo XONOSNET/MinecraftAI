@@ -10,12 +10,20 @@ function fixture(){
  b.blockAt=p=>{const q=p.floored(),name=cells.get(q.toArray().join(','))||(q.y<64?'stone':'air');
   return {position:q,name,boundingBox:['air','cave_air','water','lava','wall_torch'].includes(name)?'empty':'block',getProperties:()=>({})};};
  b.recipesFor=(id,_meta,_count,station)=>station||registry.items[id].name==='torch'&&stock.some(i=>['coal','charcoal'].includes(i.name)&&i.count>0)?[{}]:[];
- const t={run:'progression-fixture',phase:'night_recover',plot:{x:35,y:64,z:35},campPlots:[],milestones:['hut'],
+ const t={run:'progression-fixture',phase:'night_recover',plot:{x:35,y:64,z:35},campPlots:[],milestones:['hut','torch'],
   wilderness:{memory:new WildernessMemory()},navigator:{},lastProgress:0};
  const w={bounds:[-48,48,-48,48],first_night:{hostiles:true}},motor={pause(){},command(){}};
  return {b,t,w,stock,slots,cells,motor};
 }
 const item=(name,count=1)=>({name,count});
+test('protected work leaves required stone and wood stock for the unfinished base lesson',async()=>{
+ const {b,t,stock,motor}=fixture();
+ t.milestones=['wooden_pickaxe','quarry'];
+ stock.push(item('cobblestone',16),item('oak_log',4),item('oak_planks',8),item('stick',2));
+ t.craft=async()=>assert.fail('optional jobs cannot spend the stone lesson stock');
+ assert.equal(await work.tick(t,b,motor,{table:{},prepare:'furnace'}),false);
+ assert.equal(work.count(b,'cobblestone'),16);
+});
 test('secure work chooses fuel, incremental iron equipment and confirmed offhand equip from carried materials',async ctx=>{
  const {b,t,stock,slots,motor}=fixture(),table={},hearth={};
  stock.push(item('stone_pickaxe'),item('oak_log',2),item('oak_planks',8),item('stick',4),item('raw_iron',3));

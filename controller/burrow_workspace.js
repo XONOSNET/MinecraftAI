@@ -94,7 +94,7 @@ async function tick(t,b,motor,s,state,api,scan,tasks){
  }
  const torch=cells.some(q=>['torch','wall_torch'].includes(b.blockAt(q)?.name));
  const torchCell=room.stationOnly?at:at.offset(0,1,0);
- if(!torch&&work.count(b,'torch')&&b.blockAt(torchCell)?.name==='air'&&
+ if(!torch&&work.count(b,'torch')>(work.lessonReady(t)?0:2)&&b.blockAt(torchCell)?.name==='air'&&
     !(room.stationOnly&&items.some(i=>['crafting_table','furnace'].includes(i.name)))){
   const wall=room.stationOnly?torchCell.offset(0,-1,0):torchCell.offset(direction[1],0,-direction[0]),target=torchCell;
   motor.pause();await inventory.equip(b,'torch');room.attempts++;
@@ -107,7 +107,7 @@ async function tick(t,b,motor,s,state,api,scan,tasks){
     require('./staircase_mining').allowed(t,b,step,state.world)){
   room.stair=true;t.message='Checked a dry descending stair behind the sealed alcove';return true;
  }
- if(atExit(b,s)&&!room.station&&!room.stair&&b.blockAt(at)?.name==='air'){
+ if(work.lessonReady(t)&&atExit(b,s)&&!room.station&&!room.stair&&b.blockAt(at)?.name==='air'){
   const name=['crafting_table','furnace'].find(n=>work.count(b,n));
   if(name){
    motor.pause();await inventory.equip(b,name);room.attempts++;
@@ -118,7 +118,7 @@ async function tick(t,b,motor,s,state,api,scan,tasks){
  }
  const station=b.blockAt(at);
  const table=station?.name==='crafting_table'?station:null;
- if(table&&atExit(b,s)&&work.count(b,'furnace')&&!s.furnacePocket?.station&&await furnacePocket(t,b,motor,s,feet,at,state))return true;
+ if(work.lessonReady(t)&&table&&atExit(b,s)&&work.count(b,'furnace')&&!s.furnacePocket?.station&&await furnacePocket(t,b,motor,s,feet,at,state))return true;
  const hearth=s.furnacePocket?.station?b.blockAt(new Vec3(...s.furnacePocket.floor)):station;
  return work.tick(t,b,motor,{table,hearth:hearth?.name==='furnace'?hearth:null,prepare:table&&!s.furnacePocket?.station?'furnace':null});
 }

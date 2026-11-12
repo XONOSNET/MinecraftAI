@@ -9,6 +9,7 @@ const rock=name=>/^(stone|wooden|iron|diamond|netherite)_pickaxe$/.test(name);
 const have=(b,name,slot)=>count(b,name)>0||b.inventory.slots?.[slot]?.name===name;
 const durable=(b,item)=>item?(item.maxDurability??b.registry?.itemsByName?.[item.name]?.maxDurability??Infinity)-(item.durabilityUsed??0):0;
 const usable=(b,name,slot,minimum=1)=>[...b.inventory.items(),b.inventory.slots?.[slot]].some(item=>item?.name===name&&durable(b,item)>=minimum);
+const lessonReady=t=>t.milestones?.includes('torch')===true;
 function recipes(b,name,table){
  const id=b.registry?.itemsByName?.[name]?.id;
  return id!=null&&(b.recipesFor?.(id,null,1,table).length>0||name==='shield'&&table&&b.inventory.slots?.length&&
@@ -41,7 +42,7 @@ async function tick(t,b,motor,stations={}){
  if(!rules.enabled||b.isSleeping||b.entity.onGround!==true||b.health<=0)return false;
  const n=t.wilderness,work=n.shelterWork??={failed:{},completed:0,failures:0};
  const job=choose(b,stations,work);
- if(!job)return false;
+ if(!job||job.kind!=='equip'&&!lessonReady(t))return false;
  const {kind,name,station,slot,index,input}=job,before=count(b,name);
  motor.pause();work.last=name;t.message='Protected work: '+kind+' '+name.replaceAll('_',' ');
  try{
@@ -79,4 +80,4 @@ function report(t,b){
   shield:slots[45]?.name==='shield'?durable(b,slots[45]):null,armor:slots.slice(5,9).filter(Boolean).map(i=>i.name),
   equipment:items.filter(i=>UPGRADES.some(([name])=>name===i.name)).map(i=>i.name)};
 }
-module.exports={tick,atHome,report,choose,count,durable,usable,rules};
+module.exports={tick,atHome,report,choose,count,durable,usable,lessonReady,rules};

@@ -149,6 +149,12 @@ async function tick(t,b,motor,state,api,scan,tasks){
  }
  const feet=new Vec3(...s.feet),cap=new Vec3(...s.cap),p=b.entity.position;
  n.priority='Emergency shelter';n.reason=s.reason;
+ // Knockback can land the bot on solid surface footing after the cap is gone.
+ // Finish the exit before trying to repair an abandoned shaft.
+ if(s.stage==='climb'&&b.entity.onGround&&p.y>=feet.y-.1&&standable(b,Math.floor(p.x),Math.round(p.y),Math.floor(p.z))){
+  motor.pause();t.phase=s.resume;n.burrow=null;claims.delete(b.username);t.path=[];t.navigator.lastPlan=-Infinity;
+  t.lastProgress=Date.now();t.message='Left the temporary burrow; resuming survival work';return true;
+ }
  if(s.stage!=='hidden'&&now-s.progressAt>30000)throw Error('Emergency burrow work made no physical progress for 30 seconds');
  if(s.stage==='approach'){
   if(await t.walk(b,motor,[feet.x+.5,feet.y+.1,feet.z+.5],state,api,scan,tasks)===false){
@@ -251,7 +257,6 @@ async function tick(t,b,motor,state,api,scan,tasks){
  }
  if(s.stage==='climb'){
   if(!b.entity.onGround)return true;
-  if(p.y>=feet.y-.1){t.phase=s.resume;n.burrow=null;claims.delete(b.username);t.navigator.lastPlan=-Infinity;t.lastProgress=Date.now();t.message='Left the temporary burrow; resuming survival work';return true;}
   if(!sealed(b,{...s,cap_name:'air'}))throw Error('Emergency exit is blocked overhead');
   await inventory.sync(b);const items=b.inventory.items().filter(i=>['dirt','coarse_dirt','rooted_dirt'].includes(i.name));
   const count=items.reduce((sum,i)=>sum+i.count,0),remaining=Math.max(0,feet.y-Math.round(p.y));s.exitBlocks=count;

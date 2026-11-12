@@ -24,7 +24,7 @@ async function main(){try{
  assert.equal(t.wilderness.burrow?.stage,'hidden','real shaft sealed');assert.equal(b.entity.position.y,209);assert.equal(burrow.sealed(b,t.wilderness.burrow),true);result.sealed_seconds=(Date.now()-started)/1000;result.hidden_health=b.health;
  await wait(3000);assert.ok(b.health>=result.hidden_health,'sealed roof prevents further damage; normal regeneration is allowed');assert.ok(b.health>0);
  if(process.argv.includes('--protected-work')){
-  await commands(['give @s torch 2']);
+  await commands(['give @s torch 3']);
   const original=b.time.timeOfDay,workStarted=Date.now();
   try{
    while(!t.wilderness.burrow.workspace?.lit&&Date.now()-workStarted<16000){

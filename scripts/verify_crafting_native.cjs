@@ -82,7 +82,7 @@ b.once('spawn',async()=>{
   result.mixedBed={produced:1,oak:2,birch:1,wool:3};
   if(process.argv.includes('--survival-progression')){
    await commands(['give @s oak_planks 12','give @s stick 4','give @s raw_iron 3']);
-   const work=require('../controller/shelter_work'),t={wilderness:{},craft:(bot,name,times,station)=>craft(bot,name,times,station)};
+   const work=require('../controller/shelter_work'),t={wilderness:{},milestones:['torch'],craft:(bot,name,times,station)=>craft(bot,name,times,station)};
    const motor={pause(){}};
    for(let i=0;i<16&&(!count('iron_sword')||b.inventory.slots[45]?.name!=='shield');i++){
     const worked=await work.tick(t,b,motor,{table:b.blockAt(table),hearth:b.blockAt(hearth)});

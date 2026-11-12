@@ -5,6 +5,14 @@ function fixture(){
  const t={phase:'gather',plot:{x:30,y:64,z:30},campPlots:[],milestones:[],wilderness:{},navigator:{lastPlan:0},path:[],walk:async()=>true},motor={pause(){},lockLook(){}};
  return {b,t,cells,motor,state:{run:'burrow-unit',world:{bounds:[-50,50,-50,50],first_night:{hostiles:true}}}};
 }
+test('a bot already knocked onto safe surface footing resumes work after its opened shaft is damaged',async()=>{
+ const f=fixture();f.t.phase='night_burrow';
+ f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],stage:'climb',resume:'stone_return',progressAt:Date.now()};
+ f.b.entity.position=new Vec3(.5,64,-2.8);
+ f.cells.set(new Vec3(0,61,0).toString(),'air');
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.wilderness.burrow,null);assert.equal(f.t.phase,'stone_return');
+});
 test('safe burrow sites require two hand-diggable earth blocks and a closed supported dry shell',()=>{
  const f=fixture(),feet=new Vec3(0,64,0);assert.equal(burrow.site(f.t,f.b,feet,f.state.world),true);
  for(const [p,name] of [[feet.offset(0,-1,0),'sand'],[feet.offset(0,-2,0),'gravel'],[feet.offset(0,-2,0),'stone'],[feet.offset(1,-2,0),'water'],[feet.offset(1,-1,0),'air'],[feet.offset(0,-4,0),'air'],[feet.offset(1,1,0),'sand']]){
