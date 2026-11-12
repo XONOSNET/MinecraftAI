@@ -124,10 +124,29 @@ function retrySurface(t,b,s,reason){
  const feet=new Vec3(...s.feet),p=b.entity.position,q=p.floored();
  // Abandon excavation only while still on checked surface footing. A damaged
  // underground shell must never be silently treated as a safe refuge.
- if(Math.abs(p.y-feet.y)>.2||p.distanceTo(feet.offset(.5,0,.5))>2||!standable(b,q.x,q.y,q.z))return false;
+ if(b.entity.onGround!==true||Math.abs(p.y-feet.y)>.2||p.distanceTo(feet.offset(.5,0,.5))>2||!standable(b,q.x,q.y,q.z))return false;
  const n=t.wilderness;n.burrowRejected??=new Map();n.burrowRejected.set(feet.toString(),Date.now()+30000);
  n.burrow=null;claims.delete(b.username);t.phase=s.resume;n.burrowSearchAt=0;t.path=[];t.navigator.lastPlan=-Infinity;
  t.message=reason+'; seeking another checked earth refuge';return true;
+}
+async function regainShaftRim(t,b,motor,s,state,api,scan,tasks,feet){
+ const p=b.entity.position;
+ if(Math.abs(p.y-feet.y)>.2||!openCell(b.blockAt(feet.offset(0,-1,0)))||p.distanceTo(feet.offset(.5,0,.5))>1)return false;
+ const local=require('./perception').proximity(b,{recovery:false});
+ const bounds=state.world.bounds;
+ const goal=[[1,0],[-1,0],[0,1],[0,-1]].map(([x,z])=>feet.offset(x,0,z))
+  .filter(q=>q.x>bounds[0]+1&&q.x<bounds[1]-2&&q.z>bounds[2]+1&&q.z<bounds[3]-2&&
+   standable(b,q.x,q.y,q.z)&&space.clearOfPlayers(b,q.offset(.5,0,.5),1))
+  .map(q=>q.offset(.5,0,.5)).sort((a,c)=>a.distanceTo(p)-c.distanceTo(p)).find(q=>{
+   const yaw=Math.atan2(p.x-q.x,p.z-q.z);
+   return local.canRegainFooting(yaw,q.distanceTo(p));
+  });
+ if(goal){
+  await t.walk(b,motor,goal.offset(0,.1,0).toArray(),state,api,scan,tasks);
+  if(retrySurface(t,b,s,'Regained solid ground beside the shaft'))return true;
+ }
+ t.message=goal?'Emergency cover: regaining solid ground at the shaft rim':'Emergency cover: holding at the shaft rim until footing settles';
+ return true;
 }
 async function tick(t,b,motor,state,api,scan,tasks){
  const n=t.wilderness,w=state.world,now=Date.now();let s=n.burrow;
@@ -187,6 +206,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
     await access.stabilize(b,motor,new Vec3(feet.x,y,feet.z));t.message='Emergency cover: regaining centered footing before digging';return true;
    }
    if(retrySurface(t,b,s,'Moved away from the refuge shaft'))return true;
+   if(await regainShaftRim(t,b,motor,s,state,api,scan,tasks,feet))return true;
    throw Error('Emergency shaft footing changed');
   }
   const q=new Vec3(feet.x,y-1,feet.z),block=b.blockAt(q);

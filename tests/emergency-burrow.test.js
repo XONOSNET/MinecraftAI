@@ -95,6 +95,18 @@ test('small shaft displacement recenters before digging without resetting the pr
  await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(centers,1);assert.equal(digs,0);assert.equal(s.progressAt,at);assert.equal(s.stage,'dig');assert.equal(f.t.phase,'night_burrow');
 });
 
+test('a grounded bot over an excavated shaft rim uses checked neighboring footing before abandoning it',async()=>{
+ const f=fixture();f.t.phase='night_burrow';
+ const s=f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],stage:'dig',resume:'gather',progressAt:Date.now()};
+ f.b.entity.position=new Vec3(.47,64,.96);f.b.entity.yaw=0;
+ f.cells.set(new Vec3(0,63,0).toString(),'air');
+ f.b.dig=async()=>assert.fail('must not dig while overhanging the shaft');
+ f.t.walk=async(_bot,_motor,goal)=>{assert.deepEqual(goal,[.5,64.1,1.5]);f.b.entity.position=new Vec3(.5,64,1.5);};
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.wilderness.burrow,null);assert.equal(f.t.phase,'gather');
+ assert.ok(f.t.wilderness.burrowRejected.get(new Vec3(...s.feet).toString())>Date.now());
+});
+
 test('a changed shell can be rejected from safe surface footing but not from underground',async()=>{
  const f=fixture();f.t.phase='night_burrow';f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],stage:'dig',progressAt:Date.now(),resume:'gather'};
  f.cells.set(new Vec3(1,62,0).toString(),'water');
