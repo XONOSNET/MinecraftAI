@@ -6,6 +6,7 @@ function homeReachable(t,b,w){
  if(!h||!t.milestones.includes('hut')||t.homeDamage?.unsafe||p.distanceTo(new Vec3(h.x+.5,h.y,h.z+.5))>MAX_DISTANCE)return false;
  const enemies=require('./shelter_policy').threats(b);if(enemies.some(e=>insideHome(e.position,h)))return false;
  if(insideHome(p,h))return true;
+ if(t.phase==='night_seek_cover'&&t.wilderness?.retreatCover)return false;
  const key=[h.x,h.y,h.z,...p.floored().toArray(),...enemies.flatMap(e=>[e.id,...e.position.floored().toArray()])].join(','),now=Date.now();
  const memo=t.wilderness?.homeRefuge;if(memo?.key===key&&now-memo.at<1000)return memo.reachable;
  const goal=homeApproach(h,b),route=travelRoute(b,goal,48,4096,true,{bounds:w.bounds,reversible:true,forbidden:q=>(t.campPlots||[]).some(other=>(other.x!==h.x||other.z!==h.z)&&privatePlotCell(q,other))||enemies.some(e=>e.position.distanceTo(new Vec3(q[0]+.5,q[1]+.1,q[2]+.5))<Math.min(e.name==='creeper'?4:2,Math.max(1,e.position.distanceTo(p)-.75)))});

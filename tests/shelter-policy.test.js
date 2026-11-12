@@ -83,6 +83,22 @@ test('no refuge never falls through to exposed work or combat',async ctx=>{
  b.time.timeOfDay=6000;await night.interrupt(t,b,{pause(){}},state);assert.equal(t.phase,'gather');
 });
 
+test('a blocked nighttime home retreat seeks local cover and preserves the interrupted lesson',async ctx=>{
+ const {b,t,state}=fixture(),motor={pause(){}};
+ b.entity.position=new Vec3(.5,63,-3.5);
+ t.phase='night_retreat';Object.assign(t.wilderness,{shelterWatch:true,resume:'return_home'});
+ t.walk=async()=>false;t.lastNavigation={phase:'night_retreat',state:'blocked',no_progress_seconds:4};
+ await night.tick(t,b,motor,state);assert.equal(t.phase,'night_retreat');
+ t.lastNavigation.no_progress_seconds=8;
+ await night.tick(t,b,motor,state);assert.equal(t.phase,'night_seek_cover');
+ assert.equal(t.wilderness.coverResume,'return_home');assert.equal(t.wilderness.resume,undefined);
+ ctx.mock.method(burrow,'tick',async()=>false);let seeks=0;ctx.mock.method(burrow,'seek',async()=>{seeks++;});
+ assert.equal(await night.interrupt(t,b,motor,state),true);assert.equal(seeks,1);
+ b.time.timeOfDay=6000;
+ assert.equal(await night.interrupt(t,b,motor,state),true);assert.equal(t.phase,'return_home');
+ assert.equal(t.wilderness.retreatCover,undefined);
+});
+
 
 test('daytime recovery without food or a hunting tool resumes supplies instead of waiting for impossible regeneration',async ctx=>{
  const {b,t,state}=fixture();b.health=16;b.food=12;b.time.timeOfDay=6000;t.phase='night_recover';t.wilderness.resume='gather';

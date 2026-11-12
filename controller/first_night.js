@@ -76,7 +76,7 @@ async function interrupt(t,b,motor,state,api,scan){
   await require('./emergency_burrow').seek(t,b,motor,state,api,scan,require('./tasks'));
   return true;
  }
- if(t.phase==='night_seek_cover'){t.phase=n.coverResume||'gather';delete n.coverResume;t.path=[];t.navigator.lastPlan=-Infinity;return true;}
+ if(t.phase==='night_seek_cover'){t.phase=n.coverResume||'gather';delete n.coverResume;delete n.retreatCover;t.path=[];t.navigator.lastPlan=-Infinity;return true;}
  if(await require('./survival_defense').tick(t,b,motor,state,api,scan))return true;
  if(p.kind==='retreat'&&!(t.phase==='night_hold'&&b.health>=12)&&!['night_retreat','night_recover'].includes(t.phase)){n.resume=t.phase;n.recoveries++;t.phase='night_retreat';t.path=[];t.navigator.lastPlan=-Infinity;return true;}
  if(p.kind==='resume'&&['night_retreat','night_recover'].includes(t.phase)){t.phase=n.resume;delete n.resume;t.path=[];t.navigator.lastPlan=-Infinity;n.leaving=false;n.explorationLeaving=false;n.stoneApproach=null;n.searchGoal=null;t.lastProgress=Date.now();return true;}
@@ -274,7 +274,16 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(arrived===true){motor.pause();next('scout_home');}
   else if(arrived===false){n.scoutRejected.add(n.scoutGoal.join(','));n.scoutGoal=null;}
  }else if(t.phase==='night_scout_home'){await move(home,'hold');if(t.phase==='night_hold'){t.milestone('round_trip');n.holdAt=now;}}
- else if(t.phase==='night_retreat')await move(home,'recover');
+ else if(t.phase==='night_retreat'){
+  const arrived=await t.walk(b,motor,home,state,api,scan,tasks);
+  if(arrived===true){motor.pause();next('recover');}
+  else if(arrived===false&&t.lastNavigation?.phase==='night_retreat'&&t.lastNavigation.state==='blocked'&&t.lastNavigation.no_progress_seconds>=8&&n.shelterWatch&&shelterPolicy.danger(b)){
+   // An exterior approach can be reachable even when the actual doorway is not.
+   n.coverResume=n.resume||'gather';delete n.resume;n.retreatCover=true;
+   t.phase='night_seek_cover';t.path=[];t.navigator.lastPlan=-Infinity;
+   t.message='Home entrance is blocked; checking nearby cover';
+  }
+ }
  else if(t.phase==='night_recover'){
   motor.pause();const d=door();if(d?.getProperties().open&&!await closeDoor(b,d))return;t.message='Sheltered recovery · health '+b.health+' / 20';
   if(n.shelterWatch){t.message='Sheltered: waiting for daylight and nearby monsters to clear';return;}

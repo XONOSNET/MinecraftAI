@@ -141,7 +141,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
   const offsets=[[1,0],[-1,0],[0,1],[0,-1]].filter(([x,z])=>b.blockAt(feet.offset(x,0,z))?.name==='air');
   if(enemies.length)offsets.sort((a,c)=>feet.offset(a[0]+.5,0,a[1]+.5).distanceTo(enemies[0].position)-feet.offset(c[0]+.5,0,c[1]+.5).distanceTo(enemies[0].position));
   s=n.burrow={feet:feet.toArray(),cap:feet.toArray(),lip:feet.offset(offsets[0][0],0,offsets[0][1]).toArray(),stage:'approach',resume:n.coverResume||t.phase,at:now,progressAt:now,reason:enemies.length?'Taking cover from '+enemies[0].name:'Taking cover before night-time work without protective equipment'};
-  delete n.coverResume;
+  delete n.coverResume;delete n.retreatCover;
   t.phase='night_burrow';t.path=[];t.navigator.lastPlan=-Infinity;
  }
  const feet=new Vec3(...s.feet),cap=new Vec3(...s.cap),p=b.entity.position;
