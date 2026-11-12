@@ -57,6 +57,8 @@ test('capped burrow alcove admits only the owned opening while its roof and stai
  assert.equal(workspace.safe(b,feet,room),true);
  assert.equal(burrow.walls(b,feet,s),true);
  assert.equal(burrow.sealed(b,s),true);
+ b.players.other={username:'Other',entity:{id:3,position:new Vec3(1.5,64,.5)}};
+ assert.equal(burrow.walls(b,feet,s),true,'a player above the roof does not breach the shelter');
  for(const hazard of ['water','lava','cave_air','gravel']){
   cells.set('3,62,0',hazard);
   assert.equal(workspace.safe(b,feet,room),false,hazard);

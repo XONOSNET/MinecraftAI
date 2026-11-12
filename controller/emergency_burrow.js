@@ -38,11 +38,12 @@ function shellProblem(b,feet,s){
 function walls(b,feet,s){return !shellProblem(b,feet,s);}
 // One capped side pocket supplies a real extra exit block if the lip drop stayed above.
 // Its ceiling, floor and exterior remain solid; never open a passage to surface or water.
-function safeNotch(b,feet,q){
+function safeNotch(b,feet,q,{checkPlayers=true}={}){
  if(q.y!==feet.y-2||Math.abs(q.x-feet.x)+Math.abs(q.z-feet.z)!==1)return false;
  const dx=q.x-feet.x,dz=q.z-feet.z;
  const closed=p=>{const v=b.blockAt(p);return !!v&&SOLID.has(v.name)&&v.boundingBox==='block'&&!v.getProperties?.().waterlogged;};
- return [q.offset(0,1,0),q.offset(0,-1,0),q.offset(dx,0,dz),q.offset(dz,0,dx),q.offset(-dz,0,-dx)].every(closed)&&space.clearOfPlayers(b,q.offset(.5,.5,.5),1);
+ return [q.offset(0,1,0),q.offset(0,-1,0),q.offset(dx,0,dz),q.offset(dz,0,dx),q.offset(-dz,0,-dx)].every(closed)&&
+  (!checkPlayers||space.clearOfPlayers(b,q.offset(.5,.5,.5),1));
 }
 function site(t,b,feet,w){
  const bounds=w.bounds;if(feet.x<=bounds[0]+2||feet.x>=bounds[1]-3||feet.z<=bounds[2]+2||feet.z>=bounds[3]-3)return false;

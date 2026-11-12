@@ -7,7 +7,7 @@ const ROCK=/^(stone|granite|andesite|diorite|tuff|deepslate|(?:deepslate_)?(?:co
 function safe(b,feet,room){
  const burrow=require('./emergency_burrow'),floor=new Vec3(...room.floor),dx=floor.x-feet.x,dz=floor.z-feet.z;
  if(floor.y!==feet.y-2||Math.abs(dx)+Math.abs(dz)!==1)return false;
- if(room.stationOnly)return burrow.safeNotch(b,feet,floor);
+ if(room.stationOnly)return burrow.safeNotch(b,feet,floor,{checkPlayers:false});
  const solid=p=>{const v=b.blockAt(p);return v?.boundingBox==='block'&&
   (burrow.SOLID.has(v.name)||ROCK.test(v.name))&&!v.getProperties?.().waterlogged;};
  const outside=[floor.offset(0,-1,0),floor.offset(0,2,0),...([0,1].flatMap(y=>[
@@ -20,7 +20,7 @@ function safe(b,feet,room){
    next.offset(dx,y,dz),next.offset(dz,y,-dx),next.offset(-dz,y,dx)
   ]));
  }
- return outside.every(solid)&&space.clearOfPlayers(b,floor.offset(.5,.5,.5),1);
+ return outside.every(solid);
 }
 function opening(b,feet,s,cell){
  for(const room of [s?.workspace,s?.furnacePocket]){
@@ -56,7 +56,7 @@ async function tick(t,b,motor,s,state,api,scan,tasks){
  if(!s.workspace){
   const bounds=state.world.bounds,plotList=[t.plot,...(t.campPlots||[])].filter(Boolean);
   const candidates=DIRECTIONS.map(([x,z])=>feet.offset(x,-2,z)).filter(q=>q.x>bounds[0]+2&&q.x<bounds[1]-3&&q.z>bounds[2]+2&&q.z<bounds[3]-3&&
-   !plotList.some(h=>Math.abs(q.x-h.x)<=5&&Math.abs(q.z-h.z)<=5));
+   space.clearOfPlayers(b,q.offset(.5,.5,.5),1)&&!plotList.some(h=>Math.abs(q.x-h.x)<=5&&Math.abs(q.z-h.z)<=5));
   // The exit reclaims its own lip. It cannot serve as a permanent alcove roof.
   const full=candidates.find(q=>(q.x!==s.lip?.[0]||q.z!==s.lip?.[2])&&safe(b,feet,{floor:q.toArray()}));
   const floor=full||candidates.find(q=>safe(b,feet,{floor:q.toArray(),stationOnly:true}));
@@ -64,7 +64,7 @@ async function tick(t,b,motor,s,state,api,scan,tasks){
   s.workspace={floor:floor.toArray(),attempts:0,stationOnly:!full};
  }
  const room=s.workspace,at=new Vec3(...room.floor);
- if(room.attempts>=4||!safe(b,feet,room))return false;
+ if(room.attempts>=4||!safe(b,feet,room)||!space.clearOfPlayers(b,at.offset(.5,.5,.5),1))return false;
  const cells=room.stationOnly?[at]:[at.offset(0,1,0),at],direction=[at.x-feet.x,at.z-feet.z];
  const step=at.offset(direction[0],-1,direction[1]),stairs=[step.offset(0,2,0),step.offset(0,1,0),step];
  const workCells=room.stair?cells.concat(stairs):cells;
@@ -86,7 +86,7 @@ async function tick(t,b,motor,s,state,api,scan,tasks){
   motor.pause();
   if(tool)await inventory.equip(b,tool);
   room.attempts++;
-  if(await access.dig(b,block,{aimPoint,validate:()=>safe(b,feet,room)&&burrow.sealed(b,s)})){
+  if(await access.dig(b,block,{aimPoint,validate:()=>safe(b,feet,room)&&burrow.sealed(b,s)&&space.clearOfPlayers(b,block.position.offset(.5,.5,.5),1)})){
    room.attempts=0;room.dug=(room.dug||0)+1;t.lastProgress=Date.now();t.message='Excavating a capped side passage while the refuge stays sealed';
    if(block.name.endsWith('_ore'))t.wilderness.memory?.remember(block.name.endsWith('iron_ore')?'iron':'coal',block.position,p);
   }
@@ -139,7 +139,7 @@ async function furnacePocket(t,b,motor,s,feet,table,state){
  const aimPoint=block.position.offset(.5,.18,.5);
  if(!visibleBlock(b,block,aimPoint)||!b.canDigBlock(block))return false;
  room.attempts++;
- if(await access.dig(b,block,{aimPoint,validate:()=>safe(b,feet,room)&&burrow.sealed(b,s)})){
+ if(await access.dig(b,block,{aimPoint,validate:()=>burrow.safeNotch(b,feet,candidate)&&burrow.sealed(b,s)})){
   room.attempts=0;t.lastProgress=Date.now();t.message='Clearing a capped furnace recess in the burrow';
  }
  return true;
