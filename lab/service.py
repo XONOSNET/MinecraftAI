@@ -376,7 +376,7 @@ def backup():
 def watchdog():
     global system_cpu,mode,last_timing_request,player_status
     last=time.time()
-    last_practice_sweep=0
+    last_console_error=-float('inf')
     retries=0
     psutil.cpu_percent()
     while not shutting_down:
@@ -397,13 +397,22 @@ def watchdog():
                     training_jobs.cancel()
                 globals()['mode']='paused';event('memory_pause',{})
             lifecycle=server_control.snapshot()
-            if lifecycle['ready'] and not lifecycle['busy']:practice_protection.tick(server.pid,time.time())
             if server and server.poll() is not None and lifecycle['desired_running'] and not lifecycle['busy'] and retries<3:
                 mode='paused';retries+=1
                 try:server_control.request('restart',automatic=True);event('server_recovery',{'attempt':retries})
                 except Exception as e:event('server_recovery_failed',str(e))
-            if lifecycle['ready'] and not lifecycle['busy'] and (last_timing_request is None or time.time()-last_timing_request>30):
-                console('tps');console('mspt');last_timing_request=time.time()
+            elif lifecycle['ready'] and not lifecycle['busy']:
+                now=time.time()
+                try:
+                    practice_protection.tick(server.pid,now)
+                    if last_timing_request is None or now-last_timing_request>30:
+                        console('tps');console('mspt');last_timing_request=now
+                except (OSError,RuntimeError) as error:
+                    # Minecraft can exit between the ready check and pipe write.
+                    # Keep polling player status and supervising its replacement.
+                    if now-last_console_error>30:
+                        event('server_console_unavailable',{'error':str(error)})
+                        last_console_error=now
             if time.time()-last>600 and lifecycle['ready'] and not lifecycle['busy'] and not training_jobs.running:
                 try:checkpoint();do_backup=True
                 except Exception as e:event('maintenance_error',str(e))
