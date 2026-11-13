@@ -6,6 +6,9 @@ const SOLID=new Set([...EARTH,'stone','granite','diorite','andesite','deepslate'
 const DANGER=new Set(['water','lava','sand','red_sand','gravel','fire','soul_fire','magma_block']);
 const MOBS=new Set(['skeleton','stray','bogged','zombie','husk','drowned','zombie_villager','creeper','witch','pillager','vindicator','spider','cave_spider','phantom','silverfish','endermite']);
 const ARCHERS=new Set(['skeleton','stray','bogged','pillager']),claims=new Map();
+function exposedThreat(b){
+ return threats(b).find(e=>!ARCHERS.has(e.name)&&e.position.distanceTo(b.entity.position)<(e.name==='creeper'?4.5:3.5));
+}
 function alive(b,e){const index=b.registry?.entitiesByName?.[e.name]?.metadataKeys?.indexOf('health'),health=typeof index==='number'&&index>=0?e.metadata?.[index]:undefined;return e.isValid!==false&&(typeof health!=='number'||health>0);}
 function threats(b,standing=b.entity.position){
  const proxy=Object.create(b);proxy.entity={...b.entity,position:standing};
@@ -156,6 +159,10 @@ async function tick(t,b,motor,state,api,scan,tasks){
   if(risk.mode==='fight')return false;
  const enemies=threats(b),need=risk.mode==='cover'||enemies.some(e=>ARCHERS.has(e.name)&&b.health<19||b.health<=16&&e.position.distanceTo(b.entity.position)<10);
   if(!need||require('./refuge_choice').homeReachable(t,b,w))return false;
+  if(n.burrowEvading&&exposedThreat(b)){
+   await seek(t,b,motor,state,api,scan,tasks);return true;
+  }
+  delete n.burrowEvading;
   if(now<(n.burrowSearchAt||0))return false;n.burrowSearchAt=now+2500;
   const feet=find(t,b,state);if(!feet){n.burrow_status='No safe dry earth refuge found; refusing sand, water or unsupported ground';return false;}
   for(const [key,c] of claims)if(c.run!==state.run)claims.delete(key);
@@ -201,6 +208,13 @@ async function tick(t,b,motor,state,api,scan,tasks){
   if(!b.entity.onGround){t.message='Emergency cover: settling after a one-block descent';return true;}
   const y=Math.round(p.y);if(y<=feet.y-2){s.stage='seal';s.progressAt=now;return true;}
   if(y<feet.y&&!s.lip_name){s.stage='lip';s.progressAt=now;return true;}
+  if(y===feet.y&&EARTH.has(b.blockAt(feet.offset(0,-1,0))?.name)){
+   const threat=exposedThreat(b);
+   if(threat&&retrySurface(t,b,s,'Hostile in reach before the shaft was opened')){
+    n.burrowEvading=true;n.coverResume??=s.resume;t.phase='night_seek_cover';
+    await seek(t,b,motor,state,api,scan,tasks);return true;
+   }
+  }
   if(Math.abs(p.x-feet.x-.5)>.2001||Math.abs(p.z-feet.z-.5)>.2001){
    if(Math.floor(p.x)===feet.x&&Math.floor(p.z)===feet.z&&standable(b,feet.x,y,feet.z)){
     await access.stabilize(b,motor,new Vec3(feet.x,y,feet.z));t.message='Emergency cover: regaining centered footing before digging';return true;

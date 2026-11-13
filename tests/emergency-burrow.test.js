@@ -13,6 +13,19 @@ test('a bot already knocked onto safe surface footing resumes work after its ope
  await burrow.tick(f.t,f.b,f.motor,f.state);
  assert.equal(f.t.wilderness.burrow,null);assert.equal(f.t.phase,'stone_return');
 });
+test('a close hostile interrupts exposed digging and the bot keeps its lesson while seeking cover',async()=>{
+ const f=fixture();f.t.phase='night_burrow';
+ f.b.entities.s={id:2,name:'zombie',position:new Vec3(.5,64,-1.5)};
+ f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],lip:[1,64,0],stage:'dig',resume:'stone_return',progressAt:Date.now()};
+ f.b.dig=async()=>assert.fail('must not open the shaft within melee reach');
+ const goals=[];f.t.walk=async(_bot,_motor,goal)=>{goals.push(goal);};
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.wilderness.burrow,null);assert.equal(f.t.phase,'night_seek_cover');
+ assert.equal(f.t.wilderness.coverResume,'stone_return');assert.equal(f.t.wilderness.burrowEvading,true);
+ assert.ok(goals.length);assert.ok(new Vec3(...goals[0]).distanceTo(f.b.entities.s.position)>2);
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.wilderness.burrow,null,'does not start another shaft while the pursuer is in reach');
+});
 test('safe burrow sites require two hand-diggable earth blocks and a closed supported dry shell',()=>{
  const f=fixture(),feet=new Vec3(0,64,0);assert.equal(burrow.site(f.t,f.b,feet,f.state.world),true);
  for(const [p,name] of [[feet.offset(0,-1,0),'sand'],[feet.offset(0,-2,0),'gravel'],[feet.offset(0,-2,0),'stone'],[feet.offset(1,-2,0),'water'],[feet.offset(1,-1,0),'air'],[feet.offset(0,-4,0),'air'],[feet.offset(1,1,0),'sand']]){
