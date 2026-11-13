@@ -123,14 +123,17 @@ function captureFailure(t,b,error){
  }catch(captureError){s.failureContext={message:error.message,capture_error:captureError.message};}
 }
 function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,waiting_for:s.waitReason||null,exit_blocks:s.exitBlocks??null,cover_refusals:s.coverRefusals||0,failure_context:s.failureContext||null,shell_failure:s.shellFailure||null,shell_repairs:s.shellRepairs||0,workspace:s.workspace||null,shell_recovery:s.shellRecovery?.status||null,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
+function rejectApproach(t,b,s,reason){
+ const n=t.wilderness;n.burrowRejected??=new Map();n.burrowRejected.set(new Vec3(...s.feet).toString(),Date.now()+30000);
+ n.burrow=null;claims.delete(b.username);t.phase=s.resume;n.burrowSearchAt=0;t.path=[];t.navigator.lastPlan=-Infinity;
+ t.message=reason+'; seeking another checked earth refuge';return true;
+}
 function retrySurface(t,b,s,reason){
  const feet=new Vec3(...s.feet),p=b.entity.position,q=p.floored();
  // Abandon excavation only while still on checked surface footing. A damaged
  // underground shell must never be silently treated as a safe refuge.
  if(b.entity.onGround!==true||Math.abs(p.y-feet.y)>.2||p.distanceTo(feet.offset(.5,0,.5))>2||!standable(b,q.x,q.y,q.z))return false;
- const n=t.wilderness;n.burrowRejected??=new Map();n.burrowRejected.set(feet.toString(),Date.now()+30000);
- n.burrow=null;claims.delete(b.username);t.phase=s.resume;n.burrowSearchAt=0;t.path=[];t.navigator.lastPlan=-Infinity;
- t.message=reason+'; seeking another checked earth refuge';return true;
+ return rejectApproach(t,b,s,reason);
 }
 async function regainShaftRim(t,b,motor,s,state,api,scan,tasks,feet){
  const p=b.entity.position;
@@ -181,12 +184,17 @@ async function tick(t,b,motor,state,api,scan,tasks){
   motor.pause();t.phase=s.resume;n.burrow=null;claims.delete(b.username);t.path=[];t.navigator.lastPlan=-Infinity;
   t.lastProgress=Date.now();t.message='Left the temporary burrow; resuming survival work';return true;
  }
- if(s.stage!=='hidden'&&now-s.progressAt>30000)throw Error('Emergency burrow work made no physical progress for 30 seconds');
+ if(s.stage!=='hidden'&&now-s.progressAt>30000){
+  if(s.stage==='approach'){
+   motor.pause();rejectApproach(t,b,s,'Refuge approach timed out');
+   n.coverResume??=s.resume;t.phase='night_seek_cover';
+   return true;
+  }
+  throw Error('Emergency burrow work made no physical progress for 30 seconds');
+ }
  if(s.stage==='approach'){
   if(await t.walk(b,motor,[feet.x+.5,feet.y+.1,feet.z+.5],state,api,scan,tasks)===false){
-   n.burrowRejected??=new Map();n.burrowRejected.set(feet.toString(),now+30000);
-   n.burrow=null;claims.delete(b.username);t.phase=s.resume;n.burrowSearchAt=0;t.path=[];t.navigator.lastPlan=-Infinity;
-   t.message='Blocked refuge route: seeking another safe earth patch';return true;
+   return rejectApproach(t,b,s,'Blocked refuge route');
   }
   if(Math.hypot(p.x-feet.x-.5,p.z-feet.z-.5)<.45&&Math.abs(p.y-feet.y)<.2){
    if(threats(b).some(e=>e.name==='creeper'&&e.position.distanceTo(p)<4||Math.hypot(e.position.x-feet.x-.5,e.position.z-feet.z-.5)<.65&&Math.abs(e.position.y-feet.y)<2)){n.burrow=null;claims.delete(b.username);t.phase=s.resume;n.burrowSearchAt=0;t.message='Threat occupies the excavation site: seeking another earth refuge';return true;}

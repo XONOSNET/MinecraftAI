@@ -5,6 +5,14 @@ function fixture(){
  const t={phase:'gather',plot:{x:30,y:64,z:30},campPlots:[],milestones:[],wilderness:{},navigator:{lastPlan:0},path:[],walk:async()=>true},motor={pause(){},lockLook(){}};
  return {b,t,cells,motor,state:{run:'burrow-unit',world:{bounds:[-50,50,-50,50],first_night:{hostiles:true}}}};
 }
+test('an unexcavated refuge approach timeout preserves the lesson and rejects the patch',async()=>{
+ const f=fixture();f.t.phase='night_burrow';
+ f.t.wilderness.burrow={feet:[3,66,0],cap:[3,66,0],stage:'approach',resume:'return_home',progressAt:Date.now()-31000};
+ f.t.walk=async()=>assert.fail('expired approach must not be retried');
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.phase,'night_seek_cover');assert.equal(f.t.wilderness.coverResume,'return_home');
+ assert.equal(f.t.wilderness.burrow,null);assert.ok(f.t.wilderness.burrowRejected.has(new Vec3(3,66,0).toString()));
+});
 test('a bot already knocked onto safe surface footing resumes work after its opened shaft is damaged',async()=>{
  const f=fixture();f.t.phase='night_burrow';
  f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],stage:'climb',resume:'stone_return',progressAt:Date.now()};
