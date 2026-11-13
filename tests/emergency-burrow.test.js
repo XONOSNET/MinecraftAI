@@ -88,6 +88,17 @@ test('a dead archer does not keep a sealed refuge occupied forever',async()=>{
  f.t.phase='night_burrow';f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],lip:[1,64,0],cap_name:'dirt',stage:'hidden',resume:'gather',progressAt:Date.now()};f.cells.set(new Vec3(0,64,0).toString(),'dirt');
  await burrow.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.wilderness.burrow.stage,'open');
 });
+test('the first landing places cover in the same tick when real dirt is already held',async()=>{
+ const f=fixture();f.t.phase='night_burrow';f.b.entities={};
+ const s=f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],lip:[1,64,0],stage:'dig',progressAt:Date.now()};
+ f.b.entity.position.y=63;f.cells.set(new Vec3(0,63,0).toString(),'air');
+ f.b.heldItem={name:'dirt',count:1};f.b.inventory.items=()=>[f.b.heldItem];
+ f.b.lookAt=async()=>{};
+ f.b._placeBlockWithOptions=async(block,face)=>f.cells.set(block.position.plus(face).toString(),'dirt');
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(s.lip_name,'dirt');assert.equal(s.stage,'dig');
+ assert.equal(f.b.blockAt(new Vec3(1,64,0)).name,'dirt');
+});
 test('a complete refuge digs only two earth blocks, caps, waits for a safe day and climbs out without lesson credit',async ctx=>{
  const f=fixture();let dirt=0,digs=0,steps=0;ctx.mock.method(access,'stabilize',async()=>true);ctx.mock.method(inventory,'sync',async()=>{});ctx.mock.method(inventory,'equip',async()=>{});
  f.b.inventory.items=()=>dirt?[{name:'dirt',count:dirt}]:[];f.b.canDigBlock=()=>true;f.b.lookAt=async()=>{};f.b.clearControlStates=()=>{};

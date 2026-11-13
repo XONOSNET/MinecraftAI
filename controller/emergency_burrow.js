@@ -101,7 +101,9 @@ async function placeCover(b,s,target,support,face,name){
   if(!openCell(b.blockAt(target))||!space.clearOfPlayers(b,target.offset(.5,.5,.5),1))return false;
   if(!b.entity.onGround||b.entity.position.y+1.8>target.y&&face.y===0)return false;
   const actual=b.blockAt(support);if(!actual||actual.boundingBox!=='block'||actual.getProperties?.().waterlogged)throw Error('Emergency cover support is no longer solid and dry');
-  await inventory.sync(b);await inventory.equip(b,name,{synced:true});
+  if(height!==.2||b.heldItem?.name!==name||!b.heldItem.count){
+   await inventory.sync(b);await inventory.equip(b,name,{synced:true});
+  }
   const delta=new Vec3(.5+face.x*.5,face.y===0?height:face.y>0?1:0,.5+face.z*.5);
   await b.lookAt(support.plus(delta),true);
   try{await b._placeBlockWithOptions(actual,face,{forceLook:'ignore',swingArm:'right',delta});}
@@ -212,10 +214,11 @@ async function tick(t,b,motor,state,api,scan,tasks){
   throw Error('Emergency refuge walls or floor are no longer dry and supported: '+JSON.stringify(problem));
  }
  if(s.shellRecovery&&(s.stage!=='hidden'||sealed(b,s)))s.shellRecovery.status='Shell restored and rechecked';
+ if(s.stage==='dig'&&!b.entity.onGround){t.message='Emergency cover: settling after a one-block descent';return true;}
+ const y=Math.round(p.y);
+ if(s.stage==='dig'&&y<=feet.y-2){s.stage='seal';s.progressAt=now;}
+ else if(s.stage==='dig'&&y<feet.y&&!s.lip_name){s.stage='lip';s.progressAt=now;}
  if(s.stage==='dig'){
-  if(!b.entity.onGround){t.message='Emergency cover: settling after a one-block descent';return true;}
-  const y=Math.round(p.y);if(y<=feet.y-2){s.stage='seal';s.progressAt=now;return true;}
-  if(y<feet.y&&!s.lip_name){s.stage='lip';s.progressAt=now;return true;}
   if(y===feet.y&&EARTH.has(b.blockAt(feet.offset(0,-1,0))?.name)){
    const threat=exposedThreat(b);
    if(threat&&retrySurface(t,b,s,'Hostile in reach before the shaft was opened')){
@@ -240,7 +243,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
  }
  if(s.stage==='lip'){
   const item=await earthItem(b,s);
-  if(!item){t.message='Emergency cover: collecting the first dirt block';return true;}
+  if(!item){t.message='Emergency cover: waiting for the first dirt drop to enter inventory';return true;}
   const lip=new Vec3(...s.lip);if(b.blockAt(lip)?.name!=='air')throw Error('Emergency cover lip is obstructed');
   if(await defendOpening(t,b,motor,s,lip))return true;
   if(!space.clearOfPlayers(b,lip.offset(.5,.5,.5),1)){t.message='Emergency cover: waiting for a clear cover-block position';return true;}
