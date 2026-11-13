@@ -70,11 +70,15 @@ async function interrupt(t,b,motor,state,api,scan){
  if(n.shelterWatch&&!shelterPolicy.danger(b))n.shelterWatch=false;
  if(p.kind==='defend'&&await require('./survival_defense').tick(t,b,motor,state,api,scan))return true;
  if(await require('./mine_cover_exit').tick(t,b,motor,state,api,scan,require('./tasks'),p.kind))return true;
+ if(p.kind==='seek cover'&&t.phase==='night_retreat'){
+  n.coverResume??=n.resume||'gather';delete n.resume;
+ }
  if(await require('./emergency_burrow').tick(t,b,motor,state,api,scan,require('./tasks')))return true;
  if(p.kind==='seek cover'){
   // Retry verified refuge selection; never fall through to harvesting or combat.
   // Move away from visible threats only over a checked reversible route.
-  n.coverResume??=t.phase;t.phase='night_seek_cover';
+  n.coverResume??=t.phase;
+  t.phase='night_seek_cover';
   await require('./emergency_burrow').seek(t,b,motor,state,api,scan,require('./tasks'));
   return true;
  }

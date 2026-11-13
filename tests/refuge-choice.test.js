@@ -9,6 +9,18 @@ test('a nearby home behind an impassable barrier is not treated as reachable she
  const f=fixture(),at=f.b.blockAt;f.b.blockAt=p=>Math.floor(p.z)===-7?{position:p.floored(),name:'stone',boundingBox:'block'}:at(p);
  assert.equal(choice.homeReachable(f.t,f.b,f.w),false);
 });
+test('retreat travel avoids a visible hostile in the straight path to a reachable home',()=>{
+ const {b,t,w}=fixture();
+ b.entities.z={id:2,name:'zombie',position:new Vec3(.5,64,-7.5)};
+ assert.equal(choice.homeReachable(t,b,w),true);
+ const {WorldNavigation,homeApproach}=require('../controller/world_navigation');
+ const avoidCell=choice.threatClearance(b),goal=homeApproach(t.plot,b);
+ const nav=new WorldNavigation(),ordinary=nav.plan(b,goal,{bounds:w.bounds,now:1000});
+ assert.ok(ordinary.path.some(q=>avoidCell([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])])));
+ const retreat=nav.plan(b,goal,{bounds:w.bounds,now:1100,avoidCell});
+ assert.equal(retreat.blocked,false);
+ assert.ok(retreat.path.every(q=>!avoidCell([Math.floor(q[0]),Math.round(q[1]),Math.floor(q[2])])));
+});
 test('a bot already indoors does not need a route through its own closed door',()=>{
  const f=fixture();f.b.entity.position=new Vec3(.5,64,.5);f.b.blockAt=()=>{throw Error('Safe indoor watch needs no exterior path');};assert.equal(choice.homeReachable(f.t,f.b,f.w),true);
 });
