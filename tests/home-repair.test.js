@@ -43,6 +43,19 @@ test('missing supplies start real wood gathering and cannot be satisfied by phan
  f.items.oak_planks=4;await repair.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.phase,'home_repair');
 });
 
+test('a server-confirmed inventory change during repair returns to resupply with the original lesson intact',async()=>{
+ const f=fixture();const target=new Vec3(3,65,0);f.set(target,'air');
+ f.t.place=async()=>{
+  f.items.oak_planks=0;
+  const error=Error('No building material available.');error.code='BUILD_MATERIAL_MISSING';throw error;
+ };
+ await repair.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.phase,'home_repair');assert.equal(f.t.homeRepair.repaired,0);
+ await repair.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.phase,'gather');assert.equal(f.t.homeRepair.resume,'night_scout');
+ assert.equal(f.b.blockAt(target).name,'air');
+});
+
 test('a distant repair supply trip returns before inspecting unloaded house cells or planning local work stances',async()=>{
  const f=fixture();f.set(new Vec3(3,65,0),'air');f.items.oak_planks=0;
  await repair.tick(f.t,f.b,f.motor,f.state);assert.equal(f.t.phase,'gather');

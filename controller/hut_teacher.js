@@ -421,7 +421,7 @@ class HutTeacher{
   for(let attempt=0;attempt<6;attempt++){
    if(Object.values(bot.entities||{}).some(e=>require('./build_blockers').eligible(bot,e)&&require('./build_blockers').intersects(e,q))){const error=Error('Living animal blocks this construction cell');error.code='BUILD_ENTITY_BLOCKED';throw error;}
    await inventorySync.sync(bot);
-   const item=bot.inventory.items().find(i=>name?i.name===name:planks(i.name));if(!item)throw Error('No building material available.');
+   const item=bot.inventory.items().find(i=>name?i.name===name:planks(i.name));if(!item){const error=Error('No building material available.');error.code='BUILD_MATERIAL_MISSING';throw error;}
    const ref=reference(bot,q,{exclude:rejected});if(!ref){this.lastNavigation={...this.lastNavigation,placement_failure:{target:[q.x,q.y,q.z],position:[bot.entity.position.x,bot.entity.position.y,bot.entity.position.z],rejected_faces:[...rejected],reason:'no_reachable_support'}};const error=Error('No reachable supporting face for placement.');error.code='BUILD_OBSTRUCTED';throw error;}
    await inventorySync.equip(bot,item.name,{synced:true});
    // Forced look updates local angles immediately; physics sends the rotation

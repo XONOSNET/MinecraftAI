@@ -215,6 +215,9 @@ async function tick(t,b,motor,state,api,scan,tasks){
 
  const planks=b.inventory.items().find(i=>i.name.endsWith('_planks'))?.name||'oak_planks';
  let item=q.kind==='foundation'?terrain.material(b,damage.missing.some(v=>v.kind==='furnace')?8:0):q.kind==='planks'?planks:q.kind==='door'?(b.inventory.items().find(i=>i.name.endsWith('_door'))?.name||planks.replace('_planks','_door')):q.kind==='bed'?(b.inventory.items().find(i=>i.name.endsWith('_bed'))?.name||'white_bed'):q.kind;
+ if((q.kind==='foundation'||q.kind==='planks')&&(!item||!count(b,item))){
+  await wood(t,b,r,Math.max(1,r.woodNeeded));return true;
+ }
  if(['bed','door'].includes(q.kind)){
   const cells=[new Vec3(q.x,q.y,q.z),new Vec3(q.x,q.y+(q.kind==='door'?1:0),q.z+(q.kind==='bed'?1:0))];
   const remnant=cells.map(p=>b.blockAt(p)).find(v=>v?.name.endsWith(q.kind==='bed'?'_bed':'_door'));
@@ -250,6 +253,9 @@ async function tick(t,b,motor,state,api,scan,tasks){
    }
    if(q.kind==='door')await b.look(Math.PI,0,true);
    try{await t.place(b,q,item,q.terrain?()=>safe(t,b,q):null);}catch(error){
+    if(error.code==='BUILD_MATERIAL_MISSING'){
+     r.message=t.message='Repair stock changed during placement; checking remaining supplies';return true;
+    }
     if(error.code==='BUILD_REPAIR_CHANGED'){r.message=t.message='Crater changed before placement; checking it again';return true;}
     if(error.code!=='BUILD_OBSTRUCTED')throw error;
     rejectStance(r,b,q);
