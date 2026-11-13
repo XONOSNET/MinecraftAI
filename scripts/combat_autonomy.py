@@ -225,7 +225,7 @@ def main():
         report['weights_changed'] = any(not torch.equal(a, b) for a, b in zip(candidate.parameters(), baseline.parameters()))
         torch.save({'model': candidate.state_dict()}, args.output / 'candidate.pt')
         report['benchmarks'] = {}
-        for index, mob in enumerate(['zombie'] if args.smoke else ['zombie', 'zombie', 'skeleton']):
+        for index, mob in enumerate(['skeleton'] if args.smoke else ['zombie', 'zombie', 'skeleton']):
             seeds = rng.sample(range((index + 1) * 100_000, (index + 2) * 100_000), 1 if args.smoke else 12)
             report['benchmarks'][f'{mob}_{index}'] = evaluate(arena, models, seeds, mob)
             save()

@@ -16,23 +16,31 @@ const motor=createMotor(bot,permissions);
 let changed=false,current=null,dead=false;
 const parsedMessages=[];
 bot.on('messagestr',message=>{parsedMessages.push(message);if(parsedMessages.length>10)parsedMessages.shift();});
+let batch=0;
 bot.on('physicsTick',()=>motor.tick());
 bot.on('entityDead',enemy=>{if(current)combat.death(enemy,current.task,current.runtime);});
 bot.on('death',()=>{dead=true;motor.pause();});
 bot.on('error',error=>console.error(error.message));
 async function admin(action,extra={}){
- for(let i=0;i<10;i++){
+ for(let i=0;i<20;i++){
   const reply=await fetch('http://127.0.0.1:8000/admin/action',{method:'POST',headers:{'X-Lab-Token':token,'Content-Type':'application/json'},
    body:JSON.stringify({action,player:user,...extra}),signal:AbortSignal.timeout(8000)});
   if(reply.ok)return;
   const message=await reply.text();
-  if(!message.includes('not online')||i===9)throw Error(message);
-  await wait(500);
+  if(!message.includes('not online')||i===19)throw Error(message);
+  await wait(750);
  }
 }
-async function commands(lines){
+async function commands(lines,confirm=null){
  await admin('op');await wait(400);
- try{for(const line of lines){bot.chat('/'+line);await wait(140);}await wait(350);}
+ try{
+  for(const line of lines){bot.chat('/'+line);await wait(140);}
+  const marker='Combat fixture batch '+(++batch);
+  bot.chat('/tellraw @s '+JSON.stringify({text:marker}));
+  for(let i=0;i<50&&!parsedMessages.includes(marker);i++)await wait(200);
+  assert.ok(parsedMessages.includes(marker),'Fixture commands were not acknowledged: '+parsedMessages.join(' | '));
+  if(confirm)await confirm();
+ }
  finally{await admin('deop');}
 }
 function empty(){
@@ -71,15 +79,24 @@ async function reset(seed,mob){
   ...[['head','helmet'],['chest','chestplate'],['legs','leggings'],['feet','boots']].map(([slot,item])=>`item replace entity @s armor.${slot} with iron_${item}`),
   ...(mob==='skeleton'?['item replace entity @s weapon.offhand with shield']:[]),
   `tp @s ${center-9+.5} ${y} ${z+.5} ${yaw} 0`,
-  `summon minecraft:${mob} ${center-9+.5+distance} ${y} ${z+.5+offset} {Tags:["${tag}"],CustomName:'{"text":"${label}"}',PersistenceRequired:1b,CanPickUpLoot:0b,DeathLootTable:"minecraft:empty",IsBaby:0b}`,
+  `summon minecraft:${mob} ${center-9+.5+distance} ${y} ${z+.5+offset} {Tags:["${tag}"],CustomName:'{"text":"${label}"}',PersistenceRequired:1b,CanPickUpLoot:0b,DeathLootTable:"minecraft:empty",IsBaby:0b,NoAI:1b}`,
   'gamemode survival @s'
  ]);
  dead=false;
  const task={kind:'combat',mobs:[mob],mob_label:label,bounds:[min[0],max[0]+1,min[2],max[2]+1],min_y:y,max_y:y+3,
   weapon:'iron_sword',armor:'iron',shield:mob==='skeleton',kill_target:1,critical_hits:true,safe_walk:true,strict_ground:true};
- const sensed=combat.observe(bot,task,{});
- assert.equal(bot.game.gameMode,'survival',parsedMessages.join(' | '));assert.equal(bot.health,20);assert.ok(sensed.gear.ready,parsedMessages.join(' | '));assert.ok(sensed.enemy,'Tagged opponent is visible to the client: '+parsedMessages.join(' | '));
+ const ready=()=>bot.game.gameMode==='survival'&&bot.health===20&&bot.food===20&&combat.equipment(bot,task).ready&&combat.target(bot,task);
+ for(let i=0;i<30&&!ready();i++)await wait(100);
+ assert.ok(ready(),'Encounter reset was not confirmed: '+parsedMessages.join(' | '));
  current={task,runtime:tasks.createRuntime(),seed,mob,start:Date.now(),steps:0,health:bot.health,damage:0};
+ const enemy=combat.target(bot,task);
+ const flag=bot.registry.entitiesByName[mob].metadataKeys.indexOf('mob_flags');
+ assert.ok(flag>=0&&(Number(enemy.metadata[flag])&1),'Fixture opponent must be frozen before release');
+ await commands([`data merge entity @e[tag=${tag},limit=1] {NoAI:0b}`],async()=>{
+  for(let i=0;i<30&&(Number(enemy.metadata[flag])&1);i++)await wait(100);
+  assert.equal(Number(enemy.metadata[flag])&1,0,'Native release was not confirmed');
+  current.start=Date.now();
+ });
  return observe();
 }
 function observe(){
