@@ -6,6 +6,7 @@ const combat=require('../controller/combat'),tasks=require('../controller/tasks'
 const {scan}=require('../controller/perception'),{createMotor}=require('../controller/locomotion');
 const user='LabCombatRL',tag='lab_rl_fixture',center=1500,z=-1500,y=211;
 const min=[center-13,y-1,z-4],max=[center+13,y+4,z+4];
+const cleanupOnly=process.argv.includes('--clean-only');
 const token=fs.readFileSync('data/api-token','utf8').trim();
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const output=value=>process.stdout.write(JSON.stringify(value)+'\n');
@@ -34,7 +35,9 @@ async function admin(action,extra={}){
 async function commands(lines,confirm=null){
  await admin('op');await wait(400);
  try{
-  for(const line of lines){bot.chat('/'+line);await wait(140);}
+  // Let the server's command-spam counter drain between commands, even when
+  // the fixture is repeatedly opped and deopped across encounters.
+  for(const line of lines){bot.chat('/'+line);await wait(1100);}
   const marker='Combat fixture batch '+(++batch);
   bot.chat('/tellraw @s '+JSON.stringify({text:marker}));
   for(let i=0;i<50&&!parsedMessages.includes(marker);i++)await wait(200);
@@ -43,14 +46,21 @@ async function commands(lines,confirm=null){
  }
  finally{await admin('deop');}
 }
-function empty(){
+function volumeMatches(names){
  for(let x=min[0];x<=max[0];x++)for(let by=min[1];by<=max[1];by++)for(let bz=min[2];bz<=max[2];bz++)
-  if(bot.blockAt(new Vec3(x,by,bz))?.name!=='air')return false;
+  if(!names.includes(bot.blockAt(new Vec3(x,by,bz))?.name))return false;
  return true;
 }
+const empty=()=>volumeMatches(['air']);
 async function setup(){
  await once(bot,'spawn',{signal:AbortSignal.timeout(15000)});await admin('gamemode',{gamemode:'creative'});
  await admin('teleport-coordinates',{x:center,y:y+8,z});
+ if(cleanupOnly){
+  const fixture=['air','glass','sea_lantern'];
+  for(let i=0;i<30&&!volumeMatches(fixture);i++)await wait(300);
+  assert.ok(volumeMatches(fixture),'Fixture cleanup refused an unexpected block');
+  changed=true;return;
+ }
  for(let i=0;i<30&&!empty();i++)await wait(300);
  assert.ok(empty(),'Fixture volume must be loaded and empty');changed=true;
  await commands([
@@ -140,7 +150,9 @@ async function cleanup(){
 async function main(){
  let failure;
  try{
-  await setup();output({ready:true});
+  await setup();
+  if(cleanupOnly)return;
+  output({ready:true});
   for await(const line of readline.createInterface({input:process.stdin})){
    const request=JSON.parse(line);
    if(request.close)break;
