@@ -1,6 +1,6 @@
 # Combat experience evidence · November 14, 2026
 
-**Status:** The cleaned native smoke verifies the measurement and update path. A larger preregistered comparison is in progress. No teacher advantage, retention result or wilderness transfer is established.
+**Status:** The cleaned native smoke verified measurement and the update path. The preregistered full run stopped after the first completed zombie block because the candidate failed both reference gates. No checkpoint was promoted; neither retention cycle nor wilderness transfer was run.
 
 The read-only production snapshot found Paper 1.21.4 ready on PID 104020, eight fresh bots, First Night wilderness level 3 on site 0, and automatic world learning at comparison 425. The student baseline was `world-1794651453090888600`; the scheduler subsequently advanced to teacher run `world-1794655410943460500`. No model restore was pending and no rollout worker was active. Seven baseline rows reported controller `4845ba27313939f0`; the stopped row omitted it. The latest rollout report was already verified. Comparison 423 was the last retained result: 5/8 completions in both arms, unsafe outcomes 2 → 1, progress 0.8375 → 0.8438. This is bundle-level imitation evidence. No controller, production settings, model checkpoint, replay or process was changed by the experiment.
 
@@ -45,4 +45,41 @@ node --test tests/*.test.js
 
 The local full-run report records the ordered seeds, frozen source and tensor hashes, each completed attempt, exclusions and gates; `decisions.jsonl` retains the raw observed transitions. Paper TPS/MSPT were unavailable in the smoke snapshots. The server PID and readiness, RAM, and available timing metadata are sampled across encounters. Do not publish the raw logs or checkpoints.
 
-**Next decision:** Apply the frozen gates to the first complete 12-start zombie batch. If the candidate fails either comparison, stop before spending the remaining holdouts. If the run aborts instead, use its invalid-start evidence to fix that cause before running a new matched block.
+## Training attribution
+
+The full candidate won 32/32 training fights (mean damage 3.065 HP; no deaths or escapes). All eight updates used the existing outcome recipe. The candidate checkpoint stores optimizer state and recipe, fingerprint `c38aae076e539d6e2c2f4ff4e6f476051a7ffb5f93f1c5301a3109c01112ca1a`. The saved reference remained at its original smoke fingerprint. Exact tensor identity and logits were verified after reload; held-out candidate fights use the reloaded copy.
+
+`.venv/Scripts/python.exe -m scripts.combat_reward_audit logs/combat-experience-v1-full` replays the 1,708 training observations without opening Minecraft or using holdout outcomes. The original reward trace reproduced the exact candidate fingerprint. Zeroing every reward, while leaving the reference KL term and optimizer schedule in place, produced different tensors. On those same training observations, argmax changed on 12 rows for the actual update and two rows for the zero-reward control. The two updated policies differed on 10 rows (0.59%). This shows that rewards contributed to decisions on training observations, and that tensor changes alone are insufficient evidence of useful learning. The replay control did not fight in the holdout.
+
+## First held-out block: negative result
+
+The command above (seed 70202) finished 68 encounters without exclusions: 32 training fights and 36 evaluation fights across 12 matched starts. Each arm won 12/12, with no deaths, escapes or timeouts. No backing control was consumed in any of the three arms; the arena has no separate retreat objective. Snapshot RAM ranged from 78.0% to 83.4%, with no PID change. The native fixture acknowledged cleanup and exited; no deployment or fixture worker remained. Production still reported eight bots on PID 104020, comparison 425 demonstrating under the same wilderness options, no restore pending and an empty persistence queue at the closing check.
+
+| Held-out arm | Wins | Mean damage (HP) | Proposals 0 / 1 / 2 / 3 / 4 / 5 / 6 | Forward ticks | Attack requests / native target-hurt packets |
+| --- | ---: | ---: | --- | ---: | --- |
+| Teacher | 12/12 | 2.645 | 175 / 228 / 169 / 0 / 22 / 0 / 30 | 530 | 29 / 19 |
+| Saved | 12/12 | 1.923 | 177 / 157 / 270 / 0 / 26 / 0 / 29 | 540 | 29 / 24 |
+| Candidate | 12/12 | 2.947 | 183 / 125 / 174 / 0 / 35 / 0 / 30 | 502 | 29 / 25 |
+
+Codes 0–6 are approach, aim left, aim right, back, guard/wait, equip and attack. The same number of attack requests does not explain damage differences, and the hurt counts are arrivals inside traced decision windows. This table does not identify causal effects of individual actions.
+
+| Ordered matched start | Teacher damage | Saved damage | Candidate damage |
+| ---: | ---: | ---: | ---: |
+| 2297597 | 4.14 | 2.76 | 4.14 |
+| 2215995 | 2.76 | 1.38 | 4.14 |
+| 2953246 | 1.38 | 2.76 | 2.76 |
+| 2244935 | 5.52 | 4.14 | 2.76 |
+| 2692352 | 1.38 | 1.38 | 2.76 |
+| 2899672 | 1.76 | 1.38 | 4.26 |
+| 2130025 | 1.38 | 1.38 | 3.26 |
+| 2652405 | 1.38 | 3.76 | 1.38 |
+| 2182105 | 3.26 | 0.00 | 4.76 |
+| 2892836 | 2.76 | 1.38 | 3.76 |
+| 2856988 | 2.76 | 1.38 | 1.38 |
+| 2273874 | 3.26 | 1.38 | 0.00 |
+
+Gain (reference minus candidate) was **−0.302 HP vs teacher** and **−1.023 HP vs saved**, with 3 better / 2 tied / 7 worse for each pairing. Descriptive paired-bootstrap 95% ranges were [−1.263, +0.753] and [−2.130, +0.115]; nominal one-sided sign p = 0.945 for both. These intervals do not account for dependence between encounters on one server. Only two shared wins per reference were equivalent in damage, and the candidate was faster on one and slower on the other in both pairings. There is no reliable speed advantage to claim. Matching geometry and verified player loadout does not synchronize mob behavior, hidden spawn attributes or server timing. Observed opponent equipment was empty in all 36 held-out fights.
+
+The predeclared futility rule fired. The second zombie block and 12-start skeleton sentinel were not used, the candidate remains a local diagnostic checkpoint, and the original saved model remains the reference. No production model rollback was needed because no production model was installed. Neither of the two later cycles has a qualifying champion to test. Wilderness transfer remains untested.
+
+**Next decision:** On disjoint training-only starts, test whether matching the reference KL temperature to the exploration distribution produces a reward-dependent change in *executed* spacing or guarding at equal safety. Use the same frozen reference, a matched zero-reward control, and the current recipe as controls. Only preregister new holdouts if this changes behavior beyond the tiny observed training-state argmax shift; do not tune against the used block.
