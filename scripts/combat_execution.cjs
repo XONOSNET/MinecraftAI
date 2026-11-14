@@ -1,5 +1,6 @@
 // Experiment accounting only; these values are never supplied to the policy.
 const CONTROL_KEYS=['forward','back','left','right','jump','sneak','sprint'];
+const {performance}=require('node:perf_hooks');
 const START_LIMITS=Object.freeze({player_blocks:.08,yaw_radians:Math.PI/360,
  target_blocks:.35,release_ms:500});
 const wrap=angle=>Math.atan2(Math.sin(angle),Math.cos(angle));
@@ -22,10 +23,20 @@ function healthUpdate(encounter,health){
  const loss=Math.max(0,encounter.health-health);
  if(loss>0){encounter.damage+=loss;encounter.damageEvents++;}
  encounter.health=health;
+ return loss;
+}
+// This journal orders local callbacks on one clock. It does not reveal the
+// server's combat tick or imply that a hurt receipt was caused by the active
+// decision. Null decision labels events received between execution windows.
+function recordEvent(encounter,kind,fields={},at=performance.now()){
+ if(!encounter||encounter.closed||encounter.releaseMonotonic==null)return null;
+ const event={kind,at_ms:at-encounter.releaseMonotonic,decision:encounter.activeDecision??null,...fields};
+ encounter.events.push(event);
+ return event;
 }
 function sampleControls(execution,controls,usingItem){
  execution.physics_ticks++;
  for(const key of CONTROL_KEYS)if(controls[key])execution.controls_ticks[key]++;
  if(usingItem)execution.held_item_ticks++;
 }
-module.exports={CONTROL_KEYS,START_LIMITS,pose,distance,wrap,startIssue,healthUpdate,sampleControls};
+module.exports={CONTROL_KEYS,START_LIMITS,pose,distance,wrap,startIssue,healthUpdate,recordEvent,sampleControls};

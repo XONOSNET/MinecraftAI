@@ -1,6 +1,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {CONTROL_KEYS,startIssue,healthUpdate,sampleControls}=require('../scripts/combat_execution.cjs');
+const {CONTROL_KEYS,startIssue,healthUpdate,recordEvent,sampleControls}=require('../scripts/combat_execution.cjs');
 
 test('matched start rejects predecision damage and drift, but accepts wrapped yaw',()=>{
  const player={position:[0,211,0],yaw:2*Math.PI-.004};
@@ -29,4 +29,22 @@ test('physics samples distinguish movement and held item execution from nominal 
  assert.equal(window.controls_ticks.left,2);
  assert.equal(window.controls_ticks.sprint,0);
  assert.equal(window.held_item_ticks,2);
+});
+
+test('one monotonic journal keeps proposal, request, damage and between-decision receipt ordering',()=>{
+ const c={events:[],releaseMonotonic:null,activeDecision:null};
+ assert.equal(recordEvent(c,'target_hurt',{},97),null);
+ c.releaseMonotonic=100;c.activeDecision=1;
+ recordEvent(c,'proposal',{action:6},99);
+ recordEvent(c,'attack_request',{target_id:21},130);
+ c.activeDecision=null;
+ recordEvent(c,'target_hurt',{target_id:21},235);
+ recordEvent(c,'player_damage',{loss:1.38},236);
+ c.closed=true;recordEvent(c,'player_hurt',{source_id:21},237);
+ assert.deepEqual(c.events,[
+  {kind:'proposal',at_ms:-1,decision:1,action:6},
+  {kind:'attack_request',at_ms:30,decision:1,target_id:21},
+  {kind:'target_hurt',at_ms:135,decision:null,target_id:21},
+  {kind:'player_damage',at_ms:136,decision:null,loss:1.38}
+ ]);
 });

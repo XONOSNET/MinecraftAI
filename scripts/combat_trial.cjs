@@ -1,11 +1,12 @@
 // One isolated native player, controlled through a JSON-lines pipe.
 const assert=require('node:assert/strict'),fs=require('node:fs');
 const {once}=require('node:events'),readline=require('node:readline');
+const {performance}=require('node:perf_hooks');
 const mineflayer=require('mineflayer'),{Vec3}=require('vec3');
 const combat=require('../controller/combat'),tasks=require('../controller/tasks');
 const {scan}=require('../controller/perception'),{createMotor}=require('../controller/locomotion');
 const {defaults}=require('../controller/behavior');
-const {CONTROL_KEYS,START_LIMITS,pose,distance:poseDistance,wrap,startIssue,healthUpdate,sampleControls}=require('./combat_execution.cjs');
+const {CONTROL_KEYS,START_LIMITS,pose,distance:poseDistance,wrap,startIssue,healthUpdate,recordEvent,sampleControls}=require('./combat_execution.cjs');
 const user='LabCombatRL',tag='lab_rl_fixture',center=1500,z=-1500,y=211;
 const min=[center-13,y-1,z-4],max=[center+13,y+4,z+4];
 const cleanupOnly=process.argv.includes('--clean-only');
@@ -31,10 +32,20 @@ bot.on('physicsTick',()=>{
  motor.tick();
 });
 bot.on('entityDead',enemy=>{if(current&&!current.closed)combat.death(enemy,current.task,current.runtime);});
-bot.on('health',()=>{if(current&&!current.closed)healthUpdate(current,bot.health);});
+bot.on('health',()=>{
+ if(current&&!current.closed){
+  const loss=healthUpdate(current,bot.health);
+  if(loss>0)recordEvent(current,'player_damage',{loss,health:bot.health});
+ }
+});
 // Consume one native damage event, not overlapping hurt animations/status events.
 bot._client.on('damage_event',event=>{
- if(current&&!current.closed&&event.entityId===current.enemyId&&event.sourceCauseId===bot.entity.id+1)current.targetHurts++;
+ const c=current;if(!c||c.closed||!bot.entity)return;
+ if(event.entityId===c.enemyId&&event.sourceCauseId===bot.entity.id+1){
+  c.targetHurts++;recordEvent(c,'target_hurt',{target_id:c.enemyId});
+ }else if(event.entityId===bot.entity.id&&event.sourceCauseId===c.enemyId+1){
+  recordEvent(c,'player_hurt',{source_id:c.enemyId});
+ }
 });
 bot.on('death',()=>{dead=true;motor.pause();});
 bot.on('error',error=>console.error(error.message));
@@ -119,7 +130,16 @@ function fixtureEntities(){
   [entity.position.x,entity.position.y,entity.position.z].every((v,i)=>v>=min[i]&&v<max[i]+1));
 }
 async function setup(){
- await once(bot,'spawn',{signal:AbortSignal.timeout(15000)});await admin('gamemode',{gamemode:'creative'});
+ await once(bot,'spawn',{signal:AbortSignal.timeout(15000)});
+ // Wrap the fixture API after Mineflayer injects it. The original call still
+ // performs the actual write, without any added wait or changed arguments.
+ const attack=bot.attack;
+ bot.attack=function(target,...args){
+  const c=current,at=performance.now(),result=attack.call(this,target,...args);
+  if(c&&target?.id===c.enemyId)recordEvent(c,'attack_request',{target_id:target.id},at);
+  return result;
+ };
+ await admin('gamemode',{gamemode:'creative'});
  await admin('teleport-coordinates',{x:center,y:y+8,z});
  if(probeClean){
   assert.ok(await until(empty,9000,300),'Fixture blocks remain or could not be verified');
@@ -190,7 +210,7 @@ async function reset(seed,mob){
   poseDistance(verified.target.position,enemyPos)<=.08,'Encounter pose changed during frozen reset');
  const preparedAt=Date.now();
  current={task,runtime:tasks.createRuntime(),seed,mob,start:null,preparedAt,steps:0,health:bot.health,damage:0,
-  damageEvents:0,targetHurts:0,enemyId:enemy.id,enemy,flag};
+  damageEvents:0,targetHurts:0,enemyId:enemy.id,enemy,flag,events:[],releaseMonotonic:null,activeDecision:null};
  current.startInfo={requested:{player_position:playerPos,player_yaw_degrees:yaw,target_position:enemyPos},
   verified,mob,difficulty:bot.game.difficulty??fixtureDifficulty,arena:{min,max,floor:'sea_lantern',walls:'glass'},
   prepared_at_ms:preparedAt,predecision_damage:current.damage,ai_frozen:true,
@@ -202,7 +222,7 @@ function terminal(reason,valid=true){
  motor.pause();bot.deactivateItem();c.closed=true;
  return {done:true,valid,win:reason==='win',dead,
   escaped:reason==='escaped',damage:c.damage,seconds:(Date.now()-(c.start??c.preparedAt))/1000,seed:c.seed,mob:c.mob,steps:c.steps,
-  reason,invalid_reason:valid?null:reason};
+  reason,invalid_reason:valid?null:reason,events:c.events};
 }
 function observe(){
  const c=current,p=bot.entity.position,goal=c.task.bounds;
@@ -222,8 +242,11 @@ async function endEncounter(reply){
  return reply;
 }
 async function step(action){
+ const receivedAt=performance.now();
  if(!Number.isInteger(action)||action<0||action>6)throw Error('Invalid combat action');
  const c=current,s=c.sensed;
+ const eventOffset=c.events.length,decision=c.steps+1;
+ let proposal;
  let verifyRelease;
  if(!c.steps){
   const predecisionMs=Date.now()-c.preparedAt;
@@ -232,6 +255,9 @@ async function step(action){
   if(issue)return endEncounter(terminal(issue,false));
   c.start=Date.now();
   c.release={started_at_ms:c.start,predecision_ms:predecisionMs};
+  c.releaseMonotonic=performance.now();
+  c.activeDecision=decision;
+  proposal=recordEvent(c,'proposal',{action},receivedAt);
   // Proposal selected from the verified frozen observation. Send release on
   // this same client before any action packet; begin actuation this JS turn,
   // so no opponent movement or damage precedes an action during inference.
@@ -242,9 +268,11 @@ async function step(action){
    c.release.release_ms=confirmed?c.release.acknowledged_at_ms-c.start:null;
   });
  }
+ c.activeDecision=decision;
+ proposal??=recordEvent(c,'proposal',{action},receivedAt);
  const before=pose(bot.entity),at=Date.now(),damage=c.damage,damageEvents=c.damageEvents,hurt=c.targetHurts,
   attacks=c.runtime.hits||0,critical=c.runtime.criticalAttempts||0;
- const execution={proposed:action,before,physics_ticks:0,held_item_ticks:0,
+ const execution={proposed:action,decision,at_ms:proposal.at_ms,before,physics_ticks:0,held_item_ticks:0,
   controls_ticks:Object.fromEntries(CONTROL_KEYS.map(key=>[key,0])),interaction:null};
  c.execution=execution;
  motor.command(action,c.task,{...s,...c.proximity,rearSafe:c.proximity.canWalk(bot.entity.yaw+Math.PI,.7)},s.angle);
@@ -256,11 +284,11 @@ async function step(action){
  }else if(bot.usingHeldItem)bot.deactivateItem();
  c.steps++;await wait(100);
  if(verifyRelease){await verifyRelease;execution.release=c.release;}
- const after=pose(bot.entity);c.execution=null;
+ const after=pose(bot.entity);c.execution=null;c.activeDecision=null;
  Object.assign(execution,{after,movement:{blocks:poseDistance(before.position,after.position),yaw_radians:wrap(after.yaw-before.yaw)},
   attack_requests:(c.runtime.hits||0)-attacks,critical_attempts:(c.runtime.criticalAttempts||0)-critical,
   target_hurts:c.targetHurts-hurt,damage_events:c.damageEvents-damageEvents,damage_delta:c.damage-damage,
-  elapsed_ms:Date.now()-at});
+  elapsed_ms:Date.now()-at,events:c.events.slice(eventOffset)});
  if(verifyRelease&&!c.release.confirmed)return endEncounter({...terminal('native release was not confirmed',false),execution});
  return endEncounter({...observe(),execution});
 }
@@ -288,7 +316,7 @@ async function main(){
   if(cleanupOnly||probeClean)return;
   output({ready:true,metadata:{controller_revision:require('../controller/controller_revision'),behavior:defaults,
    permissions,start_limits:START_LIMITS,difficulty:fixtureDifficulty,minecraft_version:bot.version,
-   profile:'legacy-iron',geometry:{min,max}}});
+   profile:'legacy-iron',geometry:{min,max},event_clock:'monotonic_ms_from_release_send'}});
   for await(const line of readline.createInterface({input:process.stdin})){
    const request=JSON.parse(line);
    if(request.close)break;
