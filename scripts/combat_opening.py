@@ -3,10 +3,11 @@
 import argparse
 import hashlib
 import json
+from math import isfinite
 from pathlib import Path
 import shutil
 import time
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 import torch
 
@@ -19,12 +20,16 @@ REPLICATION_SEEDS = (12668833, 12760363, 12034427, 12100099, 12057153, 12707889,
 DEVELOPMENT_SEEDS = (13300130, 13278258, 13434558, 13656125, 13306912, 13168775, 13905289, 13817830)
 WINDUP_SEEDS = (14529115, 14530703, 14433366, 14510738, 14095068, 14656474,
                 14594426, 14804545, 14463827, 14783290, 14360586, 14121260)
+WINDUP_RECOVERY_SEEDS = (15935999, 15582746, 15503114, 15284927, 15590828, 15025547,
+                         15822388, 15067719, 15934023, 15317740, 15489612, 15294787)
 SAVED = '6b167faf6d664abf34158fe125dff337011c4679f1ef7a9fb0a179610abf30e6'
 ARCHIVE = Path('logs/combat-experience-v1-full')
 PROTOCOL = Path('docs/combat-opening-protocol.md')
 REPLICATION_PROTOCOL = Path('docs/combat-opening-replication-protocol.md')
 WINDUP_PROTOCOL = Path('docs/combat-windup-protocol.md')
+WINDUP_RECOVERY_PROTOCOL = Path('docs/combat-windup-recovery-protocol.md')
 WINDUP_SWINGS = {'existing': 'helper', 'grounded': 'grounded'}
+FIXTURE_HEALTH = 'fixture-health-v1'
 
 
 def eligible(obs):
@@ -72,13 +77,33 @@ class OpeningChoice:
                                          refusal_reason=execution['opening_refusal'])
 
 
-def check_health(expected_pid=None, beginning=False):
+def check_health(expected_pid=None, beginning=False, fixture_health=False):
     if Path('data/lab-stopped').exists():
         raise RuntimeError('Lab intentionally stopped')
-    with urlopen('http://127.0.0.1:8000/status?compact=true', timeout=8) as response:
+    path = '/fixture/health' if fixture_health else '/status?compact=true'
+    headers = {'Host': 'localhost:8000'} if fixture_health else {}
+    request = Request('http://127.0.0.1:8000' + path, headers=headers)
+    with urlopen(request, timeout=8) as response:
+        if fixture_health and (response.status != 200 or response.geturl() != request.full_url):
+            raise RuntimeError('Unexpected narrow fixture health response')
         status = json.load(response)
     server = status['server']
     pid = server.get('pid')
+    if fixture_health:
+        at = status.get('sampled_at_ms')
+        ram = status.get('ram_percent')
+        persistence = status['performance']['persistence']
+        if (status.get('protocol') != FIXTURE_HEALTH or status.get('stopped') is not False or
+                type(at) is not int or not -100 <= time.time() * 1000 - at <= 5000 or
+                type(pid) is not int or pid <= 0 or server.get('ready') is not True or
+                server.get('busy') is not False or server.get('desired_running') is not True or
+                type(server.get('bots_online')) is not int or
+                'error' not in server or server['error'] is not None or
+                type(ram) not in (int, float) or not isfinite(ram) or not 0 <= ram < 86 or
+                type(persistence.get('pending')) is not int or persistence['pending'] < 0 or
+                type(persistence.get('capacity')) is not int or persistence['capacity'] < 1 or
+                'error' not in persistence or persistence['error'] is not None):
+            raise RuntimeError('Invalid, stale, or unhealthy narrow fixture status')
     if (not pid or not server.get('ready') or server.get('busy') or server.get('bots_online') != 8
             or status.get('ram_percent', 100) >= 86 or status['performance']['persistence'].get('error')
             or (expected_pid is not None and pid != expected_pid)):
@@ -87,11 +112,15 @@ def check_health(expected_pid=None, beginning=False):
     if beginning and phase in ('snapshotting', 'restoring'):
         raise RuntimeError('Wait until production terrain preparation completes')
     return dict(pid=pid, ram_percent=status['ram_percent'], world_phase=phase,
-                learning=status['world_learning'].get('phase'), sampled_at=time.time())
+                learning=status['world_learning'].get('phase'), sampled_at=time.time(),
+                persistence_pending=status['performance']['persistence'].get('pending'))
 
 
-def encounter(arena, model, seed, arm, expected_pid, log, head=None):
-    reply = arena.request(reset=True, seed=seed, mob='zombie', expected_pid=expected_pid)
+def encounter(arena, model, seed, arm, expected_pid, log, head=None, fixture_health=False):
+    request = dict(reset=True, seed=seed, mob='zombie', expected_pid=expected_pid)
+    if fixture_health:
+        request['fixture_health'] = True
+    reply = arena.request(**request)
     start = reply.get('start', {})
     log(dict(event='start', start=start))
     if reply.get('done'):
@@ -133,12 +162,14 @@ def encounter(arena, model, seed, arm, expected_pid, log, head=None):
     return row
 
 
-def run(output, replication=False, development_from=None, windup=False):
+def run(output, replication=False, development_from=None, windup=False, fixture_health=False):
     from scripts.combat_opening_evidence import summarize, summarize_development
 
+    if fixture_health and not windup:
+        raise ValueError('Narrow health is preregistered only for the fresh wind-up block')
     if not output.resolve().is_relative_to(Path('logs').resolve()):
         raise ValueError('Output must be inside logs/')
-    status = check_health(beginning=True)
+    status = check_health(beginning=True, fixture_health=fixture_health)
     output.mkdir(parents=True)
     torch.set_num_threads(1)
     reference = output / 'baseline.pt'
@@ -146,7 +177,9 @@ def run(output, replication=False, development_from=None, windup=False):
     model = load_policy(reference).eval()
     if tensor_hash(model) != SAVED:
         raise ValueError('Expected the original archived reference')
-    source = freeze_source(output)
+    archived = ARCHIVE / 'source'
+    controller_source = archived / 'controller' if fixture_health else None
+    source = freeze_source(output, controller_source=controller_source)
     runner = Path(__file__).resolve().relative_to(Path.cwd().resolve())
     paths = [runner, Path('scripts/combat_opening_evidence.py'), PROTOCOL]
     if replication or development_from:
@@ -155,6 +188,8 @@ def run(output, replication=False, development_from=None, windup=False):
         paths.append(Path('scripts/combat_opening_head.py'))
     if windup:
         paths.extend([WINDUP_PROTOCOL, Path('scripts/combat_windup_evidence.py')])
+    if fixture_health:
+        paths.extend([WINDUP_RECOVERY_PROTOCOL, Path('lab/fixture_health.py'), Path('lab/server_control.py')])
     for path in paths:
         destination = output / 'source' / path
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -162,8 +197,9 @@ def run(output, replication=False, development_from=None, windup=False):
         source[path.as_posix()] = hashlib.sha256(destination.read_bytes()).hexdigest()
     # The experiment may add fixture telemetry; the shared actuators and
     # observation code must match those used to freeze this saved reference.
-    archived = ARCHIVE / 'source'
     for path, digest in source.items():
+        if path in ('lab/fixture_health.py', 'lab/server_control.py'):
+            continue  # Health contract, outside observation and actuation.
         if path.startswith(('controller/', 'config/', 'lab/')) or path == 'package-lock.json':
             if not (archived / path).is_file() or hashlib.sha256((archived / path).read_bytes()).hexdigest() != digest:
                 raise ValueError(f'Frozen shared source differs: {path}')
@@ -171,9 +207,9 @@ def run(output, replication=False, development_from=None, windup=False):
     if windup:
         from scripts.combat_windup_evidence import summarize as analyze
 
-        seeds = WINDUP_SEEDS
+        seeds = WINDUP_RECOVERY_SEEDS if fixture_health else WINDUP_SEEDS
         orders = (('existing', 'grounded'), ('grounded', 'existing'))
-        protocol = 'opening-critical-windup'
+        protocol = 'opening-critical-windup-recovery' if fixture_health else 'opening-critical-windup'
     elif development_from:
         from scripts.combat_opening_head import fit
 
@@ -191,7 +227,8 @@ def run(output, replication=False, development_from=None, windup=False):
     plan = [(seed, arm) for i, seed in enumerate(seeds) for arm in orders[i % len(orders)]]
     report = dict(protocol=protocol, training_only=True, seeds=list(seeds), plan=plan,
                   source=source, saved_tensor_sha256=SAVED, start_health=status,
-                  torch_version=str(torch.__version__), rows=[], invalid_attempts=[])
+                  torch_version=str(torch.__version__), health_reader=FIXTURE_HEALTH if fixture_health else 'full-status',
+                  rows=[], invalid_attempts=[])
     if head is not None:
         report['opening_head_sha256'] = hashlib.sha256((output / 'opening-head.json').read_bytes()).hexdigest()
     def save():
@@ -213,17 +250,22 @@ def run(output, replication=False, development_from=None, windup=False):
                 raise RuntimeError('Native frozen-state dashboard retry not verified')
             if windup and metadata.get('opening_swing') != list(WINDUP_SWINGS.values()):
                 raise RuntimeError('Native opening swing treatments not verified')
+            if fixture_health and metadata.get('fixture_health') != FIXTURE_HEALTH:
+                raise RuntimeError('Native narrow fixture health reader not verified')
+            if fixture_health and metadata.get('controller_revision') != '4845ba27313939f0':
+                raise RuntimeError('Archived combat controller revision not verified')
             report['arena'] = metadata
             save()
             for seed, arm in plan:
                 if time.monotonic() >= deadline:
                     raise RuntimeError('Training-only experiment budget elapsed')
                 active = dict(seed=seed, arm=arm)
-                health = check_health(status['pid'])
+                health = check_health(status['pid'], fixture_health=fixture_health)
                 def log(row):
                     stream.write(json.dumps({**active, **row}, allow_nan=False) + '\n')
                 log(dict(event='preflight', health=health))
-                row = encounter(arena, model, seed, arm, status['pid'], log, head=head)
+                row = encounter(arena, model, seed, arm, status['pid'], log, head=head,
+                                fixture_health=fixture_health)
                 report['rows'].append(row)
                 active = None
                 save()
@@ -246,9 +288,11 @@ def run(output, replication=False, development_from=None, windup=False):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=Path, help='New directory under logs/')
+    parser.add_argument('--fixture-health', action='store_true', help='Require the live narrow health endpoint')
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--replication', action='store_true', help='Use fresh, preregistered replication starts')
     mode.add_argument('--development-from', type=Path, help='Passing replication report.json for fitting')
     mode.add_argument('--windup', action='store_true', help='Compare critical and grounded opening helpers')
     args = parser.parse_args()
-    run(args.output, replication=args.replication, development_from=args.development_from, windup=args.windup)
+    run(args.output, replication=args.replication, development_from=args.development_from, windup=args.windup,
+        fixture_health=args.fixture_health)

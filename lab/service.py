@@ -26,6 +26,7 @@ from .config import AGENT_COUNT, EPISODES_PER_AGENT, EXPECTED_EPISODES, LANE_END
 from .observers import Observers, observer_progress
 from .camera_input import CameraInput
 from .dashboard_state import world_view, learning_view, compact_status
+from .fixture_health import fixture_health, fixture_health_router
 from .world_training import WorldTraining, SCENARIOS, LEVELS, readiness
 from .bot_lights import BotLights
 from .efficiency import completion_timing
@@ -446,6 +447,11 @@ async def lifespan(app):
     persistence.close()
     with lock:db.close()
 app=FastAPI(lifespan=lifespan)
+app.include_router(fixture_health_router(lambda:fixture_health(
+    process=lambda:server,ready_seen=lambda:server_ready_seen,lifecycle=server_control.fixture_lifecycle,
+    agents=lambda:list(agents.values()),memory=lambda:psutil.virtual_memory().percent,persistence=persistence.snapshot,
+    world=lambda:world_training.session,learning=lambda:world_learning.state,mode=lambda:mode,
+    stopped=lambda:(ROOT/'data/lab-stopped').exists())))
 def auth(request:Request,x_lab_token:str=Header(default='')):
     if request.headers.get('origin') not in (None,'http://127.0.0.1:8000','http://localhost:8000'):raise HTTPException(403,'Invalid origin')
     credential=x_lab_token or request.cookies.get('lab_session','')

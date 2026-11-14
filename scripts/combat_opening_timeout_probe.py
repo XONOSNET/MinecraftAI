@@ -33,9 +33,10 @@ def verify_dashboard_cleanup(pid):
     raise RuntimeError('Dashboard did not confirm native fixture disconnect and deop')
 
 
-def probe(mode):
+def probe(mode, fixture_health=False):
     seed = 16_000_001 if mode == 'exhaust' else 16_000_002
-    log = Path('logs') / f'combat-opening-timeout-{mode}.jsonl'
+    reader = 'narrow-contract-' if fixture_health else ''
+    log = Path('logs') / f'combat-opening-timeout-{reader}{mode}.jsonl'
     before = status()
     server = before['server']
     pid = server['pid']
@@ -48,8 +49,10 @@ def probe(mode):
             run = subprocess.Popen(['node', '--require', './scripts/combat_opening_timeout_preload.cjs',
                                     'scripts/combat_trial.cjs'], stdin=subprocess.PIPE,
                                    stdout=subprocess.PIPE, text=True, encoding='utf-8',
-                                   env={**os.environ, 'COMBAT_TIMEOUT_PROBE': mode})
-            request = json.dumps(dict(reset=True, seed=seed, mob='zombie', expected_pid=pid)) + '\n'
+                                    env={**os.environ, 'COMBAT_TIMEOUT_PROBE': mode,
+                                         'COMBAT_NARROW_CONTRACT_PROBE': str(int(fixture_health))})
+            request = json.dumps(dict(reset=True, seed=seed, mob='zombie', expected_pid=pid,
+                                      fixture_health=fixture_health)) + '\n'
             try:
                 # EOF follows reset. There is no action or mob release request.
                 output, _ = run.communicate(request, timeout=135)
@@ -78,12 +81,17 @@ def probe(mode):
     else:
         assert attempts == ['TimeoutError', 'received']
         assert not reply['done'] and len(reply['observation']) == 82 and run.returncode == 0
+        if fixture_health:
+            assert start['server']['pid'] == pid and start['server']['bots_online'] == 8
+            assert start['server']['persistence_error'] is None and start['server']['persistence_pending'] >= 0
     verify_dashboard_cleanup(pid)
-    return dict(mode=mode, seed=seed, attempts=attempts, release_sent=False,
+    return dict(mode=mode, reader=reader or 'full-status', seed=seed, attempts=attempts, release_sent=False,
                 cleaned=True, deopped=True, server_pid=pid, output=str(log))
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('mode', choices=['recover', 'exhaust'])
-    print(json.dumps(probe(parser.parse_args().mode)))
+    parser.add_argument('--fixture-health', action='store_true', help='Inject faults into isolated narrow health contract')
+    args = parser.parse_args()
+    print(json.dumps(probe(args.mode, args.fixture_health)))

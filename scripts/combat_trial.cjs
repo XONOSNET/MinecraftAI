@@ -8,6 +8,7 @@ const {scan}=require('../controller/perception'),{createMotor}=require('../contr
 const {defaults}=require('../controller/behavior');
 const {CONTROL_KEYS,START_LIMITS,FROZEN_DASHBOARD_RETRY,OPENING_SWINGS,pose,distance:poseDistance,wrap,frozenStartIssue,
  sampleFrozenDashboard,openingAttackTask,healthUpdate,recordEvent,sampleControls}=require('./combat_execution.cjs');
+const {FIXTURE_HEALTH,sampleFixtureHealth}=require('./combat_fixture_health.cjs');
 const user='LabCombatRL',tag='lab_rl_fixture',center=1500,z=-1500,y=211;
 const min=[center-13,y-1,z-4],max=[center+13,y+4,z+4];
 const cleanupOnly=process.argv.includes('--clean-only');
@@ -185,7 +186,7 @@ async function setup(){
  assert.equal(bot.blockAt(floor)?.name,'sea_lantern',parsedMessages.join(' | '));
  fixtureDifficulty=await difficulty();
 }
-async function reset(seed,mob,expectedPid){
+async function reset(seed,mob,expectedPid,fixtureHealth){
  if(!['zombie','skeleton'].includes(mob)||!Number.isSafeInteger(seed)||seed<0)throw Error('Invalid encounter');
  motor.pause();current=null;
  if(bot.health===0)await wait(500);
@@ -227,7 +228,8 @@ async function reset(seed,mob,expectedPid){
   damageEvents:0,targetHurts:0,enemyId:enemy.id,enemy,flag,events:[],releaseMonotonic:null,activeDecision:null};
  current.startInfo={requested:{player_position:playerPos,player_yaw_degrees:yaw,target_position:enemyPos},
   verified,mob,arena:{min,max,floor:'sea_lantern',walls:'glass'}};
- const {server,attempts,issue}=await sampleFrozenDashboard(serverConditions,()=>verifyFrozenStart(current),wait);
+ const sample=fixtureHealth?timeout=>sampleFixtureHealth(timeout,expectedPid):serverConditions;
+ const {server,attempts,issue}=await sampleFrozenDashboard(sample,()=>verifyFrozenStart(current),wait);
  const actual=frozenSnapshot(combat.target(bot,task),flag);
  current.preparedAt=Date.now();
  Object.assign(current.startInfo,{difficulty:bot.game.difficulty??fixtureDifficulty,prepared_at_ms:current.preparedAt,
@@ -371,11 +373,11 @@ async function main(){
   output({ready:true,metadata:{controller_revision:require('../controller/controller_revision'),behavior:defaults,
    permissions,start_limits:START_LIMITS,difficulty:fixtureDifficulty,minecraft_version:bot.version,
    profile:'legacy-iron',geometry:{min,max},event_clock:'monotonic_ms_from_release_send',
-   frozen_dashboard_retry:FROZEN_DASHBOARD_RETRY,opening_swing:OPENING_SWINGS}});
+   frozen_dashboard_retry:FROZEN_DASHBOARD_RETRY,opening_swing:OPENING_SWINGS,fixture_health:FIXTURE_HEALTH}});
   for await(const line of readline.createInterface({input:process.stdin})){
    const request=JSON.parse(line);
    if(request.close)break;
-   const reply=request.reset?await reset(request.seed,request.mob,request.expected_pid):await step(request.action,request.opening_swing);
+   const reply=request.reset?await reset(request.seed,request.mob,request.expected_pid,request.fixture_health===true):await step(request.action,request.opening_swing);
    if(reply.stop_fixture){
     failedFrozenHealthCheck=reply.health_check_failed;
     output(reply);failure=Error(reply.invalid_reason);break;

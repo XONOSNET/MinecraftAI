@@ -1,5 +1,11 @@
 import random
+import io
+import json
+import time
 
+import pytest
+
+from scripts import combat_opening
 from scripts.combat_opening import DEVELOPMENT_SEEDS, OpeningChoice, REPLICATION_SEEDS, SEEDS, WINDUP_SEEDS, eligible
 
 
@@ -68,6 +74,7 @@ def test_learned_choice_can_decline_and_is_called_once():
 
 def test_windup_arms_require_footing_and_apply_their_helper_once():
     assert WINDUP_SEEDS == tuple(random.Random(170214).sample(range(14_000_000, 15_000_000), 12))
+    assert combat_opening.WINDUP_RECOVERY_SEEDS == tuple(random.Random(170215).sample(range(15_000_000, 16_000_000), 12))
     for swing in ('helper', 'grounded'):
         obs = observation()
         selector = OpeningChoice(intervene=True, opening_swing=swing)
@@ -80,3 +87,36 @@ def test_windup_arms_require_footing_and_apply_their_helper_once():
         assert selector.intervention['underlying_action'] == 6
         assert selector.intervention['refusal_reason'] == 'lost_grounding'
         assert selector.request(selector.pick(obs, 6, 3), 3) == {'action': 6}
+
+
+def test_narrow_preflight_requires_fresh_owned_server_and_explicit_persistence(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    state = dict(protocol='fixture-health-v1', sampled_at_ms=int(time.time() * 1000), stopped=False,
+                 ram_percent=80, server=dict(pid=42, ready=True, busy=False, desired_running=True,
+                                             error=None, bots_online=8),
+                 performance=dict(persistence=dict(pending=1, capacity=2048, error=None)),
+                 world_training=dict(session=dict(phase='running')), world_learning=dict(phase='baseline'))
+
+    def open_fixture(request, timeout):
+        assert request.full_url == 'http://127.0.0.1:8000/fixture/health'
+        assert request.headers['Host'] == 'localhost:8000'
+        assert timeout == 8
+        response = io.BytesIO(json.dumps(state).encode())
+        response.status = 200
+        response.geturl = lambda: request.full_url
+        return response
+
+    monkeypatch.setattr(combat_opening, 'urlopen', open_fixture)
+    assert combat_opening.check_health(42, fixture_health=True)['pid'] == 42
+    with pytest.raises(RuntimeError, match='health limit'):
+        combat_opening.check_health(43, fixture_health=True)
+    state['world_training']['session']['phase'] = 'restoring'
+    with pytest.raises(RuntimeError, match='terrain preparation'):
+        combat_opening.check_health(42, beginning=True, fixture_health=True)
+    state['performance']['persistence'].pop('error')
+    with pytest.raises(RuntimeError, match='Invalid, stale, or unhealthy'):
+        combat_opening.check_health(42, fixture_health=True)
+    state['performance']['persistence']['error'] = None
+    state['sampled_at_ms'] -= 6000
+    with pytest.raises(RuntimeError, match='Invalid, stale, or unhealthy'):
+        combat_opening.check_health(42, fixture_health=True)

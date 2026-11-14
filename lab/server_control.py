@@ -20,6 +20,11 @@ class ServerControl:
     def _update(self, **fields):
         with self._lock:self._state.update(fields)
 
+    def fixture_lifecycle(self):
+        """Return lifecycle flags without touching process readiness or the console log."""
+        fields=('phase','busy','desired_running','error','started_at','finished_at')
+        with self._lock:return {key:self._state.get(key) for key in fields}
+
     def snapshot(self):
         with self._lock:state=copy.deepcopy(self._state)
         alive=self.alive()

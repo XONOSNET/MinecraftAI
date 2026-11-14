@@ -57,17 +57,20 @@ def start_plan(seed, smoke, excluded=(), retention=False):
     return plan
 
 
-def freeze_source(output):
+def freeze_source(output, controller_source=None):
     root = output / 'source'
     hashes = {}
-    for path in [*Path('controller').glob('*.js'),
+    controller = Path('controller')
+    frozen_controller = controller_source or controller
+    for path in [*(controller / file.name for file in sorted(frozen_controller.glob('*.js'))),
                  *(Path('config') / name for name in ('behavior-schema.json', 'mining.json',
                    'survival-progression.json', 'house.json', 'world-resources.json')),
                  *(Path('scripts') / name for name in ('combat_trial.cjs', 'combat_execution.cjs',
-                   'combat_autonomy.py')), Path('package-lock.json'), Path('lab/model.py')]:
+                   'combat_fixture_health.cjs', 'combat_autonomy.py')), Path('package-lock.json'), Path('lab/model.py')]:
         target = root / path
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(path, target)
+        source = frozen_controller / path.name if path.parent == controller else path
+        shutil.copyfile(source, target)
         hashes[path.as_posix()] = hashlib.sha256(target.read_bytes()).hexdigest()
     return hashes
 
