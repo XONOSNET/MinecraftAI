@@ -6,8 +6,8 @@ const mineflayer=require('mineflayer'),{Vec3}=require('vec3');
 const combat=require('../controller/combat'),tasks=require('../controller/tasks');
 const {scan}=require('../controller/perception'),{createMotor}=require('../controller/locomotion');
 const {defaults}=require('../controller/behavior');
-const {CONTROL_KEYS,START_LIMITS,FROZEN_DASHBOARD_RETRY,pose,distance:poseDistance,wrap,frozenStartIssue,
- sampleFrozenDashboard,healthUpdate,recordEvent,sampleControls}=require('./combat_execution.cjs');
+const {CONTROL_KEYS,START_LIMITS,FROZEN_DASHBOARD_RETRY,OPENING_SWINGS,pose,distance:poseDistance,wrap,frozenStartIssue,
+ sampleFrozenDashboard,openingAttackTask,healthUpdate,recordEvent,sampleControls}=require('./combat_execution.cjs');
 const user='LabCombatRL',tag='lab_rl_fixture',center=1500,z=-1500,y=211;
 const min=[center-13,y-1,z-4],max=[center+13,y+4,z+4];
 const cleanupOnly=process.argv.includes('--clean-only');
@@ -256,8 +256,8 @@ function observe(){
  if(!c.steps&&(dead||c.damage>0))return terminal('damage before first decision',false);
  if(win||dead||escaped||c.start!==null&&Date.now()-c.start>=30000||c.steps>=250)return terminal(dead?'death':win?'win':escaped?'escaped':c.steps>=250?'step limit':'time limit');
  const sensed=combat.observe(bot,c.task,c.runtime),rays=scan(bot);
- c.sensed=sensed;c.proximity=rays.proximity;
- return {done:false,damage:c.damage,observation:[...rays.pooled,Math.sin(sensed.angle),Math.cos(sensed.angle),Math.min(sensed.distance/32,1),bot.health/20,bot.food/20,Number(!!bot.entity.onGround),...sensed.extra],
+ c.sensed=sensed;c.proximity=rays.proximity;c.observedGrounded=bot.entity.onGround===true;
+ return {done:false,damage:c.damage,observation:[...rays.pooled,Math.sin(sensed.angle),Math.cos(sensed.angle),Math.min(sensed.distance/32,1),bot.health/20,bot.food/20,Number(c.observedGrounded),...sensed.extra],
   teacher:combat.teacher(sensed,c.task)};
 }
 async function endEncounter(reply){
@@ -267,10 +267,11 @@ async function endEncounter(reply){
  }
  return reply;
 }
-async function step(action){
+async function step(action,openingSwing){
  const receivedAt=performance.now();
  if(!Number.isInteger(action)||action<0||action>6)throw Error('Invalid combat action');
  const c=current,s=c.sensed;
+ const attackTask=openingAttackTask(c,openingSwing,action);
  const eventOffset=c.events.length,decision=c.steps+1;
  let proposal;
  let verifyRelease;
@@ -304,7 +305,21 @@ async function step(action){
  if([4,5,6].includes(action)){
   if(action!==4)motor.pause();
   motor.lockLook(true);
-  try{execution.interaction=await combat.interact(bot,c.task,s,c.runtime,action,permissions);}
+  try{
+   if(openingSwing!==undefined){
+    const grounded=bot.entity.onGround===true;
+    Object.assign(execution,{opening_swing:openingSwing,opening_grounded:grounded,
+     opening_refusal:grounded?null:'lost_grounding',opening_critical_windup:false});
+    if(grounded){
+     const priorCritical=bot.labCriticalAttack;
+     const interaction=combat.interact(bot,attackTask,s,c.runtime,action,permissions);
+     // The native critical helper sets its state before its first await, even
+     // when the final reach or sight check later prevents a swing.
+     execution.opening_critical_windup=!!bot.labCriticalAttack&&bot.labCriticalAttack!==priorCritical;
+     execution.interaction=await interaction;
+    }else execution.interaction=false;
+   }else execution.interaction=await combat.interact(bot,attackTask,s,c.runtime,action,permissions);
+  }
   finally{motor.lockLook(false);}
  }else if(bot.usingHeldItem)bot.deactivateItem();
  c.steps++;await wait(100);
@@ -356,11 +371,11 @@ async function main(){
   output({ready:true,metadata:{controller_revision:require('../controller/controller_revision'),behavior:defaults,
    permissions,start_limits:START_LIMITS,difficulty:fixtureDifficulty,minecraft_version:bot.version,
    profile:'legacy-iron',geometry:{min,max},event_clock:'monotonic_ms_from_release_send',
-   frozen_dashboard_retry:FROZEN_DASHBOARD_RETRY}});
+   frozen_dashboard_retry:FROZEN_DASHBOARD_RETRY,opening_swing:OPENING_SWINGS}});
   for await(const line of readline.createInterface({input:process.stdin})){
    const request=JSON.parse(line);
    if(request.close)break;
-   const reply=request.reset?await reset(request.seed,request.mob,request.expected_pid):await step(request.action);
+   const reply=request.reset?await reset(request.seed,request.mob,request.expected_pid):await step(request.action,request.opening_swing);
    if(reply.stop_fixture){
     failedFrozenHealthCheck=reply.health_check_failed;
     output(reply);failure=Error(reply.invalid_reason);break;

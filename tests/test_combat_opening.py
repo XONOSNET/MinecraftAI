@@ -1,6 +1,6 @@
 import random
 
-from scripts.combat_opening import DEVELOPMENT_SEEDS, OpeningChoice, REPLICATION_SEEDS, SEEDS, eligible
+from scripts.combat_opening import DEVELOPMENT_SEEDS, OpeningChoice, REPLICATION_SEEDS, SEEDS, WINDUP_SEEDS, eligible
 
 
 def observation():
@@ -64,3 +64,19 @@ def test_learned_choice_can_decline_and_is_called_once():
     assert selector.pick(obs, 2, 2, [2]) == 2
     assert calls == [(obs, [1])]
     assert selector.intervention is None
+
+
+def test_windup_arms_require_footing_and_apply_their_helper_once():
+    assert WINDUP_SEEDS == tuple(random.Random(170214).sample(range(14_000_000, 15_000_000), 12))
+    for swing in ('helper', 'grounded'):
+        obs = observation()
+        selector = OpeningChoice(intervene=True, opening_swing=swing)
+        assert selector.request(selector.pick(obs, 2, 1), 1) == {'action': 2}
+        obs[69] = 1
+        assert selector.request(selector.pick(obs, 6, 2), 2) == {'action': 6, 'opening_swing': swing}
+        selector.acknowledge(2, dict(interaction=False, attack_requests=0, critical_attempts=0,
+                                     opening_swing=swing, opening_grounded=False,
+                                     opening_critical_windup=False, opening_refusal='lost_grounding'))
+        assert selector.intervention['underlying_action'] == 6
+        assert selector.intervention['refusal_reason'] == 'lost_grounding'
+        assert selector.request(selector.pick(obs, 6, 3), 3) == {'action': 6}

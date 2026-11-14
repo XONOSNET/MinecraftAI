@@ -1,6 +1,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {CONTROL_KEYS,startIssue,frozenStartIssue,sampleFrozenDashboard,healthUpdate,recordEvent,
+const {CONTROL_KEYS,startIssue,frozenStartIssue,sampleFrozenDashboard,openingAttackTask,healthUpdate,recordEvent,
  sampleControls}=require('../scripts/combat_execution.cjs');
 
 test('matched start rejects predecision damage and drift, but accepts wrapped yaw',()=>{
@@ -67,6 +67,23 @@ test('frozen dashboard retry aborts if the verified start changes during backoff
  },()=>issue,()=>assert.fail('Changed state must stop immediately'));
  assert.equal(changed.attempts.length,1);
  assert.equal(changed.issue,'target unfrozen before first decision');
+});
+
+test('opening swing can omit only the critical wind-up and only for one observed eligible action',()=>{
+ const task=Object.freeze({critical_hits:true,weapon:'iron_sword',bounds:[0,10,0,10]});
+ const sensed={distance:3,sight:true,enemy:{id:9},gear:{weapon:true},cooldown:0};
+ const fresh=()=>({task,sensed,observedGrounded:true});
+ const grounded=fresh();
+ assert.equal(openingAttackTask(grounded,undefined,6),task);
+ const swing=openingAttackTask(grounded,'grounded',6);
+ assert.deepEqual(swing,{...task,critical_hits:false});
+ assert.equal(swing.bounds,task.bounds);
+ assert.equal(openingAttackTask(grounded,undefined,6),task);
+ assert.throws(()=>openingAttackTask(grounded,'grounded',6),/repeated/);
+ assert.equal(openingAttackTask(fresh(),'helper',6),task);
+ assert.throws(()=>openingAttackTask(fresh(),'helper',2),/Invalid/);
+ assert.throws(()=>openingAttackTask({...fresh(),observedGrounded:false},'helper',6),/grounded/);
+ assert.throws(()=>openingAttackTask({...fresh(),sensed:{...sensed,cooldown:.1}},'grounded',6),/eligible/);
 });
 
 test('native health updates preserve gross damage across healing and do not count respawn as damage',()=>{

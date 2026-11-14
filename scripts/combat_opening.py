@@ -17,10 +17,14 @@ SEEDS = (10311180, 10737471, 10192716, 10572246, 10362703, 10882707,
 REPLICATION_SEEDS = (12668833, 12760363, 12034427, 12100099, 12057153, 12707889,
                      12270827, 12480339, 12906348, 12097883, 12074184, 12094710)
 DEVELOPMENT_SEEDS = (13300130, 13278258, 13434558, 13656125, 13306912, 13168775, 13905289, 13817830)
+WINDUP_SEEDS = (14529115, 14530703, 14433366, 14510738, 14095068, 14656474,
+                14594426, 14804545, 14463827, 14783290, 14360586, 14121260)
 SAVED = '6b167faf6d664abf34158fe125dff337011c4679f1ef7a9fb0a179610abf30e6'
 ARCHIVE = Path('logs/combat-experience-v1-full')
 PROTOCOL = Path('docs/combat-opening-protocol.md')
 REPLICATION_PROTOCOL = Path('docs/combat-opening-replication-protocol.md')
+WINDUP_PROTOCOL = Path('docs/combat-windup-protocol.md')
+WINDUP_SWINGS = {'existing': 'helper', 'grounded': 'grounded'}
 
 
 def eligible(obs):
@@ -29,14 +33,16 @@ def eligible(obs):
 
 
 class OpeningChoice:
-    def __init__(self, intervene, head=None):
+    def __init__(self, intervene, head=None, opening_swing=None):
         self.intervene = intervene
         self.head = head
+        self.opening_swing = opening_swing
         self.first = None
         self.intervention = None
 
     def pick(self, observation, underlying, decision, logits=None):
-        if self.first is None and eligible(observation):
+        if (self.first is None and eligible(observation) and
+                (self.opening_swing is None or observation[69] == 1)):
             self.first = dict(decision=decision, underlying_action=underlying,
                               range_blocks=observation[66] * 32)
             if self.intervene or (self.head is not None and self.head(observation, logits)):
@@ -44,10 +50,26 @@ class OpeningChoice:
                 return 6
         return underlying
 
+    def request(self, action, decision):
+        request = dict(action=action)
+        if self.opening_swing and self.intervention and self.intervention['decision'] == decision:
+            request['opening_swing'] = self.opening_swing
+        return request
+
     def acknowledge(self, decision, execution):
         if self.intervention and self.intervention['decision'] == decision:
             self.intervention.update(helper_accepted=execution.get('interaction'),
                                      attack_requests=execution['attack_requests'])
+            if self.opening_swing:
+                if (execution.get('opening_swing') != self.opening_swing or
+                        not isinstance(execution.get('opening_grounded'), bool) or
+                        not isinstance(execution.get('opening_critical_windup'), bool) or
+                        'opening_refusal' not in execution):
+                    raise RuntimeError('Native opening swing acknowledgement missing')
+                self.intervention.update(critical_windup=execution['opening_critical_windup'],
+                                         critical_attempts=execution['critical_attempts'],
+                                         grounded_at_proposal=execution['opening_grounded'],
+                                         refusal_reason=execution['opening_refusal'])
 
 
 def check_health(expected_pid=None, beginning=False):
@@ -79,7 +101,9 @@ def encounter(arena, model, seed, arm, expected_pid, log, head=None):
             not server.get('ready') or server.get('busy') or server.get('pid') != expected_pid or
             server.get('ram_percent', 100) >= 86 or time.time() * 1000 - server.get('sampled_at_ms', 0) > 60_000):
         raise RuntimeError('Missing verified native start or unhealthy server sample')
-    selection = OpeningChoice(arm == 'opening', head if arm == 'learned' else None)
+    swing = WINDUP_SWINGS.get(arm)
+    selection = OpeningChoice(arm == 'opening' or swing is not None,
+                              head if arm == 'learned' else None, opening_swing=swing)
     decision = 0
     while not reply['done']:
         decision += 1
@@ -88,7 +112,8 @@ def encounter(arena, model, seed, arm, expected_pid, log, head=None):
             logits = model(torch.tensor(observation, dtype=torch.float32))
             underlying = int(logits.argmax())
         action = selection.pick(observation, underlying, decision, logits)
-        after = arena.request(action=action)
+        request = selection.request(action, decision)
+        after = arena.request(**request)
         execution = after.get('execution')
         log(dict(event='decision', decision=decision, observation=observation, saved_action=underlying,
                  proposed=action, execution=execution, damage_before=reply['damage'],
@@ -108,7 +133,7 @@ def encounter(arena, model, seed, arm, expected_pid, log, head=None):
     return row
 
 
-def run(output, replication=False, development_from=None):
+def run(output, replication=False, development_from=None, windup=False):
     from scripts.combat_opening_evidence import summarize, summarize_development
 
     if not output.resolve().is_relative_to(Path('logs').resolve()):
@@ -128,6 +153,8 @@ def run(output, replication=False, development_from=None):
         paths.append(REPLICATION_PROTOCOL)
     if development_from:
         paths.append(Path('scripts/combat_opening_head.py'))
+    if windup:
+        paths.extend([WINDUP_PROTOCOL, Path('scripts/combat_windup_evidence.py')])
     for path in paths:
         destination = output / 'source' / path
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -141,7 +168,13 @@ def run(output, replication=False, development_from=None):
             if not (archived / path).is_file() or hashlib.sha256((archived / path).read_bytes()).hexdigest() != digest:
                 raise ValueError(f'Frozen shared source differs: {path}')
     head = None
-    if development_from:
+    if windup:
+        from scripts.combat_windup_evidence import summarize as analyze
+
+        seeds = WINDUP_SEEDS
+        orders = (('existing', 'grounded'), ('grounded', 'existing'))
+        protocol = 'opening-critical-windup'
+    elif development_from:
         from scripts.combat_opening_head import fit
 
         head = fit(model, development_from, output / 'opening-head.json')
@@ -176,8 +209,10 @@ def run(output, replication=False, development_from=None):
             if (not ready.get('ready') or metadata.get('difficulty') not in ('normal', 2) or
                     metadata.get('event_clock') != 'monotonic_ms_from_release_send'):
                 raise RuntimeError('Native arena difficulty or event clock not verified')
-            if (replication or development_from) and metadata.get('frozen_dashboard_retry') != dict(timeout_ms=1500, retries=2, delay_ms=250):
+            if (replication or development_from or windup) and metadata.get('frozen_dashboard_retry') != dict(timeout_ms=1500, retries=2, delay_ms=250):
                 raise RuntimeError('Native frozen-state dashboard retry not verified')
+            if windup and metadata.get('opening_swing') != list(WINDUP_SWINGS.values()):
+                raise RuntimeError('Native opening swing treatments not verified')
             report['arena'] = metadata
             save()
             for seed, arm in plan:
@@ -214,5 +249,6 @@ if __name__ == '__main__':
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--replication', action='store_true', help='Use fresh, preregistered replication starts')
     mode.add_argument('--development-from', type=Path, help='Passing replication report.json for fitting')
+    mode.add_argument('--windup', action='store_true', help='Compare critical and grounded opening helpers')
     args = parser.parse_args()
-    run(args.output, replication=args.replication, development_from=args.development_from)
+    run(args.output, replication=args.replication, development_from=args.development_from, windup=args.windup)

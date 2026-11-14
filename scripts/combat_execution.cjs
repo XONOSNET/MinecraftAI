@@ -5,6 +5,7 @@ const {isDeepStrictEqual}=require('node:util');
 const START_LIMITS=Object.freeze({player_blocks:.08,yaw_radians:Math.PI/360,
  target_blocks:.35,release_ms:500});
 const FROZEN_DASHBOARD_RETRY=Object.freeze({timeout_ms:1500,retries:2,delay_ms:250});
+const OPENING_SWINGS=Object.freeze(['helper','grounded']);
 const wrap=angle=>Math.atan2(Math.sin(angle),Math.cos(angle));
 const distance=(a,b)=>Math.hypot(...a.map((value,index)=>value-b[index]));
 function pose(entity){
@@ -57,6 +58,18 @@ async function sampleFrozenDashboard(sample,checkStart,wait){
  }
  return {server,attempts,issue:null};
 }
+function openingAttackTask(encounter,mode,action){
+ if(mode===undefined)return encounter.task;
+ if(!OPENING_SWINGS.includes(mode)||action!==6||encounter.openingUsed){
+  throw Error('Invalid or repeated experimental opening attack');
+ }
+ const {enemy,gear,distance,sight,cooldown}=encounter.sensed;
+ if(!encounter.observedGrounded||!enemy||!gear.weapon||!(distance<=3)||!sight||cooldown!==0){
+  throw Error('Experimental opening attack requires a grounded eligible observation');
+ }
+ encounter.openingUsed=true;
+ return mode==='grounded'?{...encounter.task,critical_hits:false}:encounter.task;
+}
 function healthUpdate(encounter,health){
  const loss=Math.max(0,encounter.health-health);
  if(loss>0){encounter.damage+=loss;encounter.damageEvents++;}
@@ -77,5 +90,5 @@ function sampleControls(execution,controls,usingItem){
  for(const key of CONTROL_KEYS)if(controls[key])execution.controls_ticks[key]++;
  if(usingItem)execution.held_item_ticks++;
 }
-module.exports={CONTROL_KEYS,START_LIMITS,FROZEN_DASHBOARD_RETRY,pose,distance,wrap,startIssue,frozenStartIssue,
- sampleFrozenDashboard,healthUpdate,recordEvent,sampleControls};
+module.exports={CONTROL_KEYS,START_LIMITS,FROZEN_DASHBOARD_RETRY,OPENING_SWINGS,pose,distance,wrap,startIssue,frozenStartIssue,
+ sampleFrozenDashboard,openingAttackTask,healthUpdate,recordEvent,sampleControls};
