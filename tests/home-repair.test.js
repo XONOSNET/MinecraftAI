@@ -19,7 +19,7 @@ function fixture(milestones=['hut']){
   if(name==='white_bed'){assert.ok(items.white_wool>=3);items.white_wool-=3;}
   items[name]=(items[name]||0)+(name.endsWith('_door')?3:1);
  };
- b.look=async()=>{};b._placeBlockWithOptions=async(support,face)=>{const p=support.position.plus(face);assert.ok(items.white_bed>0);items.white_bed--;set(p,'white_bed',{part:'foot'});set(p.offset(0,0,1),'white_bed',{part:'head'});};
+ b.look=async()=>{};b.waitForTicks=async()=>{};b._placeBlockWithOptions=async(support,face)=>{const p=support.position.plus(face);assert.ok(items.white_bed>0);items.white_bed--;set(p,'white_bed',{part:'foot'});set(p.offset(0,0,1),'white_bed',{part:'head'});};
  b.placeBlock=async(support,face)=>{assert.ok(items.torch>0);items.torch--;set(support.position.plus(face),'wall_torch',{facing:face.x===1?'east':'north'});};
  b.dig=async v=>set(v.position,'air');
  return {t,b,cells,items,set,motor:{pause(){}},state:{world:{bounds:[-30,30,-30,30]}}};
@@ -82,6 +82,27 @@ test('replacement furnishings are crafted and verified, the chest is restocked a
  for(let i=0;i<100;i++){await repair.tick(f.t,f.b,f.motor,f.state,async(path,data)=>{assert.equal(path,'/world/survival');assert.equal(data.action,'home');calls.push('home');return {position:data.position};});if(!f.t.homeRepair)break;}
  assert.equal(f.t.homeRepair,null);assert.equal(repair.inspect(f.t,f.b).missing.length,0);assert.deepEqual(calls,['stock','home']);assert.deepEqual(f.t.milestones,milestones);assert.equal(f.items.cobblestone,0);assert.equal(f.items.white_wool,0);
  assert.equal(f.items.oak_planks,0,'exact recipe and restocking budget must suffice without another wood trip');
+});
+test('replacement bed waits for facing and retries a refused click from another supported stance',async ctx=>{
+ const f=fixture(['hut','bed_home']),foot=house.point(f.t.plot,'bed'),head=foot.offset(0,0,1);
+ const q={x:foot.x,y:foot.y,z:foot.z,kind:'bed'};
+ f.set(foot,'air');f.set(head,'air');f.set(head.offset(0,-1,0),'air');
+ assert.equal(repair.safe(f.t,f.b,q,true),false);
+ f.set(head.offset(0,-1,0),'oak_planks');f.items.white_bed=1;
+ ctx.mock.method(inventory,'equip',async()=>{});
+ let settled=false;const attempts=[],place=f.b._placeBlockWithOptions;
+ f.b.look=async yaw=>{assert.equal(yaw,Math.PI);settled=false;};
+ f.b.waitForTicks=async ticks=>{assert.equal(ticks,2);settled=true;};
+ f.b._placeBlockWithOptions=async(...args)=>{
+  assert.ok(settled);attempts.push(f.b.entity.position.floored().toArray());
+  if(attempts.length===1)throw Error('Server refused to place white_bed: the block is still air');
+  await place(...args);
+ };
+ await repair.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.homeRepair.repaired,0);
+ for(let i=0;i<8&&attempts.length<2;i++)await repair.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(attempts.length,2);assert.notDeepEqual(attempts[0],attempts[1]);
+ assert.equal(repair.matches(f.b,q),true);assert.equal(f.t.homeRepair.repaired,1);
 });
 test('repair guards reject fluids, player overlap, and digging a floor under the bot',()=>{
  const f=fixture(),q={x:1,y:63,z:0,floor:true};assert.equal(repair.safe(f.t,f.b,q),true);

@@ -77,7 +77,7 @@ function stance(t,b,q,state){
  const target=new Vec3(q.x,q.y,q.z),p=b.entity.position,candidates=[];
  const id=[q.x,q.y,q.z].join(','),excluded=t.homeRepair?.failedStances?.get(id)||new Set();
  const wetRim=q.terrain&&sideWater(b,target);
- const valid=(g,standing=new Vec3(g[0]+.5,g[1],g[2]+.5),margin=0)=>!excluded.has(g.join(','))&&!overlaps(q,standing)&&(!wetRim||footing(b,standing))&&nav.standable(b,...g)&&space.clearOfPlayers(b,standing)&&placement.references(b,q,{standing}).some(ref=>ref.point.distanceTo(standing.offset(0,b.entity.eyeHeight||1.62,0))<=4.2-margin);
+ const valid=(g,standing=new Vec3(g[0]+.5,g[1],g[2]+.5),margin=0)=>!excluded.has(g.join(','))&&!overlaps(q,standing)&&(!wetRim||footing(b,standing))&&nav.standable(b,...g)&&space.clearOfPlayers(b,standing)&&placement.references(b,q,{standing}).some(ref=>(q.kind!=='bed'||ref.face.y===1)&&ref.point.distanceTo(standing.offset(0,b.entity.eyeHeight||1.62,0))<=4.2-margin);
  // Work from the rim: descending for a nearer click can let subsequent fill
  // seal the worker into the crater. Never plan a descent to backfill it.
  const current=p.floored();if((!q.terrain||p.y>=t.plot.y-.25)&&valid([current.x,current.y,current.z],p))return [p.x,p.y+.1,p.z];
@@ -100,7 +100,11 @@ function stance(t,b,q,state){
  return candidates.sort((a,c)=>Number(c.supported)-Number(a.supported)||new Vec3(...a.goal).distanceTo(p)-new Vec3(...c.goal).distanceTo(p)).slice(0,12).map(v=>v.goal).find(g=>nav.route(b,g,24,2048,true,{bounds:state.world.bounds,reversible:true,forbidden:v=>(t.campPlots||[]).some(h=>(h.x!==t.plot.x||h.z!==t.plot.z)&&Math.abs(v[0]-h.x)<=3&&Math.abs(v[2]-h.z)<=3)}).reached)||null;
 }
 function safe(t,b,q,ignoreSelf=false){
- if(q.kind==='bed')return safe(t,b,{...q,kind:'bed_part'},ignoreSelf)&&safe(t,b,{...q,z:q.z+1,kind:'bed_part'},ignoreSelf);
+ if(q.kind==='bed'){
+  const support=new Vec3(q.x,q.y-1,q.z);
+  return terrain.solid(b.blockAt(support))&&terrain.solid(b.blockAt(support.offset(0,0,1)))&&
+   safe(t,b,{...q,kind:'bed_part'},ignoreSelf)&&safe(t,b,{...q,z:q.z+1,kind:'bed_part'},ignoreSelf);
+ }
  if(q.kind==='door')return safe(t,b,{...q,kind:'door_part'},ignoreSelf)&&safe(t,b,{...q,y:q.y+1,kind:'door_part'},ignoreSelf);
  const p=new Vec3(q.x,q.y,q.z);
  if(!terrain.owned(t,q.x,q.z))return false;
@@ -244,7 +248,17 @@ async function tick(t,b,motor,state,api,scan,tasks){
   }
   if(q.kind==='bed'){
    const foot=new Vec3(q.x,q.y,q.z);if(!empty(b.blockAt(foot))||!empty(b.blockAt(foot.offset(0,0,1))))throw Error('Repaired bed space is obstructed');
-   await inventory.equip(b,item);await b.look(Math.PI,0,true);await b._placeBlockWithOptions(b.blockAt(foot.offset(0,-1,0)),new Vec3(0,1,0),{forceLook:'ignore',swingArm:'right'});
+   await inventory.equip(b,item);await b.look(Math.PI,0);await b.waitForTicks(2);
+   if(!safe(t,b,q)||!empty(b.blockAt(foot))||!empty(b.blockAt(foot.offset(0,0,1))))return true;
+   try{
+    await b._placeBlockWithOptions(b.blockAt(foot.offset(0,-1,0)),new Vec3(0,1,0),{forceLook:'ignore',swingArm:'right'});
+   }catch(error){
+    if(!String(error.message).includes('Server refused to place'))throw error;
+    if(!matches(b,q)){
+     rejectStance(r,b,q);t.path=[];t.navigator.lastPlan=-Infinity;
+     r.message=t.message='Bed placement refused; checking another supported work position';return true;
+    }
+   }
   }else{
    const occupied=b.blockAt(new Vec3(q.x,q.y,q.z));
    if(q.floor&&!empty(occupied)){
