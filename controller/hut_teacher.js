@@ -566,7 +566,7 @@ class HutTeacher{
    motor.pause();this.path=[];this.lastPlan=0;this.lastRecoveryReset=now;this.navigator.lastPlan=-Infinity;this.navigator.path=[];
   }
   require('./jump_attempts').scope(bot,state.run);
-  const avoidCell=this.phase==='night_retreat'?require('./refuge_choice').threatClearance(bot):null;
+  const avoidCell=intent.avoidCell??(this.phase==='night_retreat'?require('./refuge_choice').threatClearance(bot):null);
   const planned=this.navigator.plan(bot,goal,{plot:this.plot,plots:this.campPlots,bounds:state.world.bounds,now,memory:this.wilderness?.memory,avoidCell,constructionWork:['clear_plot','home_repair'].includes(this.phase)});
   this.lastNavigation={...this.navigator.status,phase:this.phase,position:[p.x,p.y,p.z],velocity:bot.entity.velocity?.toArray?.(),physics_gravity:bot.physics?.gravity,physics_enabled:bot.physicsEnabled,in_water:bot.entity.isInWater,yaw:bot.entity.yaw,on_ground:bot.entity.onGround,cue:[...planned.cue],cue_centering:!!planned.cue.centering,motor_before:motor.diagnostic?.(),nearby_players:space.players(bot).filter(q=>q.distanceTo(p)<6).map(q=>[q.x,q.y,q.z]),player_clearance:forBot(bot).player_clearance,sampled_at:now};
   this.path=planned.path;this.lastPlan=this.navigator.lastPlan;this.destination=this.navigator.destination;

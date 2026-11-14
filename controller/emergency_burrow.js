@@ -1,6 +1,7 @@
 // A temporary, sealed refuge dug and exited with real survival actions.
 const {Vec3}=require('vec3'),{standable,route,travelRoute}=require('./field_navigation'),space=require('./resource_space');
 const inventory=require('./inventory_sync'),access=require('./resource_access'),combat=require('./combat');
+const {threatClearance}=require('./refuge_choice');
 const EARTH=new Set(['dirt','grass_block','coarse_dirt','rooted_dirt','podzol','mycelium']);
 const SOLID=new Set([...EARTH,'stone','granite','diorite','andesite','deepslate','tuff','cobblestone']);
 const DANGER=new Set(['water','lava','sand','red_sand','gravel','fire','soul_fire','magma_block']);
@@ -58,6 +59,7 @@ function site(t,b,feet,w){
 }
 function find(t,b,state){
  const p=b.entity.position,base=p.floored(),offsets=[],enemies=threats(b);
+ const avoidCell=threatClearance(b,enemies);
  for(let x=-12;x<=12;x++)for(let z=-12;z<=12;z++)offsets.push([x,z]);offsets.sort((a,c)=>Math.hypot(...a)-Math.hypot(...c));
  const fleeing=require('./shelter_policy').wantsCover(b,state.world,t);
  for(const urgent of [false,...(fleeing&&enemies.length?[true]:[])]){let checked=0;
@@ -68,7 +70,7 @@ function find(t,b,state){
   if(!site(t,b,feet,state.world))continue;
   if(space.busy(b,state.run,feet.offset(.5,0,.5)))continue;
   if([...claims.values()].some(c=>c.run===state.run&&c.owner!==b.username&&Math.hypot(c.x-feet.x,c.z-feet.z)<3))continue;
-  if(travelRoute(b,goal,24,2048,true,{bounds:state.world.bounds,reversible:true}).reached)return feet;
+  if(travelRoute(b,goal,24,2048,true,{bounds:state.world.bounds,reversible:true,forbidden:avoidCell}).reached)return feet;
   if(++checked>=6)break search;
  }}return null;
 }
@@ -195,7 +197,7 @@ async function tick(t,b,motor,state,api,scan,tasks){
   throw Error('Emergency burrow work made no physical progress for 30 seconds');
  }
  if(s.stage==='approach'){
-  if(await t.walk(b,motor,[feet.x+.5,feet.y+.1,feet.z+.5],state,api,scan,tasks)===false){
+  if(await t.walk(b,motor,[feet.x+.5,feet.y+.1,feet.z+.5],state,api,scan,tasks,{avoidCell:threatClearance(b,threats(b))})===false){
    return rejectApproach(t,b,s,'Blocked refuge route');
   }
   if(Math.hypot(p.x-feet.x-.5,p.z-feet.z-.5)<.45&&Math.abs(p.y-feet.y)<.2){
@@ -326,6 +328,8 @@ async function tick(t,b,motor,state,api,scan,tasks){
 }
 async function seek(t,b,motor,state,api,scan,tasks){
  const n=t.wilderness,p=b.entity.position,enemies=require('./shelter_policy').threats(b),now=Date.now();
+ const separated=q=>enemies.some(e=>Math.hypot(q[0]+.5-e.position.x,q[1]+.1-e.position.y,q[2]+.5-e.position.z)<e.position.distanceTo(p)-.75);
+ const clearance=threatClearance(b,enemies);
  const cell=q=>Math.floor(q[0]/8)+','+Math.floor(q[2]/8);n.coverVisited??=new Map();
  if(n.coverEscape){
   const distance=p.distanceTo(new Vec3(...n.coverEscape));
@@ -356,9 +360,7 @@ async function seek(t,b,motor,state,api,scan,tasks){
   const sorted=choices.sort((a,b)=>b.score-a.score);
   for(const c of sorted.filter(c=>c.safer).slice(0,6)){
    n.coverRoutesChecked=(n.coverRoutesChecked||0)+1;
-   const planned=travelRoute(b,c.g,32,4096,true,{bounds:state.world.bounds,reversible:true,forbidden:q=>
-    foreign(q)||
-    enemies.some(e=>e.position.distanceTo(new Vec3(q[0]+.5,q[1]+.1,q[2]+.5))<e.position.distanceTo(p)-.75)});
+   const planned=travelRoute(b,c.g,32,4096,true,{bounds:state.world.bounds,reversible:true,forbidden:q=>foreign(q)||separated(q)});
    if(!planned.reached||enemies.some(e=>planned.path.some(q=>e.position.distanceTo(new Vec3(...q))<e.position.distanceTo(p)-.75)))continue;
    n.coverEscape=c.g;n.coverEscapeFallback=false;n.coverEscapeBest=Infinity;n.coverEscapeProgressAt=now;n.coverVisited.set(cell(c.g),(n.coverVisited.get(cell(c.g))||0)+1);break;
   }
@@ -366,15 +368,15 @@ async function seek(t,b,motor,state,api,scan,tasks){
   // Prefer a checked escape to standing exposed; still avoid close hostile cells.
   if(!n.coverEscape&&enemies.length)for(const c of sorted.slice(0,6)){
    n.coverRoutesChecked=(n.coverRoutesChecked||0)+1;
-   const planned=travelRoute(b,c.g,32,4096,true,{bounds:state.world.bounds,reversible:true,forbidden:q=>foreign(q)||enemies.some(e=>{
-    const radius=e.name==='creeper'?4:2,limit=Math.min(radius,Math.max(1,e.position.distanceTo(p)-.75));
-    return e.position.distanceTo(new Vec3(q[0]+.5,q[1]+.1,q[2]+.5))<limit;
-   })});
+   const planned=travelRoute(b,c.g,32,4096,true,{bounds:state.world.bounds,reversible:true,forbidden:q=>foreign(q)||clearance(q)});
    if(!planned.reached)continue;
    n.coverEscape=c.g;n.coverEscapeFallback=true;n.coverEscapeBest=Infinity;n.coverEscapeProgressAt=now;n.coverVisited.set(cell(c.g),(n.coverVisited.get(cell(c.g))||0)+1);break;
   }
  }
- if(n.coverEscape){if(await t.walk(b,motor,n.coverEscape,state,api,scan,tasks)===false){n.coverEscape=null;n.coverEscapeAt=now+500;}}
+ if(n.coverEscape){
+  const avoidCell=n.coverEscapeFallback?clearance:separated;
+  if(await t.walk(b,motor,n.coverEscape,state,api,scan,tasks,{avoidCell})===false){n.coverEscape=null;n.coverEscapeAt=now+500;}
+ }
  else if(b.entity.isInWater&&motor.command)motor.command(4,{kind:'expedition',water_route:true,waypoints:[[p.x,p.y,p.z]]},{},0);
  else motor.pause();
  t.message='Seeking safe earth cover; refusing exposed work or combat'+(n.burrow_status?' · '+n.burrow_status:'');

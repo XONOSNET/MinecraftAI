@@ -181,10 +181,13 @@ test('escape goals stay committed across replanning intervals and quiet nights s
 });
 
 test('escape routing increases separation without choosing a path through an attacker',async()=>{
- const f=fixture();f.b.entities.s.position=new Vec3(-5,64,.5);f.t.walk=async()=>undefined;
+ const f=fixture();f.b.entities.s.position=new Vec3(-5,64,.5);
+ let avoidCell;f.t.walk=async(_b,_m,_g,_state,_api,_scan,_tasks,intent)=>{avoidCell=intent.avoidCell;};
  await burrow.seek(f.t,f.b,f.motor,f.state);const goal=f.t.wilderness.coverEscape;assert.ok(goal);
  const enemy=f.b.entities.s.position,before=enemy.distanceTo(f.b.entity.position);
  assert.ok(enemy.distanceTo(new Vec3(...goal))>before+2);
+ assert.equal(avoidCell([-2,64,0]),true,'the follower must reject a step toward the attacker');
+ assert.equal(avoidCell([2,64,0]),false);
  const planned=require('../controller/field_navigation').route(f.b,goal,24,2048,true,{bounds:f.state.world.bounds,reversible:true});
  assert.ok(planned.path.every(q=>enemy.distanceTo(new Vec3(...q))>=before-.75));
 });
@@ -201,8 +204,10 @@ test('shelter seeking swims to a narrow dry bank instead of pausing over water',
 
 test('surrounded shelter seekers choose a reachable escape rather than demanding separation from every attacker',async()=>{
  const f=fixture();f.b.entities=Object.fromEntries([[6,0],[-6,0],[0,6],[0,-6]].map(([x,z],i)=>[i,{id:i+2,name:i?'phantom':'skeleton',position:new Vec3(x+.5,64,z+.5)}]));
- let walking;f.t.walk=async(_b,_m,g)=>{walking=g;};await burrow.seek(f.t,f.b,f.motor,f.state);assert.ok(walking);assert.ok(f.t.wilderness.coverRoutesChecked>6,'strict safer routes were exhausted before fallback');
- const route=require('../controller/field_navigation').travelRoute(f.b,walking,32,4096,true,{bounds:f.state.world.bounds,reversible:true});assert.equal(route.reached,true);
+ let walking,avoidCell;f.t.walk=async(_b,_m,g,_state,_api,_scan,_tasks,intent)=>{walking=g;avoidCell=intent.avoidCell;};await burrow.seek(f.t,f.b,f.motor,f.state);assert.ok(walking);assert.ok(f.t.wilderness.coverRoutesChecked>6,'strict safer routes were exhausted before fallback');
+ assert.equal(avoidCell([6,64,0]),true,'fallback walking still avoids the attacker');
+ assert.equal(avoidCell([2,64,0]),false,'fallback permits a step that gets closer without entering hostile range');
+ const route=require('../controller/field_navigation').travelRoute(f.b,walking,32,4096,true,{bounds:f.state.world.bounds,reversible:true,forbidden:avoidCell});assert.equal(route.reached,true);
 });
 
 test('carried-light blocks are clear exit headroom while real solid blocks remain obstructions',()=>{
