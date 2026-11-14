@@ -7,7 +7,6 @@ from statistics import mean
 
 AMBIGUITY_MS = 50
 MIN_GAIN_FRACTION = .25
-ARMS = ("control", "opening")
 
 
 def _first(events, kind, *, action=None):
@@ -163,10 +162,11 @@ def _arm_summary(rows):
     }
 
 
-def summarize(rows, seeds):
+def summarize(rows, seeds, comparison='opening', reference='control', minimum_gain=MIN_GAIN_FRACTION):
     """Report the fixed ordered pairs; never pass when a matched arm is missing."""
     seeds = list(seeds)
-    expected = {(seed, arm) for seed in seeds for arm in ARMS}
+    names = (reference, comparison)
+    expected = {(seed, arm) for seed in seeds for arm in names}
     if not seeds or len(seeds) != len(set(seeds)):
         raise ValueError("Expected distinct planned starts")
     fights, orders, exclusions = {}, {}, []
@@ -182,29 +182,29 @@ def summarize(rows, seeds):
         fights[key] = _fight(row)
     pairs = []
     gains = Counter()
-    paired_rows = {arm: [] for arm in ARMS}
+    paired_rows = {arm: [] for arm in names}
     for seed in seeds:
-        sides = {arm: fights.get((seed, arm)) for arm in ARMS}
+        sides = {arm: fights.get((seed, arm)) for arm in names}
         pair = dict(seed=seed, **sides,
-                    observed_order=sorted((arm for arm in ARMS if (seed, arm) in orders),
+                    observed_order=sorted((arm for arm in names if (seed, arm) in orders),
                                           key=lambda arm: orders[seed, arm]))
         if all(side is not None for side in sides.values()):
             for arm, side in sides.items():
                 paired_rows[arm].append(side)
-            c, o = sides["control"], sides["opening"]
+            c, o = sides[reference], sides[comparison]
             difference = int(o["first_hit"] == "success") - int(c["first_hit"] != "failure")
             pair["conservative_first_hit_difference"] = difference
             gains[difference] += 1
         pairs.append(pair)
-    n = len(paired_rows["control"])
+    n = len(paired_rows[reference])
     complete = n == len(seeds)
     arms = {arm: _arm_summary([fights[seed, arm] for seed in seeds if (seed, arm) in fights])
-            for arm in ARMS}
+            for arm in names}
     gain = gains[1] - gains[-1]
-    threshold = ceil(len(seeds) * MIN_GAIN_FRACTION)
+    threshold = ceil(len(seeds) * minimum_gain)
     safety = None
     if complete:
-        c, o = arms["control"], arms["opening"]
+        c, o = arms[reference], arms[comparison]
         safety = dict(no_more_deaths=o["deaths"] <= c["deaths"],
                       no_more_escapes=o["escapes"] <= c["escapes"],
                       no_fewer_wins=o["wins"] >= c["wins"],
@@ -212,7 +212,7 @@ def summarize(rows, seeds):
     return dict(
         complete=complete, passed=bool(complete and gain >= threshold and all(safety.values())),
         planned_pairs=len(seeds), completed_pairs=n, pairs=pairs, exclusions=exclusions, arms=arms,
-        minimum_gain_fraction=MIN_GAIN_FRACTION, required_net_gain=threshold,
+        minimum_gain_fraction=minimum_gain, required_net_gain=threshold,
         conservative_net_gain=gain if complete else None,
         conservative_share_gain=gain / len(seeds) if complete else None,
         conservative_pairs=dict(better=gains[1], tied=gains[0], worse=gains[-1]),
@@ -221,10 +221,24 @@ def summarize(rows, seeds):
         interpretation=("Packet and health-loss receipt times are not server hit times. "
                         "When both sides dealt damage, target hurt within 50 ms of the first "
                         "health loss or owned-mob hurt packet is ambiguous, as is conflicting "
-                        "damage order. For screening, ambiguous opening "
-                        "outcomes count as failures and ambiguous control outcomes as successes. "
+                        "damage order. For screening, ambiguous intervention "
+                        "outcomes count as failures and ambiguous reference outcomes as successes. "
                         "No-trigger and helper-refused outcomes remain in their assigned arm."),
     )
+
+
+def summarize_development(rows, seeds):
+    """Apply the learned-policy screen against both prespecified controls."""
+    saved = summarize([row for row in rows if row['arm'] != 'opening'], seeds, comparison='learned')
+    rule = summarize([row for row in rows if row['arm'] != 'control'], seeds,
+                     comparison='learned', reference='opening', minimum_gain=0)
+    learned = [row for row in rows if row['arm'] == 'learned' and row['valid']]
+    declined = sum(bool(row['first_eligible'] and row['first_eligible']['underlying_action'] != 6
+                        and not row['intervention']) for row in learned)
+    changed = saved['arms']['learned']['changed_action']
+    return dict(complete=saved['complete'] and rule['complete'],
+                passed=saved['passed'] and rule['passed'] and changed >= 2 and declined >= 1,
+                versus_saved=saved, versus_rule=rule, learned_changes=changed, learned_declines=declined)
 
 
 if __name__ == "__main__":
@@ -238,10 +252,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     raw = args.report.read_bytes()
     report = json.loads(raw)
+    analyze = summarize_development if report['protocol'] == 'opening-attack-development' else summarize
     print(json.dumps({
         "report_sha256": hashlib.sha256(raw).hexdigest(),
         "analyzer_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-        "analysis": summarize(report["rows"], report["seeds"]),
+        "analysis": analyze(report["rows"], report["seeds"]),
         "interrupted": report.get("interrupted"),
         "invalid_attempts": report["invalid_attempts"],
     }, indent=2, allow_nan=False))

@@ -14,9 +14,13 @@ from scripts.combat_autonomy import Arena, freeze_source, load_policy, tensor_ha
 
 SEEDS = (10311180, 10737471, 10192716, 10572246, 10362703, 10882707,
          10560339, 10550370, 10816047, 10080307, 10330461, 10637136)
+REPLICATION_SEEDS = (12668833, 12760363, 12034427, 12100099, 12057153, 12707889,
+                     12270827, 12480339, 12906348, 12097883, 12074184, 12094710)
+DEVELOPMENT_SEEDS = (13300130, 13278258, 13434558, 13656125, 13306912, 13168775, 13905289, 13817830)
 SAVED = '6b167faf6d664abf34158fe125dff337011c4679f1ef7a9fb0a179610abf30e6'
 ARCHIVE = Path('logs/combat-experience-v1-full')
 PROTOCOL = Path('docs/combat-opening-protocol.md')
+REPLICATION_PROTOCOL = Path('docs/combat-opening-replication-protocol.md')
 
 
 def eligible(obs):
@@ -25,16 +29,17 @@ def eligible(obs):
 
 
 class OpeningChoice:
-    def __init__(self, intervene):
+    def __init__(self, intervene, head=None):
         self.intervene = intervene
+        self.head = head
         self.first = None
         self.intervention = None
 
-    def pick(self, observation, underlying, decision):
+    def pick(self, observation, underlying, decision, logits=None):
         if self.first is None and eligible(observation):
             self.first = dict(decision=decision, underlying_action=underlying,
                               range_blocks=observation[66] * 32)
-            if self.intervene:
+            if self.intervene or (self.head is not None and self.head(observation, logits)):
                 self.intervention = dict(self.first)
                 return 6
         return underlying
@@ -63,23 +68,26 @@ def check_health(expected_pid=None, beginning=False):
                 learning=status['world_learning'].get('phase'), sampled_at=time.time())
 
 
-def encounter(arena, model, seed, arm, expected_pid, log):
-    reply = arena.request(reset=True, seed=seed, mob='zombie')
+def encounter(arena, model, seed, arm, expected_pid, log, head=None):
+    reply = arena.request(reset=True, seed=seed, mob='zombie', expected_pid=expected_pid)
     start = reply.get('start', {})
     log(dict(event='start', start=start))
+    if reply.get('done'):
+        raise RuntimeError(reply.get('invalid_reason') or 'Native reset ended before release')
     server = start.get('server') or {}
     if (start.get('difficulty') not in ('normal', 2) or not start.get('ai_frozen') or
             not server.get('ready') or server.get('busy') or server.get('pid') != expected_pid or
             server.get('ram_percent', 100) >= 86 or time.time() * 1000 - server.get('sampled_at_ms', 0) > 60_000):
         raise RuntimeError('Missing verified native start or unhealthy server sample')
-    selection = OpeningChoice(arm == 'opening')
+    selection = OpeningChoice(arm == 'opening', head if arm == 'learned' else None)
     decision = 0
     while not reply['done']:
         decision += 1
         observation = reply['observation']
         with torch.inference_mode():
-            underlying = int(model(torch.tensor(observation, dtype=torch.float32)).argmax())
-        action = selection.pick(observation, underlying, decision)
+            logits = model(torch.tensor(observation, dtype=torch.float32))
+            underlying = int(logits.argmax())
+        action = selection.pick(observation, underlying, decision, logits)
         after = arena.request(action=action)
         execution = after.get('execution')
         log(dict(event='decision', decision=decision, observation=observation, saved_action=underlying,
@@ -100,8 +108,8 @@ def encounter(arena, model, seed, arm, expected_pid, log):
     return row
 
 
-def run(output):
-    from scripts.combat_opening_evidence import summarize
+def run(output, replication=False, development_from=None):
+    from scripts.combat_opening_evidence import summarize, summarize_development
 
     if not output.resolve().is_relative_to(Path('logs').resolve()):
         raise ValueError('Output must be inside logs/')
@@ -115,7 +123,12 @@ def run(output):
         raise ValueError('Expected the original archived reference')
     source = freeze_source(output)
     runner = Path(__file__).resolve().relative_to(Path.cwd().resolve())
-    for path in (runner, Path('scripts/combat_opening_evidence.py'), PROTOCOL):
+    paths = [runner, Path('scripts/combat_opening_evidence.py'), PROTOCOL]
+    if replication or development_from:
+        paths.append(REPLICATION_PROTOCOL)
+    if development_from:
+        paths.append(Path('scripts/combat_opening_head.py'))
+    for path in paths:
         destination = output / 'source' / path
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, destination)
@@ -127,11 +140,27 @@ def run(output):
         if path.startswith(('controller/', 'config/', 'lab/')) or path == 'package-lock.json':
             if not (archived / path).is_file() or hashlib.sha256((archived / path).read_bytes()).hexdigest() != digest:
                 raise ValueError(f'Frozen shared source differs: {path}')
-    plan = [(seed, arm) for i, seed in enumerate(SEEDS)
-            for arm in (('control', 'opening') if i % 2 == 0 else ('opening', 'control'))]
-    report = dict(protocol='opening-attack-v1', training_only=True, seeds=list(SEEDS), plan=plan,
+    head = None
+    if development_from:
+        from scripts.combat_opening_head import fit
+
+        head = fit(model, development_from, output / 'opening-head.json')
+        seeds = DEVELOPMENT_SEEDS
+        orders = (('control', 'opening', 'learned'), ('opening', 'learned', 'control'),
+                  ('learned', 'control', 'opening'))
+        protocol = 'opening-attack-development'
+        analyze = summarize_development
+    else:
+        seeds = REPLICATION_SEEDS if replication else SEEDS
+        orders = (('control', 'opening'), ('opening', 'control'))
+        protocol = 'opening-attack-replication' if replication else 'opening-attack-v1'
+        analyze = summarize
+    plan = [(seed, arm) for i, seed in enumerate(seeds) for arm in orders[i % len(orders)]]
+    report = dict(protocol=protocol, training_only=True, seeds=list(seeds), plan=plan,
                   source=source, saved_tensor_sha256=SAVED, start_health=status,
                   torch_version=str(torch.__version__), rows=[], invalid_attempts=[])
+    if head is not None:
+        report['opening_head_sha256'] = hashlib.sha256((output / 'opening-head.json').read_bytes()).hexdigest()
     def save():
         path = output / 'report.tmp'
         path.write_text(json.dumps(report, indent=2, allow_nan=False), encoding='utf-8')
@@ -147,17 +176,19 @@ def run(output):
             if (not ready.get('ready') or metadata.get('difficulty') not in ('normal', 2) or
                     metadata.get('event_clock') != 'monotonic_ms_from_release_send'):
                 raise RuntimeError('Native arena difficulty or event clock not verified')
+            if (replication or development_from) and metadata.get('frozen_dashboard_retry') != dict(timeout_ms=1500, retries=2, delay_ms=250):
+                raise RuntimeError('Native frozen-state dashboard retry not verified')
             report['arena'] = metadata
             save()
             for seed, arm in plan:
                 if time.monotonic() >= deadline:
                     raise RuntimeError('Training-only experiment budget elapsed')
-                health = check_health(status['pid'])
                 active = dict(seed=seed, arm=arm)
+                health = check_health(status['pid'])
                 def log(row):
                     stream.write(json.dumps({**active, **row}, allow_nan=False) + '\n')
                 log(dict(event='preflight', health=health))
-                row = encounter(arena, model, seed, arm, status['pid'], log)
+                row = encounter(arena, model, seed, arm, status['pid'], log, head=head)
                 report['rows'].append(row)
                 active = None
                 save()
@@ -167,12 +198,12 @@ def run(output):
         if active is not None:
             report['invalid_attempts'].append({**active, 'error': report['interrupted']})
         report['cleaned'] = getattr(arena, 'cleaned', False)
-        report['analysis'] = summarize(report['rows'], SEEDS)
+        report['analysis'] = analyze(report['rows'], seeds)
         save()
         raise
     report['cleaned'] = arena.cleaned
     report['reference_unchanged'] = tensor_hash(model) == SAVED
-    report['analysis'] = summarize(report['rows'], SEEDS)
+    report['analysis'] = analyze(report['rows'], seeds)
     save()
     print(json.dumps({k: v for k, v in report['analysis'].items() if k != 'pairs'}, indent=2), flush=True)
 
@@ -180,4 +211,8 @@ def run(output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', required=True, type=Path, help='New directory under logs/')
-    run(parser.parse_args().output)
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--replication', action='store_true', help='Use fresh, preregistered replication starts')
+    mode.add_argument('--development-from', type=Path, help='Passing replication report.json for fitting')
+    args = parser.parse_args()
+    run(args.output, replication=args.replication, development_from=args.development_from)

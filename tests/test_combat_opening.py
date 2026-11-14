@@ -1,4 +1,6 @@
-from scripts.combat_opening import OpeningChoice, SEEDS, eligible
+import random
+
+from scripts.combat_opening import DEVELOPMENT_SEEDS, OpeningChoice, REPLICATION_SEEDS, SEEDS, eligible
 
 
 def observation():
@@ -41,3 +43,24 @@ def test_eligibility_checks_all_native_prerequisites():
         other[index] = value
         assert not eligible(other)
     assert len(set(SEEDS)) == 12
+
+
+def test_replication_starts_follow_the_fresh_preregistered_draw():
+    assert not set(SEEDS).intersection(REPLICATION_SEEDS)
+    assert REPLICATION_SEEDS == tuple(random.Random(170212).sample(range(12_000_000, 13_000_000), 12))
+    assert DEVELOPMENT_SEEDS == tuple(random.Random(170213).sample(range(13_000_000, 14_000_000), 8))
+
+
+def test_learned_choice_can_decline_and_is_called_once():
+    calls = []
+
+    def decline(obs, logits):
+        calls.append((obs, logits))
+        return False
+
+    obs = observation()
+    selector = OpeningChoice(intervene=False, head=decline)
+    assert selector.pick(obs, 1, 1, [1]) == 1
+    assert selector.pick(obs, 2, 2, [2]) == 2
+    assert calls == [(obs, [1])]
+    assert selector.intervention is None

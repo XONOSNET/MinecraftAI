@@ -1,6 +1,6 @@
 import pytest
 
-from scripts.combat_opening_evidence import summarize
+from scripts.combat_opening_evidence import summarize, summarize_development
 
 
 def event(kind, at_ms, decision=1, **fields):
@@ -115,3 +115,22 @@ def test_refuses_duplicate_rows_and_keeps_a_logged_invalid_start():
     assert not result["complete"]
     with pytest.raises(ValueError, match="duplicate"):
         summarize([row, row], [1])
+
+
+def test_learned_screen_requires_safety_against_both_arms_and_measured_choice():
+    rows = []
+    for seed in range(8):
+        entries = [event('proposal', 0, action=6), event('attack_request', 1),
+                   event('target_hurt', 60), event('player_damage', 200)]
+        for arm in ('control', 'opening', 'learned'):
+            events = entries if arm == 'learned' and seed < 2 else [event('player_damage', 0), event('target_hurt', 90)]
+            row = fight(seed, arm, events=events, damage=1)
+            row['first_eligible'] = dict(underlying_action=1)
+            if arm == 'learned' and seed < 2:
+                row['intervention'] = dict(decision=1, underlying_action=1, helper_accepted=True, attack_requests=1)
+            rows.append(row)
+    result = summarize_development(rows, range(8))
+    assert result['passed'] and result['learned_declines'] == 6 and result['learned_changes'] == 2
+    rows[-2]['damage'] = 0.5
+    assert not summarize_development(rows, range(8))['passed']
+    assert not summarize_development(rows[:-1], range(8))['complete']
