@@ -444,6 +444,19 @@ test('burrow failure reports preserve terminal footing instead of stale approach
 });
 
 
+test('an already opened dry shaft waits for physics even while the grounded flag is stale',async ctx=>{
+ const f=fixture(),progressAt=Date.now();
+ const s=f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],lip:[1,64,0],stage:'dig',resume:'gather',progressAt};
+ f.t.phase='night_burrow';f.cells.set(new Vec3(0,63,0).toString(),'air');
+ f.b.dig=async()=>assert.fail('must not dig during descent');
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(s.stage,'dig');assert.equal(s.progressAt,progressAt);assert.match(f.t.message,/settling/);
+ f.b.entity.position.y=63;
+ ctx.mock.method(inventory,'sync',async()=>{});
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(s.stage,'lip');
+});
+
 test('a damaged refuge waits for a short dry descent, repairs after touchdown and resumes sheltering',async ctx=>{
  const f=damagedRefuge(ctx,{carried:1});f.s.stage='dig';f.b.entity.position.y=62.89;f.b.entity.onGround=false;
  f.cells.set(new Vec3(...f.s.cap).toString(),'air');const progress=f.s.progressAt;

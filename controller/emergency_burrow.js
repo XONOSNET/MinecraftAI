@@ -237,6 +237,8 @@ async function tick(t,b,motor,state,api,scan,tasks){
    throw Error('Emergency shaft footing changed');
   }
   const q=new Vec3(feet.x,y-1,feet.z),block=b.blockAt(q);
+  // The block update can arrive before physics clears the old grounded state.
+  if(openCell(block)){t.message='Emergency cover: settling into the opened shaft';return true;}
   if(space.players(b).some(v=>Math.abs(v.y-q.y-1)<.25&&Math.abs(v.x-q.x-.5)<.8&&Math.abs(v.z-q.z-.5)<.8)){t.message='Emergency cover: waiting for another player to clear the shaft';return true;}
   if(!EARTH.has(block?.name)||!b.canDigBlock(block))throw Error('Emergency shaft is not safely hand-diggable earth');
   await b.dig(block,true);
