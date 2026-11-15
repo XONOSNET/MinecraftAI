@@ -114,9 +114,13 @@ def test_narrow_preflight_requires_fresh_owned_server_and_explicit_persistence(m
     with pytest.raises(RuntimeError, match='terrain preparation'):
         combat_opening.check_health(42, beginning=True, fixture_health=True)
     state['performance']['persistence'].pop('error')
-    with pytest.raises(RuntimeError, match='Invalid, stale, or unhealthy'):
+    with pytest.raises(RuntimeError, match='persistence clear=False'):
         combat_opening.check_health(42, fixture_health=True)
     state['performance']['persistence']['error'] = None
+    state['ram_percent'] = 86.1
+    with pytest.raises(RuntimeError, match=r'RAM percent=86\.1 \(limit 86\)'):
+        combat_opening.check_health(42, fixture_health=True)
+    state['ram_percent'] = 80
     state['sampled_at_ms'] -= 6000
-    with pytest.raises(RuntimeError, match='Invalid, stale, or unhealthy'):
+    with pytest.raises(RuntimeError, match='sample age ms='):
         combat_opening.check_health(42, fixture_health=True)

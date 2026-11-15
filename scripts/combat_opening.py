@@ -93,8 +93,9 @@ def check_health(expected_pid=None, beginning=False, fixture_health=False):
         at = status.get('sampled_at_ms')
         ram = status.get('ram_percent')
         persistence = status['performance']['persistence']
+        age = time.time() * 1000 - at if type(at) is int else None
         if (status.get('protocol') != FIXTURE_HEALTH or status.get('stopped') is not False or
-                type(at) is not int or not -100 <= time.time() * 1000 - at <= 5000 or
+                age is None or not -100 <= age <= 5000 or
                 type(pid) is not int or pid <= 0 or server.get('ready') is not True or
                 server.get('busy') is not False or server.get('desired_running') is not True or
                 type(server.get('bots_online')) is not int or
@@ -103,10 +104,21 @@ def check_health(expected_pid=None, beginning=False, fixture_health=False):
                 type(persistence.get('pending')) is not int or persistence['pending'] < 0 or
                 type(persistence.get('capacity')) is not int or persistence['capacity'] < 1 or
                 'error' not in persistence or persistence['error'] is not None):
-            raise RuntimeError('Invalid, stale, or unhealthy narrow fixture status')
+            raise RuntimeError(
+                'Invalid, stale, or unhealthy narrow fixture status '
+                f'(protocol matches={status.get("protocol") == FIXTURE_HEALTH}, sample age ms={age!r}, '
+                f'stopped={status.get("stopped")!r}, PID={pid!r}, ready={server.get("ready")!r}, '
+                f'busy={server.get("busy")!r}, desired running={server.get("desired_running")!r}, '
+                f'lifecycle clear={"error" in server and server["error"] is None}, '
+                f'fresh bots={server.get("bots_online")!r}, RAM percent={ram!r} (limit 86), '
+                f'persistence pending={persistence.get("pending")!r}, capacity={persistence.get("capacity")!r}, '
+                f'persistence clear={"error" in persistence and persistence["error"] is None})')
     if (not pid or not server.get('ready') or server.get('busy') or server.get('bots_online') != 8
             or status.get('ram_percent', 100) >= 86 or status['performance']['persistence'].get('error')
             or (expected_pid is not None and pid != expected_pid)):
+        if fixture_health:
+            raise RuntimeError(f'Production health limit reached (PID={pid}, expected PID={expected_pid}, '
+                               f'fresh bots={server["bots_online"]}, expected fresh bots=8)')
         raise RuntimeError('Production health limit reached')
     phase = (status['world_training'].get('session') or {}).get('phase')
     if beginning and phase in ('snapshotting', 'restoring'):
