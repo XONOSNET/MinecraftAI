@@ -29,3 +29,57 @@ test('a distant builder approaches the torch wall before it can continue roofing
  t.walk=async(_b,_m,goal)=>{walked=true;assert.deepEqual(goal,[-.5,64.1,.5]);};
  assert.equal(await early.tick(t,b,motor,state),true);assert.equal(walked,true);assert.equal(t.phase,'build');assert.equal(items.torch,12);
 });
+
+test('early lighting follows the return route beyond an occupied threshold before closing the door',async()=>{
+ const {HutTeacher}=require('../controller/hut_teacher'),{WorldTiming}=require('../controller/world_timing'),{WorldStall}=require('../controller/world_stall');
+ const {insideHome}=require('../controller/world_navigation'),{occupied}=require('../controller/door_care'),firstNight=require('../controller/first_night');
+ const tasks=require('../controller/tasks'),{scan}=require('../controller/perception'),lighting=require('../controller/house_lighting');
+ const {b,t:setup,state,cells,motor}=fixture(),{plot}=setup,run='light-return',now=Date.now(),t=new HutTeacher();
+ const door=new Vec3(0,64,-3),position=new Vec3(.5,64,-1.98),milestones=['hut','torch'];
+ let open=true,closes=0,commands=0;
+ for(const q of house.blueprint(plot))cells.set(new Vec3(q.x,q.y,q.z).toString(),q.table?'crafting_table':'oak_planks');
+ for(const side of ['indoor','outdoor'])cells.set(house.torchMount(plot,side).position.toString(),'wall_torch');
+ Object.assign(b,{username:'LightReturn',health:20,food:20,time:{timeOfDay:3000},players:{},entities:{},world:{raycast:()=>null}});
+ Object.assign(b.entity,{id:1,position,yaw:Math.PI});
+ b.blockAt=p=>{
+  p=p.floored();
+  if(p.x===door.x&&p.z===door.z&&[door.y,door.y+1].includes(p.y))
+   return {name:'oak_door',position:p,boundingBox:'block',shapes:[[0,0,0,.1875,1,1]],getProperties:()=>({open,facing:'north',half:p.y===door.y?'lower':'upper'})};
+  const name=cells.get(p.toString())||(p.y<64?'dirt':'air');
+  return {name,position:p,boundingBox:['air','wall_torch'].includes(name)?'empty':'block',getProperties:()=>({facing:p.z===-4?'north':'east'})};
+ };
+ b.activateBlock=async block=>{assert.ok(block.position.equals(door));assert.equal(occupied(b,block),false);closes++;open=false;};
+ motor.command=()=>{commands++;};
+ Object.assign(state,{run,world:{mission:'first_night',driver:'student',bounds:[-12,12,-12,12]}});
+ Object.assign(t,{run,plot,campPlots:[plot],phase:'light_return',milestones:[...milestones],lastReport:now,started:now,lastProgress:now,
+  last:position.clone(),anchor:position.clone(),travelled:0,runtime:tasks.createRuntime(),timing:new WorldTiming(now),stall:new WorldStall(90)});
+ firstNight.init(t,state.world);
+ t.wilderness.earlyLighting=true;
+ const tick=()=>t.tick(b,motor,state,async(path,data)=>{
+  assert.ok(['/step','/world/report'].includes(path));
+  return {action:data.teacher};
+ },scan,tasks);
+
+ assert.ok(insideHome(position,plot));
+ assert.ok(occupied(b,b.blockAt(door)));
+ await tick();
+ assert.equal(t.phase,'light_return');
+ assert.equal(commands,1,'the checked home route remains active when the bot still occupies the doorway');
+ assert.equal(t.navigator.status.route_complete,true);
+ assert.equal(closes,0);
+
+ b.entity.position=new Vec3(.5,64,.5);
+ b.players.other={entity:{id:2,position:new Vec3(.5,64,-2.4)},gamemode:0};
+ await tick();
+ assert.equal(t.phase,'light_return');
+ assert.equal(closes,0,'wait for another player to clear the panel before securing the house');
+ assert.equal(t.wilderness.earlyLighting,true);
+ delete b.players.other;
+ await tick();
+ assert.equal(closes,1);
+ assert.equal(t.phase,'leave_hut');
+ assert.equal(t.wilderness.earlyLighting,false);
+ assert.equal(t.supplyRun,true);
+ assert.equal(lighting.missing(b,plot),0);
+ assert.deepEqual(t.milestones,milestones);
+});

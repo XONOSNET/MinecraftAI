@@ -347,7 +347,26 @@ class HutTeacher{
     const door=bot.blockAt(new Vec3(this.plot.x,this.plot.y,this.plot.z-3));
     if(door&&!door.getProperties().open&&p.z<door.position.z+.5&&door.position.distanceTo(p)<3.5){motor.pause();await bot.activateBlock(door);}
     else if((Math.hypot(p.x-this.plot.x-.5,p.z-this.plot.z-.5)>.45||Math.abs(p.y-this.plot.y)>.4))await this.walk(bot,motor,[this.plot.x+.5,this.plot.y+.1,this.plot.z+.5],state,api,scan,tasks);
-    else{motor.pause();if(this.phase==='stone_return')this.phase='stone_tools';else{if(door.getProperties().open&&!await closeDoor(bot,door))return 'Waiting for the doorway to clear before closing';this.phase=this.wilderness?'night_food':survival.advanced(w.mission)?'survival_setup':'complete';this.message='Stone-age base complete: stocked hut, wooden and stone tools, working furnace, charcoal and indoor/outdoor wall torches.';}this.lastProgress=now;}
+    else{
+     motor.pause();
+     // Keep walking to the interior stance before asking the door to close.
+     // Entering the room's bounds alone can leave the body in the doorway.
+     if(this.phase==='light_return'&&door.getProperties().open&&!await closeDoor(bot,door)){
+      this.message='Waiting for the doorway to clear before closing';
+     }else{
+      if(this.phase==='stone_return')this.phase='stone_tools';
+      else if(this.wilderness?.earlyLighting&&this.milestones.includes('torch')){
+       this.wilderness.earlyLighting=false;
+       this.phase='leave_hut';
+       this.supplyRun=true;
+       this.message='House lit and mine torches ready; gathering chest and remaining tool supplies';
+      }else{
+       this.phase=this.wilderness?'night_food':survival.advanced(w.mission)?'survival_setup':'complete';
+       this.message='Stone-age base complete: stocked hut, wooden and stone tools, working furnace, charcoal and indoor/outdoor wall torches.';
+      }
+      this.lastProgress=now;
+     }
+    }
    }else if(this.phase==='stone_tools'){
     this.timing.mark(this.phase,'crafting');motor.pause();const table=bot.blockAt(new Vec3(this.table.x,this.table.y,this.table.z));
     const tool=['stone_pickaxe','stone_axe'].find(name=>!count(bot,n=>n===name));

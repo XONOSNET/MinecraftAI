@@ -51,10 +51,6 @@ async function tick(t,b,motor,state,api,scan,tasks){
   }
   await t.craft(b,'torch',1,null);await inventory.sync(b);t.lastProgress=Date.now();t.message='Preparing wall torches and a carried mine-lighting reserve';return true;
  }
- if(t.phase==='light_return'&&n.earlyLighting&&lit&&require('./world_navigation').insideHome(b.entity.position,t.plot)){
-  const door=b.blockAt(new Vec3(t.plot.x,t.plot.y,t.plot.z-3));if(door?.getProperties().open&&!await require('./door_care').closeDoor(b,door))return true;
-  n.earlyLighting=false;t.phase='leave_hut';t.supplyRun=true;t.lastProgress=Date.now();t.message='House lit and mine torches ready; gathering chest and remaining tool supplies';return true;
- }
  if(t.phase==='quarry_setup'&&lit&&t.milestones.includes('stocked')){t.phase='night_food';t.lastProgress=Date.now();return true;}
  return false;
 }
