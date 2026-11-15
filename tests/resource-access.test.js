@@ -102,11 +102,40 @@ test('knockback during refuge centering aborts locally and releases controls wit
 
 test('a server-rejected jump placement returns failure and releases jump controls',async()=>{
  const b=fixture(),feet=new Vec3(0,64,0),controls={};
- b.heldItem={name:'dirt',count:2};b.entity.yaw=0;b.entity.pitch=-Math.PI/2;
+ b.heldItem={name:'dirt',count:2};b.entity.yaw=-Math.PI;b.entity.pitch=-Math.PI/2;
  b.setControlState=(k,v)=>controls[k]=v;b.look=async(y,p)=>{b.entity.yaw=y;b.entity.pitch=p;};
- b.waitForTicks=async()=>{b.entity.position.y=65.1;};b.placeBlock=async()=>{throw Error('Server refused to place dirt: the block is still air');};
+ b.waitForTicks=async()=>{b.entity.position.y=controls.jump?65.1:64;b.entity.onGround=!controls.jump;};
+ b._placeBlockWithOptions=async()=>{throw Error('Server refused to place dirt: the block is still air');};
  assert.equal(await access.jumpPlace(b,feet,b.heldItem),false);assert.equal(controls.jump,false);
- b.placeBlock=async()=>{throw Error('Unexpected connection error');};await assert.rejects(access.jumpPlace(b,feet,b.heldItem),/connection/);assert.equal(controls.jump,false);
+ b._placeBlockWithOptions=async()=>{throw Error('Unexpected connection error');};await assert.rejects(access.jumpPlace(b,feet,b.heldItem),/connection/);assert.equal(controls.jump,false);
+});
+
+test('jump placement uses the first clear airborne tick and requires confirmation and landing',async()=>{
+ for(const outcome of ['landed','unconfirmed','displaced']){
+  const b=fixture(),feet=new Vec3(0,64,0),controls=[],heights=[.42,.75,1,1.166,1.252,1.176,1.02,0];
+  b.heldItem={name:'dirt',count:2};b.entity.yaw=-Math.PI;b.entity.pitch=-Math.PI/2;
+  b.setControlState=(key,value)=>{assert.equal(key,'jump');controls.push(value);};
+  b.placeBlock=async()=>assert.fail('the ordinary placement calls lookAt again during the jump');
+  let tick=0,writes=0;
+  b.waitForTicks=async n=>{
+   assert.equal(n,1);
+   const landed=++tick===heights.length;
+   b.entity.onGround=landed;
+   b.entity.position.y=landed&&outcome!=='unconfirmed'?65:64+heights[tick-1];
+   if(landed&&outcome==='displaced')b.entity.position.x=1.5;
+  };
+  b._placeBlockWithOptions=async(support,face,options)=>{
+   writes++;
+   assert.equal(b.entity.position.y,65.166);
+   assert.deepEqual(controls,[true,false]);
+   assert.deepEqual(support.position,feet.offset(0,-1,0));
+   assert.deepEqual(face,new Vec3(0,1,0));
+   assert.equal(options.forceLook,'ignore');
+   if(outcome!=='unconfirmed')b.set(0,64,0,'dirt');
+  };
+  assert.equal(await access.jumpPlace(b,feet,b.heldItem),outcome==='landed',outcome);
+  assert.equal(writes,1);
+ }
 });
 
 

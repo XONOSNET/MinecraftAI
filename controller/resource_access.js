@@ -91,20 +91,30 @@ async function jumpPlace(bot,position,item){
  await inventory.equip(bot,item.name);const support=bot.blockAt(position.offset(0,-1,0));
  if(support?.boundingBox!=='block'||bot.blockAt(position)?.name!=='air')return false;
  await aim(bot,position.offset(.5,0,.5));
+ active(bot);
+ if(!bot.entity.onGround||!bot.entity.position.floored().equals(position))return false;
+ const inColumn=p=>Math.floor(p.x)===position.x&&Math.floor(p.z)===position.z;
+ // Pulse one takeoff. Holding jump during a placement reply can launch again
+ // before a refused attempt has returned to its original footing.
  bot.setControlState('jump',true);
- try{
-  // Wait for a real physics tick above the placement cell, not a timed teleport.
-  for(let i=0;i<14;i++){
-   await bot.waitForTicks(1);active(bot);
-   if(bot.entity.position.y>=position.y+1.02){
-    try{await bot.placeBlock(support,new Vec3(0,1,0));}
-    catch(error){if(!String(error.message).includes('Server refused to place'))throw error;}
-    break;
-   }
+ try{await bot.waitForTicks(1);}finally{bot.setControlState('jump',false);}
+ for(let i=0;i<14;i++){
+  active(bot);
+  const p=bot.entity.position;
+  if(bot.entity.onGround||!inColumn(p))return false;
+  if(p.y>=position.y+1.02){
+   const actual=bot.blockAt(support.position);
+   if(actual?.boundingBox!=='block'||actual.name!==support.name||bot.blockAt(position)?.name!=='air')return false;
+   // A second aim here can finish after the feet have fallen into the target.
+   try{await bot._placeBlockWithOptions(actual,new Vec3(0,1,0),{forceLook:'ignore',swingArm:'right'});}
+   catch(error){if(!String(error.message).includes('Server refused to place'))throw error;}
+   break;
   }
- }finally{bot.setControlState('jump',false);}
- for(let i=0;i<25;i++){if(bot.entity.onGround&&bot.entity.position.y>=position.y+.95)break;await bot.waitForTicks(1);}
- return bot.blockAt(position)?.name===item.name;
+  await bot.waitForTicks(1);
+ }
+ for(let i=0;i<25&&!bot.entity.onGround;i++){await bot.waitForTicks(1);active(bot);}
+ const p=bot.entity.position;
+ return bot.entity.onGround&&inColumn(p)&&Math.abs(p.y-position.y-1)<.05&&bot.blockAt(position)?.name===item.name;
 }
 async function attempt(bot,motor,target,options={}){
  const state=options.state,p=bot.entity.position,plots=options.plots||[];motor.pause();
