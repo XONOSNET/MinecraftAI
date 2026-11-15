@@ -472,6 +472,40 @@ test('a verified refuge rebuilds its destroyed owned lip before sealing and resu
  assert.equal(f.t.phase,'gather');assert.equal(f.b.entity.position.y,64);assert.deepEqual(f.t.milestones,[]);
 });
 
+test('two shell patches can exhaust the dirt without stranding the bot below its missing lip and roof',async ctx=>{
+ const f=damagedRefuge(ctx,{carried:2}),feet=new Vec3(...f.s.feet),lip=new Vec3(...f.s.lip),secondGap=feet.offset(0,-1,-1);
+ let now=Date.now();ctx.mock.method(Date,'now',()=>now);
+ f.s.stage='dig';delete f.s.cap_name;f.b.entity.position=new Vec3(.6083,62,.7);
+ for(const q of [secondGap,feet,lip])f.cells.set(q.toString(),'air');
+ const digs=[],dig=f.b.dig;f.b.dig=async block=>{digs.push(block.position);await dig(block);};
+
+ for(let i=0;i<2;i++)await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.s.shellRepairs,2);assert.equal(f.dirt(),0);
+ assert.equal(burrow.walls(f.b,feet,f.s),true);assert.equal(burrow.sealed(f.b,f.s),false);
+
+ for(let i=0;i<20&&f.s.stage!=='hidden';i++){now+=1700;await burrow.tick(f.t,f.b,f.motor,f.state);}
+ assert.equal(f.s.stage,'hidden');assert.equal(burrow.sealed(f.b,f.s),true);assert.equal(f.b.blockAt(lip).name,'dirt');
+ assert.equal(f.dirt(),0);assert.equal(digs.length,2);assert.equal(new Set(digs.map(q=>q.toString())).size,2);
+ assert.ok(digs.every(q=>burrow.safeNotch(f.b,feet,q)));assert.equal(burrow.walls(f.b,feet,f.s),true);
+
+ f.b.time.timeOfDay=6000;
+ for(let i=0;i<8&&f.t.wilderness.burrow;i++)await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.wilderness.burrow,null);assert.equal(f.t.phase,'gather');assert.equal(f.b.entity.position.y,64);
+ assert.equal(digs.length,4);assert.deepEqual(f.t.milestones,[]);
+});
+
+test('cover material recovery leaves a pocket closed if its exterior changes during the dig setup',async ctx=>{
+ const f=damagedRefuge(ctx),feet=new Vec3(...f.s.feet),pocket=feet.offset(1,-2,0);
+ f.s.stage='seal';f.s.progressAt=Date.now()-1700;
+ f.cells.set(f.gap.toString(),'dirt');f.cells.set(feet.toString(),'air');
+ f.b.lookAt=async()=>f.cells.set(pocket.offset(1,0,0).toString(),'water');
+ f.b.dig=async()=>assert.fail('do not mine a newly exposed pocket');
+ const before=f.s.progressAt;
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.s.stage,'seal');assert.equal(f.s.progressAt,before);assert.equal(f.dirt(),0);
+ assert.equal(f.b.blockAt(pocket).name,'dirt');assert.equal(burrow.sealed(f.b,f.s),false);
+});
+
 test('roof support recovery never replaces a foreign obstruction or invents progress while waiting for dirt',async ctx=>{
  const f=damagedRefuge(ctx),lip=new Vec3(...f.s.lip);
  f.cells.set(f.gap.toString(),'dirt');f.cells.set(new Vec3(...f.s.cap).toString(),'air');f.s.stage='seal';f.setDirt(1);

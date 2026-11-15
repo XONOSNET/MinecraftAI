@@ -1,14 +1,19 @@
 // Restore only a previously verified refuge shell. No supplies or lesson credit.
 const {Vec3}=require('vec3'),inventory=require('./inventory_sync'),space=require('./resource_space');
+const {withinReach}=require('./resource_target');
 function stable(b){
  const p=b.entity.position,floor=b.blockAt(new Vec3(Math.floor(p.x),Math.floor(p.y)-1,Math.floor(p.z)));
  return b.health>0&&b.entity.onGround===true&&!b.entity.isInWater&&!b.entity.isInLava&&floor?.boundingBox==='block'&&require('./emergency_burrow').SOLID.has(floor.name)&&!floor.getProperties?.().waterlogged;
 }
-function safeTarget(t,b,q,state){
- const refuge=require('./emergency_burrow'),bounds=state.world.bounds;
- if(!refuge.openCell(b.blockAt(q))||q.x<bounds[0]+1||q.x>=bounds[1]-1||q.z<bounds[2]+1||q.z>=bounds[3]-1)return false;
+function permitted(t,b,q,state){
+ const bounds=state.world.bounds;
+ if(q.x<bounds[0]+1||q.x>=bounds[1]-1||q.z<bounds[2]+1||q.z>=bounds[3]-1)return false;
  if((t.campPlots||[]).some(h=>Math.abs(q.x-h.x)<=4&&Math.abs(q.z-h.z)<=4))return false;
- if(!space.clearOfPlayers(b,q.offset(.5,.5,.5),1))return false;
+ return space.clearOfPlayers(b,q.offset(.5,.5,.5),1);
+}
+function safeTarget(t,b,q,state){
+ const refuge=require('./emergency_burrow');
+ if(!refuge.openCell(b.blockAt(q))||!permitted(t,b,q,state))return false;
  for(const [x,y,z] of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]){
   const block=b.blockAt(q.offset(x,y,z));if(!block||refuge.DANGER.has(block.name)||block.name.endsWith('_concrete_powder')||block.getProperties?.().waterlogged)return false;
  }
@@ -35,6 +40,41 @@ function pocketFace(b,feet,q){
   if(hit?.position?.equals(q))return point;
  }
  return null;
+}
+async function harvestPocket(t,b,motor,s,state){
+ const refuge=require('./emergency_burrow'),feet=new Vec3(...s.feet);
+ const atShaftBottom=()=>{
+  const p=b.entity.position;
+  return s.shellVerified&&stable(b)&&Math.abs(p.y-(feet.y-2))<.1&&Math.abs(p.x-feet.x-.5)<=.3&&Math.abs(p.z-feet.z-.5)<=.3;
+ };
+ if(!atShaftBottom())return null;
+ const checked=q=>{
+  const block=b.blockAt(q);
+  return permitted(t,b,q,state)&&refuge.safeNotch(b,feet,q,{checkPlayers:false})&&refuge.EARTH.has(block?.name)&&
+   block.boundingBox==='block'&&!block.getProperties?.().waterlogged&&b.canDigBlock?.(block)&&withinReach(b,q);
+ };
+ for(const [x,z] of [[1,0],[-1,0],[0,1],[0,-1]]){
+  const q=feet.offset(x,-2,z);
+  const aim=checked(q)&&pocketFace(b,feet,q);
+  if(!aim)continue;
+  motor.pause();motor.lockLook(true);
+  try{
+   await b.lookAt(aim);
+   if(!atShaftBottom()||!checked(q)||!pocketFace(b,feet,q)?.equals(aim))return null;
+   await b.dig(b.blockAt(q),'ignore');
+  }finally{motor.lockLook(false);}
+  if(!refuge.openCell(b.blockAt(q)))return null;
+  t.lastProgress=s.progressAt=Date.now();return q.toArray();
+ }
+ return null;
+}
+async function recoverCover(t,b,motor,s,state,target,part){
+ // Give the last excavated drop time to enter inventory before cutting another cell.
+ if(s.coverNotches?.[part]||Date.now()-s.progressAt<1500||!safeTarget(t,b,target,state))return false;
+ const pocket=await harvestPocket(t,b,motor,s,state);
+ if(!pocket)return false;
+ (s.coverNotches??={})[part]=pocket;
+ t.message='Emergency cover: collecting real dirt for the '+part+' from a closed side pocket';return true;
 }
 async function repair(t,b,motor,s,problem,state){
  const refuge=require('./emergency_burrow'),now=Date.now(),feet=new Vec3(...s.feet),q=new Vec3(...problem.position);
@@ -63,17 +103,10 @@ async function repair(t,b,motor,s,problem,state){
  let item=pick();
  if(!item){
   // Reuse the existing capped side-pocket rule; the outer shell remains closed.
-  if(Math.round(p.y)===feet.y-2&&!s.repairNotch){
-   const pocket=[[1,0],[-1,0],[0,1],[0,-1]].map(([x,z])=>feet.offset(x,-2,z)).find(cell=>refuge.safeNotch(b,feet,cell)&&refuge.EARTH.has(b.blockAt(cell)?.name)&&b.canDigBlock?.(b.blockAt(cell))&&require('./resource_target').withinReach(b,cell)&&pocketFace(b,feet,cell));
+  if(!s.repairNotch){
+   const pocket=await harvestPocket(t,b,motor,s,state);
    if(pocket){
-    motor.pause();motor.lockLook(true);
-    try{
-     await b.lookAt(pocketFace(b,feet,pocket));
-     if(!stable(b)||!refuge.safeNotch(b,feet,pocket)||!refuge.EARTH.has(b.blockAt(pocket)?.name)||!pocketFace(b,feet,pocket))return false;
-     await b.dig(b.blockAt(pocket),'ignore');
-    }finally{motor.lockLook(false);}
-    if(!refuge.openCell(b.blockAt(pocket)))return false;
-    s.repairNotch=pocket.toArray();t.lastProgress=s.progressAt=Date.now();r.status='Collecting real dirt from a closed side pocket';return true;
+    s.repairNotch=pocket;r.status='Collecting real dirt from a closed side pocket';return true;
    }
   }
   r.status='Waiting for a real repair dirt pickup';t.message='Emergency refuge repair: '+r.status;return true;
@@ -92,4 +125,4 @@ async function repair(t,b,motor,s,problem,state){
  r.attempts=0;
  s.shellRepairs=(s.shellRepairs||0)+1;t.lastProgress=s.progressAt=Date.now();r.status='Placed real dirt; rechecking refuge safety';t.message='Patched the damaged refuge shell; rechecking before waiting';return true;
 }
-module.exports={repair,safeCell,stable,pocketFace};
+module.exports={repair,safeCell,stable,pocketFace,recoverCover};

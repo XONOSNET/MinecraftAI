@@ -22,11 +22,12 @@ function shellProblem(b,feet,s){
  // Check the actual enclosure before corners behind it. An exposed wall must
  // remain the repair target even when a diagonal void is also present.
  offsets.sort((a,c)=>Math.abs(a[0])+Math.abs(a[1])-Math.abs(c[0])-Math.abs(c[1]));
+ const pockets=[s?.exitNotch,s?.repairNotch,...Object.values(s?.coverNotches||{})].filter(Boolean).map(p=>new Vec3(...p));
  for(const [dx,dz] of offsets)for(let y=feet.y-4;y<=feet.y-1;y++){
   if(dx===0&&dz===0&&y>feet.y-3)continue;
   const cell=new Vec3(feet.x+dx,y,feet.z+dz);
   if((s?.workspace||s?.furnacePocket)&&require('./burrow_workspace').opening(b,feet,s,cell))continue;
-  if([s?.exitNotch,s?.repairNotch].filter(Boolean).some(p=>cell.equals(new Vec3(...p)))&&safeNotch(b,feet,cell)&&openCell(b.blockAt(cell)))continue;
+  if(pockets.some(p=>cell.equals(p))&&safeNotch(b,feet,cell)&&openCell(b.blockAt(cell)))continue;
   const q=b.blockAt(cell);
   // After excavation, an air-only corner behind two intact inward walls does
   // not open the shaft. Keep initial site selection strict and reject fluids,
@@ -40,7 +41,7 @@ function shellProblem(b,feet,s){
  return null;
 }
 function walls(b,feet,s){return !shellProblem(b,feet,s);}
-// One capped side pocket supplies a real extra exit block if the lip drop stayed above.
+// A capped side pocket can supply real dirt for repair, cover or exit.
 // Its ceiling, floor and exterior remain solid; never open a passage to surface or water.
 function safeNotch(b,feet,q,{checkPlayers=true}={}){
  if(q.y!==feet.y-2||Math.abs(q.x-feet.x)+Math.abs(q.z-feet.z)!==1)return false;
@@ -257,18 +258,19 @@ async function tick(t,b,motor,state,api,scan,tasks){
   t.lastProgress=s.progressAt=Date.now();t.message='Emergency cover: digging one checked earth block';return true;
  }
  if(s.stage==='lip'){
-  const item=await earthItem(b,s);
-  if(!item){t.message='Emergency cover: waiting for the first dirt drop to enter inventory';return true;}
-  const lip=new Vec3(...s.lip);if(b.blockAt(lip)?.name!=='air')throw Error('Emergency cover lip is obstructed');
+  const lip=new Vec3(...s.lip);if(!openCell(b.blockAt(lip)))throw Error('Emergency cover lip is obstructed');
   if(await defendOpening(t,b,motor,s,lip))return true;
   if(!space.clearOfPlayers(b,lip.offset(.5,.5,.5),1)){t.message='Emergency cover: waiting for a clear cover-block position';return true;}
+  const item=await earthItem(b,s);
+  if(!item){
+   if(s.lip_name&&await require('./burrow_repair').recoverCover(t,b,motor,s,state,lip,'lip'))return true;
+   t.message='Emergency cover: waiting for a real dirt pickup for the lip';return true;
+  }
   if(!await placeCover(b,s,lip,lip.offset(0,-1,0),new Vec3(0,1,0),item.name)){t.message='Emergency cover lip refused: rechecking inventory and support';return true;}
   s.lip_name=item.name;s.stage='dig';t.lastProgress=s.progressAt=Date.now();t.message='Emergency cover: first dirt block shields the opening';return true;
  }
  if(s.stage==='seal'){
   if(await defendOpening(t,b,motor,s,cap)||await defendOpening(t,b,motor,s,cap.offset(0,-1,0)))return true;
-  const item=await earthItem(b,s);
-  if(!item){t.message='Emergency cover: collecting excavated dirt for the roof';return true;}
   if(p.y+1.8>cap.y||!b.entity.onGround)throw Error('Insufficient headroom for the emergency roof');
   if(!space.clearOfPlayers(b,cap.offset(.5,.5,.5),1)){t.message='Emergency cover: waiting for another player to leave the opening';return true;}
   const lip=new Vec3(...s.lip),face=cap.minus(lip);if(!cover(b.blockAt(lip),s.lip_name)){
@@ -277,6 +279,11 @@ async function tick(t,b,motor,state,api,scan,tasks){
    // the existing work deadline is not reset merely by selecting recovery.
    if(s.shellVerified&&s.lip_name&&openCell(b.blockAt(lip))){s.stage='lip';t.message='Emergency roof support lost: rebuilding the owned dirt lip';return true;}
    throw Error('Emergency roof support changed: '+(b.blockAt(lip)?.name||'unloaded'));
+  }
+  const item=await earthItem(b,s);
+  if(!item){
+   if(await require('./burrow_repair').recoverCover(t,b,motor,s,state,cap,'roof'))return true;
+   t.message='Emergency cover: waiting for a real dirt pickup for the roof';return true;
   }
   if(!await placeCover(b,s,cap,lip,face,item.name)){t.message='Emergency roof refused: retrying checked cover face';return true;}
   s.cap_name=item.name;s.stage='hidden';t.lastProgress=s.progressAt=Date.now();t.message='Emergency burrow sealed: waiting for daylight and a clear exit';return true;
