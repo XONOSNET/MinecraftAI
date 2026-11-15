@@ -41,3 +41,5 @@ There were zero valid fights and zero completed pairs. First-hit outcomes, damag
 The fixture verified native cleanup, including arena blocks, inventory and operator removal. A separate audit verified that the fixture was offline and deopped and its arena lease was available. Paper remained ready on PID `36160` with eight production bots and baseline round 436 in progress. Production checkpoints and reserved holdouts were untouched. The interrupted `report.json` hash is `59c08b32010104ce62e084e8c54afce00623058856926a45630b9948dab7fdba`. The adjacent journal was empty, consistent with stopping before a fight.
 
 **Next decision:** At a future authorized attempt, check that production has sustained headroom below the existing 86% ceiling before allocating the fixture. Keep the stricter per-fight check and its new rejection details. All 12 starts remain unspent. The current attempt ended under the registered setup stop rule.
+
+The [subsequent retry](combat-windup-retry-result.md) completed all 12 pairs and reports the outcome of those starts separately.
