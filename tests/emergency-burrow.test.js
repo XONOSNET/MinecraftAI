@@ -31,6 +31,47 @@ test('grounded displacement before the first dig rejects the old earth patch and
  assert.equal(f.t.wilderness.burrow,null);
  assert.ok(f.t.wilderness.burrowRejected.has(new Vec3(0,64,0).toString()));
 });
+test('knockback onto a higher dry block before the first dig resumes the interrupted lesson',async()=>{
+ const f=fixture(),shaft=new Vec3(0,64,0),landing=new Vec3(.51,65,2.41);
+ f.cells.set(landing.floored().offset(0,-1,0).toString(),'grass_block');
+ f.b.entity.position=landing;
+ f.b.dig=async()=>assert.fail('must not dig from displaced footing');
+ f.t.walk=async()=>assert.fail('must not walk back to the rejected shaft');
+ f.t.phase='night_burrow';
+ f.t.wilderness.burrow={feet:shaft.toArray(),cap:shaft.toArray(),lip:[-1,64,0],stage:'dig',resume:'stone_return',progressAt:Date.now(),shellVerified:true};
+ f.t.path=[[.5,64.1,.5]];
+ f.t.lastProgress=Date.now()-1000;
+ const previousProgress=f.t.lastProgress;
+
+ assert.equal(await burrow.tick(f.t,f.b,f.motor,f.state),true);
+ assert.equal(f.t.phase,'stone_return');
+ assert.equal(f.t.wilderness.burrow,null);
+ assert.ok(f.t.wilderness.burrowRejected.get(shaft.toString())>Date.now());
+ assert.deepEqual(f.t.path,[]);
+ assert.equal(f.t.navigator.lastPlan,-Infinity);
+ assert.equal(f.t.lastProgress,previousProgress);
+ assert.deepEqual(f.t.milestones,[]);
+});
+test('higher footing cannot abandon a shaft with opened, wet or unknown earth',async ctx=>{
+ for(const [name,replace] of [
+  ['opened',block=>({...block,name:'air',boundingBox:'empty'})],
+  ['waterlogged',block=>({...block,getProperties:()=>({waterlogged:true})})],
+  ['unloaded',()=>null],
+ ])await ctx.test(name,async()=>{
+  const f=fixture(),shaft=new Vec3(0,64,0),landing=new Vec3(.51,65,2.41);
+  f.cells.set(landing.floored().offset(0,-1,0).toString(),'grass_block');
+  f.b.entity.position=landing;
+  f.b.dig=async()=>assert.fail('must not dig from displaced footing');
+  const blockAt=f.b.blockAt,unverified=shaft.offset(0,-2,0);
+  f.b.blockAt=p=>p.equals(unverified)?replace(blockAt(p)):blockAt(p);
+  f.t.phase='night_burrow';
+  f.t.wilderness.burrow={feet:shaft.toArray(),cap:shaft.toArray(),lip:[-1,64,0],stage:'dig',resume:'stone_return',progressAt:Date.now(),shellVerified:true};
+
+  await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/Emergency shaft footing changed/);
+  assert.equal(f.t.phase,'night_burrow');
+  assert.equal(f.t.wilderness.burrowRejected,undefined);
+ });
+});
 test('a close hostile interrupts exposed digging and the bot keeps its lesson while seeking cover',async()=>{
  const f=fixture();f.t.phase='night_burrow';
  f.b.entities.s={id:2,name:'zombie',position:new Vec3(.5,64,-1.5)};

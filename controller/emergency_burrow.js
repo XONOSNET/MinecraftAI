@@ -136,8 +136,12 @@ function retrySurface(t,b,s,reason){
  const feet=new Vec3(...s.feet),p=b.entity.position,q=p.floored();
  // Abandon excavation only while still on checked surface footing. A damaged
  // underground shell must never be silently treated as a safe refuge.
- if(b.entity.onGround!==true||Math.abs(p.y-feet.y)>.2||!standable(b,q.x,q.y,q.z))return false;
- if(p.distanceTo(feet.offset(.5,0,.5))>2){
+ const rise=p.y-feet.y;
+ if(b.entity.onGround!==true||rise<-.2||rise>1.2||!standable(b,q.x,q.y,q.z))return false;
+ if(rise>.2&&(b.entity.isInWater||b.entity.isInLava||require('./water_navigation').cell(b,q.x,q.y,q.z)?.wet!==false))return false;
+ // Knockback can leave a bot one block uphill from the selected site. The
+ // original shaft must still be intact to resume work from that higher ground.
+ if(rise>.2||p.distanceTo(feet.offset(.5,0,.5))>2){
   const unopened=s.stage==='dig'&&!s.lip_name&&[1,2].every(d=>{
    const block=b.blockAt(feet.offset(0,-d,0));
    return EARTH.has(block?.name)&&block.boundingBox==='block'&&!block.getProperties?.().waterlogged;
