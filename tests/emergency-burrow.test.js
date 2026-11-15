@@ -21,6 +21,16 @@ test('a bot already knocked onto safe surface footing resumes work after its ope
  await burrow.tick(f.t,f.b,f.motor,f.state);
  assert.equal(f.t.wilderness.burrow,null);assert.equal(f.t.phase,'stone_return');
 });
+test('grounded displacement before the first dig rejects the old earth patch and resumes the lesson',async()=>{
+ const f=fixture();f.t.phase='night_burrow';
+ f.b.entity.position=new Vec3(.001,64,2.55);
+ f.t.wilderness.burrow={feet:[0,64,0],cap:[0,64,0],lip:[1,64,0],stage:'dig',resume:'stone_return',progressAt:Date.now()};
+ f.b.dig=async()=>assert.fail('must not dig when displaced');
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.phase,'stone_return');
+ assert.equal(f.t.wilderness.burrow,null);
+ assert.ok(f.t.wilderness.burrowRejected.has(new Vec3(0,64,0).toString()));
+});
 test('a close hostile interrupts exposed digging and the bot keeps its lesson while seeking cover',async()=>{
  const f=fixture();f.t.phase='night_burrow';
  f.b.entities.s={id:2,name:'zombie',position:new Vec3(.5,64,-1.5)};

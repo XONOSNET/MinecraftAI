@@ -136,7 +136,14 @@ function retrySurface(t,b,s,reason){
  const feet=new Vec3(...s.feet),p=b.entity.position,q=p.floored();
  // Abandon excavation only while still on checked surface footing. A damaged
  // underground shell must never be silently treated as a safe refuge.
- if(b.entity.onGround!==true||Math.abs(p.y-feet.y)>.2||p.distanceTo(feet.offset(.5,0,.5))>2||!standable(b,q.x,q.y,q.z))return false;
+ if(b.entity.onGround!==true||Math.abs(p.y-feet.y)>.2||!standable(b,q.x,q.y,q.z))return false;
+ if(p.distanceTo(feet.offset(.5,0,.5))>2){
+  const unopened=s.stage==='dig'&&!s.lip_name&&[1,2].every(d=>{
+   const block=b.blockAt(feet.offset(0,-d,0));
+   return EARTH.has(block?.name)&&block.boundingBox==='block'&&!block.getProperties?.().waterlogged;
+  });
+  if(!unopened)return false;
+ }
  return rejectApproach(t,b,s,reason);
 }
 async function regainShaftRim(t,b,motor,s,state,api,scan,tasks,feet){
