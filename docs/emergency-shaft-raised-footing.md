@@ -12,3 +12,9 @@ node --test tests/*.test.js
 ```
 
 All 763 JavaScript tests passed. The regression verifies the controller's recovery and handoff. A completed live teacher and student comparison is needed to measure any change in survival.
+
+## Live rollout on November 15, 2026
+
+Round 436 finished on the previous controller. The lab retained the candidate after it completed 8 of 8 attempts against the saved baseline's 4 of 8. Normal curriculum progression moved the lab to site 4 at the same support level. The rollout waited for the completed comparison and no pending model restore, then paused the next baseline during terrain restoration and ran `scripts/Restart-Bots.ps1`. SHA-256 checks of the active and protected specialist checkpoints matched across the restart.
+
+At 03:46 CST, round 438 had entered its live baseline under `world-1794735619093222300`. All eight reconnected bots reported controller `a0d043041e461ac2` from commit `c8a0ce3`. Paper remained ready on PID 36160, the dashboard responded, and learning resumed with the options present at the rollout boundary. This verifies the deployment. Round 436 results predate the fix, and round 438 has yet to supply a survival comparison.
