@@ -76,6 +76,46 @@ test('a sheltered watch closes its door and does not trigger outdoor food search
  b.blockAt=()=>null;await night.tick(t,b,{pause(){}},state);
  assert.equal(t.phase,'night_recover');assert.match(t.message,/waiting for daylight/);assert.equal(night.priority(b,t,state.world).kind,'retreat');
 });
+
+test('displaced recovery returns to the hut before trying to close its door',async()=>{
+ const {b,t,state}=fixture();t.phase='night_recover';t.wilderness.resume='night_food';t.lastProgress=100;
+ b.health=10;b.food=20;b.entity.position=new Vec3(-1.5,63,15.5);
+ let doorChecks=0;
+ b.blockAt=()=>{doorChecks++;return null;};
+ const motor={pause(){}};
+ await night.tick(t,b,motor,state);
+ assert.equal(t.phase,'night_retreat');assert.equal(doorChecks,0);
+ assert.equal(t.wilderness.resume,'night_food');assert.equal(t.lastProgress,100);
+ let planned;
+ t.walk=async(_b,_m,goal)=>{planned=goal;return false;};
+ await night.tick(t,b,motor,state);
+ assert.deepEqual(planned,[.5,64.1,.5]);assert.equal(t.phase,'night_retreat');
+ assert.deepEqual(t.milestones,['hut']);
+});
+
+test('a retreat holds its checked ascent until grounded and still yields to an unsafe home or close attacker',async ctx=>{
+ const {b,t,state}=fixture();t.phase='night_retreat';t.wilderness.resume='night_food';
+ b.health=10;b.time.timeOfDay=1000;b.entity.position=new Vec3(.5,65.2,8.5);b.entity.onGround=false;
+ const floor={name:'stone',boundingBox:'block'},air={name:'air',boundingBox:'empty'};b.blockAt=q=>q.y<64?floor:air;
+ b.entities.s={name:'skeleton',position:new Vec3(.5,64,16.5)};
+ state.world.bounds=[-28,28,-28,28];t.lastNavigation={phase:'night_retreat',route_complete:true};
+ let committed=true,seeks=0;const motor={committedJump:()=>committed,pause(){}};
+ ctx.mock.method(burrow,'tick',async()=>false);ctx.mock.method(burrow,'seek',async()=>{seeks++;});
+ assert.equal(night.priority(b,t,state.world).kind,'seek cover','airborne feet leave no route start');
+ assert.equal(await night.interrupt(t,b,motor,state),true);
+ assert.equal(t.phase,'night_retreat');assert.equal(t.wilderness.resume,'night_food');assert.equal(seeks,0);
+ b.entity.position.y=64;b.entity.onGround=true;committed=false;
+ assert.equal(await night.interrupt(t,b,motor,state),false);
+ assert.equal(t.wilderness.priority,'retreat','the landing recomputes a route to the same home');
+ b.entity.position.y=65.2;b.entity.onGround=false;committed=true;t.homeDamage={unsafe:true};
+ assert.equal(await night.interrupt(t,b,motor,state),true);assert.equal(seeks,1);
+ assert.equal(t.phase,'night_seek_cover');assert.equal(t.wilderness.coverResume,'night_food');
+ t.homeDamage=null;t.phase='night_retreat';t.wilderness.resume=t.wilderness.coverResume;delete t.wilderness.coverResume;
+ b.entities.s.position=new Vec3(.5,64,10.5);
+ assert.equal(await night.interrupt(t,b,motor,state),true);assert.equal(seeks,2);
+ assert.equal(t.phase,'night_seek_cover');assert.equal(t.wilderness.coverResume,'night_food');
+});
+
 test('no refuge never falls through to exposed work or combat',async ctx=>{
  const {b,t,state}=fixture();t.milestones=[];
  ctx.mock.method(burrow,'tick',async()=>false);let seeks=0;ctx.mock.method(burrow,'seek',async()=>{seeks++;});

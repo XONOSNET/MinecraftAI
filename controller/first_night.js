@@ -55,8 +55,13 @@ async function interrupt(t,b,motor,state,api,scan){
  if(t.wilderness.burrow)return require('./emergency_burrow').tick(t,b,motor,state,api,scan,require('./tasks'));
  const n=t.wilderness,p=priority(b,t,state.world);n.priority=p.kind;n.reason=p.reason;
  // Food, tool replacement and task resumption must not steal a checked jump.
- // Immediate threat decisions still run and can explicitly cancel movement.
- if(require('./movement_handoff').hold(t,motor,{urgent:['seek cover','retreat','defend'].includes(p.kind)||b.health<6}))return true;
+ // If only the airborne start blocks replanning an active retreat, settle on
+ // its checked landing before selecting another refuge. Close threats still preempt.
+ const nav=t.lastNavigation,retreatJump=p.kind==='seek cover'&&t.phase==='night_retreat'&&b.entity.onGround===false&&b.health>=6&&
+  motor.committedJump?.()&&nav?.phase==='night_retreat'&&nav.route_complete&&
+  !shelterPolicy.threats(b).some(e=>e.position.distanceTo(b.entity.position)<(e.name==='creeper'?4.5:3.5))&&
+  require('./refuge_choice').homeReachable(t,b,state.world,{waitingForGround:true});
+ if(require('./movement_handoff').hold(t,motor,{urgent:!retreatJump&&(['seek cover','retreat','defend'].includes(p.kind)||b.health<6)}))return true;
  const time=b.time?.timeOfDay;if(time>=13000&&time<23000)n.nightSeen=true;
  if(t.phase==='night_hold')nightSleep.observe(t,b);
  if(b.isSleeping&&(t.phase!=='night_hold'||['eat','eat raw'].includes(p.kind)||b.health<12))return nightSleep.wake(t,b,motor);
@@ -292,6 +297,12 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   }
  }
  else if(t.phase==='night_recover'){
+  if(!require('./world_navigation').insideHome(p,t.plot)){
+   // Knockback can undo arrival. Keep the interrupted lesson and return
+   // through the checked route before trying to secure the door again.
+   t.phase='night_retreat';t.path=[];t.navigator.lastPlan=-Infinity;
+   t.message='Displaced from shelter during recovery; returning inside';return;
+  }
   motor.pause();const d=door();if(d?.getProperties().open&&!await closeDoor(b,d))return;t.message='Sheltered recovery · health '+b.health+' / 20';
   if(await shelterWork.atHome(t,b,motor))return;
   if(n.shelterWatch){t.message='Sheltered: waiting for daylight and nearby monsters to clear';return;}
