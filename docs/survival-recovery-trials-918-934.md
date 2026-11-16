@@ -56,3 +56,9 @@ node --test tests/*.test.js
 ```
 
 The local native scripts translated the observed geometry onto disposable Paper. The raw trace is `logs/light-return-paper-result.json`. The fixture cleared the two hut volumes and released their force-loaded chunks. The isolated Paper process was then stopped, its two loopback listeners closed, and the disposable files removed. All 767 JavaScript tests passed in the combined suite.
+
+## Live rollout on November 15, 2026
+
+Comparison 445 finished on the previous controller. It retained the candidate after 6 of 8 finished against 3 of 8 for the saved baseline. The only deployment worker waited for that decision and a clear restore status. It paused comparison 446 during terrain restoration, restarted only the bot controller, verified the active and protected checkpoint hashes, and resumed automatic learning with the same options.
+
+By 19:05 CST the dashboard responded, Paper remained ready on PID 36160, and all eight fresh bots reported controller `4d58dc099d8c9a13` in the running baseline of comparison 447 (`world-1794790693338912800`). The current trial remains First Night on site 3 with support level 3. Track future teacher and student stops for climb with dirt on hand, sealing after repairs, and `light_return`, alongside deaths and lesson completion. Count how many bots reached those phases when the reports provide that evidence. The rollout verifies the new code is running. Completed trials under this revision are needed to assess live effects.
