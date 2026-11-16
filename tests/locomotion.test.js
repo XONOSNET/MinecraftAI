@@ -145,6 +145,28 @@ test('walking and small steering corrections overlap, sharp turns and hazards st
  assert.equal(motorPlan(1,permissions,null,{...safe,headBlocked:true},.3,true).forward,false);
  assert.equal(motorPlan(1,{...permissions,move:false},null,safe,.3,true).forward,false);
 });
+
+test('checked flat route keeps walking through a modest turn when both headings are clear',()=>{
+ const {Vec3}=require('vec3');let now=0;const controls={};
+ const p=new Vec3(.5,64,.5),bot={entity:{position:p,yaw:0,pitch:0,onGround:true},getControlState:k=>controls[k],setControlState:(k,v)=>controls[k]=v,
+  look(yaw){this.entity.yaw=yaw;return Promise.resolve();}};
+ const motor=createMotor(bot,permissions,{clock:()=>now});
+ const turn=(angle,{lock=false,center=false,clearAhead=true,action=1}={})=>{
+  bot.entity.yaw=0;p.x=.5;p.z=.5;
+  const q=[p.x-3*Math.sin(angle),64.1,p.z-3*Math.cos(angle)];
+  const task={kind:'expedition',safe_walk:true,strict_ground:true,center_route:center,navigation_lock:lock,
+   safety_focus:q,waypoints:[q],route_corridor:[[p.x,p.y,p.z],q]};
+  const canWalk=yaw=>clearAhead||Math.abs(yaw-angle)<.01;
+  motor.command(action,task,{...safe,canWalk,canStepDown:canWalk,focusPoint:q},angle);
+  now+=50;motor.tick();return !!controls.forward;
+ };
+ assert.equal(turn(.28),true,'student steering retains forward travel');
+ assert.equal(turn(.28,{lock:true}),true,'teacher steering retains forward travel');
+ assert.equal(turn(.28,{clearAhead:false}),false,'the old heading still needs safe footing');
+ assert.equal(turn(.28,{center:true}),false,'precise alignment still turns in place');
+ assert.equal(turn(.65),false,'sharp turns still stop forward travel');
+ assert.equal(turn(.28,{action:4}),false,'the selected wait is respected');
+});
 test('door interaction can overlap walking but mining remains stationary',()=>{
  const door={...safe,door:{name:'oak_door'}};
  assert.equal(motorPlan(5,permissions,{kind:'advanced'},door,0).forward,true);

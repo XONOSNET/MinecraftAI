@@ -49,3 +49,9 @@ Movement diagnostics also exposed expired commands clearing committed doorway st
 Validation: 205 JavaScript tests and 235 Python tests passed.
 
 The isolated closed-house route also completed with an artificial 2.2-second delay on every policy reply: it exited the neighboring house and arrived at its own home in 135.8 seconds (`first-night-slow-rpc-native.json`). This establishes eventual route completion in that fixture, not smooth or fast movement under heavy latency.
+
+## Small steering corrections on flat routes
+
+The route motor was releasing forward control for checked turns above 0.18 radians (about 10 degrees), including small corrections on open ground. On dry, grounded routes it now preserves the policy's forward intention for turns up to 0.35 radians (about 20 degrees) when both headings pass clearance checks. The existing corridor, player, and waypoint checks still run. Sharp turns, exact alignment, unsafe footing, and policy waits still brake.
+
+A local 20 Hz motor replay with four shallow bends and 100 ms decision updates reproduced eight forward-control gaps in 24 ticks in each of the teacher and student arms. Both arms had zero gaps after the change. Blocked and sharp-turn controls still stopped. The replay measures motor controls using simulated positions. It leaves live visual smoothness unmeasured. The focused regression is in `tests/locomotion.test.js`.

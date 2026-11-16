@@ -106,7 +106,13 @@ function createMotor(bot,permissions,{clock=()=>Date.now(),legacy=false}={}){
    }
    // A wall in the old view cannot cancel a safe turn into the checked route.
    if(flatRoute&&Math.abs(angle)>.18&&sensed?.canWalk?.(bot.entity.yaw+angle,routeProbe(p,routeFocus,.75))){
-    recovery.reset();sensed={...sensed,wallAhead:false};plan.forward=false;plan.jump=false;
+    recovery.reset();sensed={...sensed,wallAhead:false};
+    // Keep walking through a small turn when the current heading is safe too.
+    // Exact alignment and wider turns still brake before committing movement.
+    const walkWhileTurning=task.safe_walk&&task.strict_ground&&!task.center_route&&bot.entity.onGround===true&&
+     !bot.entity.isInWater&&Math.abs(angle)<=.35&&sensed.canWalk(bot.entity.yaw,routeProbe(p,routeFocus,.75));
+    if(!walkWhileTurning)plan.forward=false;
+    plan.jump=false;
    }
    const regain=flatRoute&&routeDistance<=1.5&&Math.abs(angle)<.18&&sensed?.canRegainFooting?.(bot.entity.yaw,routeDistance);
    if(regain){recovery.reset();sensed={...sensed,wallAhead:false};}
