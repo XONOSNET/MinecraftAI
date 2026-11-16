@@ -132,7 +132,11 @@ class HutTeacher{
   if(this.phase!=='survey'&&!this.inside(p,w.bounds)){this.failureCategory='boundary';this.error='Reached the simulation boundary; stopped.';this.phase='stopped';}
   // Low health/hunger belongs to the survival planner, not a premature failure.
   if(this.deathRun===state.run||bot.health<=0)this.died(state.run);
-  if(now-this.started>((w.time_budget_seconds||1200)-50)*1000){this.error='Trial time limit reached.';this.phase='stopped';}
+  // A completed wilderness watch may be waiting for real dawn in this final
+  // window. The service still enforces the original trial budget for everyone.
+  const finishingWatch=this.phase==='night_hold'&&w.first_night?.hostiles&&this.wilderness?.sleep?.watch_seconds_left===0;
+  const deadline=(w.time_budget_seconds||1200)-(finishingWatch?0:50);
+  if(now-this.started>deadline*1000){this.error='Trial time limit reached.';this.phase='stopped';}
   const stock=bot.inventory.items().map(i=>i.name+':'+i.count).sort().join(','),stall=this.stall.update(p,progressSignature(this,stock),now);
   // Let the refuge skill validate its roof before a generic stationary timeout
   // can mask a breach/unloaded chunk as inactivity. It throws on an invalid roof.
