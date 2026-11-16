@@ -68,4 +68,18 @@ Across all five pre-rollout trials, 20 of 40 attempts completed. The 20 ends wer
 
 At 23:51 CST on November 15, 2026, Paper remained ready on PID 36160 and the dashboard responded. The single bot-only deployment paused round 449 during terrain restoration after round 448's comparison and model restoration were complete. Hashes of the active and protected specialists matched across the restart. All eight bots reconnected and reported `142a60c8a5b7d662` in the running baseline of comparison 450 (`world-1794807827644407400`). Automatic learning resumed on the same site, support level, and options.
 
-Use the next completed comparable teacher and student runs to measure airborne seal stops, deaths during recovery outside an earned hut, and whether bots reach cover and resume more often. Track other deaths and lesson completion separately. The fixture tests verify both recovery paths and the rollout verifies their deployment. Live outcome evidence under the new controller is pending.
+The post-rollout audit tracks airborne seal stops, deaths during recovery outside an earned hut, lesson completion, and other hostile deaths. The fixture tests verify both recovery paths and the rollout verifies their deployment.
+
+## First completed comparison after rollout
+
+Comparison 450 ran the same site, support level, and behavior revision `6ce78e920274` on controller `142a60c8a5b7d662`.
+
+| Trial | Driver | Finished | Deaths | Other stops |
+| --- | --- | ---: | ---: | --- |
+| 947 | Saved student | 6/8 | 2 | None |
+| 948 | Teacher | 5/8 | 2 | Displaced from a temporary harvesting column |
+| 949 | Candidate student | 5/8 | 2 | 90-second stationary stop while seeking cover |
+
+Deaths ended 6 of 24 attempts, compared with 8 of 40 in the pre-rollout window. Five of the six deaths were in `night_seek_cover`, `night_retreat`, or burrow `approach`. The other was a zombie death during the scout return, with retreat selected. Terminal airborne sealing stops fell from one to zero and deaths during exposed `night_recover` from one to zero. The three earlier stop signatures also had zero recorded recurrences. At least 15 of 24 attempts entered burrow work and 7 of 24 entered home recovery, compared with 26 of 40 and 15 of 40 before rollout, based on phase timing, navigation, and terminal death records. The reports do not count the exact airborne sealing or exposed recovery conditions in successful attempts. These small samples and changing encounters limit conclusions about live survival.
+
+The saved student finished 6 of 8 and the candidate 5 of 8. Both had two low-health outcomes. The scheduler restored the protected specialists because the candidate finished fewer sequences. Comparison 451 continued automatic learning on the same settings with all eight bots and the same controller.
