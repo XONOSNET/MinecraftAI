@@ -53,3 +53,9 @@ node --test tests/*.test.js
 ```
 
 Raw results are `logs/trial-943-cover-native-before.jsonl` and `logs/trial-943-cover-native-after.jsonl`. Both native fixtures verified cleanup and disconnection. The loopback Paper process was stopped, its listeners closed, and the disposable server files removed. The combined JavaScript suite passed all 771 tests.
+
+## Additional runs before the rollout
+
+Comparison 448's baseline trial 944 (`world-1794796893536242000`) finished 6 of 8. LabAI3 died to a creeper during `night_retreat`. LabAI2 stopped while trying to reach its plot-clearing work. Teacher trial 945 (`world-1794800336079100300`) finished 5 of 8. LabAI7 died to a skeleton during burrow `approach`, LabAI5 found no safe route to begin clearing its plot, and LabAI1 stopped in `return_home` after 60 seconds. These runs used the old `4d58dc099d8c9a13` controller at the same site and support level. The `return_home` stop is a separate lesson phase from the earlier `light_return` issue.
+
+Through trial 945 the pre-rollout count was 17 of 32 complete. Deaths ended six attempts, whole-trial deadlines ended four, plot-clearing navigation ended two, and the ordinary home return, airborne seal guard, and furnace each ended one. Of the six deaths, four occurred during travel to cover or open excavation, one at a shaft exit, and one during displaced recovery. The distinct enemy types and terminal phases leave the cause of the travel-to-cover deaths open.
