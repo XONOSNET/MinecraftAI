@@ -35,7 +35,13 @@ def test_first_night_support_removes_stations_then_camp_then_hostile_sweep(tmp_p
                 with pytest.raises(ValueError,match='cannot create'):world.quarry('LabAI0')
         commands.clear();clock[0]=2;world.tick()
         assert any('type=minecraft:zombie,' in c for c in commands)==(level<3)
-        assert world.assignment('LabAI0')['world']['first_night']['id']==level
+        watch=world.assignment('LabAI0')['world']['first_night']
+        assert watch['id']==level
+        if level==3:
+            assert watch['watch_until_sunrise'] is True and 'hold_seconds' not in watch
+            assert 'first verified sunrise' in watch['description']
+        else:
+            assert watch['hold_seconds']==(180,180,300)[level] and not watch.get('watch_until_sunrise')
 
 def test_reserved_assessments_require_student_and_never_persist_memory(tmp_path):
     world,commands,clock,log=fixture(tmp_path)

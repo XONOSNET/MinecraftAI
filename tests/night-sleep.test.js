@@ -1,12 +1,12 @@
 const test=require('node:test'),assert=require('node:assert/strict'),{Vec3}=require('vec3');
 const sleep=require('../controller/night_sleep'),night=require('../controller/first_night'),house=require('../controller/house');
 function fixture(){
- const t={phase:'night_hold',plot:{x:0,y:64,z:0},milestones:['hut'],started:Date.now()-20000,lastProgress:0,milestone(name){this.milestones.push(name);}};
+ const t={phase:'night_hold',plot:{x:0,y:64,z:0},milestones:['hut','bed_home','round_trip'],started:Date.now()-20000,lastProgress:0,milestone(name){this.milestones.push(name);}};
  night.init(t,{});
  const blocks=new Map(house.blueprint(t.plot).map(p=>[`${p.x},${p.y},${p.z}`,p.table?'crafting_table':'oak_planks']));
- const bed=house.point(t.plot,'bed');blocks.set(bed.toArray().join(','),'white_bed');blocks.set(bed.offset(0,0,1).toArray().join(','),'white_bed');blocks.set('0,64,-3','oak_door');
+ const bed=house.point(t.plot,'bed');blocks.set(bed.toArray().join(','),'white_bed');blocks.set(bed.offset(0,0,1).toArray().join(','),'white_bed');blocks.set('0,64,-3','oak_door');blocks.set('0,65,-3','oak_door');
  const b={health:20,food:20,time:{timeOfDay:14000},game:{dimension:'overworld'},entity:{position:new Vec3(.5,64.1,.5)},entities:{},inventory:{items:()=>[{name:'cooked_beef',count:4}]},
-  blockAt(p){return {name:blocks.get(p.toArray().join(','))||'air',position:p,getProperties:()=>({open:false,occupied:false})};},
+  blockAt(p){return {name:blocks.get(p.toArray().join(','))||'air',position:p,getProperties:()=>({open:false,occupied:false,half:p.y===64?'lower':'upper',part:p.equals(bed)?'foot':'head'})};},
   async sleep(){this.isSleeping=true;},async wake(){this.isSleeping=false;}};
  return {t,b,motor:{pause(){}},blocks};
 }
@@ -62,33 +62,44 @@ test('shelter watch requires morning and its full timer, never just a sleep or h
  assert.equal(night.report(t).sleep.morning_seen,true);
 });
 
-async function finalWatchController(ctx){
+async function finalWatchController(ctx,profile={id:3,hostiles:true,watch_until_sunrise:true}){
  const {HutTeacher}=require('../controller/hut_teacher'),teacher=new HutTeacher();
  const {t,b,motor,blocks}=fixture(),reports=[];
  let now=Date.now();ctx.mock.method(Date,'now',()=>now);
  b.username='LabWatchDeadlineTest';b.game.gameMode='survival';b.entity.onGround=true;
- blocks.set('0,65,-3','oak_door');
- const blockAt=b.blockAt,bed=house.point(t.plot,'bed');
+ const blockAt=b.blockAt;
  b.blockAt=q=>{
   const block=blockAt(q);
   block.boundingBox=block.name==='air'?'empty':'block';
-  block.getProperties=()=>({open:false,occupied:false,half:q.y===64?'lower':'upper',part:q.equals(bed)?'foot':'head'});
   return block;
  };
  const state={run:'final-watch-deadline',world:{bounds:[-24,24,-24,24],mission:'first_night',time_budget_seconds:3600,
-  first_night:{hostiles:true,hold_seconds:1800}}};
+  first_night:profile}};
  const tick=()=>teacher.tick(b,motor,state,async(path,data)=>{assert.equal(path,'/world/report');reports.push(data);},null,{createRuntime:()=>({})});
  await tick();
  Object.assign(teacher,{phase:'night_hold',plot:t.plot,milestones:['hut','bed_home','round_trip']});
- // Start with the required watch served and its final morning still ahead.
- teacher.wilderness.sleep={status:'Sleeping',night_seen:true,morning_seen:false,retry_at:0,watch_seconds_left:0};
- b.isSleeping=true;
  const elapsed=seconds=>{now=teacher.started+seconds*1000;};
  return {teacher,b,blocks,reports,state,tick,elapsed};
 }
 
-test('a completed Night 3 watch can observe dawn and wake inside the existing trial budget',async ctx=>{
+test('the live Night 3 profile completes on its first sheltered dawn without serving the legacy timer',async ctx=>{
+ const {teacher,b,reports,tick,elapsed}=await finalWatchController(ctx,{id:3,hostiles:true,hold_seconds:1800});
+ elapsed(600);await tick();
+ assert.equal(teacher.phase,'night_hold');assert.equal(b.isSleeping,true);
+ b.entity.position=new Vec3(2.5,64.6875,.5);
+ b.time.timeOfDay=0;elapsed(650);await tick();
+ assert.equal(teacher.phase,'night_hold','dawn still requires a server wake');
+ assert.equal(teacher.wilderness.sleep.morning_seen,true);
+ b.isSleeping=false;elapsed(651);await tick();
+ assert.equal(teacher.phase,'complete');assert.ok(teacher.milestones.includes('survived'));
+ const report=reports.at(-1);
+ assert.equal(report.state,'complete');assert.equal(report.wilderness.watch_until_sunrise,true);
+ assert.equal(report.wilderness.sleep.morning_seen,true);assert.equal(report.wilderness.sleep.watch_seconds_left,undefined);
+});
+
+test('Night 3 still observes dawn and wake inside the final seconds of the trial budget',async ctx=>{
  const {teacher,b,reports,tick,elapsed}=await finalWatchController(ctx);
+ elapsed(3549);await tick();
  elapsed(3551);await tick();
  assert.equal(teacher.phase,'night_hold');assert.equal(b.isSleeping,true);assert.equal(teacher.wilderness.sleep.morning_seen,false);
  assert.ok(!teacher.milestones.includes('survived'));
@@ -98,17 +109,74 @@ test('a completed Night 3 watch can observe dawn and wake inside the existing tr
  assert.equal(teacher.phase,'complete');assert.equal(reports.at(-1).state,'complete');assert.ok(teacher.milestones.includes('survived'));
 });
 
-test('the final-watch allowance ends at the budget and never grants unsafe or unfinished completion',async ctx=>{
+test('Night 3 cannot complete at the exact deadline and other work keeps its cutoff',async ctx=>{
+ const {teacher,b,tick,elapsed}=await finalWatchController(ctx);
+ elapsed(3599);await tick();
+ assert.equal(teacher.phase,'night_hold');
+ b.time.timeOfDay=0;b.isSleeping=false;elapsed(3600);await tick();
+ assert.equal(teacher.phase,'stopped');assert.match(teacher.error,/time limit/);assert.ok(!teacher.milestones.includes('survived'));
+ teacher.error=null;teacher.phase='gather';elapsed(3551);await tick();
+ assert.equal(teacher.phase,'stopped','other work keeps its original cutoff');
+});
+
+test('Night 3 still handles low provisions and a damaged doorway before completion',async ctx=>{
  const {teacher,b,blocks,tick,elapsed}=await finalWatchController(ctx);
+ elapsed(3550);await tick();
  elapsed(3551);b.time.timeOfDay=0;b.isSleeping=false;b.food=9;
  const carried=b.inventory.items;b.inventory.items=()=>[];await tick();
  assert.equal(teacher.phase,'night_food');assert.ok(!teacher.milestones.includes('survived'));
  teacher.phase='night_hold';b.food=20;b.inventory.items=carried;blocks.delete('0,64,-3');elapsed(3552);await tick();
  assert.ok(!teacher.milestones.includes('survived'),'a damaged doorway cannot finish the watch');
- blocks.set('0,64,-3','oak_door');teacher.homeRepair=null;teacher.phase='night_hold';
- elapsed(3601);await tick();assert.equal(teacher.phase,'stopped');assert.match(teacher.error,/time limit/);
- teacher.error=null;teacher.phase='gather';elapsed(3551);await tick();
- assert.equal(teacher.phase,'stopped','other work keeps its original cutoff');
+});
+
+test('a Night 3 night seen before the watch does not let the bot finish during existing daylight',async()=>{
+ const {t,b,motor}=fixture(),state={world:{first_night:{id:3,hostiles:true,hold_seconds:0}}};
+ t.wilderness.nightSeen=true;b.time.timeOfDay=6500;
+ await night.tick(t,b,motor,state);
+ assert.equal(t.phase,'night_hold');assert.equal(t.wilderness.sleep.morning_seen,false);
+});
+
+test('an exterior dawn breaks the sheltered watch even when the bot later returns indoors',async()=>{
+ const {t,b,motor}=fixture(),state={world:{first_night:{id:3,hostiles:true,hold_seconds:0}}};
+ b.sleep=async()=>{throw Error('monsters nearby');};
+ t.walk=async()=>false;
+ await night.tick(t,b,motor,state);
+ b.entity.position=new Vec3(4.5,64.1,.5);b.time.timeOfDay=0;
+ await night.tick(t,b,motor,state);assert.equal(t.phase,'night_hold');
+ b.entity.position=new Vec3(.5,64.1,.5);await night.tick(t,b,motor,state);
+ assert.equal(t.phase,'night_hold');assert.equal(t.wilderness.sleep.morning_seen,false);
+});
+
+test('Night 3 completes after an awake watch even if monsters prevent sleep',async()=>{
+ const {t,b,motor}=fixture(),state={world:{first_night:{id:3,hostiles:true,hold_seconds:1800}}};
+ b.sleep=async()=>{throw Error('monsters nearby');};
+ await night.tick(t,b,motor,state);assert.match(t.message,/monsters nearby/);
+ b.time.timeOfDay=0;await night.tick(t,b,motor,state);
+ assert.equal(t.phase,'complete');assert.equal(t.wilderness.sleep.morning_seen,true);
+});
+
+test('dawn does not supersede the round trip, the closed door or the health and food floors',async()=>{
+ const state={world:{first_night:{id:3,hostiles:true}}};
+ for(const guard of ['round trip','upper door','health','food']){
+  const {t,b,motor,blocks}=fixture();b.sleep=async()=>{throw Error('monsters nearby');};
+  if(guard==='round trip')t.milestones.pop();
+  await night.tick(t,b,motor,state);
+  if(guard==='upper door')blocks.delete('0,65,-3');
+  if(guard==='health')b.health=11;
+  if(guard==='food')b.food=9;
+  b.time.timeOfDay=0;await night.tick(t,b,motor,state);
+  assert.equal(t.phase,'night_hold',guard);assert.ok(!t.milestones.includes('survived'),guard);
+ }
+});
+
+test('Night 3 can do protected work while waiting and gives a verified dawn precedence',async ctx=>{
+ const {t,b,motor}=fixture(),state={world:{first_night:{id:3,hostiles:true}}};
+ const work=ctx.mock.method(require('../controller/shelter_work'),'atHome',async()=>true);
+ const prospect=ctx.mock.method(require('../controller/iron_prospect'),'begin',()=>true);
+ b.sleep=()=>assert.fail('the protected work already used this tick');
+ await night.tick(t,b,motor,state);assert.equal(work.mock.callCount(),1);
+ b.time.timeOfDay=0;await night.tick(t,b,motor,state);
+ assert.equal(t.phase,'complete');assert.equal(work.mock.callCount(),1);assert.equal(prospect.mock.callCount(),0);
 });
 test('nearby monsters do not send an already sheltered watcher back into travel',async()=>{
  const {t,b,motor}=fixture();b.entities={z:{name:'zombie',position:new Vec3(2,64,0)}};b.world={raycast:()=>null};

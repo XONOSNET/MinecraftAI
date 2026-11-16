@@ -7,6 +7,24 @@ for(const script of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g))new Func
 const source=html.slice(html.indexOf('function describeLabActivity('),html.indexOf('function renderLabStatus('));
 const describe=vm.runInNewContext(source+';describeLabActivity');
 
+test('live sunrise telemetry replaces stale Night 3 profile copy on the dashboard',()=>{
+ const start=html.indexOf('function withCurrentFirstNightDescription('),end=html.indexOf('function describeLabActivity(',start);
+ const update=vm.runInNewContext(html.slice(start,end)+';withCurrentFirstNightDescription');
+ const profile={id:3,description:'Complete the survival chain and remain alive for 30 minutes.'};
+ const session={active:true,phase:'running',first_night:profile,results:{},message:`First Night. ${profile.description} Recipes remain assisted.`};
+ const original={world_training:{session,first_night_levels:[profile]}};
+ assert.strictEqual(update(original),original);
+ session.results.LabAI0={wilderness:{watch_until_sunrise:true}};
+ const current=update(original).world_training;
+ assert.match(current.first_night_levels[0].description,/first verified sunrise/);
+ assert.match(current.session.message,/first verified sunrise.*Recipes remain assisted/);
+ assert.match(session.message,/30 minutes/);
+ session.phase='restoring';session.message='Restoring natural terrain.';
+ assert.equal(update(original).world_training.session.message,session.message);
+ profile.watch_until_sunrise=true;
+ assert.strictEqual(update(original),original);
+});
+
 test('wool status separates carried wool, nearby sheep and deferred targets',()=>{
  const start=html.indexOf('function woolStatusText('),end=html.indexOf('function worldTimingText(',start),format=vm.runInNewContext(html.slice(start,end)+';woolStatusText');
  assert.match(format({phase:'night_wool',wilderness:{livestock:{resource:'wool',wool:1,loaded_white_sheep:4,eligible_targets:2,remembered_patches:3,rejected_targets:1}}}),/Wool 1\/3.*4 nearby.*2 candidates.*3 remembered.*1 deferred/);

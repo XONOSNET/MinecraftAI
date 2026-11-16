@@ -1,13 +1,18 @@
 // Real bed interactions; a successful sleep request alone never credits survival.
 const house=require('./house');
+const daylight=time=>Number.isFinite(time)&&time>=0&&time<12000;
 function observe(t,b){
  const s=t.wilderness.sleep??={status:'Waiting for night',night_seen:false,morning_seen:false,retry_at:0};
  const time=b.time?.timeOfDay;
  if(Number.isFinite(time)){
   if(time>=12541&&time<=23458)s.night_seen=true;
-  if(s.night_seen&&time>=0&&time<12000)s.morning_seen=true;
+  if(s.night_seen&&daylight(time))s.morning_seen=true;
  }
  return s;
+}
+function resetWatch(t){
+ const s=t.wilderness.sleep;
+ if(s){s.night_seen=false;s.morning_seen=false;}
 }
 async function wake(t,b,motor,now=Date.now()){
  if(!b.isSleeping)return false;
@@ -19,10 +24,10 @@ async function wake(t,b,motor,now=Date.now()){
  }
  return true;
 }
-async function tick(t,b,motor,walk,now=Date.now()){
- motor.pause();const s=observe(t,b),time=b.time?.timeOfDay;
+async function tick(t,b,motor,walk,now=Date.now(),s=observe(t,b)){
+ motor.pause();const time=b.time?.timeOfDay;
  const status=text=>{s.status=text;t.wilderness.priority='Shelter watch';t.wilderness.reason=text;return text;};
- if(b.isSleeping)return status('Sleeping in home bed · waiting for morning');
+ if(b.isSleeping)return status(t.wilderness.watchUntilSunrise&&s.morning_seen&&daylight(time)?'Morning verified · waiting to wake':'Sleeping in home bed · waiting for morning');
  if(!Number.isFinite(time))return status('Sheltered · waiting for server time');
  if(time<12541||time>23458)return status(s.morning_seen?'Morning verified · finishing survival watch':s.night_seen?'Sheltered · waiting for dawn':'Sheltered · waiting for night');
  // A recorded morning proves survival, but must not suppress bed use on a
@@ -45,4 +50,4 @@ async function tick(t,b,motor,walk,now=Date.now()){
   return status('Sleeping in home bed · waiting for morning');
  }catch(error){return blocked('cannot sleep: '+String(error.message).slice(0,160));}
 }
-module.exports={observe,wake,tick};
+module.exports={observe,resetWatch,daylight,wake,tick};

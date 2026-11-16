@@ -11,12 +11,12 @@ leave the bot sheltered with a visible reason. Failed attempts retry after ten
 seconds. Beds are never activated outside the Overworld. Sleeping bots pause;
 food/recovery work waits for waking, and stopped attempts also request waking.
 
-Completion requires an observed night during this watch followed by daytime,
-server-confirmed waking, the existing watch-duration criterion, health >= 12,
-food >= 10, an intact enclosure, and a closed door. Prior nighttime resource
-gathering cannot satisfy the watch's morning check. Sleeping alone does not
-credit success. Other awake players can keep the server from skipping night;
-the bots then remain in their beds until morning normally arrives.
+At level 3, completion requires observing night and then morning from the bot's
+secured hut after the scouting round trip. The bot must be awake with health
+>= 12 and food >= 10, and the one-hour lesson budget still applies. Nighttime
+resource gathering cannot satisfy the watch. Levels 0–2 also retain their
+configured watch durations. Other awake players can keep the server from skipping
+night, so the bots may remain in their beds until natural dawn.
 
 Status messages flow through the existing dashboard/in-game activity report.
 The wilderness report also includes `sleep.status`, `sleep.night_seen`, and
@@ -33,8 +33,8 @@ remains to be observed. No training data or global time is written by the fixtur
 
 ## Spectator countdown bar
 
-While watching a bot in `night_hold`, a third purple bossbar displays its name
-and remaining shelter-watch time as minutes and seconds. It shrinks toward
+For timed watches at support levels 0–2, a third purple bossbar displays the
+watched bot's name and remaining shelter-watch time as minutes and seconds. It shrinks toward
 zero. If the timer expires before the lesson finishes, the bar stays visible
 at `0:00` and shows the reported sleep/watch status (for example, waiting for
 morning). It hides when switching to a bot
@@ -46,7 +46,8 @@ The controller reports `watch_seconds_left`, `watch_seconds_total`, and
 `watch_updated_at` in `wilderness.sleep`. The HUD uses that timestamp to keep
 the visible countdown moving between reports. It reuses the otherwise hidden
 third status bar, with the existing route/stall display available outside the
-shelter watch; stopping observation removes all bars.
+shelter watch; stopping observation removes all bars. At level 3 the
+activity report describes whether the bot is waiting for night, dawn or waking.
 
 Original validation of this HUD addition: 311 Python and 364 JavaScript tests passed. A
 diagnostic Minecraft client received the actual bossbar packets, verified the
