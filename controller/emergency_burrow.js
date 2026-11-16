@@ -271,7 +271,13 @@ async function tick(t,b,motor,state,api,scan,tasks){
  }
  if(s.stage==='seal'){
   if(await defendOpening(t,b,motor,s,cap)||await defendOpening(t,b,motor,s,cap.offset(0,-1,0)))return true;
-  if(p.y+1.8>cap.y||!b.entity.onGround)throw Error('Insufficient headroom for the emergency roof');
+  const standing=b.entity.position;
+  // Knockback can briefly lift an otherwise safe bot into the roof cell.
+  if(!b.entity.onGround&&s.shellVerified&&Math.abs(standing.x-feet.x-.5)<=.3&&Math.abs(standing.z-feet.z-.5)<=.3&&
+     require('./burrow_repair').settlingFooting(b,feet)){
+   t.message='Emergency cover: settling on dry footing before sealing the roof';return true;
+  }
+  if(standing.y+1.8>cap.y||!b.entity.onGround)throw Error('Insufficient headroom for the emergency roof');
   if(!space.clearOfPlayers(b,cap.offset(.5,.5,.5),1)){t.message='Emergency cover: waiting for another player to leave the opening';return true;}
   const lip=new Vec3(...s.lip),face=cap.minus(lip);if(!cover(b.blockAt(lip),s.lip_name)){
    // Rebuild only our previously placed, now empty support. The ordinary lip

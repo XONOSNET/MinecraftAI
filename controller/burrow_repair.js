@@ -125,4 +125,4 @@ async function repair(t,b,motor,s,problem,state){
  r.attempts=0;
  s.shellRepairs=(s.shellRepairs||0)+1;t.lastProgress=s.progressAt=Date.now();r.status='Placed real dirt; rechecking refuge safety';t.message='Patched the damaged refuge shell; rechecking before waiting';return true;
 }
-module.exports={repair,safeCell,stable,pocketFace,recoverCover};
+module.exports={repair,safeCell,stable,pocketFace,recoverCover,settlingFooting};

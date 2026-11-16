@@ -564,3 +564,42 @@ test('airborne repair waiting expires and never accepts fluid, missing footing o
  f.cells.set(new Vec3(0,61,0).toString(),'dirt');f.b.entity.position.y=61.5;
  await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/no longer dry/);assert.equal(f.s.shellRepairs||0,0);
 });
+
+test('an airborne bot in a verified dry shaft lands before sealing, then exits and resumes',async ctx=>{
+ const f=damagedRefuge(ctx,{roof:true,carried:1}),feet=new Vec3(...f.s.feet);
+ f.s.stage='seal';delete f.s.cap_name;
+ f.b.entity.position=new Vec3(.7,62.5753,.4837);f.b.entity.velocity=new Vec3(0,.0284,-.0479);f.b.entity.onGround=false;
+ const progress=f.s.progressAt,place=f.b._placeBlockWithOptions;
+ f.b._placeBlockWithOptions=async(...args)=>{
+  assert.equal(f.b.entity.onGround,true);await place(...args);
+ };
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.s.stage,'seal');assert.equal(f.s.progressAt,progress);assert.equal(f.dirt(),1);
+ assert.equal(f.b.blockAt(feet).name,'air');assert.match(f.t.message,/settling on dry footing/);
+ f.b.entity.onGround=true;f.b.entity.position.y=62;
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.s.stage,'hidden');assert.equal(burrow.sealed(f.b,f.s),true);assert.equal(f.dirt(),0);
+ f.b.time.timeOfDay=6000;
+ for(let i=0;i<8&&f.t.wilderness.burrow;i++)await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(f.t.phase,'gather');assert.equal(f.b.entity.position.y,64);assert.deepEqual(f.t.milestones,[]);
+});
+
+test('the seal settling check preserves the deadline and rejects invalid footing',async ctx=>{
+ const f=damagedRefuge(ctx,{roof:true,carried:1}),feet=new Vec3(...f.s.feet);
+ f.s.stage='seal';delete f.s.cap_name;f.b.entity.position.y=62.5753;f.b.entity.onGround=false;
+ f.b._placeBlockWithOptions=async()=>assert.fail('must not place a roof from invalid footing');
+ f.s.progressAt=Date.now()-30001;
+ await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/no physical progress for 30 seconds/);
+ f.s.progressAt=Date.now();
+ f.b.entity.onGround=true;
+ await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/Insufficient headroom/);
+ f.b.entity.onGround=false;f.b.entity.isInWater=true;
+ await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/Insufficient headroom/);
+ f.b.entity.isInWater=false;f.b.entity.position.x=.81;
+ await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/Insufficient headroom/);
+ f.b.entity.position.x=.5;f.cells.set(feet.toString(),'stone');
+ await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/Insufficient headroom/);
+ f.cells.set(feet.toString(),'air');f.cells.set(feet.offset(0,-3,0).toString(),'water');
+ await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),/no longer dry and supported/);
+ assert.equal(f.dirt(),1);assert.equal(f.s.stage,'seal');assert.equal(f.s.cap_name,undefined);
+});
