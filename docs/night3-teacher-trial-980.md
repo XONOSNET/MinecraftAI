@@ -27,3 +27,21 @@ node scripts/verify_emergency_burrow_climb_native.cjs 980
 The climb failure report now keeps the last attempt and any current wait reason. It records blocked preconditions, the sampled peak, the placement request pose, the block state after the server's reply, and the final grounded pose. A runtime failure can now distinguish a jump that never reached clearance, a refused or unanswered placement, and a failed landing. Details are attached to the existing burrow failure context. The original timeout and verified inventory and landing checks still apply.
 
 Raw evidence is in `logs/trial-980-shaft-edge-before.jsonl`. The replay cleared the shaft, disconnected, and closed both loopback fixture ports.
+
+## Approaching an unsafe excavation target
+
+Paper recorded zombie deaths for LabAI2 and LabAI6 in trial 980, at 04:06:35 and 04:08:05 CST. Their last reported targets were `[16486, 63, 16421]` and `[16470, 63, 16445]`, both still in burrow `approach`. LabAI2 had earlier phantom damage. LabAI6 had substantial skeleton damage and died in another zombie approach in trial 983. The immediate death reports lack the final movement and the pursuer's position, so the exact path to each death is unknown.
+
+The prior urgent fallback's proximity filter admitted patches as close as 1.5 blocks from a zombie, subject to its separate route checks. The unopened-shaft check would abandon excavation within 3.5 blocks. The controller also continued toward a previously clear patch as a visible pursuer entered that range. The revised approach uses the existing digging limits at selection and during travel, including the 4.5-block creeper limit. It releases the claim and returns to checked cover search with the interrupted lesson saved. An airborne checked jump keeps its existing movement and route checks. The ordinary threat, footing, inventory, and shelter verification gates still apply.
+
+The focused regression places two valid earth patches on opposite sides of a survival start. It verifies rejection of the close patch, retargeting when a visible zombie closes on an existing approach, and handoff after a checked landing. The prior code fails those regressions. All 118 focused checks and the 787-test JavaScript suite pass with the climb diagnostics and approach fix together.
+
+```powershell
+node --test tests/burrow-dangerous-approach.test.js tests/emergency-burrow.test.js tests/resource-access.test.js tests/refuge-choice.test.js tests/first-night.test.js tests/survival-progression.test.js
+```
+
+The first native pursuit attempt stopped before release in both arms on frozen-start verification. Both fixture volumes were cleared and both bots disconnected. Its two `logs/trial-980-cover-native-*-unreleased.json` files contain setup records only.
+
+The corrected disposable launcher enables command-spawned monsters and the arena script disables natural spawning. The runner verifies the frozen zombie and resets both arms. Memory peaked at 89.4% with the first fixture running and stayed around 86.5% after cleanup, so the pursuit retry remains pending. Once the lab has headroom, run `pwsh -NoProfile -File logs/run-trial-980-cover-fixture.ps1`.
+
+The post-rollout observer checks for the first two comparable site 1 teacher trials without moving the curriculum. It also allows one isolated retry during ordinary play if memory falls to 81.5% or lower. Live teacher completion, route and open-shelter deaths, and climb stalls are pending under the new controller.

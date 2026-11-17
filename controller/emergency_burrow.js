@@ -7,8 +7,12 @@ const SOLID=new Set([...EARTH,'stone','granite','diorite','andesite','deepslate'
 const DANGER=new Set(['water','lava','sand','red_sand','gravel','fire','soul_fire','magma_block']);
 const MOBS=new Set(['skeleton','stray','bogged','zombie','husk','drowned','zombie_villager','creeper','witch','pillager','vindicator','spider','cave_spider','phantom','silverfish','endermite']);
 const ARCHERS=new Set(['skeleton','stray','bogged','pillager']),claims=new Map();
+const exposedRange=e=>e.name==='creeper'?4.5:3.5;
+function diggingThreat(standing,enemies){
+ return enemies.find(e=>!ARCHERS.has(e.name)&&e.position.distanceTo(standing)<exposedRange(e));
+}
 function exposedThreat(b){
- return threats(b).find(e=>!ARCHERS.has(e.name)&&e.position.distanceTo(b.entity.position)<(e.name==='creeper'?4.5:3.5));
+ return diggingThreat(b.entity.position,threats(b));
 }
 function alive(b,e){const index=b.registry?.entitiesByName?.[e.name]?.metadataKeys?.indexOf('health'),health=typeof index==='number'&&index>=0?e.metadata?.[index]:undefined;return e.isValid!==false&&(typeof health!=='number'||health>0);}
 function threats(b,standing=b.entity.position){
@@ -65,9 +69,9 @@ function find(t,b,state){
  const fleeing=require('./shelter_policy').wantsCover(b,state.world,t);
  for(const urgent of [false,...(fleeing&&enemies.length?[true]:[])]){let checked=0;
  search:for(const [x,z] of offsets)for(const dy of [0,1,-1,2,-2]){
-  const feet=base.offset(x,dy,z),goal=[feet.x+.5,feet.y+.1,feet.z+.5];
+  const feet=base.offset(x,dy,z),standing=feet.offset(.5,0,.5),goal=standing.offset(0,.1,0).toArray();
   if(Date.now()<(t.wilderness.burrowRejected?.get(feet.toString())||0))continue;
-  if(enemies.some(e=>e.position.distanceTo(new Vec3(...goal))<(urgent?(e.name==='creeper'?4:1.5):12)))continue;
+  if(enemies.some(e=>e.position.distanceTo(standing)<(urgent?(ARCHERS.has(e.name)?1.5:exposedRange(e)):12)))continue;
   if(!site(t,b,feet,state.world))continue;
   if(space.busy(b,state.run,feet.offset(.5,0,.5)))continue;
   if([...claims.values()].some(c=>c.run===state.run&&c.owner!==b.username&&Math.hypot(c.x-feet.x,c.z-feet.z)<3))continue;
@@ -210,7 +214,13 @@ async function tick(t,b,motor,state,api,scan,tasks){
   throw Error('Emergency burrow work made no physical progress for 30 seconds');
  }
  if(s.stage==='approach'){
-  if(await t.walk(b,motor,[feet.x+.5,feet.y+.1,feet.z+.5],state,api,scan,tasks,{avoidCell:threatClearance(b,threats(b))})===false){
+  const enemies=threats(b),pursuer=diggingThreat(feet.offset(.5,0,.5),enemies);
+  // Let an airborne checked jump keep its existing route and hazard tests.
+  if(pursuer&&!(b.entity.onGround===false&&motor.committedJump?.())){
+   motor.pause();rejectApproach(t,b,s,'Visible '+pursuer.name+' is too close to the excavation site');
+   n.coverResume??=s.resume;t.phase='night_seek_cover';return true;
+  }
+  if(await t.walk(b,motor,[feet.x+.5,feet.y+.1,feet.z+.5],state,api,scan,tasks,{avoidCell:threatClearance(b,enemies)})===false){
    return rejectApproach(t,b,s,'Blocked refuge route');
   }
   if(Math.hypot(p.x-feet.x-.5,p.z-feet.z-.5)<.45&&Math.abs(p.y-feet.y)<.2){
