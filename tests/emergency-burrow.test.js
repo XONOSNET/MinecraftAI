@@ -528,6 +528,34 @@ test('burrow failure reports preserve terminal footing instead of stale approach
  f.b.blockAt=()=>{throw Error('disconnected');};burrow.captureFailure(f.t,f.b,error);assert.equal(burrow.report(f.t).failure_context.capture_error,'disconnected');
 });
 
+test('a stopped exit retains only the last climb attempt and keeps the original deadline',async ctx=>{
+ const f=fixture(),feet=new Vec3(0,64,0),progress=Date.now();let now=progress,attempts=0;
+ f.b.entity.position.y=62;f.t.phase='night_burrow';
+ f.b.inventory.items=()=>[{name:'dirt',count:2}];f.b.clearControlStates=()=>{};
+ f.cells.set(feet.offset(0,-1,0).toString(),'air');f.cells.set(feet.offset(0,-2,0).toString(),'air');
+ const s=f.t.wilderness.burrow={feet:feet.toArray(),cap:feet.toArray(),lip:[1,64,0],stage:'climb',resume:'gather',progressAt:progress};
+ ctx.mock.method(Date,'now',()=>now);
+ ctx.mock.method(inventory,'sync',async()=>{});
+ ctx.mock.method(access,'jumpPlace',async(_b,_q,_item,trace)=>{
+  trace.stage=++attempts===1?'target_blocked':'landed_before_clearance';
+  return false;
+ });
+ await burrow.tick(f.t,f.b,f.motor,f.state);
+ now+=1000;await burrow.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(burrow.report(f.t).failure_context,null);
+ assert.equal(s.progressAt,progress);
+ now=progress+30001;
+ await assert.rejects(burrow.tick(f.t,f.b,f.motor,f.state),error=>{
+  assert.match(error.message,/no physical progress/);
+  burrow.captureFailure(f.t,f.b,error);
+  return true;
+ });
+ const failure=burrow.report(f.t).failure_context;
+ assert.deepEqual(failure.climb_attempt,{at:progress+1000,target:[0,62,0],item:'dirt',stage:'landed_before_clearance'});
+ assert.equal(failure.climb_wait,null);assert.equal(failure.earth_blocks,2);
+ assert.equal(attempts,2);assert.deepEqual(f.t.milestones,[]);
+});
+
 
 test('an already opened dry shaft waits for physics even while the grounded flag is stale',async ctx=>{
  const f=fixture(),progressAt=Date.now();

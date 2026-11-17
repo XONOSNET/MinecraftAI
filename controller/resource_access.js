@@ -87,34 +87,76 @@ async function recoverColumn(bot,motor,state){
  if(!bot.entity.onGround||Math.abs(p.y-feet.y)>.15||!p.floored().equals(feet)||!trackedSupport(support,entry))return false;
  return stabilize(bot,motor,feet);
 }
-async function jumpPlace(bot,position,item){
- await inventory.equip(bot,item.name);const support=bot.blockAt(position.offset(0,-1,0));
- if(support?.boundingBox!=='block'||bot.blockAt(position)?.name!=='air')return false;
+async function jumpPlace(bot,position,item,trace){
+ const stage=value=>{if(trace)trace.stage=value;};
+ const finish=(value,placed=false)=>{
+  stage(value);
+  if(trace){trace.end_position=bot.entity.position.toArray();trace.end_grounded=bot.entity.onGround===true;}
+  return placed;
+ };
+ const observeHeight=y=>{if(trace)trace.sampled_peak_y=Math.max(trace.sampled_peak_y??y,y);};
+ stage('equipping');
+ await inventory.equip(bot,item.name);
+ const support=bot.blockAt(position.offset(0,-1,0));
+ const target=support?.boundingBox==='block'?bot.blockAt(position):null;
+ if(trace){trace.support_block=support?.name??null;trace.target_block=target?.name??null;}
+ if(support?.boundingBox!=='block')return finish('support_blocked');
+ if(target?.name!=='air')return finish('target_blocked');
+ stage('aiming');
  await aim(bot,position.offset(.5,0,.5));
  active(bot);
- if(!bot.entity.onGround||!bot.entity.position.floored().equals(position))return false;
+ const start=bot.entity.position;
+ if(trace){
+  trace.takeoff_position=start.toArray();trace.takeoff_grounded=bot.entity.onGround===true;
+  trace.takeoff_velocity=bot.entity.velocity?.toArray?.()??null;
+ }
+ if(!bot.entity.onGround||!start.floored().equals(position))return finish('takeoff_blocked');
  const inColumn=p=>Math.floor(p.x)===position.x&&Math.floor(p.z)===position.z;
  // Pulse one takeoff. Holding jump during a placement reply can launch again
  // before a refused attempt has returned to its original footing.
+ stage('jumping');
+ observeHeight(start.y);
  bot.setControlState('jump',true);
  try{await bot.waitForTicks(1);}finally{bot.setControlState('jump',false);}
  for(let i=0;i<14;i++){
   active(bot);
   const p=bot.entity.position;
-  if(bot.entity.onGround||!inColumn(p))return false;
+  observeHeight(p.y);
+  if(bot.entity.onGround)return finish('landed_before_clearance');
+  if(!inColumn(p))return finish('left_column');
   if(p.y>=position.y+1.02){
    const actual=bot.blockAt(support.position);
-   if(actual?.boundingBox!=='block'||actual.name!==support.name||bot.blockAt(position)?.name!=='air')return false;
+   if(actual?.boundingBox!=='block'||actual.name!==support.name){
+    if(trace)trace.support_block=actual?.name??null;
+    return finish('support_changed');
+   }
+   const current=bot.blockAt(position);
+   if(current?.name!=='air'){
+    if(trace)trace.target_block=current?.name??null;
+    return finish('target_changed');
+   }
    // A second aim here can finish after the feet have fallen into the target.
+   stage('awaiting_placement');
+   if(trace)trace.request_position=p.toArray();
    try{await bot._placeBlockWithOptions(actual,new Vec3(0,1,0),{forceLook:'ignore',swingArm:'right'});}
-   catch(error){if(!String(error.message).includes('Server refused to place'))throw error;}
+   catch(error){
+    if(trace)trace.placement_error=error.message;
+    if(!String(error.message).includes('Server refused to place'))throw error;
+   }
+   if(trace)trace.confirmed_block=bot.blockAt(position)?.name??null;
+   stage('awaiting_landing');
    break;
   }
   await bot.waitForTicks(1);
  }
- for(let i=0;i<25&&!bot.entity.onGround;i++){await bot.waitForTicks(1);active(bot);}
+ observeHeight(bot.entity.position.y);
+ for(let i=0;i<25&&!bot.entity.onGround;i++){
+  await bot.waitForTicks(1);active(bot);observeHeight(bot.entity.position.y);
+ }
  const p=bot.entity.position;
- return bot.entity.onGround&&inColumn(p)&&Math.abs(p.y-position.y-1)<.05&&bot.blockAt(position)?.name===item.name;
+ const landed=bot.entity.onGround&&inColumn(p)&&Math.abs(p.y-position.y-1)<.05&&bot.blockAt(position)?.name===item.name;
+ if(trace&&!trace.request_position&&!landed)return finish('clearance_unverified');
+ return finish(landed?'landed':'landing_unverified',landed);
 }
 async function attempt(bot,motor,target,options={}){
  const state=options.state,p=bot.entity.position,plots=options.plots||[];motor.pause();

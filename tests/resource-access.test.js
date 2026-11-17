@@ -101,18 +101,24 @@ test('knockback during refuge centering aborts locally and releases controls wit
 });
 
 test('a server-rejected jump placement returns failure and releases jump controls',async()=>{
- const b=fixture(),feet=new Vec3(0,64,0),controls={};
+ const b=fixture(),feet=new Vec3(0,64,0),controls={},trace={};
  b.heldItem={name:'dirt',count:2};b.entity.yaw=-Math.PI;b.entity.pitch=-Math.PI/2;
  b.setControlState=(k,v)=>controls[k]=v;b.look=async(y,p)=>{b.entity.yaw=y;b.entity.pitch=p;};
  b.waitForTicks=async()=>{b.entity.position.y=controls.jump?65.1:64;b.entity.onGround=!controls.jump;};
  b._placeBlockWithOptions=async()=>{throw Error('Server refused to place dirt: the block is still air');};
- assert.equal(await access.jumpPlace(b,feet,b.heldItem),false);assert.equal(controls.jump,false);
+ assert.equal(await access.jumpPlace(b,feet,b.heldItem,trace),false);assert.equal(controls.jump,false);
+ assert.equal(trace.stage,'landing_unverified');
+ assert.deepEqual(trace.request_position,[.5,65.1,.5]);
+ assert.equal(trace.confirmed_block,'air');
+ assert.match(trace.placement_error,/Server refused/);
+ assert.deepEqual(trace.end_position,[.5,64,.5]);
+ assert.equal(trace.end_grounded,true);
  b._placeBlockWithOptions=async()=>{throw Error('Unexpected connection error');};await assert.rejects(access.jumpPlace(b,feet,b.heldItem),/connection/);assert.equal(controls.jump,false);
 });
 
 test('jump placement uses the first clear airborne tick and requires confirmation and landing',async()=>{
  for(const outcome of ['landed','unconfirmed','displaced']){
-  const b=fixture(),feet=new Vec3(0,64,0),controls=[],heights=[.42,.75,1,1.166,1.252,1.176,1.02,0];
+  const b=fixture(),feet=new Vec3(0,64,0),controls=[],heights=[.42,.75,1,1.166,1.252,1.176,1.02,0],trace={};
   b.heldItem={name:'dirt',count:2};b.entity.yaw=-Math.PI;b.entity.pitch=-Math.PI/2;
   b.setControlState=(key,value)=>{assert.equal(key,'jump');controls.push(value);};
   b.placeBlock=async()=>assert.fail('the ordinary placement calls lookAt again during the jump');
@@ -133,9 +139,26 @@ test('jump placement uses the first clear airborne tick and requires confirmatio
    assert.equal(options.forceLook,'ignore');
    if(outcome!=='unconfirmed')b.set(0,64,0,'dirt');
   };
-  assert.equal(await access.jumpPlace(b,feet,b.heldItem),outcome==='landed',outcome);
+  assert.equal(await access.jumpPlace(b,feet,b.heldItem,trace),outcome==='landed',outcome);
   assert.equal(writes,1);
+  assert.equal(trace.stage,outcome==='landed'?'landed':'landing_unverified');
+  assert.equal(trace.sampled_peak_y,65.252);
+  assert.equal(trace.confirmed_block,outcome==='unconfirmed'?'air':'dirt');
+  assert.deepEqual(trace.end_position,b.entity.position.toArray());
  }
+});
+
+test('a jump that lands below clearance records its sampled height without a placement request',async()=>{
+ const b=fixture(),feet=new Vec3(0,64,0),trace={},heights=[64.42,64.8,64];
+ b.heldItem={name:'dirt',count:2};b.entity.yaw=-Math.PI;b.entity.pitch=-Math.PI/2;
+ b.setControlState=()=>{};
+ b.waitForTicks=async()=>{b.entity.position.y=heights.shift();b.entity.onGround=!heights.length;};
+ b._placeBlockWithOptions=async()=>assert.fail('the feet did not clear the placement cell');
+ assert.equal(await access.jumpPlace(b,feet,b.heldItem,trace),false);
+ assert.equal(trace.stage,'landed_before_clearance');
+ assert.equal(trace.support_block,'stone');assert.equal(trace.target_block,'air');
+ assert.equal(trace.sampled_peak_y,64.8);assert.equal(trace.request_position,undefined);
+ assert.deepEqual(trace.end_position,[.5,64,.5]);assert.equal(trace.end_grounded,true);
 });
 
 

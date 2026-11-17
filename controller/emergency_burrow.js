@@ -118,14 +118,15 @@ async function placeCover(b,s,target,support,face,name){
 // Preserve the actual failure pose; the last travel report can predate digging.
 function captureFailure(t,b,error){
  const s=t.wilderness?.burrow;if(!s)return;
+ const climb=s.stage==='climb'?{climb_wait:s.climbWait??null,climb_attempt:s.climbAttempt??null}:{};
  try{
   const p=b.entity.position,feet=p.floored(),sample=q=>{const v=b.blockAt(q);return {position:q.toArray(),block:v?.name||null,shape:v?.boundingBox||null,waterlogged:!!v?.getProperties?.().waterlogged};};
   s.failureContext={message:error.message,at:Date.now(),position:p.toArray(),velocity:b.entity.velocity?.toArray?.()||null,on_ground:b.entity.onGround===true,in_water:!!b.entity.isInWater,in_lava:!!b.entity.isInLava,
    centered:Math.abs(p.x-s.feet[0]-.5)<=.3&&Math.abs(p.z-s.feet[2]-.5)<=.3,
    body:sample(feet),head:sample(p.offset(0,b.entity.eyeHeight||1.62,0).floored()),floor:sample(feet.offset(0,-1,0)),
    cap:sample(new Vec3(...s.cap)),lip:sample(new Vec3(...s.lip)),
-   earth_blocks:b.inventory.items().filter(i=>['dirt','coarse_dirt','rooted_dirt'].includes(i.name)).reduce((n,i)=>n+i.count,0)};
- }catch(captureError){s.failureContext={message:error.message,capture_error:captureError.message};}
+   earth_blocks:b.inventory.items().filter(i=>['dirt','coarse_dirt','rooted_dirt'].includes(i.name)).reduce((n,i)=>n+i.count,0),...climb};
+ }catch(captureError){s.failureContext={message:error.message,capture_error:captureError.message,...climb};}
 }
 function report(t){const s=t.wilderness?.burrow;return s?{stage:s.stage,surface:s.feet,reason:s.reason,waiting_for:s.waitReason||null,exit_blocks:s.exitBlocks??null,cover_refusals:s.coverRefusals||0,failure_context:s.failureContext||null,shell_failure:s.shellFailure||null,shell_repairs:s.shellRepairs||0,workspace:s.workspace||null,shell_recovery:s.shellRecovery?.status||null,sealed:t.phase==='night_burrow'&&s.stage==='hidden'&&!!s.cap_name}:null;}
 function rejectApproach(t,b,s,reason){
@@ -329,12 +330,14 @@ async function tick(t,b,motor,state,api,scan,tasks){
   s.stage='climb';t.lastProgress=s.progressAt=Date.now();return true;
  }
  if(s.stage==='climb'){
-  if(!b.entity.onGround)return true;
-  if(!sealed(b,{...s,cap_name:'air'}))throw Error('Emergency exit is blocked overhead');
+  if(!b.entity.onGround){s.climbWait='grounding';return true;}
+  if(!sealed(b,{...s,cap_name:'air'})){s.climbWait='overhead_blocked';throw Error('Emergency exit is blocked overhead');}
+  s.climbWait='inventory';
   await inventory.sync(b);const items=b.inventory.items().filter(i=>['dirt','coarse_dirt','rooted_dirt'].includes(i.name));
   const count=items.reduce((sum,i)=>sum+i.count,0),remaining=Math.max(0,feet.y-Math.round(p.y));s.exitBlocks=count;
   // Recover enough blocks before rising beyond the safely capped side pocket.
   if(count<remaining&&Math.round(p.y)===feet.y-2){
+   s.climbWait='exit_material';
    s.exitCollectAt??=now;
    if(now-s.exitCollectAt<1500){t.message='Emergency exit: collecting roof and lip drops';return true;}
    if(!s.exitNotch){
@@ -344,9 +347,11 @@ async function tick(t,b,motor,state,api,scan,tasks){
    t.message='Emergency exit: collecting extra dirt before climbing ('+count+'/'+remaining+')';return true;
   }
   const item=items[0];
-  if(!item){t.message='Emergency exit: collecting the removed roof block';return true;}
+  if(!item){s.climbWait='exit_material';t.message='Emergency exit: collecting the removed roof block';return true;}
   const q=new Vec3(feet.x,Math.round(p.y),feet.z),lease={until:Date.now()+10000,cancelled:false};b.labResourceAccess=lease;motor.lockLook(true);
-  try{if(await access.jumpPlace(b,q,item))t.lastProgress=s.progressAt=Date.now();}
+  s.climbWait=null;
+  const trace=s.climbAttempt={at:Date.now(),target:q.toArray(),item:item.name};
+  try{if(await access.jumpPlace(b,q,item,trace))t.lastProgress=s.progressAt=Date.now();}
   finally{if(b.labResourceAccess===lease)delete b.labResourceAccess;motor.lockLook(false);b.clearControlStates();}
   t.message='Emergency exit: building a real dirt step back to the surface';return true;
  }
