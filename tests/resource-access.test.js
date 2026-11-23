@@ -1,5 +1,41 @@
 const test=require('node:test'),assert=require('node:assert/strict'),{Vec3}=require('vec3');
 const access=require('../controller/resource_access');
+
+test('earth excavation without a shovel stows the pick instead of spending its durability',async ctx=>{
+ const inventory=require('../controller/inventory_sync'),b=fixture(),q=new Vec3(1,64,0),uses=[];
+ b.set(1,64,0,'dirt');b.entity.yaw=-Math.PI/2;b.entity.pitch=Math.atan2(-1.12,1);
+ b.heldItem={name:'wooden_pickaxe',count:1};b.inventory.items=()=>[b.heldItem].filter(Boolean);
+ b.inventory.firstEmptyInventorySlot=()=>37;
+ b.unequip=async hand=>{assert.equal(hand,'hand');b.heldItem=null;};
+ ctx.mock.method(inventory,'sync',async()=>{});
+ b.world={raycast:()=>({position:q})};b.canDigBlock=()=>true;
+ b.dig=async()=>{uses.push(b.heldItem?.name||null);b.set(1,64,0,'air');};
+ assert.equal(await access.dig(b,b.blockAt(q)),true);
+ assert.deepEqual(uses,[null]);
+});
+
+test('earth excavation selects a carried shovel and uses harmless stock when the inventory is full',async ctx=>{
+ const inventory=require('../controller/inventory_sync');
+ for(const tool of ['wooden_shovel','dirt']){
+  const b=fixture(),q=new Vec3(1,64,0),items=[{name:'wooden_pickaxe',count:1},{name:tool,count:1}];
+  b.set(1,64,0,'dirt');b.entity.yaw=-Math.PI/2;b.entity.pitch=Math.atan2(-1.12,1);b.heldItem=items[0];
+  b.inventory.items=()=>items;b.inventory.firstEmptyInventorySlot=()=>null;
+  b.unequip=async()=>assert.fail('a full inventory must not use the toss-capable empty-hand helper');
+  ctx.mock.method(inventory,'equip',async(_bot,name)=>{b.heldItem=items.find(i=>i.name===name);});
+  b.world={raycast:()=>({position:q})};b.canDigBlock=()=>true;
+  b.dig=async()=>{assert.equal(b.heldItem.name,tool);b.set(1,64,0,'air');};
+  assert.equal(await access.dig(b,b.blockAt(q)),true);
+ }
+});
+
+test('full tool-only inventory refuses earth excavation without discarding the held pick',async()=>{
+ const b=fixture(),q=new Vec3(1,64,0);
+ b.set(1,64,0,'dirt');b.entity.yaw=-Math.PI/2;b.entity.pitch=Math.atan2(-1.12,1);
+ b.heldItem={name:'wooden_pickaxe',count:1};b.inventory.items=()=>[b.heldItem];
+ b.inventory.firstEmptyInventorySlot=()=>null;b.unequip=async()=>assert.fail('must not discard a tool');
+ b.world={raycast:()=>({position:q})};b.canDigBlock=()=>true;b.dig=async()=>assert.fail('must preserve the pick');
+ assert.equal(await access.dig(b,b.blockAt(q)),false);assert.equal(b.heldItem.name,'wooden_pickaxe');
+});
 test('temporary descent keeps its support after a transient check and retries without fake progress',async()=>{
  const b=fixture(),q=new Vec3(0,64,0),state={column:[{position:q,name:'dirt'}]},motor={pause(){},lockLook(){}};
  b.set(0,64,0,'dirt');b.entity.position=new Vec3(.5,65,.5);b.entity.yaw=0;b.entity.pitch=-Math.PI/2;

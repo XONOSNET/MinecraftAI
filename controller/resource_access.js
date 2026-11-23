@@ -39,9 +39,22 @@ function canRaise(bot,target,{bounds,plots=[]}={}){
 }
 async function dig(bot,block,{validate=null,aimPoint=null}={}){
  if(!block||!withinReach(bot,block.position)||!visibleBlock(bot,block,aimPoint||undefined)||!bot.canDigBlock(block))return false;
- const type=block.name.endsWith('_planks')?'axe':['dirt','grass_block','coarse_dirt','rooted_dirt'].includes(block.name)?'shovel':material(block.name)?'pickaxe':null;
+ const type=block.name.endsWith('_planks')?'axe':['dirt','grass_block','coarse_dirt','rooted_dirt','podzol','mycelium'].includes(block.name)?'shovel':material(block.name)?'pickaxe':null;
  const tool=type&&['netherite','diamond','iron','stone','wooden','golden'].map(t=>t+'_'+type).find(n=>bot.inventory.items().some(i=>i.name===n));
  if(tool)await inventory.equip(bot,tool);
+ else if(type==='shovel'&&bot.heldItem){
+  const durable=item=>(item.maxDurability??bot.registry?.itemsByName?.[item.name]?.maxDurability??0)>0||/_(pickaxe|axe|sword|hoe|shovel)$/.test(item.name)||item.name==='shears';
+  if(durable(bot.heldItem)){
+   const harmless=bot.inventory.items().find(item=>!durable(item));
+   if(harmless)await inventory.equip(bot,harmless.name);
+   else{
+    // Mineflayer's empty-hand helper drops the held stack if storage is full.
+    if(bot.inventory.firstEmptyInventorySlot?.()==null)return false;
+    await bot.unequip('hand');await inventory.sync(bot);
+    if(bot.heldItem)throw Error('Empty hand was not confirmed before earth excavation');
+   }
+  }
+ }
  await aim(bot,aimPoint||block.position.offset(.5,.5,.5));
  const current=bot.blockAt(block.position);
  if(current?.name!==block.name||!withinReach(bot,block.position)||!visibleBlock(bot,current,aimPoint||undefined)||!bot.canDigBlock(current)||validate&&!validate(current))return false;
