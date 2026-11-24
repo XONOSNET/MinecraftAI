@@ -253,3 +253,153 @@ test('changed entrance recovery cannot choose a hazardous or unreachable landing
  f.cells.delete(new Vec3(0,63,0).toString());ctx.mock.method(require('../controller/field_navigation'),'route',()=>({reached:false}));
  await assert.rejects(mine.tick(f.t,f.b,f.motor,f.state),/return stair is obstructed/);assert.equal(m.stage,'exit');assert.equal(m.return_landing,undefined);
 });
+
+test('a broken pick preserves its completed exit and resumes the same stairs after replacement',async()=>{
+ const f=fixture(),harvest=f.t.harvest,dug=[];let broke=false;
+ f.t.harvest=async(...args)=>{
+  dug.push(args[2].toArray());await harvest(...args);
+  if(!broke&&f.items.cobblestone>=5){f.items.wooden_pickaxe=0;broke=true;}
+ };
+ for(let i=0;i<100;i++){
+  await mine.tick(f.t,f.b,f.motor,f.state);
+  if(f.t.wilderness.mine?.stage==='done')break;
+ }
+ const old=f.t.wilderness.mine;
+ assert.match(old.reason,/No suitable pickaxe/);assert.equal(f.b.entity.position.y,64);assert.equal(f.items.cobblestone,5);
+ const stopped=await mine.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(stopped.recovery,'tool');assert.equal(stopped.required_tool,'wooden_pickaxe');assert.equal(stopped.resume,old);
+ assert.equal(f.t.wilderness.rejectedMines,undefined,'a missing prerequisite does not reject the entrance');
+ const supports=old.supports.map(p=>new Vec3(...p).offset(0,-1,0).toArray().join(','));
+ f.t.wilderness.mine=null;f.items.wooden_pickaxe=1;
+ await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{resume:old});
+ assert.equal(f.t.wilderness.mine.resume_count,1);assert.equal(f.t.wilderness.mine.steps,old.steps);
+ for(let i=0;i<150;i++){
+  await mine.tick(f.t,f.b,f.motor,f.state);
+  if(f.t.wilderness.mine?.stage==='done')break;
+ }
+ assert.equal(f.items.cobblestone>=16,true);assert.equal(f.b.entity.position.y,64);
+ assert.deepEqual(f.t.wilderness.mine.entry,old.entry);assert.equal((await mine.tick(f.t,f.b,f.motor,f.state)).done,true);
+ assert.ok(dug.every(p=>!supports.includes(p.join(','))),'resumption does not harvest the return supports');
+});
+
+test('a pick lost before the first excavation recovers at the same unexcavated entrance',async()=>{
+ const f=fixture();f.items.wooden_pickaxe=0;
+ for(let i=0;i<8;i++){
+  await mine.tick(f.t,f.b,f.motor,f.state);
+  if(f.t.wilderness.mine?.stage==='done')break;
+ }
+ const old=f.t.wilderness.mine;assert.equal(old.steps,0);assert.equal(old.path.length,1);
+ const stopped=await mine.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(stopped.recovery,'tool');assert.equal(stopped.resume,old);
+ assert.equal(f.t.wilderness.rejectedMines,undefined);
+ f.t.wilderness.mine=null;f.items.wooden_pickaxe=1;
+ await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{resume:old});
+ assert.equal(f.t.wilderness.mine.stage,'dig');assert.equal(f.t.wilderness.mine.resume_count,1);
+ assert.equal(f.t.wilderness.mine.steps,0);assert.deepEqual(f.t.wilderness.mine.entry,old.entry);
+ for(let i=0;i<150;i++){
+  await mine.tick(f.t,f.b,f.motor,f.state);
+  if(f.t.wilderness.mine?.stage==='done')break;
+ }
+ assert.ok(f.items.cobblestone>=16);assert.equal(f.b.entity.position.y,64);
+ assert.deepEqual(f.t.wilderness.mine.entry,old.entry);
+});
+
+test('a torch-supply exit retains its total excavation and relights the revisited stairs',async ctx=>{
+ const f=fixture();let now=Date.now();ctx.mock.method(Date,'now',()=>now);ctx.mock.method(inventory,'equip',async()=>{});
+ for(let i=0;i<180;i++){
+  now+=1000;await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{amount:40});
+  if(f.t.wilderness.mine?.stage==='done')break;
+ }
+ const old=f.t.wilderness.mine;
+ assert.equal(old.steps,10);assert.match(old.reason,/torch supplies/);assert.equal(old.lit_at,0);
+ const stopped=await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{amount:40});
+ assert.equal(stopped.recovery,'light');assert.equal(stopped.resume,old);
+ f.items.torch=8;f.t.wilderness.mine=null;
+ await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{amount:40,resume:old});
+ assert.equal(f.t.wilderness.mine.steps,10);assert.equal(f.t.wilderness.mine.lit_at,0,'opening the entrance grants no lighting credit');
+ for(let i=0;i<220;i++){
+  now+=1000;await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{amount:40});
+  if(f.t.wilderness.mine?.stage==='done')break;
+ }
+ assert.ok(f.items.cobblestone>=40);assert.equal(f.b.entity.position.y,64);
+ assert.deepEqual(f.t.wilderness.mine.entry,old.entry);assert.ok(f.t.wilderness.mine.torches>0);
+ assert.ok(f.t.wilderness.mine.steps>10);assert.ok(f.t.wilderness.mine.steps<=16);
+});
+
+function recordedMine(f){
+ const path=[[0,64,0],[1,63,0],[2,62,0]];
+ for(const p of path.slice(1))for(let dy=0;dy<=2;dy++)f.cells.set(new Vec3(...p).offset(0,dy,0).toString(),'air');
+ return {run:f.t.run,owner:f.b.username,stage:'done',resource:'stone',entry:path[0],path,supports:path.map(p=>p.slice()),
+  steps:2,flooded:[],dir:0,target_y:48,lit_at:0,torches:0,coal_mined:0,recovery:'tool'};
+}
+
+test('an interrupted trip at home preserves only a safe owned staircase for revalidation',async()=>{
+ const f=fixture(),old=recordedMine(f);delete old.recovery;old.stage='dig';f.t.wilderness.mine=old;
+ f.t.plot={x:20,y:64,z:0};f.b.entity.position=new Vec3(20.5,64,.5);
+ const result=await mine.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(result.recovery,'interrupted');assert.equal(result.resume,old);assert.equal(f.items.cobblestone,undefined);
+ f.t.wilderness.mine=null;
+ await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{resume:old});
+ assert.equal(f.t.wilderness.mine.stage,'revisit');assert.equal(f.t.wilderness.mine.steps,2);
+});
+
+test('the real cover exit preserves the mine after walking its stairs to the surface',async()=>{
+ const f=fixture(),old=recordedMine(f),cover=require('../controller/mine_cover_exit');
+ delete old.recovery;old.stage='dig';f.t.wilderness.mine=old;f.t.navigator={lastPlan:0};
+ f.b.entity.position=new Vec3(2.5,62,.5);
+ for(let i=0;i<8&&old.stage!=='done';i++)await cover.tick(f.t,f.b,f.motor,f.state,null,null,null,i?'resume':'seek cover');
+ assert.equal(old.stage,'done');assert.equal(old.coverExit,true);assert.equal(f.b.entity.position.y,64);
+ assert.equal(f.t.wilderness.coverResume,'night_stone');
+ const result=await mine.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(result.recovery,'interrupted');assert.equal(result.resume,old);assert.equal(f.items.cobblestone,undefined);
+ f.t.wilderness.mine=null;
+ await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{resume:old});
+ assert.equal(f.t.wilderness.mine.stage,'revisit');assert.equal(f.t.wilderness.mine.coverExit,false);
+});
+
+test('resume refuses changed, flooded, foreign, exhausted and unloaded stairs before walking',async()=>{
+ const changes=[
+  f=>f.cells.set(new Vec3(1,63,0).toString(),'stone'),
+  f=>f.cells.set(new Vec3(1,62,0).toString(),'air'),
+  f=>f.cells.set(new Vec3(1,65,0).toString(),'stone'),
+  f=>f.cells.set(new Vec3(1,63,1).toString(),'water'),
+  (_f,m)=>{m.unsafe=true;},
+  (_f,m)=>{m.flooded.push('(3, 61, 0)');},
+  (_f,m)=>{m.owner='OtherMiner';},
+  (_f,m)=>{m.run='older-world';},
+  (_f,m)=>{m.resume_count=3;},
+  (f)=>{const blockAt=f.b.blockAt;f.b.blockAt=q=>q.x===2?null:blockAt(q);},
+ ];
+ for(const change of changes){
+  const f=fixture(),old=recordedMine(f);change(f,old);
+  f.t.walk=async()=>assert.fail('an invalid recorded route may not issue a movement command');
+  const result=await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{resume:old});
+  assert.equal(result.resume_refused,true);assert.equal(f.t.wilderness.mine,undefined);
+  assert.equal(f.items.cobblestone,undefined);
+ }
+});
+
+test('a changed revisited stair returns from the current landing without proceeding into it',async()=>{
+ const f=fixture(),old=recordedMine(f);
+ await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{resume:old});
+ const active=f.t.wilderness.mine;assert.equal(active.stage,'revisit');
+ f.cells.set(new Vec3(1,63,0).toString(),'water');
+ f.t.walk=async()=>assert.fail('the newly flooded stair must be rejected before walking');
+ await mine.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(active.stage,'exit');assert.equal(active.exitIndex,0);assert.equal(active.unsafe,true);
+});
+
+test('lost old torches cannot credit another excavation after a dark recorded descent',async()=>{
+ const f=fixture(),path=Array.from({length:11},(_v,i)=>[i,64-i,0]);
+ for(const p of path.slice(1))for(let y=0;y<=2;y++)f.cells.set(new Vec3(...p).offset(0,y,0).toString(),'air');
+ const old={run:f.t.run,owner:f.b.username,stage:'done',resource:'stone',entry:path[0],path,supports:path.map(p=>p.slice()),
+  steps:10,flooded:[],dir:0,target_y:48,lit_at:10,torches:3,coal_mined:0,recovery:'interrupted'};
+ const blockAt=f.b.blockAt;f.b.blockAt=q=>({...blockAt(q),light:0});
+ await mine.tick(f.t,f.b,f.motor,f.state,undefined,undefined,undefined,{resume:old});
+ const active=f.t.wilderness.mine;
+ for(let i=0;i<12&&active.stage==='revisit';i++)await mine.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(active.stage,'dig');assert.equal(active.lit_at,0);assert.equal(active.steps,10);
+ f.t.harvest=async()=>assert.fail('the old torch positions do not permit darker excavation');
+ await mine.tick(f.t,f.b,f.motor,f.state);
+ assert.equal(active.stage,'exit');assert.equal(active.recovery,'light');assert.match(active.reason,/torch supplies/);
+});

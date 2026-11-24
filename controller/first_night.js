@@ -108,6 +108,7 @@ async function interrupt(t,b,motor,state,api,scan){
  }
  if(b.food<=10&&Date.now()>=(n.eatRetryAt||0)&&!['night_food','night_wool','night_forage','night_retreat','night_recover'].includes(t.phase)&&b.inventory.items().some(i=>i.name.endsWith('_axe'))&&!n.forageResume){n.forageResume=t.phase;t.phase='night_forage';return true;}
  if(!['night_retreat','night_recover','night_seek_cover'].includes(t.phase)&&await require('./tool_recovery').tick(t,b,motor,state,api,scan,require('./tasks')))return true;
+ if(await require('./stone_mine_recovery').tick(t,b,motor,state,api,scan,require('./tasks')))return true;
  if(require('./wood_resupply').tick(t,b))return true;
  return false;
 }
@@ -195,7 +196,14 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(!count(b,'wooden_axe'))await t.craft(b,'wooden_axe',1,table);await inventory.equip(b,'wooden_axe');t.table=pos;n.bootstrap=true;t.phase='gather';t.lastProgress=Date.now();
  }else if(t.phase==='night_stone'){
   if(count(b,'cobblestone')>=16&&(!n.mine||n.mine.stage==='done')){t.milestone('quarry');next('fuel');return;}
-  if(n.mine&&n.mine.stage!=='done'){await require('./staircase_mining').tick(t,b,motor,state,api,scan,tasks);return;}
+  const mining=require('./staircase_mining');
+  const mineTick=async()=>{
+   const result=await mining.tick(t,b,motor,state,api,scan,tasks,{resume:n.stoneRoute});
+   delete n.stoneRoute;
+   if(result.recovery)require('./stone_mine_recovery').request(t,result);
+   return result;
+  };
+  if(n.mine||n.stoneRoute){await mineTick();return;}
   // First Night gathers exposed faces, not floor blocks. Removing neighboring
   // support below our feet was creating low-ceiling pockets with no jump out.
   if(!n.stoneScan||now-n.stoneScan>2500){n.stoneScan=now;n.stones=(await resourceScan.stone(b,{bounds:w.bounds})).map(q=>b.blockAt(q)).filter(q=>q&&inside(q.position,w.bounds)&&q.position.y>=Math.floor(p.y)&&q.position.y<=p.y+3&&!(Math.floor(p.x)===q.position.x&&Math.floor(p.z)===q.position.z));}
@@ -213,7 +221,7 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
    }
    if(chosen){n.memory.remember('stone',chosen.q.position);const arrived=await t.walk(b,motor,chosen.goal,state,api,scan,tasks);if(arrived===true||arrived===false){if(arrived===false)n.memory.reject([chosen.q.position.x,chosen.q.position.y,chosen.q.position.z]);n.stoneScan=0;n.stoneApproach=null;}}
    else{
-    const mined=await require('./staircase_mining').tick(t,b,motor,state,api,scan,tasks);
+    const mined=await mineTick();
     if(!mined.handled||n.mine?.stage==='done')await explore(t,b,motor,state,api,scan,tasks,surface,'stone');
    }
   }t.message=t.message||`Natural stone ${count(b,'cobblestone')} / 16`;
@@ -355,5 +363,5 @@ async function tick(t,b,motor,state,api,scan,tasks,surface){
   if(!sunrise&&left===0&&canComplete())complete();
  }
 }
-function report(t,b){const n=t.wilderness;return n?{...require('./survival_observations').report(t),watch_until_sunrise:n.watchUntilSunrise||undefined,equipment:b?shelterWork.report(t,b):null,prospect:n.prospect||null,priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,burrow:require('./emergency_burrow').report(t),mining:require('./staircase_mining').report(t),home_repair:require('./home_repair').report(t),cover_search:{searches:n.coverSearches||0,routes_checked:n.coverRoutesChecked||0,goal:n.coverEscape||null},livestock:n.livestock_status||null,scouting:n.scoutPlanning?{checked:n.scoutPlanning.checked,total:n.scoutPlanning.goals.length,landmark:n.scoutLandmark||null}:null,night_seen:!!n.nightSeen,sleep:n.sleep?{status:n.sleep.status,night_seen:!!n.sleep.night_seen,morning_seen:!!n.sleep.morning_seen,watch_seconds_left:n.sleep.watch_seconds_left,watch_seconds_total:n.sleep.watch_seconds_total,watch_updated_at:n.sleep.watch_updated_at}:null,exploration:n.exploration?.snapshot(t.last||{x:0,z:0},t.plot),memory:n.memory.snapshot()}:null;}
+function report(t,b){const n=t.wilderness;return n?{...require('./survival_observations').report(t),watch_until_sunrise:n.watchUntilSunrise||undefined,equipment:b?shelterWork.report(t,b):null,prospect:n.prospect||null,priority:n.priority,reason:n.reason,searches:n.searches,recoveries:n.recoveries,food_consumed:n.foodConsumed,burrow:require('./emergency_burrow').report(t),mining:require('./staircase_mining').report(t),mining_recovery:require('./stone_mine_recovery').report(t),home_repair:require('./home_repair').report(t),cover_search:{searches:n.coverSearches||0,routes_checked:n.coverRoutesChecked||0,goal:n.coverEscape||null},livestock:n.livestock_status||null,scouting:n.scoutPlanning?{checked:n.scoutPlanning.checked,total:n.scoutPlanning.goals.length,landmark:n.scoutLandmark||null}:null,night_seen:!!n.nightSeen,sleep:n.sleep?{status:n.sleep.status,night_seen:!!n.sleep.night_seen,morning_seen:!!n.sleep.morning_seen,watch_seconds_left:n.sleep.watch_seconds_left,watch_seconds_total:n.sleep.watch_seconds_total,watch_updated_at:n.sleep.watch_updated_at}:null,exploration:n.exploration?.snapshot(t.last||{x:0,z:0},t.plot),memory:n.memory.snapshot()}:null;}
 module.exports={enabled,handles,sunriseWatch,watchBudget,init,priority,interrupt,explore,tick,report,approaches,meals,RAW,FOOD};
