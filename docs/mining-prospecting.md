@@ -129,8 +129,11 @@ and 413 Python checks passed. Native results are
 An initial candidate with four fixture logs repaired its tool but returned with
 no torches on its third visit. The normal darkness guard and recovery cap then
 discarded the mine, and it started another hole with six cobblestone. This
-failure led to the compound supply check. The final controlled fixture gives
-both arms eight logs to exercise furnace, lighting, tool replacement, and a
+run was incomplete: it then ended on an inventory-sync timeout and failed its
+block-cleanup verification. The client disconnected; the disposable fixture
+was later stopped and removed. Those recorded transitions led to the compound
+supply check. The final controlled fixture gives both arms eight logs to
+exercise furnace, lighting, tool replacement, and a
 scripted safety interruption. Wood gathering itself retains the existing
 controller path and has focused regression coverage.
 
@@ -141,3 +144,9 @@ action journals, bounded disconnect checks, and source verification. A
 deliberate unpublished-file probe confirmed that the source guard fails before
 connecting to Paper. The failed 384 MiB startup and memory preflight attempts
 are recorded separately from the verified baseline.
+
+## Verified mining recovery deployment
+
+On November 24, 2026 at 09:43 CST, comparison 545 had completed its model decision. The bot-only rollout then started fresh comparison 547 (`world-1795534522922885900`) with all eight bots reporting controller `f399d8a9ddeca0fd` and fresh telemetry. Paper remained ready on PID 36160, the dashboard responded, and the active and protected specialist checkpoint hashes matched across the restart. Automatic learning was progressing on site 1, First Night level 3, with the captured learning options restored.
+
+The native replay verifies controller recovery. Completed comparable live runs are still needed to measure resource completion and repeat-mine failures in the natural world.
