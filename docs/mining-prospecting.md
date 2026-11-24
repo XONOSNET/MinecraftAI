@@ -113,8 +113,9 @@ the same entrance through a torch return, a scripted safety exit, and a real
 tool break. Native recipes produced a furnace, charcoal, sixteen torches, and
 one replacement wooden pickaxe. The bot reached fourteen stairs, returned
 grounded to the surface with sixteen cobblestone, health 20 and food 20, and
-advanced to `night_fuel`. This count includes the eight cobblestone already
-spent on the furnace. Changed supports, flooding, an unsafe route flag, and a
+advanced to `night_fuel`. It collected twenty-four cobblestone in total,
+spending eight on the furnace and carrying sixteen out. Changed supports,
+flooding, an unsafe route flag, and a
 foreign owner each refused reuse. Both arms verified arena cleanup and logout;
 the disposable Paper process, ports, and world were removed.
 
