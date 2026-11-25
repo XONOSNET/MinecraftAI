@@ -41,13 +41,21 @@ def survey_commands(name,x,z):
             f'execute positioned {x} 0 {z} positioned over motion_blocking_no_leaves run tp {name} ~ ~2 ~']
 
 
+def configured_copy_batch_size(path):
+    """Missing settings retain the previously validated two-copy window."""
+    path=Path(path)
+    value=json.loads(path.read_text(encoding='utf-8'))['batch_size'] if path.exists() else 2
+    if type(value) is not int or not 1<=value<=4:raise ValueError('Terrain copy batch must contain one to four slices.')
+    return value
+
+
 class WorldTraining(SurvivalLessons):
     def __init__(self,path,command,logpath,clock=time.time,staging=None,persist=None,copy_batch_size=2,sleep_pack_path=None):
         self.path=Path(path);self.command=command;self.logpath=Path(logpath);self.clock=clock
         self.staging=staging;self.persist=persist
         self.sleep_quorum=SleepQuorum(command,sleep_pack_path)
-        # At most two small clones per acknowledgement, never a whole chunk burst.
-        if type(copy_batch_size) is not int or not 1<=copy_batch_size<=2:raise ValueError('Terrain copy batch must contain one or two slices.')
+        # Keep each clone small and fence a bounded window before sending more.
+        if type(copy_batch_size) is not int or not 1<=copy_batch_size<=4:raise ValueError('Terrain copy batch must contain one to four slices.')
         self.copy_batch_size=copy_batch_size
         self.saved=json.loads(self.path.read_text(encoding='utf-8')) if self.path.exists() else {'templates':{},'history':[]}
         self.session=None;self.jobs=[];self.job=None;self.preloaded=None;self.offset=0;self.serial=0;self.ui_at=0;self.ui_offset=self.logpath.stat().st_size if self.logpath.exists() else 0
@@ -187,9 +195,9 @@ class WorldTraining(SurvivalLessons):
     def copy_slice(self,job):
         session=self.session
         y=job.get('next_y',session['copy_y'][0])
-        # Bound each operation to 4096 blocks and the entire in-flight window
-        # to 8192. Share one ordered fence, verifying every individual success.
-        stats=session.setdefault('copy_stats',dict(block_limit=4096,inflight_block_limit=8192,batch_size=self.copy_batch_size,sent=0,acknowledged=0,batches=0,max_ack_seconds=0))
+        # Bound each operation to 4096 blocks. Share one ordered fence for the
+        # configured window, verifying every individual success before more work.
+        stats=session.setdefault('copy_stats',dict(block_limit=4096,inflight_block_limit=4096*self.copy_batch_size,batch_size=self.copy_batch_size,sent=0,acknowledged=0,batches=0,max_ack_seconds=0))
         throttled=stats.get('throttled',False)
         commands=[]
         for _ in range(1 if throttled else self.copy_batch_size):

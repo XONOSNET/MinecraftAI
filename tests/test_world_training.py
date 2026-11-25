@@ -341,7 +341,7 @@ def test_stalled_slice_stops_without_queuing_more_clones_and_releases_prefetch(t
     assert sum(c.startswith('forceload remove') for c in commands)==4
 
 
-def test_production_copy_window_is_two_small_clones_with_one_ordered_fence(tmp_path):
+def test_two_slice_window_is_two_small_clones_with_one_ordered_fence(tmp_path):
     world,commands,clock,log=fixture(tmp_path,2);world.start({},['LabAI0']);world.tick();clock[0]=1;world.tick()
     assert world.job['batch_count']==2
     assert sum(c.startswith('clone ') for c in commands)==2
@@ -407,7 +407,7 @@ def test_two_slice_windows_copy_full_band_once_including_short_last_window(tmp_p
 def test_copy_default_and_limits_are_bounded(tmp_path):
     import pytest
     assert WorldTraining(tmp_path/'world.json',lambda cmd:None,tmp_path/'log').copy_batch_size==2
-    for invalid in [0,3,True,1.5]:
+    for invalid in [0,5,True,1.5]:
         with pytest.raises(ValueError):WorldTraining(tmp_path/'world.json',lambda cmd:None,tmp_path/'log',copy_batch_size=invalid)
 
 

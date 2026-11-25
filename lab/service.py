@@ -27,7 +27,7 @@ from .observers import Observers, observer_progress
 from .camera_input import CameraInput
 from .dashboard_state import world_view, learning_view, compact_status
 from .fixture_health import fixture_health, fixture_health_router
-from .world_training import WorldTraining, SCENARIOS, LEVELS, readiness
+from .world_training import WorldTraining, SCENARIOS, LEVELS, readiness, configured_copy_batch_size
 from .bot_lights import BotLights
 from .efficiency import completion_timing
 from .world_learning import WorldLearning
@@ -227,7 +227,7 @@ install_outline_pack('server/world/datapacks/lab_bot_outlines')
 practice_protection=PracticeProtection(console)
 from .staging import StagingPad
 staging_pad=StagingPad(console)
-world_training=WorldTraining('data/world-training.json',console,'logs/minecraft-console.log',staging=staging_pad,persist=persistence.document,sleep_pack_path='server/world/datapacks/lab_sleep_quorum')
+world_training=WorldTraining('data/world-training.json',console,'logs/minecraft-console.log',staging=staging_pad,persist=persistence.document,copy_batch_size=configured_copy_batch_size('data/terrain-copy-window.json'),sleep_pack_path='server/world/datapacks/lab_sleep_quorum')
 bot_lights=BotLights(console,config_path="config/bot-lights.json")
 from .behavior import BehaviorRules
 behavior_rules=BehaviorRules('config/behavior.json',[f'LabAI{i}' for i in range(AGENT_COUNT)])
