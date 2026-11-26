@@ -72,11 +72,23 @@ test('the bridge uses the narrow health endpoint with its required direct localh
     global.fetch=async(url,options={})=>{
       const parsed=new URL(url),headers=options.headers || {};
       assert.equal(parsed.pathname,'/fixture/health');
+      assert.equal(parsed.host,'localhost:8000','the real fetch authority must match; a Host override may be ignored');
       assert.equal(headers.Host || headers.host || parsed.host,'localhost:8000');
       return {ok:true,json:async()=>health()};
     };
     assert.equal((await new HttpBridge().health()).server.ready,true);
   } finally {global.fetch=fetch;}
+});
+
+test('a real Node fetch reaches a direct-authority health server without relying on a Host override', async t=>{
+  const http=require('node:http');let port;
+  const server=http.createServer((req,res)=>{
+    if(req.headers.host!=='localhost:'+port){res.writeHead(404);res.end();return;}
+    res.setHeader('Content-Type','application/json');res.end(JSON.stringify(health()));
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));port=server.address().port;
+  t.after(()=>new Promise(resolve=>{server.closeAllConnections();server.close(resolve);}));
+  assert.equal((await new HttpBridge('http://127.0.0.1:'+port).health()).server.ready,true);
 });
 
 test('the bridge authenticates only managed-world broker calls and never puts its token in a URL', async t=>{

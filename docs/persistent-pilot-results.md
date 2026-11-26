@@ -118,7 +118,7 @@ an autonomously completed home or seven-day survival.
 
 ## Reproduction
 
-Release checks passed: **876 JavaScript tests** with
+Release checks passed: **877 JavaScript tests** with
 `node --test --test-concurrency=2 tests/*.test.js`, and **577 Python tests** with
 `.venv/Scripts/python.exe -m pytest -q`. The JavaScript concurrency limit bounds
 test resource use; the complete project test set ran. Java 21 compilation and
@@ -144,8 +144,7 @@ Worlds, detailed logs, state files and JARs remain local.
 
 ## Continuing-world status
 
-Production installation and the seven-day demonstration are not yet claimed
-by this report. The protected installer is inert without explicit `--run` and
+The protected installer is inert without explicit `--run` and
 frozen source/artifact arguments. Optional `--prepare-world` creates or reuses
 only the owned natural realm while production is protected and paused, before
 resuming its fresh comparison. A preparation veto leaves production resumed
@@ -165,3 +164,41 @@ physical goals, deaths, stalls and known interventions. Target 168,000 ticks;
 do not count native bed calendar skips or disconnected intervals as elapsed
 days. A full hostile continuing-world demonstration and its remaining limits
 must be reported separately from fixtures and code tests.
+
+Installation completed in the user-authorized paused window. The first
+preflight cancelled before shutdown because PowerShell rounded the unquoted
+pause timestamp; quoting the exact value passed the unchanged guard. The
+verified rollout report is `logs/persistent-pilot-rollout.json`: checkpoint
+tensors/optimizer/metadata, protected checkpoint bytes, replay, identities,
+settings/options and the independent LAN proxy were unchanged. Paper changed
+from PID 143464 to 134364 for the required plugin restart. Eight fresh bots
+reported `f399d8a9ddeca0fd`; automatic learning resumed in progressing comparison
+571 with the same Night 3/scenario 0/size 128/prepared/auto-progress options.
+
+The natural realm was prepared **while production was paused**, in one bounded
+creation attempt (about 1.6 seconds of broker time), with no actor admitted and
+no items/buildings supplied. This kept world generation out of an active
+comparison. Realm UUID: `8e07621d-5eba-498a-97b5-e5f77691066b`.
+
+Initial pilot startup then exposed a transport issue: current Node fetch
+ignored an explicit Host override and the narrow health endpoint correctly
+returned 404. A direct `http://localhost:8000/fixture/health` URL returned 200.
+The fix uses that actual authority, with a real HTTP-server regression rather
+than a mocked header assumption. Only the pilot Node process restarted;
+production Paper and bots stayed running. The startup timeout is retained in
+`logs/persistent-pilot-milestone-startup-failed.json`; the verified recovered
+state is `logs/persistent-pilot-milestone.json`.
+
+By 16:24 CST `HomeAI01` was active with health/food 20, establishing its home,
+and about **0.122 connected observed Minecraft days** recorded. No death,
+rescue or completed home was claimed at that early checkpoint. The independent
+four-hour read-only observer is running in
+`logs/persistent-pilot-seven-days/`, targeting seven actual connected days. It
+checks that the same world UUID remains in use. **The seven-day demonstration
+is still incomplete.** Bed calendar skips, disconnected time, fixture supplies
+and earlier test worlds are not counted toward it.
+
+Next decision: use that continuing-world record to verify a genuinely acquired
+usable home and identify the first recurring failure that prevents maintenance
+or recovery. Do not infer long-term competence or neural improvement from the
+prepared-fixture passes.

@@ -62,7 +62,11 @@ class HttpBridge {
     return result.json();
   }
   async health() {
-    const result=await fetch(this.base+'/fixture/health',{headers:{Host:new URL(this.base).host.replace('127.0.0.1','localhost')},signal:AbortSignal.timeout(5000)});
+    // Fetch ignores a caller-supplied Host header in current Node. Use the
+    // endpoint's direct localhost authority, which the LAN proxy cannot supply.
+    const url=new URL(this.base+'/fixture/health');
+    if(url.hostname==='127.0.0.1')url.hostname='localhost';
+    const result=await fetch(url.href,{signal:AbortSignal.timeout(5000)});
     if (!result.ok) throw Error('Lab health unavailable');
     return result.json();
   }
