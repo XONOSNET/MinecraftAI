@@ -74,9 +74,24 @@ without `-Enable` opens controls; on first use the resident remains disabled.
 A previously enabled service reconnects after a controller/backend restart.
 It respects an intentional lab shutdown and never starts production itself.
 
-To watch, stop the existing lab camera follow, join the Minecraft server, enter
-spectator mode, and use `/tp xonosnet HomeAI01`. `/spectate HomeAI01` then follows
-the resident; `/spectate` releases that view. This moves the human viewer only. The pilot's control
+To watch, join the Minecraft server and click **Watch over shoulder** on the
+pilot control page. The default rear shoulder framing is distance 3, height 3,
+with personal spectator night vision enabled. It stays on `HomeAI01`; the eight
+training bots are not in its cycle. Stop watching restores the viewer's starting
+position and mode. The temporary night vision expires within 30 seconds; it
+never lights terrain or changes the resident or monster spawning.
+
+During a sealed underground shelter watch, the camera uses an exterior overhead
+position verified against the resident's already-loaded terrain. The HUD explains
+that the resident is underground. This shows the cover's surface, not through its
+roof. Rear shoulder framing returns when work resumes. Unknown terrain cannot
+provide an exterior camera position. The observer uses identity-scoped fresh
+telemetry separate from production assignments and training; stale data waits
+rather than switching to a training bot.
+
+The manual first-person alternative remains `/gamemode spectator`,
+`/tp xonosnet HomeAI01`, then `/spectate HomeAI01`; `/spectate` releases that view.
+These controls move the human viewer only. The pilot's control
 page shows its current priority, physical home checks, inventory, interruptions,
 recovery counts and connected-day clock. Its controls are loopback-only.
 

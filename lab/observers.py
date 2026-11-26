@@ -8,7 +8,8 @@ from pathlib import Path
 from .config import is_agent, EPISODES_PER_AGENT
 
 VIEWS=('first_person','trail','side','overhead','orbit','action','shoulder','stationary','cycle')
-DIMENSIONS=('minecraft:overworld','minecraft:the_nether','minecraft:the_end')
+PERSISTENT_TARGET='HomeAI01'
+DIMENSIONS=('minecraft:overworld','minecraft:the_nether','minecraft:the_end','minecraft:lab_persistent_pilot')
 CAMERA_INTERPOLATION_TICKS=4
 MODES=('survival','creative','adventure','spectator')
 
@@ -60,7 +61,7 @@ def observer_progress(state,stages,mode,practice,job,episodes,run=None,world=Non
 
 def player_name(value):
     if not isinstance(value,str) or not re.fullmatch(r'[A-Za-z0-9_]{3,16}',value):raise ValueError('Choose a valid Minecraft player')
-    if re.fullmatch(r'LabAI[0-9]+',value,re.IGNORECASE):raise ValueError('The observer must be a human player, not a training bot')
+    if re.fullmatch(r'LabAI[0-9]+',value,re.IGNORECASE) or value.casefold()==PERSISTENT_TARGET.casefold():raise ValueError('The observer must be a human player, not a bot')
     return value
 
 # Eight framing keyframes blend continuously, including the loop boundary.
@@ -145,6 +146,17 @@ def viewer_transfer(owner,target,view,distance,height,elapsed,heading=0):
     if view=='shoulder':return f'{shoulder_context(target,distance,height)} run tp {owner} ~ ~ ~ ~ ~'
     return camera_move(target,'transfer',view,distance,height,elapsed,heading).replace('@e[tag=transfer,limit=1]',owner)
 
+
+def camera_framing(session,agent):
+    """Keep a sealed burrow's shoulder boom out of solid terrain, for viewing only."""
+    view,distance,height=session['view'],session['distance'],session['height']
+    pilot=agent.get('pilot') or {};watch_height=agent.get('camera_watch_height')
+    if (session['target']==PERSISTENT_TARGET and view=='shoulder' and
+            pilot.get('phase')=='night_burrow' and pilot.get('activity')=='shelter_watch' and
+            type(watch_height) in (int,float) and math.isfinite(watch_height) and 2<=watch_height<=28):
+        return 'overhead',1,watch_height-1
+    return view,distance,height
+
 def camera_rotation(view,distance,height,elapsed,heading=0):
     if view=='action':
         x,y,z,_=action_pose(distance,height,elapsed,heading)
@@ -176,20 +188,23 @@ class Observers:
         owner=player_name(request.get('player','Xonosnet'));names={n.casefold():n for n in known}
         if owner.casefold() not in names:raise ValueError('That observer has not joined this server yet')
         owner=names[owner.casefold()];target=request.get('target');view=request.get('view','trail')
-        if not isinstance(target,str) or not is_agent(target):raise ValueError('Choose a configured training bot')
+        if not isinstance(target,str) or not (is_agent(target) or target==PERSISTENT_TARGET):raise ValueError('Choose a configured bot or HomeAI01')
         if view not in VIEWS:raise ValueError('Choose a supported camera view')
         try:distance=float(request.get('distance',7));height=float(request.get('height',4))
         except (ValueError,TypeError):raise ValueError('Enter numeric camera distance and height')
         if not math.isfinite(distance) or not 1<=distance<=16 or not math.isfinite(height) or not 2<=height<=12:raise ValueError('Camera distance must be 1–16 blocks and height 2–12')
         cycle_enabled=request.get('cycle_enabled',view=='cycle')
         if type(cycle_enabled) is not bool:raise ValueError('Cycle bots must be enabled or disabled')
+        if target==PERSISTENT_TARGET and cycle_enabled:raise ValueError('The persistent pilot follows one resident; disable cycling')
+        night_vision=request.get('night_vision',target==PERSISTENT_TARGET)
+        if type(night_vision) is not bool:raise ValueError('Viewer night vision must be enabled or disabled')
         active_only=request.get('active_only',True)
         if type(active_only) is not bool:raise ValueError('Follow active bots only must be enabled or disabled')
         try:cycle_seconds=float(request.get('cycle_seconds',30))
         except (TypeError,ValueError):raise ValueError('Cycle interval must be 5-3600 seconds')
         if not math.isfinite(cycle_seconds) or not 5<=cycle_seconds<=3600:raise ValueError('Cycle interval must be 5-3600 seconds')
         s=self.sessions.get(owner,{'player':owner,'saved_mode':None,'return_created':False})
-        s.update(active_only=active_only,cycle_waiting=False,cycle_enabled=cycle_enabled,cycle_seconds=cycle_seconds,cycle_at=self.clock()+cycle_seconds,enabled=True,target=target,view='trail' if view=='cycle' else view,distance=distance,height=height,attached=False,attach_ready_at=None,
+        s.update(active_only=active_only,cycle_waiting=False,cycle_enabled=cycle_enabled,cycle_seconds=cycle_seconds,cycle_at=self.clock()+cycle_seconds,night_vision=night_vision,night_vision_at=None,enabled=True,target=target,view='trail' if view=='cycle' else view,distance=distance,height=height,attached=False,attach_ready_at=None,
                  camera_created=False,status='waiting',message='Waiting for your player and the selected bot. Follow will start automatically when both are online.',started_at=self.clock())
         self.sessions[owner]=s;self.save();return copy.deepcopy(s)
     def next_bot(self,owner,agents):
@@ -236,6 +251,9 @@ class Observers:
             available.append(name)
         return available
     def cycle_target(self,s,agents):
+        if s['target']==PERSISTENT_TARGET:
+            s.update(cycle_enabled=False,cycle_waiting=False)
+            return
         available=self.cycle_candidates(s,agents)
         s.update(cycle_waiting=not bool(available),cycle_at=self.clock()+s.get('cycle_seconds',30))
         if not available:
@@ -276,6 +294,8 @@ class Observers:
             if not s.get('hud_ready') or cache.get(key)!=command:
                 self.command(command);cache[key]=command
 
+        pilot=agent.get('pilot') if s['target']==PERSISTENT_TARGET else None
+        if s['target']==PERSISTENT_TARGET:mode='persistent'
         display_name=agent.get('display_name') or s['target']
         owner=s['player'];prefix=f'lab:observer_{owner.lower()}'
         labels=('Moving forward','Turning left','Turning right','Jumping forward','Waiting','Gathering wood','Eating')
@@ -285,7 +305,7 @@ class Observers:
         if agent.get('skill')=='expedition':activity=('Moving','Turn left','Turn right','Swim / climb','Waiting','Ascending','Descending')[action] if type(action) is int and 0<=action<7 else 'Waiting'
         if agent.get('skill')=='combat':activity=('Approaching monster','Aim left','Aim right','Back for spacing','Guard / cooldown','Equip gear','Attack monster')[action] if type(action) is int and 0<=action<7 else 'Waiting'
         if agent.get('skill')=='advanced' and action==5:activity='Opening door'
-        controller={'teacher':'Teacher demonstration','heuristic':'Teacher reference','evaluate':'Neural policy','untrained':'Untrained policy','random':'Random actions','paused':'Paused / training'}.get(mode,mode)
+        controller={'teacher':'Teacher demonstration','heuristic':'Teacher reference','evaluate':'Neural policy','untrained':'Untrained policy','random':'Random actions','paused':'Paused / training','persistent':'Continuing survival'}.get(mode,mode)
         if agent.get('activity','').startswith(('Opening shelter door','Closing shelter door','Sheltered:','Sprinting ','Steering ','Turning to align','Opening door while','Waiting for policy','Waiting for valid','Wall ahead:','Reversing ','Crouching ','Recovering:')):activity=agent['activity']
         if not fresh:activity='Waiting for bot telemetry'
         elif mode=='paused':activity=getattr(self,'pause_reason','Movement paused')
@@ -307,7 +327,7 @@ class Observers:
             m=agent.get('metrics') or {};progress=round(100*m.get('kills',0)/max(1,m.get('kill_target',0))) if m.get('kill_target') else (100 if m.get('weapon_equipped') and m.get('armor_equipped') else 0)
         route_progress=progress
         route_visible=bool(fresh and position and goal and mode!='paused');watch_visible=False
-        context=getattr(self,'progress_context',{});job=context.get('job',{})
+        context={} if s['target']==PERSISTENT_TARGET else getattr(self,'progress_context',{});job=context.get('job',{})
         total=context.get('episodes',3);completed=min(total,agent.get('trial_completed',0))
         trial=min(total,completed+1)
         if (mode in ('evaluate','untrained','random','heuristic') or context.get('phase')=='queued_teacher') and completed>=total:activity='Trials finished; waiting for other bots'
@@ -370,6 +390,19 @@ class Observers:
             if world.get('first_night'):lines['stage']=first_night_label(world,context.get('last_policy'))
             elapsed=trial_timer(world,now)
             if elapsed is not None:lines['stage']+=' | Elapsed '+elapsed
+        if s['target']==PERSISTENT_TARGET:
+            info=pilot or {}
+            days=info.get('actual_active_days',0)
+            days=days if type(days) in (int,float) and math.isfinite(days) else 0
+            lines['stage']=f'Persistent open world | {days:.2f} observed days'
+            goal=str(info.get('goal') or 'Waiting').replace('_',' ').title()
+            lines['task']=f'{display_name} | {goal} | '+str(info.get('message') or 'Waiting')[:85]
+            lines['state']=str(info.get('message') or 'Waiting for resident telemetry')[:120]
+            route_visible=False
+            progress=100 if info.get('home_usable') else 0
+            if fresh and info.get('activity')=='shelter_watch':
+                lines['task']+=' | Sheltering underground' if info.get('phase')=='night_burrow' else ' | Shelter watch'
+            if not fresh:lines['task']=f'{display_name} | Waiting for fresh telemetry'
         # Keep vitals on the always-visible selected-bot bar. The state bar is
         # hidden for many survival phases or replaced by the shelter countdown.
         def vital_percent(value):
@@ -386,7 +419,8 @@ class Observers:
                 emit(f'bossbar set {key} color '+('yellow' if suffix=='stage' else 'blue' if suffix=='task' else 'green'))
                 emit(f'bossbar set {key} max 100')
             emit(f'bossbar set {key} name {name}')
-            if suffix=='stage' and world:value=round(world['progress']) if world['phase'] in ('snapshotting','restoring') else round(100*complete/max(1,len(world['bots'])))
+            if suffix=='stage' and s['target']==PERSISTENT_TARGET:value=round(100*min(7,max(0,days))/7)
+            elif suffix=='stage' and world:value=round(world['progress']) if world['phase'] in ('snapshotting','restoring') else round(100*complete/max(1,len(world['bots'])))
             else:value=round(100*(context['stage']-1)/context['stages']) if suffix=='stage' else route_progress if suffix=='state' else progress
             emit(f'bossbar set {key} value {value}')
             emit(f'bossbar set {key} players {owner}')
@@ -422,8 +456,15 @@ class Observers:
             self.roster_ready=True;self.roster_rows={}
         labels=('Forward','Turn left','Turn right','Jump','Wait','Gather','Eat')
         from .config import AGENT_COUNT
-        for index in range(AGENT_COUNT):
-            name=f'LabAI{index}';a=agents.get(name,{})
+        names=([PERSISTENT_TARGET] if watched=={PERSISTENT_TARGET} else
+               [f'LabAI{index}' for index in range(AGENT_COUNT)]+([PERSISTENT_TARGET] if PERSISTENT_TARGET in watched else []))
+        if getattr(self,'roster_order',names)!=names:
+            for index in range(len(self.roster_order)):
+                self.command(f'scoreboard players reset lab_row_{index} lab_bots')
+            self.roster_rows={}
+        self.roster_order=names
+        for index,name in enumerate(names):
+            a=agents.get(name,{})
             fresh=a.get('connected') and now-a.get('last_seen',0)<8
             action=a.get('action',4)
             activity='Offline' if not fresh else 'Training' if mode=='paused' and getattr(self,'progress_context',{}).get('job',{}).get('status') in ('running','cancelling') else 'Paused' if mode=='paused' else labels[action] if type(action) is int and 0<=action<len(labels) else 'Wait'
@@ -437,6 +478,10 @@ class Observers:
             world=getattr(self,'progress_context',{}).get('world')
             if world and getattr(self,'progress_context',{}).get('job',{}).get('status') not in ('running','cancelling'):activity=world_bot_phase(world['results'].get(name,{}),world['phase'])
             stopped=bool(world and world.get('results',{}).get(name,{}).get('state')=='stopped')
+            if name==PERSISTENT_TARGET:
+                info=a.get('pilot') or {}
+                activity=('Shelter watch' if info.get('activity')=='shelter_watch' else str(info.get('phase') or info.get('goal') or 'Waiting').replace('_',' ').title()) if fresh else 'Offline'
+                stopped=False
             color='gray' if stopped else 'gold' if name in watched else 'aqua'
             row=(a.get('display_name') or name,activity,color)
             previous=self.roster_rows.get(name)
@@ -476,7 +521,7 @@ class Observers:
             if s['enabled']:s.update(status='waiting',message='Waiting for the server and player to reconnect.')
         self.save()
     def record_camera_pose(self,name,look,entity_id,speed=0):
-        if not is_agent(name) or not isinstance(look,(list,tuple)) or len(look)!=2:return
+        if not (is_agent(name) or name==PERSISTENT_TARGET) or not isinstance(look,(list,tuple)) or len(look)!=2:return
         if any(type(v) not in (int,float) or not math.isfinite(v) for v in look):return
         yaw,pitch=look
         if abs(yaw)>1e6 or abs(pitch)>math.pi/2+.01:return
@@ -540,11 +585,21 @@ class Observers:
                 self.command(f'execute at {owner} run summon minecraft:marker ~ ~ ~ {{Tags:["{ret}","lab_observer_return"]}}')
                 self.command(f'execute at {owner} rotated as {owner} run tp @e[tag={ret},limit=1] ~ ~ ~ ~ ~')
                 s['return_created']=True;self.command(f'gamemode spectator {owner}');self.save()
+            # Personal visibility only: no light blocks, mob changes or bot effects.
+            # Refresh well before vanilla's expiry flicker; stop lets this expire.
+            if s.get('night_vision') and self.clock()-(s.get('night_vision_at') or 0)>=5:
+                self.command(f'effect give @a[name={owner},gamemode=spectator] minecraft:night_vision 30 0 true')
+                s['night_vision_at']=self.clock()
             dimension=agent.get('dimension','overworld');token=(agent.get('entity_id'),dimension)
             position=agent.get('position');previous=s.get('last_target_position')
             jumped=position is not None and previous is not None and math.dist(position,previous)>24
             changed_run=s.get('follow_run')!=agent.get('run')
-            mobile=s['view']!='stationary'
+            view,distance,height=camera_framing(s,agent)
+            framing=(view,distance,height)
+            if s.get('effective_framing')!=list(framing):
+                s.update(effective_framing=list(framing),attached=False,attach_ready_at=None)
+            s['effective_view']=view
+            mobile=view!='stationary'
             if token!=tuple(s.get('target_token',[])) or (mobile and (jumped or changed_run)):
                 s.update(target_token=list(token),attached=False,attach_ready_at=None)
             # Travel bearing is independent of the bot's head/look rotation.
@@ -565,29 +620,29 @@ class Observers:
             if not s['attached']:
                 if s.get('attach_ready_at') is None:
                     # Align the player's own view before detaching from the old camera.
-                    if s['view']!='first_person':self.command(viewer_transfer(owner,target,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
+                    if view!='first_person':self.command(viewer_transfer(owner,target,view,distance,height,self.clock()-s['started_at'],s.get('camera_heading',0)))
                     self.command(f'execute as {owner} run spectate')
                     self.command(f'gamemode spectator {owner}')
                     self.kill_camera(s)
-                    if mobile:self.command(viewer_transfer(owner,target,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
+                    if mobile:self.command(viewer_transfer(owner,target,view,distance,height,self.clock()-s['started_at'],s.get('camera_heading',0)))
                     s.update(attach_ready_at=self.clock()+(self.settle_delay if mobile else 0),status='transferring',message=f'Moving your viewpoint to {target} and loading the simulation before attaching the camera.')
                     self.save()
                 if self.clock()<s['attach_ready_at']:
                     self.update_hud(s,agent,mode);continue
-                if s['view']=='first_person':self.command(f'spectate {target} {owner}')
+                if view=='first_person':self.command(f'spectate {target} {owner}')
                 else:
                     self.kill_camera(s)
-                    anchor=owner if s['view']=='stationary' else target
-                    self.command(camera_spawn(owner,target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0)))
-                    self.move_camera(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0))
+                    self.command(camera_spawn(owner,target,camera,view,distance,height,self.clock()-s['started_at'],s.get('camera_heading',0)))
+                    self.move_camera(target,camera,view,distance,height,self.clock()-s['started_at'],s.get('camera_heading',0))
                     self.command(f'execute at {target} run data merge entity @e[tag={camera},limit=1] {{teleport_duration:{CAMERA_INTERPOLATION_TICKS}}}')
-                    self.command(f"execute at {owner if s['view']=='stationary' else target} run spectate @e[tag={camera},limit=1] {owner}");s['camera_created']=True
+                    self.command(f"execute at {owner if view=='stationary' else target} run spectate @e[tag={camera},limit=1] {owner}");s['camera_created']=True
                 s.update(attached=True,attach_ready_at=None,attached_at=self.clock());self.save()
-            if s['view']!='first_person':
-                if self.external_motion:self.motion_frames[owner]=(target,camera,s['view'],s['distance'],s['height'],s['started_at'],s.get('camera_heading',0),self.clock())
-                else:self.move_camera(target,camera,s['view'],s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0))
+            if view!='first_person':
+                if self.external_motion:self.motion_frames[owner]=(target,camera,view,distance,height,s['started_at'],s.get('camera_heading',0),self.clock())
+                else:self.move_camera(target,camera,view,distance,height,self.clock()-s['started_at'],s.get('camera_heading',0))
             else:self.motion_frames.pop(owner,None)
             s.update(status='following',message=(f"Watching {target} from a stationary position. Switch bots to look around; use a following view to travel between arenas." if s['view']=='stationary' else f"Following {target}: {s['view'].replace('_',' ')}. Camera follows arena transfers and respawns."),simulation=agent.get('simulation','Waiting'),target_position=agent.get('position'))
+            if view!=s['view']:s['message']='Sheltering underground: watching above the cover; rear shoulder view resumes when the resident leaves.'
 
             if s['view']=='action':
                 s['camera_shot']=action_pose(s['distance'],s['height'],self.clock()-s['started_at'],s.get('camera_heading',0))[3]

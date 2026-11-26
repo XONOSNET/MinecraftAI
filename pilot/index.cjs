@@ -33,6 +33,27 @@ function point(value) {
   if (!value || !['x','y','z'].every(k => Number.isFinite(value[k]))) throw Error('Unverified world position');
   return [value.x, value.y, value.z];
 }
+function cameraWatchHeight(bot, life) {
+  // This is a viewer-only fallback for a sealed shelter watch. Read only the
+  // resident's already loaded column; unknown terrain cannot supply a camera.
+  if(life?.phase!=='night_burrow' || life.activity!=='shelter_watch' || !bot?.entity?.position || typeof bot.blockAt!=='function') return null;
+  const position=bot.entity.position;
+  if(!['x','y','z'].every(key=>Number.isFinite(position[key])))return null;
+  const x=Math.floor(position.x),z=Math.floor(position.z),floor=Math.floor(position.y),column=[];
+  try {
+    for(let y=floor+2;y<=floor+24;y++) {
+      const block=bot.blockAt(new Vec3(x,y,z));
+      if(!block)return null;
+      column.push(block);
+    }
+  }catch{return null;}
+  let highest=-1;
+  for(let index=0;index<column.length;index++) if(column[index].boundingBox==='block' ||
+    column[index].shapes?.some(shape=>Array.isArray(shape) && shape.length===6 && shape[3]>shape[0] && shape[4]>shape[1] && shape[5]>shape[2]))highest=index;
+  if(highest<0 || highest+2>=column.length || !column.slice(highest+1,highest+3).every(block=>['air','cave_air','void_air'].includes(block.name)))return null;
+  const height=floor+2+highest+2.5-position.y;
+  return Number.isFinite(height) && height>=2 && height<=28?height:null;
+}
 function validateOptions(options) {
   const fixture = options.fixture === true;
   const world = options.world || PRIMARY, identity = options.identity || IDENTITY;
@@ -48,6 +69,35 @@ function validRequest(req, port) {
   const hosts = new Set(['127.0.0.1:' + port, 'localhost:' + port]);
   return hosts.has(req.headers.host) && (!req.headers.origin ||
     ['http://127.0.0.1:' + port, 'http://localhost:' + port].includes(req.headers.origin));
+}
+function cameraRequest(action, payload={}) {
+  if(!['start','stop'].includes(action) || !payload || Array.isArray(payload) || typeof payload!=='object') throw Error('Choose start or stop watching');
+  const fields=action==='start'?['player','distance','height','night_vision']:['player'];
+  if(Object.keys(payload).some(key=>!fields.includes(key))) throw Error('Unknown pilot camera setting');
+  const player=payload.player ?? 'Xonosnet';
+  if(typeof player!=='string' || !/^[A-Za-z0-9_]{3,16}$/.test(player) || /^(?:HomeAI01|LabAI[0-9]+|PilotTest0[1-4])$/i.test(player)) throw Error('Choose your human Minecraft player name');
+  if(action==='stop') return {player};
+  const distance=payload.distance ?? 3,height=payload.height ?? 3,night=payload.night_vision ?? true;
+  if(typeof distance!=='number' || !Number.isFinite(distance) || distance<1 || distance>16 ||
+     typeof height!=='number' || !Number.isFinite(height) || height<2 || height>12 || typeof night!=='boolean')
+    throw Error('Camera distance must be 1–16, height 2–12, and night vision enabled or disabled');
+  return {player,target:IDENTITY,view:'shoulder',distance,height,cycle_enabled:false,active_only:false,night_vision:night};
+}
+async function cameraBody(req) {
+  // A camera request cannot retain an unbounded body or an idle HTTP handler.
+  return new Promise((resolve,reject)=>{
+    let body='',size=0,done=false;
+    const finish=(error,value)=>{
+      if(done)return;done=true;clearTimeout(timer);
+      req.removeListener('data',data);req.removeListener('end',end);req.removeListener('error',fail);req.removeListener('aborted',abort);
+      if(error){req.resume();reject(error);}else resolve(value);
+    };
+    const timer=setTimeout(()=>finish(Error('Camera request timed out')),2000);
+    const data=chunk=>{size+=chunk.length;if(size>2048)finish(Error('Camera request is too large'));else body+=chunk;};
+    const end=()=>{try{finish(null,body?JSON.parse(body):{});}catch{finish(Error('Enter valid camera settings'));}};
+    const fail=()=>finish(Error('Camera request was interrupted')),abort=()=>finish(Error('Camera request was interrupted'));
+    req.on('data',data);req.on('end',end);req.on('error',fail);req.on('aborted',abort);
+  });
 }
 class HttpBridge {
   constructor(base='http://127.0.0.1:8000', tokenPath=path.join(ROOT,'data/api-token')) {
@@ -68,6 +118,16 @@ class HttpBridge {
     if(url.hostname==='127.0.0.1')url.hostname='localhost';
     const result=await fetch(url.href,{signal:AbortSignal.timeout(5000)});
     if (!result.ok) throw Error('Lab health unavailable');
+    return result.json();
+  }
+  async camera(action,payload) {
+    const body=cameraRequest(action,payload),token=fs.readFileSync(this.tokenPath,'utf8').trim();
+    const result=await fetch(this.base+'/observer/'+action,{method:'POST',headers:{'Content-Type':'application/json','X-Lab-Token':token},body:JSON.stringify(body),signal:AbortSignal.timeout(10000)});
+    if(!result.ok) {
+      const message=(await result.text()).slice(0,300);
+      if(result.status===400 && /configured training bot/i.test(message)) throw Error('The open-world camera is awaiting the dashboard update. Your bot is still running.');
+      throw Error('Camera control: '+result.status+' '+message);
+    }
     return result.json();
   }
 }
@@ -293,11 +353,14 @@ class PilotSupervisor {
     finally {if(generation===this.generation)this.busy=false;}
   }
   status() {
-    const state=this.store?.snapshot();
-    return {enabled:this.control.enabled,identity:this.options.identity,world_name:this.options.world,world_uuid:this.control.world_uuid,
+    const state=this.store?.snapshot(),life=this.life?.status?.() || null;
+    return {enabled:this.control.enabled,identity:this.options.identity,world_name:this.options.world,world_uuid:this.control.world_uuid,updated_at_ms:Date.now(),
       connected:!!this.bot&&this.ready,reason:this.reason,resource_hold:this.resourceHold,world:this.world,
-      player:this.bot?.entity?{position:point(this.bot.entity.position),health:this.bot.health,food:this.bot.food,inventory:inventory(this.bot)}:null,
-      life:this.life?.status?.() || null,state:state || null,events:this.events.slice(-20),state_directory:this.directory,
+      player:this.bot?.entity?{position:point(this.bot.entity.position),health:this.bot.health,food:this.bot.food,inventory:inventory(this.bot),
+        uuid:this.control.player_uuid,entity_id:this.bot.entity.id,
+        look:[this.bot.entity.yaw,this.bot.entity.pitch].every(Number.isFinite)?[this.bot.entity.yaw,this.bot.entity.pitch]:null,
+        speed:Math.hypot(this.bot.entity.velocity?.x||0,this.bot.entity.velocity?.z||0),camera_watch_height:cameraWatchHeight(this.bot,life)}:null,
+      life,state:state || null,events:this.events.slice(-20),state_directory:this.directory,
       production:this.health?{ready:this.health.server.ready,bots:this.health.server.bots_online,ram_percent:this.health.ram_percent,phase:this.health.world_learning?.phase}:null};
   }
   listen(port=8100) {
@@ -310,6 +373,15 @@ class PilotSupervisor {
         if(req.method==='GET' && url.pathname==='/status') {res.setHeader('Content-Type','application/json');res.end(JSON.stringify(this.status()));return;}
         if(req.method==='POST' && ['/control/start','/control/stop'].includes(url.pathname)) {
           req.resume();const value=url.pathname.endsWith('/start')?await this.start():await this.stop();
+          res.setHeader('Content-Type','application/json');res.end(JSON.stringify(value));return;
+        }
+        if(req.method==='POST' && ['/camera/start','/camera/stop'].includes(url.pathname)) {
+          if(this.options.fixture)throw Error('Live viewer controls are unavailable in a fixture');
+          const action=url.pathname.endsWith('/start')?'start':'stop',payload=await cameraBody(req);
+          // Validate before forwarding; caller never chooses an arbitrary target,
+          // command or training control through this loopback viewer interface.
+          cameraRequest(action,payload);
+          const value=await this.bridge.camera(action,payload);
           res.setHeader('Content-Type','application/json');res.end(JSON.stringify(value));return;
         }
         res.writeHead(404);res.end('Unknown pilot control');
@@ -343,5 +415,5 @@ async function main() {
   process.once('SIGINT',quit);process.once('SIGTERM',quit);
   console.log('Persistent pilot controls: http://127.0.0.1:8100 (explicit enablement required on first use)');
 }
-module.exports={PilotSupervisor,HttpBridge,validateOptions,validRequest,atomicJson,inventory,playerUUID,DAY};
+module.exports={PilotSupervisor,HttpBridge,validateOptions,validRequest,cameraRequest,cameraWatchHeight,atomicJson,inventory,playerUUID,DAY};
 if(require.main===module)main().catch(e=>{console.error(e.stack||e.message);process.exitCode=1;});

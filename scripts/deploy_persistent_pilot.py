@@ -31,6 +31,7 @@ SKILLS = ('expedition', 'gathering', 'shelter', 'combat')
 PLUGIN_NAME = 'PersistentPilotWorlds.jar'
 SOURCE_FILES = (
     'lab/pilot_gateway.py', 'lab/service.py', 'lab/sleep_quorum.py', 'lab/world_training.py',
+    'lab/pilot_camera.py', 'lab/observers.py', 'lab/camera_input.py',
     'scripts/Build-PilotPlugin.ps1', 'scripts/Start-Lab.ps1', 'scripts/Start-Bots.ps1',
     'scripts/Start-DashboardLan.ps1', 'scripts/Start-PersistentPilot.ps1',
     'scripts/Stop-PersistentPilot.ps1', 'scripts/observe_persistent_pilot.py',

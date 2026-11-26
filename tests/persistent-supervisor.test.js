@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {Vec3} = require('vec3');
-const {PilotSupervisor, HttpBridge, validateOptions, validRequest, playerUUID, DAY} = require('../pilot/index.cjs');
+const {PilotSupervisor, HttpBridge, validateOptions, validRequest, cameraRequest, cameraWatchHeight, playerUUID, DAY} = require('../pilot/index.cjs');
 
 const WORLD = 'pilot-world-uuid', PLAYER = 'ce6d7043-a833-4cdb-badc-e298b097c320';
 const nativeWorld = () => ({loaded:true,world:'lab_persistent_pilot',world_uuid:WORLD,environment:'NORMAL',
@@ -64,6 +64,94 @@ test('local viewer origin controls and the HTTP bridge cannot point to a product
   for(const headers of [{host:'evil.example:8100'},{host:'127.0.0.1:8100',origin:'https://evil.example'},
     {host:'127.0.0.1:8100',origin:'null'}]) assert.equal(validRequest({headers},8100),false);
   for(const base of ['https://127.0.0.1:8000','http://192.168.1.24:8000','http://evil.example']) assert.throws(()=>new HttpBridge(base));
+});
+
+test('pilot viewing has one target, validated human viewers and bounded shoulder framing', ()=>{
+  assert.deepEqual(cameraRequest('start'),{player:'Xonosnet',target:'HomeAI01',view:'shoulder',distance:3,height:3,cycle_enabled:false,active_only:false,night_vision:true});
+  assert.deepEqual(cameraRequest('stop',{player:'xonosnet'}),{player:'xonosnet'});
+  assert.equal(cameraRequest('start',{player:'Viewer_2',distance:1,height:12,night_vision:false}).distance,1);
+  for(const payload of [{target:'LabAI0'},{command:'stop'},{view:'first_person'},{cycle_enabled:true},
+    {player:'HomeAI01'},{player:'LabAI3'},{player:'PilotTest01'},{player:'xonosnet\nstop'},
+    {distance:0},{distance:17},{distance:NaN},{distance:'3'},{height:1},{height:13},{height:Infinity},{night_vision:'true'}])
+    assert.throws(()=>cameraRequest('start',payload));
+  assert.throws(()=>cameraRequest('stop',{player:'Xonosnet',distance:3}));
+  for(const payload of [null,[],true,'Xonosnet'])assert.throws(()=>cameraRequest('start',payload));
+  assert.throws(()=>cameraRequest('shutdown',{}));
+});
+
+test('camera bridge authenticates only the fixed observer operation and explains a pending backend update', async t=>{
+  const {directory}=fixture(t), token=path.join(directory,'unit-token');fs.writeFileSync(token,'unit-secret\n');
+  const fetch=global.fetch,calls=[];
+  try {
+    global.fetch=async(url,options)=>{
+      calls.push({url,options});assert.equal(url.includes('unit-secret'),false);
+      assert.equal(options.headers['X-Lab-Token'],'unit-secret');
+      return {ok:true,json:async()=>({enabled:true,target:'HomeAI01'})};
+    };
+    const bridge=new HttpBridge('http://127.0.0.1:8000',token);
+    await bridge.camera('start',{player:'Xonosnet'});await bridge.camera('stop',{player:'Xonosnet'});
+    assert.equal(new URL(calls[0].url).pathname,'/observer/start');
+    assert.deepEqual(JSON.parse(calls[0].options.body),cameraRequest('start'));
+    assert.equal(new URL(calls[1].url).pathname,'/observer/stop');assert.deepEqual(JSON.parse(calls[1].options.body),{player:'Xonosnet'});
+    await assert.rejects(bridge.camera('start',{player:'LabAI0'}),/human/);assert.equal(calls.length,2);
+    global.fetch=async()=>({ok:false,status:400,text:async()=>'{"detail":"Choose a configured training bot"}'});
+    await assert.rejects(bridge.camera('start',{}),/awaiting the dashboard update/);
+  } finally {global.fetch=fetch;}
+});
+
+test('pilot status supplies live native camera identity and look without changing durable life state', t=>{
+  const {supervisor:s}=fixture(t);s.control.player_uuid=PLAYER;s.store=fakeStore();s.ready=true;
+  s.bot={quit(){},entity:{id:17,position:new Vec3(1,64,2),yaw:1.5,pitch:-.2,velocity:new Vec3(.03,0,.04)},health:19,food:18,inventory:{items:()=>[]}};
+  const before=s.store.snapshot(),status=s.status();
+  assert.equal(status.player.uuid,PLAYER);assert.equal(status.player.entity_id,17);
+  assert.deepEqual(status.player.look,[1.5,-.2]);assert.equal(status.player.speed,.05);
+  assert.ok(Math.abs(Date.now()-status.updated_at_ms)<1000);assert.deepEqual(s.store.snapshot(),before);
+  s.bot.entity.yaw=NaN;assert.equal(s.status().player.look,null);
+});
+
+test('underground shelter-watch camera reads only the loaded column and finds air above its highest roof', ()=>{
+  const calls=[],watch={phase:'night_burrow',activity:'shelter_watch'};
+  const bot={entity:{position:new Vec3(-31.5,65,-29.5)},blockAt(point){
+    calls.push([point.x,point.y,point.z]);
+    return point.y<=68?{name:'dirt',boundingBox:'block'}:{name:'air',boundingBox:'empty'};
+  }};
+  assert.equal(cameraWatchHeight(bot,watch),5.5);
+  assert.equal(calls.length,23);assert.deepEqual(calls[0],[-32,67,-30]);assert.deepEqual(calls.at(-1),[-32,89,-30]);
+  calls.length=0;assert.equal(cameraWatchHeight(bot,{phase:'gather',activity:'travel'}),null);assert.equal(calls.length,0);
+  assert.equal(cameraWatchHeight(bot,{phase:'night_burrow',activity:'working'}),null);
+  bot.blockAt=()=>({name:'air',boundingBox:'empty'});assert.equal(cameraWatchHeight(bot,watch),null);
+});
+
+test('underground shelter-watch camera refuses unknown terrain, wet space and roofs without two in-range air blocks', ()=>{
+  const watch={phase:'night_burrow',activity:'shelter_watch'},bot={entity:{position:new Vec3(.5,64,.5)}};
+  for(const roof of [87,88]) {
+    bot.blockAt=point=>({name:point.y===roof?'stone':'air',boundingBox:point.y===roof?'block':'empty'});
+    assert.equal(cameraWatchHeight(bot,watch),null);
+  }
+  bot.blockAt=point=>point.y===80?null:({name:point.y===66?'dirt':'air',boundingBox:point.y===66?'block':'empty'});
+  assert.equal(cameraWatchHeight(bot,watch),null);
+  bot.blockAt=point=>({name:point.y===66?'dirt':point.y===67?'water':'air',boundingBox:point.y===66?'block':'empty'});
+  assert.equal(cameraWatchHeight(bot,watch),null);
+  bot.blockAt=()=>{throw Error('Unloaded');};assert.equal(cameraWatchHeight(bot,watch),null);
+  bot.entity.position.y=NaN;assert.equal(cameraWatchHeight(bot,watch),null);
+});
+
+test('loopback pilot camera routes reject unbounded bodies, invalid origins and target injection before dispatch', async t=>{
+  const {once}=require('node:events'),http=require('node:http');
+  const {supervisor:s,calls}=fixture(t);s.bridge.camera=async(action,payload)=>{calls.push({camera:action,payload});return {enabled:action==='start'};};
+  s.listen(0);await once(s.server,'listening');const port=s.server.address().port;
+  t.after(()=>s.server.closeAllConnections());
+  const request=(payload,headers={})=>new Promise((resolve,reject)=>{
+    const req=http.request({host:'127.0.0.1',port,path:'/camera/start',method:'POST',headers:{Host:'127.0.0.1:0','Content-Type':'application/json',...headers}},res=>{
+      let body='';res.on('data',chunk=>body+=chunk);res.on('end',()=>resolve({status:res.statusCode,body}));
+    });req.on('error',reject);req.end(typeof payload==='string'?payload:JSON.stringify(payload));
+  });
+  assert.equal((await request({player:'Xonosnet'},{Origin:'https://evil.example'})).status,403);
+  assert.equal((await request({player:'Xonosnet',target:'LabAI0'})).status,409);
+  assert.equal((await request('x'.repeat(2049))).status,409);assert.equal(calls.length,0);
+  assert.equal((await request({player:'Xonosnet'})).status,200);
+  assert.deepEqual(calls,[{camera:'start',payload:{player:'Xonosnet'}}]);assert.equal(s.control.enabled,false);
+  s.options.fixture=true;assert.equal((await request({player:'Xonosnet'})).status,409);assert.equal(calls.length,1);
 });
 
 test('the bridge uses the narrow health endpoint with its required direct localhost authority', async ()=>{

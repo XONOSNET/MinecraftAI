@@ -735,3 +735,82 @@ def test_idle_shoulder_filter_rejects_repetitive_pitch_scans_but_follows_deliber
     assert pose==(0,-15)
     changed=smooth_camera_angles(pose,(0,-25),.05,idle=True)
     assert -18<=changed[1]<-15
+
+
+def test_persistent_shoulder_uses_own_hud_and_personal_visibility(tmp_path):
+    now=[100.];commands=[]
+    o=Observers(tmp_path/'camera',commands.append,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'HomeAI01','view':'shoulder','distance':3,'height':3},['Xonosnet'])
+    agent=dict(connected=True,last_seen=100,entity_id=42,dimension='minecraft:lab_persistent_pilot',
+               position=[0,64,0],health=20,food=18,run='resident',persistent_pilot=True,
+               pilot=dict(goal='survival',phase='night_burrow',activity='shelter_watch',
+                          message='Emergency burrow: waiting for daylight',actual_active_days=1.5,home_usable=False))
+    o.record_camera_pose('HomeAI01',[0,0],42,0)
+    o.tick(['Xonosnet'],{'Xonosnet':dict(mode=3,seen=100)},{'HomeAI01':agent},True,'evaluate',
+           progress_context={'stage':12,'stages':140,'stage_name':'Wrong training stage','job':{'status':'running','epoch':10}})
+    assert o.sessions['Xonosnet']['status']=='following'
+    assert any('HomeAI01' in c and 'summon minecraft:item_display' in c for c in commands)
+    assert 'effect give @a[name=Xonosnet,gamemode=spectator] minecraft:night_vision 30 0 true' in commands
+    assert not any('effect give HomeAI01' in c or 'Wrong training stage' in c or 'Training pass' in c for c in commands)
+    assert any('Sheltering underground' in c for c in commands)
+    assert any('Persistent open world | 1.50 observed days' in c for c in commands)
+    roster=[c for c in commands if c.startswith('scoreboard players display name')]
+    assert len(roster)==1 and 'HomeAI01' in roster[0] and 'Shelter watch' in roster[0]
+    commands.clear();now[0]+=2;agent['last_seen']=now[0]
+    o.tick(['Xonosnet'],{}, {'HomeAI01':agent},True)
+    assert not any(c.startswith('effect give') for c in commands)
+    now[0]+=4;agent['last_seen']=now[0]
+    o.tick(['Xonosnet'],{}, {'HomeAI01':agent},True)
+    assert sum(c.startswith('effect give') for c in commands)==1
+    commands.clear();o.stop('Xonosnet',['Xonosnet'])
+    assert any('execute in minecraft:lab_persistent_pilot' in c and 'run kill' in c for c in commands)
+    assert not any(c.startswith('effect clear') for c in commands)
+    assert 'HomeAI01' in o.camera_poses
+
+
+def test_persistent_target_never_cycles_into_production_or_acts_as_viewer(tmp_path):
+    o=Observers(tmp_path/'camera',lambda c:None,lambda:100)
+    with pytest.raises(ValueError):o.start({'player':'HomeAI01','target':'LabAI0'},['HomeAI01'])
+    with pytest.raises(ValueError):o.start({'player':'Xonosnet','target':'HomeAI02'},['Xonosnet'])
+    with pytest.raises(ValueError):o.start({'player':'Xonosnet','target':'HomeAI01','cycle_enabled':True},['Xonosnet'])
+    with pytest.raises(ValueError):o.start({'player':'Xonosnet','target':'HomeAI01','night_vision':'yes'},['Xonosnet'])
+    o.start({'player':'Xonosnet','target':'HomeAI01','view':'shoulder'},['Xonosnet'])
+    assert o.next_bot('Xonosnet',{'LabAI0':dict(connected=True,last_seen=100)})['target']=='HomeAI01'
+    # A stale or missing resident may not borrow another bot's telemetry.
+    commands=[];o.command=commands.append
+    o.tick(['Xonosnet'],{'Xonosnet':dict(mode=3,seen=100)},{'LabAI0':dict(connected=True,last_seen=100)},True)
+    assert o.sessions['Xonosnet']['status']=='waiting_target'
+    assert not any('summon minecraft:item_display' in c or c.startswith('effect give') for c in commands)
+
+
+def test_persistent_roster_switch_removes_old_training_rows(tmp_path):
+    now=[100.];commands=[];o=Observers(tmp_path/'camera',commands.append,lambda:now[0],settle_delay=0)
+    o.start({'player':'Xonosnet','target':'LabAI0'},['Xonosnet'])
+    o.update_roster(['Xonosnet'],{},'evaluate')
+    o.start({'player':'Xonosnet','target':'HomeAI01'},['Xonosnet'])
+    now[0]+=2;commands.clear()
+    o.update_roster(['Xonosnet'],{'HomeAI01':dict(connected=True,last_seen=now[0],pilot=dict(phase='gather'))},'evaluate')
+    assert sum(c.startswith('scoreboard players reset lab_row_') for c in commands)==AGENT_COUNT
+    assert set(o.roster_rows)=={'HomeAI01'}
+
+
+def test_persistent_burrow_camera_uses_verified_exterior_and_restores_shoulder(tmp_path):
+    from lab.observers import camera_framing
+    commands=[];now=[100.];o=Observers(tmp_path/'camera',commands.append,lambda:now[0],settle_delay=0)
+    o.external_motion=True
+    o.start(dict(player='Xonosnet',target='HomeAI01',view='shoulder',distance=3,height=3),['Xonosnet'])
+    a=dict(connected=True,last_seen=100,entity_id=42,dimension='minecraft:lab_persistent_pilot',position=[0,65,0],
+           run='resident',camera_watch_height=6.5,pilot=dict(phase='night_burrow',activity='shelter_watch'))
+    o.tick(['Xonosnet'],{'Xonosnet':dict(mode=3,seen=100)},{'HomeAI01':a},True)
+    s=o.sessions['Xonosnet']
+    assert s['view']=='shoulder' and s['effective_view']=='overhead'
+    assert o.motion_frames['Xonosnet'][2:5]==('overhead',1,5.5)
+    assert 'Sheltering underground' in s['message']
+    commands.clear();a['pilot']=dict(phase='gather',activity='working');now[0]+=1;a['last_seen']=now[0]
+    o.tick(['Xonosnet'],{}, {'HomeAI01':a},True)
+    assert s['effective_view']=='shoulder' and o.motion_frames['Xonosnet'][2:5]==('shoulder',3,3)
+    assert any('positioned ^-0.900 ^0 ^-3.000' in c for c in commands)
+    a['pilot']=dict(phase='night_burrow',activity='shelter_watch');a['camera_watch_height']=float('nan')
+    assert camera_framing(s,a)==('shoulder',3,3)
+    a['camera_watch_height']=6.5;s['view']='first_person'
+    assert camera_framing(s,a)==('first_person',3,3)

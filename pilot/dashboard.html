@@ -4,16 +4,34 @@
 <div class="eyebrow">Continuing world · one resident</div><h1>Persistent home pilot</h1>
 <p>A home that stays. Real supplies, ordinary survival, and unfinished work remembered across interruptions.</p>
 <button id="start">Start / resume pilot</button><button id="stop" class="stop">Stop pilot</button><span id="mode" class="muted">Reading status…</span><div id="error" role="status"></div>
+<section class="card" style="margin:16px 0"><h2 style="margin-top:0">Watch in Minecraft</h2>
+<label>Your player <input id="viewer" value="Xonosnet" maxlength="16" autocomplete="off" pattern="[A-Za-z0-9_]{3,16}" style="width:150px;padding:8px"></label>
+<label>Distance <input id="camera-distance" type="number" min="1" max="16" value="3" style="width:65px;padding:8px"></label>
+<label>Height <input id="camera-height" type="number" min="2" max="12" value="3" style="width:65px;padding:8px"></label>
+<label style="display:inline-block"><input id="night-vision" type="checkbox" checked> Bright viewer</label><br>
+<button id="watch">Watch over shoulder</button><button id="unwatch" class="stop">Stop watching</button>
+<div id="camera-status" role="status" class="muted">Join Minecraft, then choose Watch over shoulder. Only your spectator view moves.</div>
+<p class="muted">Brightness applies to your spectator view only. A bot sheltering underground can be hidden by terrain; its activity remains visible.</p></section>
 <div class="grid"><section class="card"><div class="label">Current priority</div><div id="goal" class="value">Stopped</div><div id="activity"></div><p id="reason"></p></section>
 <section class="card"><div class="label">Seven-day observation</div><div id="days" class="value">0.00 / 7 days</div><progress id="progress" max="7" value="0"></progress><p class="muted">Counts connected, observed Minecraft ticks. Bed skips do not manufacture elapsed days.</p></section>
 <section class="card"><div class="label">Resident and home</div><div id="identity" class="value">HomeAI01</div><div id="home"></div><p id="health"></p></section>
 <section class="card"><div class="label">Recovery record</div><div id="recoveries" class="value">0 recoveries</div><div id="metrics"></div><p id="production" class="muted"></p></section>
 <section class="card"><div class="label">Home check</div><div id="enclosure" class="value">Waiting</div><div id="components"></div></section>
 <section class="card"><div class="label">Carried supplies</div><ul id="inventory"></ul><p class="muted">Actual carried items, rechecked after every connection and respawn.</p></section></div>
-<section class="card" style="margin-top:16px"><h2>What is happening</h2><ul id="events"></ul><p class="muted">To watch in Minecraft as xonosnet: use <code>/gamemode spectator</code>, then <code>/tp xonosnet HomeAI01</code>. This moves your viewer, never the bot. Return with your usual player controls.</p><p id="storage" class="muted"></p></section>
+<section class="card" style="margin-top:16px"><h2>What is happening</h2><ul id="events"></ul><p class="muted">Use Watch over shoulder above for the rear camera. Stop watching restores your previous viewer location and mode without moving the bot.</p><p id="storage" class="muted"></p></section>
 <script>
 const $=id=>document.getElementById(id),text=(id,value)=>$(id).textContent=value??'';
 function renderChecks(s){const h=s.life?.home_verification;text('error','');text('enclosure',!h?.loaded?'Checking':h.usable?'Shelter usable':'Needs repair');text('components',h?.loaded?['Bed '+(h.bed?'present':'missing'),'Respawn '+(h.bed_registered?'confirmed':'not yet confirmed'),'Storage '+(h.chest?'present':'missing'),'Workbench '+(h.table?'present':'missing'),'Furnace '+(h.furnace?'present':'missing')].join(' · '):'Waiting for loaded terrain');$('inventory').replaceChildren(...(s.player?.inventory||[]).map(i=>{const li=document.createElement('li');li.textContent=i.count+' × '+i.name.replaceAll('_',' ');return li;}));if(!$('inventory').children.length){const li=document.createElement('li');li.textContent='No carried items';$('inventory').append(li);}}
 async function refresh(){try{const r=await fetch('/status',{cache:'no-store'});if(!r.ok)throw Error(await r.text());const s=await r.json();renderChecks(s);const m=s.state?.metrics||{},d=s.state?.demo||{},life=s.life||{};text('mode',s.enabled?(s.connected?'Continuing life':'Waiting to reconnect'):'Stopped; world preserved');text('goal',(life.goal||s.state?.goal?.kind||'Waiting').replaceAll('_',' '));text('activity',life.message||s.reason);text('reason',s.resource_hold?'Paused to preserve production memory headroom.':s.reason);text('days',((d.active_ticks||0)/24000).toFixed(2)+' / 7 days');$('progress').value=(d.active_ticks||0)/24000;text('identity',s.identity);text('home',life.home?'Home: '+[life.home.x,life.home.y,life.home.z].join(', '):'Home site not yet verified');text('health',s.player?'Health '+s.player.health+' / 20 · Food '+s.player.food+' / 20':'No connected player');text('recoveries',(m.recoveries||0)+' recoveries');text('metrics',(m.deaths||0)+' deaths · '+(m.completedGoals||0)+' useful goals · '+(m.repeatedStalls||0)+' replans · '+(m.humanInterventions||0)+' rescues');text('production',s.production?'Production: '+s.production.bots+' bots · '+s.production.phase+' · RAM '+s.production.ram_percent+'%':'Production telemetry unavailable');text('storage','The world and unfinished work are saved continuously. Stop preserves both.');$('events').replaceChildren(...(s.events||[]).slice(-10).reverse().map(e=>{const li=document.createElement('li');li.textContent=e.at.slice(11,19)+' · '+e.kind.replaceAll('_',' ')+(e.reason?' · '+e.reason:'');return li;}));$('start').disabled=s.enabled;$('stop').disabled=!s.enabled;}catch(e){text('error',e.message);}}
 for(const name of ['start','stop'])$(name).onclick=async()=>{text('error','');try{const r=await fetch('/control/'+name,{method:'POST'});if(!r.ok)throw Error(await r.text());await refresh();}catch(e){text('error',e.message);}};refresh();setInterval(refresh,2500);
+for(const [id,action] of [['watch','start'],['unwatch','stop']])$(id).onclick=async()=>{
+  $('watch').disabled=$('unwatch').disabled=true;text('camera-status',action==='start'?'Moving your shoulder camera…':'Stopping your camera…');
+  try {
+    const payload={player:$('viewer').value.trim()};
+    if(action==='start')Object.assign(payload,{distance:Number($('camera-distance').value),height:Number($('camera-height').value),night_vision:$('night-vision').checked});
+    const r=await fetch('/camera/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),value=await r.json();
+    if(!r.ok)throw Error(value.error||value.detail||'Camera request failed');
+    text('camera-status',action==='start'?'Shoulder camera requested for HomeAI01. '+(value.message||''):(value.message||'Watching stopped.'));
+  }catch(e){text('camera-status',e.message);}finally{$('watch').disabled=$('unwatch').disabled=false;}
+};
 </script></html>

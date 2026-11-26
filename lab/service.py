@@ -24,6 +24,7 @@ from .skills import SkillBank, SKILL_INPUTS, SKILL_ACTIONS
 from .tasks import task_spec, arena_commands, reset_commands, task_success, SKILLS, minecraft_yaw
 from .config import AGENT_COUNT, EPISODES_PER_AGENT, EXPECTED_EPISODES, LANE_END, is_agent
 from .observers import Observers, observer_progress
+from .pilot_camera import PilotCameraFeed
 from .camera_input import CameraInput
 from .dashboard_state import world_view, learning_view, compact_status
 from .fixture_health import fixture_health, fixture_health_router
@@ -221,6 +222,7 @@ from .harvest_markers import HarvestMarkers,validate_intent
 harvest_markers=HarvestMarkers('data/harvest-markers.json',console)
 observers=Observers('data/observers.json',console)
 observers.external_motion=True
+pilot_camera=PilotCameraFeed('data/persistent-pilot')
 camera_input=CameraInput('logs/minecraft-console.log',console,'server/world/datapacks/lab_camera_controls')
 from .bot_outlines import install_outline_pack
 install_outline_pack('server/world/datapacks/lab_bot_outlines')
@@ -894,13 +896,19 @@ def observer_worker():
     next_tick=time.monotonic()
     while not shutting_down:
         try:
+            pilot_view=pilot_camera.snapshot()
             with lock:
+                # Camera-only projection: the resident never enters assignments,
+                # training, trial results, bot lighting or the production roster.
+                camera_agents={**agents,**pilot_view['agents']}
+                for name,agent in pilot_view['agents'].items():
+                    observers.record_camera_pose(name,agent.get('look'),agent.get('entity_id'),agent.get('speed',0))
                 harvest_markers.tick(world_training.session,agents,server_ready() and not server_control.snapshot()['busy'])
                 vision_lines.tick(agents,observers.sessions,server_ready() and not server_control.snapshot()['busy'])
                 if server_ready() and not server_control.snapshot()['busy']:
                     staging_pad.tick(server.pid,time.time())
                     bot_lights.tick(agents,True)
-                    camera_input.tick(observers,[p['name'] for p in online_players()],agents)
+                    camera_input.tick(observers,[p['name'] for p in online_players()],camera_agents)
                     world_training.tick()
                     connected=[n for n,a in agents.items() if is_agent(n) and a.get('connected') and time.time()-a.get('last_seen',0)<8]
                     try:world_learning.tick()
@@ -919,7 +927,7 @@ def observer_worker():
                             elif choice in (5,6,7):train_world({'skill':{5:'gathering',6:'expedition',7:'shelter'}[choice]})
                             else:world_training.menu(player)
                         except (ValueError,HTTPException) as error:console('tellraw '+player+' '+json.dumps({'text':str(getattr(error,'detail',error)),'color':'red'}))
-                observers.tick([p['name'] for p in online_players()],player_states,agents,server_ready() and not server_control.snapshot()['busy'],mode,progress_context=observer_progress(curriculum.state,STAGES,mode,practice,training_jobs.snapshot(),trial_limit(),run,world_training.session,world_training.saved['history']),pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
+                observers.tick([p['name'] for p in online_players()],player_states,camera_agents,server_ready() and not server_control.snapshot()['busy'],mode,progress_context=observer_progress(curriculum.state,STAGES,mode,practice,training_jobs.snapshot(),trial_limit(),run,world_training.session,world_training.saved['history']),pause_reason=(training_jobs.snapshot().get('message','Training')+f" ({training_jobs.snapshot().get('percent',0):.0f}%)" if training_jobs.running else curriculum.state.get('message','Waiting for next learning phase') if curriculum.state['enabled'] else 'Paused; resume learning from the dashboard'))
         except Exception as error:
             with lock:
                 for session in observers.sessions.values():
