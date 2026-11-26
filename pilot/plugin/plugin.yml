@@ -1,0 +1,14 @@
+name: PersistentPilotWorlds
+version: 0.1.0
+main: dev.xonosnet.pilot.PilotWorlds
+api-version: '1.21'
+description: Explicitly controlled isolated worlds and native lifecycle evidence for the persistent pilot.
+load: POSTWORLD
+commands:
+  labpilot:
+    description: Console-only persistent pilot world administration.
+    usage: /labpilot status
+    permission: labpilot.console
+permissions:
+  labpilot.console:
+    default: op

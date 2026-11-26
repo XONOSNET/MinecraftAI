@@ -456,6 +456,17 @@ def auth(request:Request,x_lab_token:str=Header(default='')):
     if request.headers.get('origin') not in (None,'http://127.0.0.1:8000','http://localhost:8000'):raise HTTPException(403,'Invalid origin')
     credential=x_lab_token or request.cookies.get('lab_session','')
     if not secrets.compare_digest(credential,TOKEN):raise HTTPException(403,'Open the dashboard on this computer again to enable controls.')
+
+# The optional continuing-life pilot has a typed console broker and its own
+# acknowledgement lock. Waiting for Paper must not hold the training lock.
+from .pilot_gateway import create_pilot_router
+app.include_router(create_pilot_router(
+    console, ROOT/'logs/minecraft-console.log',
+    ready=lambda:server_ready() and not server_control.snapshot()['busy'],
+    auth=auth,
+    production_info=lambda:{'server':server_control.snapshot(),
+                            'stopped':(ROOT/'data/lab-stopped').exists()}))
+
 @app.post('/access',dependencies=[Depends(auth)])
 def access():return {'ok':True}
 dashboard_cache={'at':0,'response':None}

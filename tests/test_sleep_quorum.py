@@ -28,7 +28,7 @@ def test_normal_rule_restored_after_trial_and_intentional_pause():
 def test_pack_counts_actual_players_and_preserves_original_rule(tmp_path):
     install_pack(tmp_path)
     update=(tmp_path/'data/lab_sleep/function/update.mcfunction').read_text()
-    assert '@a[gamemode=!spectator]' in update
+    assert '@a[gamemode=!spectator,tag=!lab_persistent_pilot]' in update
     assert 'unless score #saved lab_sleep matches 1 store result score #original' in update
     restore=(tmp_path/'data/lab_sleep/function/restore.mcfunction').read_text()
     assert 'scoreboard players get #original lab_sleep' in restore

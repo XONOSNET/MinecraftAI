@@ -15,7 +15,7 @@ def install_pack(path):
         'data/lab_sleep/function/update.mcfunction':
             'execute unless score #saved lab_sleep matches 1 store result score #original lab_sleep run gamerule playersSleepingPercentage\n'
             'scoreboard players set #saved lab_sleep 1\n'
-            'execute store result score #eligible lab_sleep run execute if entity @a[gamemode=!spectator]\n'
+            'execute store result score #eligible lab_sleep run execute if entity @a[gamemode=!spectator,tag=!lab_persistent_pilot]\n'
             'scoreboard players operation #percentage lab_sleep = #required lab_sleep\n'
             'scoreboard players set #hundred lab_sleep 100\n'
             'scoreboard players operation #percentage lab_sleep *= #hundred lab_sleep\n'
