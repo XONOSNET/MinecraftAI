@@ -326,3 +326,14 @@ fight. Cleanup again verified the owned JVM, port and disposable worlds gone.
 coverage for the final optional-hook compatibility guards. The two natural
 deaths remain recorded; this controlled reproduction does not by itself prove
 that both deaths were caused by provocation.
+
+Final live check after that correction: the resident remained connected in the
+same world, with **four deaths and three physically verified recoveries** recorded
+overall. It was sealed for the night at roughly **0.33 health / 17 food**, and
+the home was still unusable. This is a materially fragile pilot, not a completed
+survival milestone. The specific deadlock, tool bootstrap and unnecessary attack
+selection are fixed; broader encounter escape and sustained home construction
+remain unproven. Paper 119540, eight fresh production bots on `f399d8a9ddeca0fd`,
+their active automatic comparison and checkpoint hashes were preserved during
+the pilot-only reload. The checkout's next-load controller fingerprint is
+`8a5166763fce10b0`; no production bot reload is queued by this work.
