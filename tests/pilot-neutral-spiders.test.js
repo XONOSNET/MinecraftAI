@@ -101,3 +101,12 @@ test('bright partial shade is measured in both loaded body cells, not guessed fr
   f.bot.world.getSkyLight=q=>q.y===67?13:11;
   assert.equal(f.check().neutral,false);
 });
+
+test('a native ceiling contact is not mistaken for a solid block inside the spider',()=>{
+  const f=fixture();f.spawn();f.now.value+=500;f.entity.position.y=71.10000002384186;
+  f.bot.blockAt=q=>({name:q.y===72?'oak_log':'air',boundingBox:q.y===72?'block':'empty'});
+  f.bot.world.getSkyLight=()=>13;
+  assert.equal(f.check().neutral,true);
+  f.entity.position.y=71.3;
+  assert.equal(f.check().reason,'body_not_loaded_air','actual body overlap still refuses the exception');
+});

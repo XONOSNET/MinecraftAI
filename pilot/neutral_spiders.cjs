@@ -66,8 +66,11 @@ function assess(bot,e,standing=bot.entity?.position){
   // Both body cells must be loaded, empty and receive bright daylight. The
   // conservative clear central-day window makes skyDarken zero in NORMAL.
   // We intentionally do not infer brightness from an unloaded chunk's zeroes.
-  const cells=[new Vec3(e.position.x,e.position.y,e.position.z).floored(),
-               new Vec3(e.position.x,e.position.y+.9,e.position.z).floored()];
+  // Sample inside the native 0.9-high body, not exactly on its top face.
+  // A wall-clinging spider at y=71.100000024 can touch a ceiling at 72;
+  // adding 0.9 would misclassify that solid boundary as its occupied cell.
+  const cells=[new Vec3(e.position.x,e.position.y+.05,e.position.z).floored(),
+               new Vec3(e.position.x,e.position.y+.85,e.position.z).floored()];
   result.sky_light=[];
   try{
     for(const q of cells){
