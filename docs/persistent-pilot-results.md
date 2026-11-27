@@ -391,3 +391,17 @@ one physically verified recovery and zero stalls. Its
 and confirms owned JVM exit, closed private Minecraft port and removed fixture
 worlds. The supplied home makes this a lifecycle regression, not evidence that
 the resident can already build or defend its own home reliably.
+
+Live deployment reloaded only HomeAI01's Node supervisor. Paper PID **119540**,
+the dashboard, all eight fresh production bots on `f399d8a9ddeca0fd`, automatic
+comparison **574** and checkpoint file hashes were unchanged. The resident's
+same world and identity were retained. The new source discarded the remote
+operation and built and physically verified fresh temporary cover at realm
+spawn with health **20**. Recovery count advanced from three to four; death
+count remained five. The saved full recovery duration was **553.006 seconds**,
+including the pre-fix stalled period, rather than an autonomous seven-second
+live recovery. The retry counter stopped increasing at **2645**. Follow-through
+at `logs/pilot-respawn-live-followthrough.json` records a deliberate sealed
+night watch, not the old repeated `gather` exception. No bot teleport, inventory
+grant, mob removal or terrain reset was used. The read-only bounded observer
+remains active; this correction does not establish reliable home maintenance.
