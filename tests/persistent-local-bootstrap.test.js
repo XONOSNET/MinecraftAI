@@ -112,6 +112,34 @@ test('moving footing settles before any recipe or native placement',async ctx=>{
  assert.equal(f.t.wilderness.pilotWorkbench.actions,0);
 });
 
+test('moving without enough complete axe materials keeps gathering instead of being paused for preparation',async ctx=>{
+ for(const logs of [0,1]){
+  const f=fixture(ctx,{logs});f.b.entity.velocity.x=.1;
+  assert.equal(await f.tick(),false,'insufficient stock must not take movement ownership');
+  assert.equal(f.pauses,0);assert.deepEqual(f.calls,[]);
+  assert.equal(f.t.wilderness.pilotWorkbench.actions,0);assert.equal(f.t.wilderness.pilotWorkbench.retryAt,0);
+ }
+});
+
+test('waiting for initial materials does not consume the preparation budget before useful work is possible',async ctx=>{
+ const f=fixture(ctx,{logs:0});f.b.entity.velocity.x=.1;
+ await f.tick();f.advance(180000);assert.equal(await f.tick(),false);
+ assert.equal(f.pauses,0);assert.equal(f.t.wilderness.pilotWorkbench.actions,0);
+ assert.equal(f.t.wilderness.pilotWorkbench.retryAt,0);
+ f.stock.oak_log=3;
+ assert.equal(await f.tick(),true,'complete stock can now pause to settle at the real local bench');
+ assert.equal(f.pauses,1);assert.equal(f.t.wilderness.pilotWorkbench.startedAt,f.now);
+ assert.equal(f.t.wilderness.pilotWorkbench.retryAt,0);assert.deepEqual(f.calls,[]);
+});
+
+test('funded preparation still times out if moving footing never settles into a valid work action',async ctx=>{
+ const f=fixture(ctx);f.b.entity.velocity.x=.1;
+ assert.equal(await f.tick(),true);const started=f.t.wilderness.pilotWorkbench.startedAt;
+ f.advance(30000);assert.equal(await f.tick(),true);assert.equal(f.t.wilderness.pilotWorkbench.startedAt,started);
+ f.advance(30000);assert.equal(await f.tick(),false);
+ assert.equal(f.t.wilderness.pilotWorkbench.retryAt,f.now+60000);assert.deepEqual(f.calls,[]);
+});
+
 test('an unconfirmed native recipe backs off and a generation change propagates without being hidden',async ctx=>{
  const f=fixture(ctx);f.t.craft=async()=>{};
  assert.equal(await f.tick(),true);assert.match(f.t.wilderness.pilotWorkbench.lastFailure,/not confirmed/);

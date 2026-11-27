@@ -461,9 +461,49 @@ ms**. Its lifetime maximum gap was 1.32 seconds; that does not establish the
 cause of a particular reported burst. A bounded local 40-second Java Flight
 Recorder capture found about 45 ms total GC pauses and entity scan/tracking
 hotspots, with no evidence of a sustained server tick-rate collapse during that
-window. Earlier lag coincided with terrain restoration, but no matched restore
-profile was collected and causation is unproven. Raw profiles remain local at
+window. Earlier lag coincided with terrain restoration; that original episode
+was not captured, so its cause is unproven. Raw profiles remain local at
 `logs/server-lag-before.jfr`, `logs/server-lag-before-stack-audit.json` and
 `logs/server-lag-recovered.json`. No performance restart, world/difficulty
 change, reduced cleanup or speculative server tuning was applied. A future
 recurrence warrants time-correlated camera-gap and native tick/restore evidence.
+
+The next natural round transition supplied a separate restore window without
+changing the server. Six low-rate samples covered **10.6–15.5%** restoration;
+one reported **15.1 TPS / 48.2 ms** mean ticks while the camera worker intervals
+remained **38–56 ms** and its lifetime maximum did not increase. A second
+bounded 40-second local JFR capture during that restoration recorded about
+24 ms total GC pauses. These observations support restore-time server pressure
+as a source of delayed camera execution, rather than a demonstrated camera
+worker stall in that window. They do not establish a fix or a controlled
+comparison. Evidence is at `logs/server-lag-restore-window.json` and
+`logs/server-lag-restore.jfr`. No Paper/backend restart or reduced cleanup was
+introduced while the user reported the original lag had cleared.
+
+The local-tool controller was deployed by reloading only HomeAI01. Paper PID
+**119540**, main controller PID **117420**, all eight fresh training heartbeats,
+automatic learning and checkpoint bytes were preserved. Stopped trial rows can
+omit their controller fingerprint; all available fingerprints remained
+`f399d8a9ddeca0fd`, with the same main runtime process. The new source initially
+found a night watch with one dirt block, health 13.33 and 19 deaths, so that
+observation alone did not prove new tool preparation or home construction.
+The bounded live follow-through is recorded separately at
+`logs/pilot-local-tools-followthrough/`.
+
+That first ten-minute live follow-through **did not pass** the new-tool/useful-
+gathering endpoint. The resident exited at dawn and obtained one log, then was
+slain by a spider after another cover exit; the death count reached 20. The
+native console records the death at 06:57:53. It recovered and continued taking
+cover from visible creepers and pillagers, with no usable home or new axe.
+The trace does not identify which spider or prove why the exit was judged safe.
+Lowering threat thresholds is not supported by this outcome.
+
+The same trace exposed an introduced preparation regression: its settling
+check could pause a moving gatherer before checking whether it had enough wood
+for the recipe chain. Two reproduction tests failed on that version. The
+corrected order checks actual complete recipe materials before taking movement
+ownership. Zero or one log cannot pause walking; three logs can initiate real
+preparation. Unfunded waiting does not consume its budget, while funded settling
+still times out after 60 seconds. All **960 JavaScript tests** pass; the complete
+Python suite remains **630 passed**. The first live failure remains separate
+from the successful supplied-material native crafting checks.

@@ -90,11 +90,7 @@ async function tick(t,b,motor,state,{now=Date.now(),checkpoint=()=>{}}={}){
  if(!r||r.owner!==b.username||r.run!==state.run)r=n.pilotWorkbench={owner:b.username,run:state.run,position:null,
   startedAt:now,actions:0,retryAt:0,outputs:[]};
  if(now<(r.retryAt||0))return false;
- if(r.retryAt){r.startedAt=now;r.actions=0;r.retryAt=0;}
- if(now-r.startedAt>=BUDGET_MS||r.actions>=MAX_ACTIONS){r.retryAt=now+RETRY_MS;checkpoint();return false;}
- if(Math.hypot(b.entity.velocity?.x||0,b.entity.velocity?.z||0)>.025){
-  motor.pause();t.message='Settling at the local workbench before making the harvesting axe';return true;
- }
+ if(r.retryAt){r.startedAt=now;r.actions=0;r.retryAt=0;delete r.materialsReadyAt;}
  const valid=()=>ready(t,b,state);
  const mark=message=>{r.actions++;r.lastAt=now;t.message=message;checkpoint();motor.pause();};
  const verify=async(name,before)=>{
@@ -113,6 +109,15 @@ async function tick(t,b,motor,state,{now=Date.now(),checkpoint=()=>{}}={}){
   if(!q){r.lastFailure='No visible, supported local workbench cell; continuing useful gathering';r.retryAt=now+RETRY_MS;checkpoint();return false;}
   const table=usableTable(t,b,q,state)?b.blockAt(q):null;
   const needed=(table||count(b,'crafting_table')?0:4)+3+(count(b,'stick')>=2?0:2);
+  const available=count(b,name=>name.endsWith('_planks'))+count(b,name=>/^(oak|birch|spruce|jungle|acacia|dark_oak|mangrove|cherry)_log$/.test(name))*4;
+  // Preparation cannot own movement until the complete recipe chain is funded.
+  // In particular, a newly respawned gatherer must remain free to reach wood.
+  if(available<needed){if(!r.actions){r.startedAt=now;delete r.materialsReadyAt;}return false;}
+  if(!r.actions&&r.materialsReadyAt==null){r.startedAt=now;r.materialsReadyAt=now;}
+  if(now-r.startedAt>=BUDGET_MS||r.actions>=MAX_ACTIONS){r.retryAt=now+RETRY_MS;checkpoint();return false;}
+  if(Math.hypot(b.entity.velocity?.x||0,b.entity.velocity?.z||0)>.025){
+   motor.pause();t.message='Settling at the local workbench before making the harvesting axe';return true;
+  }
   if(count(b,name=>name.endsWith('_planks'))<needed){
    const log=b.inventory.items().find(i=>/^(oak|birch|spruce|jungle|acacia|dark_oak|mangrove|cherry)_log$/.test(i.name));
    if(!log)return false;
