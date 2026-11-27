@@ -56,15 +56,16 @@ function assess(bot,e,standing=bot.entity?.position){
   if(!Number.isInteger(flags)||flags<0||flags>7)return refuse('unknown_mob_flags');
   if(flags&AGGRESSIVE)return refuse('aggressive');
   const time=bot.time?.timeOfDay;result.time_of_day=time;
-  if(!Number.isFinite(time)||time<4000||time>8000)return refuse('outside_bright_day_window');
+  if(!Number.isFinite(time)||time<2000||time>10000)return refuse('outside_bright_day_window');
   result.weather={raining:bot.isRaining,rain:bot.rainState,thunder:bot.thunderState};
   if(bot.isRaining!==false||bot.rainState!==0||bot.thunderState!==0)return refuse('weather_not_clear');
   if(!finitePoint(e.position)||!finitePoint(standing)||!finitePoint(bot.entity?.position))return refuse('unknown_position');
   result.distance=distance(e.position,bot.entity.position);result.exit_distance=distance(e.position,standing);
-  if(result.distance<6||result.exit_distance<6)return refuse('too_close');
+  if(result.distance<4.5||result.exit_distance<4.5)return refuse('too_close');
   if(typeof bot.blockAt!=='function'||typeof bot.world?.getSkyLight!=='function')return refuse('light_unavailable');
   // Both body cells must be loaded, empty and receive bright daylight. The
-  // conservative clear central-day window makes skyDarken zero in NORMAL.
+  // clear central-day window makes skyDarken zero in NORMAL (native 1.21.4
+  // sun-angle/sky-darkening formula clamps to zero throughout 2000–10000).
   // We intentionally do not infer brightness from an unloaded chunk's zeroes.
   // Sample inside the native 0.9-high body, not exactly on its top face.
   // A wall-clinging spider at y=71.100000024 can touch a ceiling at 72;

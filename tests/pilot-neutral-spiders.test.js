@@ -33,7 +33,7 @@ test('native aggression and weather are re-read on every guard check',()=>{
   f.bot.thunderState=.1;assert.equal(f.check().reason,'weather_not_clear');
   f.bot.thunderState=0;f.bot.rainState=.1;assert.equal(f.check().reason,'weather_not_clear');
   f.bot.rainState=0;f.bot.isRaining=true;assert.equal(f.check().reason,'weather_not_clear');
-  f.bot.isRaining=false;f.bot.time.timeOfDay=8001;assert.equal(f.check().reason,'outside_bright_day_window');
+  f.bot.isRaining=false;f.bot.time.timeOfDay=10001;assert.equal(f.check().reason,'outside_bright_day_window');
   f.bot.time.timeOfDay=6000;assert.equal(f.check().neutral,true);
   delete f.entity.metadata[15];assert.equal(f.check().reason,'metadata_lost');
 });
@@ -86,11 +86,11 @@ test('invalid initial UUID never acquires a trusted protocol default',()=>{
   assert.equal(f.check().reason,'untracked');
 });
 
-test('bright-window boundaries and six-block clearance are conservative and explicit',()=>{
+test('bright-window boundaries and exposed-threat clearance are conservative and explicit',()=>{
   const f=fixture();f.spawn();f.now.value+=500;
-  for(const time of [4000,6000,8000]){f.bot.time.timeOfDay=time;assert.equal(f.check().neutral,true);}
-  f.entity.position=new Vec3(6,67,0);assert.equal(f.check().neutral,true);
-  f.entity.position=new Vec3(5.99,67,0);assert.equal(f.check().reason,'too_close');
+  for(const time of [2000,4000,6000,8000,10000]){f.bot.time.timeOfDay=time;assert.equal(f.check().neutral,true);}
+  f.entity.position=new Vec3(4.5,67,0);assert.equal(f.check().neutral,true);
+  f.entity.position=new Vec3(4.49,67,0);assert.equal(f.check().reason,'too_close');
   f.entity.position=new Vec3(9,67,0);f.now.value=999;assert.equal(f.check().reason,'spawn_settling');
 });
 
