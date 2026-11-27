@@ -274,3 +274,32 @@ The shoulder camera is now active for Xonosnet. The earlier verifier failure was
 an incorrect effect registry key; `NightVision` fixes it. The fresh native
 `logs/pilot-camera-native-recheck.json` confirms an attached display camera in
 air, native viewer night vision, observer cleanup and unchanged production.
+
+### Natural follow-through after the correction
+
+The same resident left its second refuge at world time 2064, then resumed physical
+travel and additional wood collection. Further departures and real gathering
+are recorded in `logs/pilot-burrow-follow-through.jsonl`; the direct witnesses are
+collected separately in `logs/pilot-burrow-follow-through-verification.json`.
+This establishes repeated departure and useful work, not completed housing.
+The native block used time 6000, a nine-block calm start and a 3.5-block close
+control; later ceiling-contact and final clearance/window boundaries have focused
+regressions and live observations. These are development checks, not a frozen
+learning benchmark.
+
+The bot eventually carried **41 logs**, but died to a spider at 22:07:14 CST
+while returning through hostile terrain. Its actual spawn inventory was empty.
+It died to another spider at 22:07:33, again respawning empty-handed at the same
+realm spawn. After that death it built physically verified temporary cover in
+**10.802 seconds**, retained home knowledge and resumed a useful recovery state.
+No player teleport, item grant, mob removal, terrain reset or restored inventory
+was used. The two deaths and dropped resources remain consequences in this world.
+
+This separates the corrected daylight-spider deadlock from an unresolved hostile
+encounter/cover-routing weakness. Later shelter waits explicitly identified a
+visible skeleton and creeper; those real threats were not disabled. A complete
+home and reliable long-term survival are still unproven. The next justified
+controller study is to reproduce a fatal cover approach or premature departure
+under a real attacker, using these traces, before changing combat difficulty or
+equipment support. The seven-day clock result must not be relabeled a successful
+home-maintenance run.
