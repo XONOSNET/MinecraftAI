@@ -95,6 +95,14 @@ These controls move the human viewer only. The pilot's control
 page shows its current priority, physical home checks, inventory, interruptions,
 recovery counts and connected-day clock. Its controls are loopback-only.
 
+After a death, the actual respawn position also determines which interrupted
+operations can resume. A remembered burrow is an excavation operation rather
+than a destination: sealing, repair and exit work resume only at the same local
+shaft. A distant respawn discards that operation, retains home and interrupted
+intent, and starts checked recovery with the actual remaining inventory. Local
+reconnects retain shaft work and still require native footing, shell and exit
+checks. No terrain or dropped items are removed by this memory correction.
+
 Local data is stored in:
 
 - `server/lab_persistent_pilot/`: persistent terrain and ordinary Minecraft

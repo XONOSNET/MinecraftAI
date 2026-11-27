@@ -116,6 +116,78 @@ test('death is idempotent and respawn recovery uses actual new inventory while p
   assert.equal(f.store.snapshot().metrics.deaths,2);assert.equal(f.store.snapshot().metrics.respawns,2);
 });
 
+test('death during burrow sealing cannot resume the old shaft after a distant empty respawn',ctx=>{
+  const f=fixture(ctx);
+  f.b.entity.position=new Vec3(-27.5,70,-71.5);
+  f.engine.currentGoal='survival';f.engine.teacher.phase='night_burrow';
+  f.engine.teacher.wilderness.burrow={feet:[-28,72,-72],cap:[-28,72,-72],lip:[-28,72,-73],
+    stage:'seal',resume:'night_bootstrap',reason:'Taking cover from skeleton'};
+  f.engine.onDeath('native death during sealing');
+  assert.equal(f.store.snapshot().construction.burrow.stage,'seal','death must first retain the interrupted physical work as an unverified claim');
+  f.items={};f.b.entity.position=new Vec3(-16,69,-48);f.engine.onRespawn(f.b.entity.position,[]);
+  assert.ok(!f.engine.teacher.wilderness.burrow,'the old shaft is 27 blocks from the actual respawn');
+  assert.equal(f.engine.teacher.phase,'gather');assert.equal(f.engine.recovering,true);
+  assert.deepEqual(f.engine.status().inventory,[]);assert.deepEqual(f.engine.teacher.plot,f.plot);
+  assert.equal(f.store.snapshot().resume[0].phase,'night_burrow');
+  assert.equal(f.store.snapshot().construction.burrow,null);
+  assert.ok(f.store.snapshot().events.some(e=>e.kind==='remote_burrow_operation_discarded'));
+  assert.equal(f.store.snapshot().metrics.recoveries,0,'discarding stale work is not physical recovery');
+});
+
+test('reload of an already-stalled recovery rejects the remote saved burrow even when its phase says gather',ctx=>{
+  const f=fixture(ctx);f.items={};f.b.entity.position=new Vec3(-16,69,-48);
+  f.store.update({construction:{phase:'gather',burrow:{feet:[-28,72,-72],cap:[-28,72,-72],lip:[-28,72,-73],
+    stage:'seal',resume:'night_bootstrap'}},recovery:{required:true,phase:'recovering',awaitingRespawn:false,
+    death:{number:1,at:f.now,position:[-27.5,72,-71.5]},respawn:{position:[-16,69,-48],inventory:[],fromDeath:true}}});
+  const next=f.make(open(f.filename,f.scope));
+  assert.ok(!next.teacher.wilderness.burrow);assert.equal(next.teacher.phase,'gather');
+  assert.equal(next.store.snapshot().construction.burrow,null);
+  assert.ok(next.store.snapshot().events.some(e=>e.kind==='remote_burrow_operation_discarded'));
+  next.onRespawn(f.b.entity.position,[]);
+  assert.ok(!next.teacher.wilderness.burrow);assert.equal(next.recovering,true);
+  assert.deepEqual(next.teacher.plot,f.plot);assert.deepEqual(next.status().inventory,[]);
+  assert.equal(next.store.snapshot().metrics.recoveries,0);
+});
+
+test('reconnect inside the same shaft retains every local work stage without granting shelter or footing proof',ctx=>{
+  const f=fixture(ctx),burrow=require('../controller/emergency_burrow');
+  let shellValid=false;
+  ctx.mock.method(burrow,'sealed',()=>shellValid);ctx.mock.method(burrow,'walls',()=>shellValid);
+  for(const stage of ['dig','lip','seal','hidden','open','reclaim','climb']) {
+    shellValid=false;f.b.entity.onGround=true;
+    f.b.entity.position=new Vec3(20.5,62,20.5);
+    f.store.update({construction:{phase:'night_burrow',burrow:{feet:[20,64,20],cap:[20,64,20],lip:[21,64,20],
+      stage,resume:'night_bootstrap',cap_name:'dirt',lip_name:'dirt'}}});
+    const next=f.make(open(f.filename,f.scope));
+    assert.equal(next.teacher.phase,'night_burrow');assert.equal(next.teacher.wilderness.burrow.stage,stage);
+    assert.equal(next.store.snapshot().construction.burrow.stage,stage);
+    assert.ok(!next.store.snapshot().events.some(e=>e.kind==='remote_burrow_operation_discarded'));
+    assert.equal(next.verifiedBurrow(),false,'restored intent cannot bypass live shell and footing checks');
+    assert.equal(next.rememberShelter(),false);assert.equal(next.store.snapshot().metrics.recoveries,0);
+    shellValid=true;f.b.entity.onGround=false;
+    assert.equal(next.verifiedBurrow(),false,'even an intact local shell needs actual grounded footing');
+    assert.equal(next.rememberShelter(),false);assert.equal(next.store.snapshot().metrics.recoveries,0);
+  }
+});
+
+test('repeated death during resumed work preserves home and current interruption intent without reviving an old burrow',ctx=>{
+  const f=fixture(ctx);f.engine.currentGoal='supplies';f.engine.teacher.phase='gather';
+  f.engine.onDeath('first death');f.items={};f.b.entity.position=new Vec3(24.5,64,24.5);
+  f.engine.onRespawn(f.b.entity.position,[]);
+  f.engine.currentGoal='recover';f.engine.teacher.phase='night_burrow';
+  f.engine.teacher.wilderness.burrow={feet:[24,64,24],cap:[24,64,24],lip:[25,64,24],stage:'seal',resume:'gather'};
+  f.engine.onDeath('second interrupted cover');f.b.entity.position=new Vec3(-16,69,-48);
+  f.engine.onRespawn(f.b.entity.position,[]);
+  assert.ok(!f.engine.teacher.wilderness.burrow);assert.equal(f.engine.teacher.phase,'gather');
+  assert.deepEqual(f.engine.teacher.plot,f.plot);assert.equal(f.engine.recovering,true);
+  assert.deepEqual(f.engine.status().inventory,[]);assert.equal(f.engine.bedProof,null);
+  const saved=f.store.snapshot();assert.equal(saved.metrics.deaths,2);assert.equal(saved.metrics.respawns,2);
+  assert.equal(saved.metrics.recoveries,0);assert.equal(saved.resume[0].goal,'recover');
+  assert.equal(saved.resume[0].phase,'night_burrow');
+  assert.equal(saved.construction.burrow,null);
+  assert.equal(saved.events.filter(e=>e.kind==='remote_burrow_operation_discarded').length,1);
+});
+
 test('disconnect after respawn preserves required recovery until physical success and completion survives another restart',ctx=>{
   const f=fixture(ctx);f.engine.onDeath('interrupted task');f.items={};
   f.advance(1200);

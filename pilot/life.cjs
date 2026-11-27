@@ -32,6 +32,17 @@ const wood = b => count(b, n => LOG.test(n))*4 + count(b, n => n.endsWith('_plan
 const tool = (b, kind) => b.inventory.items().some(i => i.name.endsWith('_'+kind) &&
   (i.maxDurability == null || i.maxDurability-(i.durabilityUsed||0)>3));
 
+function localBurrow(b, s) {
+  if(!s||!['approach','dig','lip','seal','hidden','open','reclaim','climb'].includes(s.stage)||
+    !['feet','cap','lip'].every(key=>Array.isArray(s[key])&&s[key].length===3&&s[key].every(Number.isFinite)))return false;
+  const p=b.entity.position, [x,y,z]=s.feet;
+  // This is an execution location, not a home waypoint. A respawn must not
+  // resume sealing a shaft elsewhere. Local shells still pass every native
+  // footing, wall, support, inventory and exit check before any action.
+  return Math.hypot(p.x-x-.5,p.z-z-.5)<=(s.stage==='approach'?8:1.5)&&
+    p.y>=y-3&&p.y<=y+(s.stage==='approach'?3:.5);
+}
+
 function physicalHome(b, plot, intended=[]) {
   if (!plot) return {known:false, loaded:false, usable:false, missing:[], matched:0, bed:false};
   const t = {plot, milestones:['hut',...intended], campPlots:[]};
@@ -101,9 +112,13 @@ function freshTeacher(b, frame, saved={}, now=Date.now()) {
   const original=t.stall.update.bind(t.stall);
   t.stall.update=(...args)=>{const result=original(...args);t.pilotStall=result.expired;return {...result,expired:false};};
   const oldBurrow=saved.construction?.burrow;
-  if(oldBurrow?.feet?.length===3 && oldBurrow.cap?.length===3 && oldBurrow.lip?.length===3) {
+  if(localBurrow(b,oldBurrow)) {
     t.wilderness.burrow={...plain(oldBurrow),at:now,progressAt:now};
     t.phase='night_burrow';
+  } else if(oldBurrow) {
+    t.pilotDiscardedBurrow={stage:oldBurrow.stage,feet:oldBurrow.feet,
+      reason:'Remembered burrow operation is not local to the actual player position'};
+    t.phase='gather';
   }
   const oldMine=saved.construction?.mine;
   if(oldMine?.path?.length && oldMine.path.length<=80 && oldMine.owner===b.username && oldMine.run===frame.run) {
@@ -155,6 +170,7 @@ class PilotLife {
     this.homeReturn=plain(saved.construction.homeReturn||{});
     this.woolBudget=saved.construction.woolBudget?plain(saved.construction.woolBudget):null;
     this.temporaryShelterProof=null;
+    this.discardRemoteBurrow();
     this.api=async(path,data)=>{
       const generation=this.operationGeneration;
       if(generation!==this.generation||this.dead)throw Object.assign(Error('Life changed before native work'),{code:'PILOT_LIFE_CHANGED'});
@@ -208,6 +224,9 @@ class PilotLife {
   }
   onDeath(reason='death') {
     if(this.dead)return;
+    // Persist the interrupted operation before the death marker. Otherwise a
+    // death between periodic saves can revive an older, unrelated operation.
+    this.save(true);
     this.generation++;this.dead=true;this.recovering=true;this.motor.pause();this.bedProof=null;this.loot=null;
     Promise.resolve(this.bot.stopDigging?.()).catch(()=>{});this.bot.deactivateItem?.();
     this.store.update({resume:[{goal:this.currentGoal,phase:this.teacher.phase,at:this.clock()}]},'work_interrupted_by_death');
@@ -223,7 +242,17 @@ class PilotLife {
     this.bedProof=null;this.loot=null;this.progressAt=this.clock();this.lastSignature=null;
     this.ignoredLoot.clear();this.lootBudgetAt=null;this.seenCells.clear();this.sessionMilestones.clear();
     this.teacher=freshTeacher(this.bot,this.frame,this.store.snapshot());
+    this.discardRemoteBurrow();
+    this.currentGoal=this.recovering?'recover':this.currentGoal;
     this.spawnReadyAt=this.clock()+1500;this.currentStatus='recovering';this.message='Rechecking actual respawn position and inventory';
+  }
+  discardRemoteBurrow() {
+    const discarded=this.teacher.pilotDiscardedBurrow;
+    if(!discarded)return false;
+    this.store.update({construction:{burrow:null,phase:this.teacher.phase}},
+      {kind:'remote_burrow_operation_discarded',...discarded,position:point(this.bot.entity.position)});
+    delete this.teacher.pilotDiscardedBurrow;
+    return true;
   }
   onDisconnect(reason='disconnected') {
     this.generation++;this.motor.pause();this.save(true);this.store.markDisconnected(reason);
@@ -662,4 +691,4 @@ class PilotLife {
   }
 }
 
-module.exports={PilotLife,physicalHome,chooseGoal,freshTeacher,actualItems,trackedMine,trackedBurrow};
+module.exports={PilotLife,physicalHome,chooseGoal,freshTeacher,actualItems,trackedMine,trackedBurrow,localBurrow};

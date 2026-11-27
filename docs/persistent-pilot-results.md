@@ -337,3 +337,57 @@ remain unproven. Paper 119540, eight fresh production bots on `f399d8a9ddeca0fd`
 their active automatic comparison and checkpoint hashes were preserved during
 the pilot-only reload. The checkout's next-load controller fingerprint is
 `8a5166763fce10b0`; no production bot reload is queued by this work.
+
+### Post-death stale burrow operation
+
+The next natural death exposed a separate lifecycle defect. At the first
+read-only snapshot after death five, HomeAI01 was healthy with an empty native
+inventory at realm spawn `[-16,69,-48]`, while the restored operation still
+targeted the old sealing shaft at `[-28,72,-72]`, about 27 blocks away. The
+burrow interrupt ran before the death-recovery priority. Once its physical
+progress deadline expired, deferral changed the displayed phase to `gather`
+without removing the remote operation. The snapshot already counted 264 stalls;
+these were repeated retries of one stale operation, not 264 independent tasks.
+The storm also overflowed the bounded event history. Raw evidence remains local
+at `logs/pilot-gather-stall-before.json`.
+
+The resident now snapshots interrupted work at death and restores a burrow
+operation only near its actual execution location. A distant respawn or reload
+discards that operation durably, records why, and retains home, ownership,
+interrupted intent and actual inventory. Local approach and shaft stages remain
+resumable; real footing, shell, support, inventory and exit guards still decide
+whether any action is allowed. This does not remove the old shaft, death drops,
+or other consequences, and it does not credit recovery merely for clearing state.
+
+Four added regressions cover death while sealing, migration of the already
+stalled saved state, all seven local post-approach shaft stages, and another
+death during recovery. The complete suites passed: **941 JavaScript tests and
+630 Python tests**.
+
+The private Paper verifier is reproducible with:
+
+```powershell
+.venv/Scripts/python.exe -m scripts.verify_pilot_respawn_recovery --run --duration 300 --output logs/pilot-respawn-recovery-native
+```
+
+Its home, shaft, carried stock, test log and forced death are supplied fixture
+conditions, not autonomous achievements. It requires native empty inventory,
+retained home and recovery across a controller reload, a physical checked home
+return, no new stall count, then real log excavation and inventory pickup.
+Attempt v1 stopped on an invalid extra field in the setup request; the existing
+acknowledgement guard correctly refused it. Attempt v2 observed the native
+respawn but a verifier predicate awaited a void promise instead of testing that
+the event had arrived. Both attempts are incomplete and verified JVM, port and
+world cleanup. Attempt v3 completed the full path, returning home in **7.072
+seconds**, then collecting one log at health 20; cleanup also passed. The final
+verifier additionally refuses unsupported bed-registration claims and audits its
+allowed controller requests. These checks concern controller recovery rather
+than learned policy improvement or wilderness survival success.
+
+The final strict-verifier v4 repeated that full path: **7.611 seconds** for
+checked recovery, one genuine log pickup, health 20, one test death/respawn,
+one physically verified recovery and zero stalls. Its
+`logs/pilot-respawn-recovery-native-v4/owner-report.json` records source hashes
+and confirms owned JVM exit, closed private Minecraft port and removed fixture
+worlds. The supplied home makes this a lifecycle regression, not evidence that
+the resident can already build or defend its own home reliably.
