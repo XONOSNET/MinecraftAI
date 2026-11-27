@@ -507,3 +507,33 @@ preparation. Unfunded waiting does not consume its budget, while funded settling
 still times out after 60 seconds. All **960 JavaScript tests** pass; the complete
 Python suite remains **630 passed**. The first live failure remains separate
 from the successful supplied-material native crafting checks.
+
+The final native block at
+`logs/pilot-tool-bootstrap-native-v3/owner-report.json` passed **all nine cases**
+with source hashes matching the corrected modules. Its empty-handed moving
+gatherer was grounded and physically moving at approximately 0.070 blocks/tick:
+preparation returned false, requested zero motor pauses, retained forward
+control, and allowed another **0.825 blocks** of real movement without granting
+items or starting a retry. The funded three-log recipe, protected two-tool
+recipe and all prior threat controls still passed. Private JVM, port and world
+cleanup passed. V2 remains an incomplete verifier attempt: one walking call
+only aligned the bot, so the movement precondition never became true; its
+cleanup passed, and V3 used repeated native walking supervision.
+
+The correction was deployed by another pilot-supervisor-only reload; Paper,
+the main eight-bot runtime, automatic learning and checkpoint bytes remained
+unchanged. A fresh read-only observer at
+`logs/pilot-local-tools-final-observer/` is bounded to three hours or seven
+additional observed days, without resetting the continuing world or metrics.
+No claim is made that the burrow loop or home-maintenance milestone is solved.
+
+The next specific controller investigation is a previously hostile spider's
+cover-to-daylight transition. Exact local Paper bytecode shows that
+`MeleeAttackGoal.stop()` can clear the aggressive flag while retaining a normal
+survival-player target; `SpiderAttackGoal.canUse()` can resume against that
+target without a daylight check. Thus a clear current flag is not proof that
+an earlier attacker forgot its target. The fatal live trace lacks attacker IDs
+and metadata history, so it does not establish that this mechanism caused that
+death. Reproduce that sequence in private Paper with per-entity metadata and
+native damage-source diagnostics before changing the exit exception. Do not
+weaken clearance or label this as a learned improvement from the current trace.

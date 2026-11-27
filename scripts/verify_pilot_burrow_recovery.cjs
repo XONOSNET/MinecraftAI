@@ -26,7 +26,7 @@ function teacher(){
 }
 async function setup(name){
  motor.pause();await host('setup',{scenario:name});await sleep(800);await inventory.sync(bot);
- await until(()=>bot.entity.onGround&&Math.abs(bot.entity.position.y-(['aggressive','calm_close_combat','surface_bootstrap'].includes(name)?80:78))<.1,5000,'grounded '+name);
+ await until(()=>bot.entity.onGround&&Math.abs(bot.entity.position.y-(['aggressive','calm_close_combat','surface_bootstrap','bare_surface'].includes(name)?80:78))<.1,5000,'grounded '+name);
  return teacher();
 }
 async function stageCheck(name,fn){const row={name,started_at:Date.now()};report.scenarios.push(row);try{await fn(row);row.passed=true;}catch(e){row.passed=false;row.error=e.stack||e.message;row.pose=bot?.entity?pose():null;}finally{row.finished_at=Date.now();fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(report,null,2));}}
@@ -105,6 +105,30 @@ async function hidden(t){await burrow.tick(t,bot,motor,state,api,scan,tasks);ass
    while(t.wilderness.burrow&&Date.now()-exitAt<30000){await burrow.tick(t,bot,motor,state,api,scan,tasks);await sleep(100);}
    assert.equal(t.wilderness.burrow,null);assert.equal(t.phase,'gather');assert.ok(bot.entity.position.y>=80);
    row.exit_after_bootstrap=pose();
+  });
+  await stageCheck('an empty-handed moving gatherer retains native movement without preparation pauses',async row=>{
+   const localBootstrap=require('../pilot/local_bootstrap.cjs');
+   const t=await setup('bare_surface');t.phase='gather';t.wilderness.burrow=null;
+   assert.deepEqual(items(),{});const goal=[.5,80.1,-6.5];
+   row.walk_requests=[];
+   await until(async()=>{
+    const arrived=await t.walk(bot,motor,goal,state,api,scan,tasks);
+    row.walk_requests.push({at:Date.now(),arrived,pose:pose(),motor:motor.diagnostic()});
+    return bot.entity.onGround&&bot.getControlState('forward')&&Math.hypot(bot.entity.velocity.x,bot.entity.velocity.z)>.025;
+   },5000,'real empty-handed forward movement');
+   assert.equal(localBootstrap.ready(t,bot,state),true,'Exercise the eligible preparation path while physically moving');
+   row.before=pose();row.velocity_before=bot.entity.velocity.toArray();row.controls_before=motor.diagnostic().controls;
+   const start=bot.entity.position.clone(),pause=motor.pause;let pauses=0;
+   motor.pause=function(...args){pauses++;return pause.apply(this,args);};
+   try{
+    row.handled=await localBootstrap.tick(t,bot,motor,state,{now:Date.now()});
+    await sleep(200);row.after=pose();row.controls_after=motor.diagnostic().controls;row.pause_calls=pauses;
+    row.distance_after_check=start.distanceTo(bot.entity.position);row.workbench=t.wilderness.pilotWorkbench;
+    assert.equal(row.handled,false);assert.equal(pauses,0);assert.equal(bot.getControlState('forward'),true);
+    assert.ok(row.distance_after_check>.05,'The actual native walk must continue');
+    assert.deepEqual(items(),{});assert.equal(t.wilderness.pilotWorkbench?.actions||0,0);
+    assert.equal(t.wilderness.pilotWorkbench?.retryAt||0,0);assert.deepEqual(t.milestones,[]);
+   }finally{motor.pause=pause;motor.pause();}
   });
   await stageCheck('daylight surface workbench and axe consume real raw logs before further gathering',async row=>{
    const localBootstrap=require('../pilot/local_bootstrap.cjs');
