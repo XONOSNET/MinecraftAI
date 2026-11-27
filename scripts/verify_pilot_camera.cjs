@@ -34,7 +34,7 @@ async function until(check,ms=10000){const end=Date.now()+ms;while(Date.now()<en
     const camera=bot.entities[cameraId],block=bot.blockAt(camera.position);
     assert.ok(block,'Camera terrain must be loaded');
     assert.equal(block.boundingBox,'empty','Viewer camera must be outside solid blocks');
-    const nightId=bot.registry.effectsByName.night_vision.id;
+    const nightId=bot.registry.effectsByName.NightVision.id;
     await until(()=>bot.entity.effects?.[nightId]);
     const world=await request('/pilot/world',{action:'status',world:'lab_persistent_pilot'});
     assert.equal(world.world_uuid,control.world_uuid);assert.ok(world.players.includes(viewer));

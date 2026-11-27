@@ -194,11 +194,83 @@ and about **0.122 connected observed Minecraft days** recorded. No death,
 rescue or completed home was claimed at that early checkpoint. The independent
 four-hour read-only observer is running in
 `logs/persistent-pilot-seven-days/`, targeting seven actual connected days. It
-checks that the same world UUID remains in use. **The seven-day demonstration
-is still incomplete.** Bed calendar skips, disconnected time, fixture supplies
+checks that the same world UUID remains in use. **At that checkpoint the seven-day
+demonstration was incomplete.** Bed calendar skips, disconnected time, fixture supplies
 and earlier test worlds are not counted toward it.
 
 Next decision: use that continuing-world record to verify a genuinely acquired
 usable home and identify the first recurring failure that prevents maintenance
 or recovery. Do not infer long-term competence or neural improvement from the
 prepared-fixture passes.
+
+## Continuing-world result and burrow recovery correction, November 26
+
+The bounded observer subsequently reached **7.003833 connected observed days**
+in 8405.416 seconds. It retained the original world and identity, with zero
+deaths, zero rescues and two observed connection interruptions. This did **not**
+meet the useful-life acceptance goal: no usable home or completed goal existed.
+Of 8463 active seconds, about 8202 were shelter watch. Clock survival alone is
+not a successful autonomous-home demonstration.
+
+Live inspection identified the recurring controller failure. The same normal
+spiders stayed near the shaft; every visible spider within twelve blocks vetoed
+departure even during daylight. Their native attack flag was clear, and loaded
+body cells had sky light 12–13. A second defect prevented protected table/tool
+preparation before the torch lesson milestone, despite the resident carrying
+31 logs, seven planks, four sticks and a wooden axe.
+
+The pilot now observes native spider disposition without hiding entities from
+perception or collision checks. The opt-in requires a tracked 1.21.4 spawn and
+versioned default metadata, no attack flag, clear weather, time 2000–10000,
+loaded bright body cells and 4.5-block exposure clearance. Unknown observations,
+close/attacking spiders, cave spiders and other hostiles retain the old guards.
+Native metadata defaults and brightness were checked against the local exact
+Paper 1.21.4 JAR (`9cd431f4b77d66a3bd565c01720dae617843684a363c4d9ad2eab590f8450819`).
+Sampling stays inside the spider's 0.9-block body: the live wall-clinging spiders
+touched a ceiling at y=72, and sampling exactly the top face initially mistook
+that boundary for occupied solid terrain. A regression covers that actual pose.
+
+A separate pilot-only bootstrap uses real recipes and a revalidated capped
+pocket to install a workbench and craft a wooden pickaxe before the torch
+milestone. It preserves the interrupted task, grants no milestones, persists
+placement intent and backs off after 60 seconds or eight actions. Exit checks
+still run first.
+
+Reproduce the bounded private check with:
+
+```powershell
+.venv/Scripts/python.exe -m scripts.verify_pilot_burrow_recovery --run --duration 600 --output logs/pilot-burrow-recovery-native
+```
+
+The completed `logs/pilot-burrow-recovery-native-v6/owner-report.json` records six
+passing native checks: matched old-helper refusal versus real opt-in exit and
+log pickup (4.043-second exit, health 20); sealed cover at night; close-spider
+refusal; cave-spider refusal; a native aggressive spider established at night
+and frozen with its attack flag still set in daylight; and real table/pick
+crafting followed by a successful exit. Geometry, starting supplies and test mobs
+are explicitly supplied fixture conditions, not autonomous acquisition. The
+512 MiB private JVM exited, its port closed and its disposable worlds were removed.
+
+Earlier attempts remain local and separate: v1 omitted the task runtime in its
+resumption harness; v2 could not establish native rain in the custom realm;
+v3's floating log obstructed its pickup stance; v4 lost a file-channel response
+to a Windows sharing violation; v5 did not establish the requested native
+aggressive state. These are incomplete attempts. The final channel uses immutable
+per-ticket files, and the final hostile control establishes real aggression
+before changing to daylight. Rain refusal is unit-tested, not claimed as a
+completed native rain scenario.
+
+Verification: **925 JavaScript tests and 630 Python tests passed**. Reloading only
+the resident preserved Paper PID **119540**, eight fresh production bots on
+`f399d8a9ddeca0fd`, automatic learning and checkpoint file hashes. Production
+does not enable the new spider observation. The live resident made its real
+table and pick, left the original shaft and increased carried logs from **31 to
+36**, remaining at health 20. It then sought a different refuge when a zombie
+villager approached; that genuine encounter was retained. Subsequent departure
+and longer home-building progress must be assessed separately. These are
+controller recovery changes, not learned neural improvement.
+
+The shoulder camera is now active for Xonosnet. The earlier verifier failure was
+an incorrect effect registry key; `NightVision` fixes it. The fresh native
+`logs/pilot-camera-native-recheck.json` confirms an attached display camera in
+air, native viewer night vision, observer cleanup and unchanged production.
