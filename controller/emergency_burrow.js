@@ -17,7 +17,7 @@ function exposedThreat(b){
 function alive(b,e){const index=b.registry?.entitiesByName?.[e.name]?.metadataKeys?.indexOf('health'),health=typeof index==='number'&&index>=0?e.metadata?.[index]:undefined;return e.isValid!==false&&(typeof health!=='number'||health>0);}
 function threats(b,standing=b.entity.position){
  const proxy=Object.create(b);proxy.entity={...b.entity,position:standing};
- return Object.values(b.entities||{}).filter(e=>alive(b,e)&&MOBS.has(e.name)&&!require('./shelter_policy').neutralSpider(b,e,standing)&&e.position?.distanceTo(standing)<18&&combat.visible(proxy,e));
+ return Object.values(b.entities||{}).filter(e=>alive(b,e)&&MOBS.has(e.name)&&!require('./shelter_policy').neutralSpider?.(b,e,standing)&&e.position?.distanceTo(standing)<18&&combat.visible(proxy,e));
 }
 function shellProblem(b,feet,s){
  // Two removed earth cells, an untouched floor, and a raised surface cap
@@ -83,13 +83,14 @@ function openingHostiles(b,target){return Object.values(b.entities||{}).filter(e
 async function defendOpening(t,b,motor,s,target){
  const enemies=openingHostiles(b,target);if(!enemies.length)return false;
  motor.pause();t.message='Emergency cover: defending the opening from '+enemies[0].name+' before sealing';
- const enemy=enemies.find(e=>alive(b,e)&&e.position.distanceTo(b.entity.position)<=3&&combat.visible(b,e));if(!enemy||!b.attack)return true;
+ const enemy=enemies.find(e=>alive(b,e)&&!require('./shelter_policy').calmSpider?.(b,e)&&e.position.distanceTo(b.entity.position)<=3&&combat.visible(b,e));
+ if(!enemy||!b.attack){if(enemies.every(e=>require('./shelter_policy').calmSpider?.(b,e)))t.message='Emergency cover: waiting for a calm spider to clear the opening';return true;}
  const weapon=['netherite_sword','diamond_sword','iron_sword','netherite_axe','diamond_axe','iron_axe','stone_sword','stone_axe','wooden_sword','wooden_axe','golden_sword','golden_axe'].find(n=>b.inventory.items().some(i=>i.name===n));
  if(weapon&&b.heldItem?.name!==weapon)await inventory.equip(b,weapon);
  const now=Date.now();if(now-(s.lastOpeningAttack??-Infinity)<combat.attackDelay({weapon:b.heldItem?.name}))return true;
  motor.lockLook(true);try{
   await b.lookAt(enemy.position.offset(0,Math.min(.9,(enemy.height||1.8)/2),0),true);
-  if(!alive(b,enemy)||enemy.position.distanceTo(b.entity.position)>3||!combat.visible(b,enemy))return true;
+  if(!alive(b,enemy)||require('./shelter_policy').calmSpider?.(b,enemy)||enemy.position.distanceTo(b.entity.position)>3||!combat.visible(b,enemy))return true;
   b.attack(enemy);s.lastOpeningAttack=Date.now();t.lastProgress=s.progressAt=Date.now();
  }finally{motor.lockLook(false);}return true;
 }

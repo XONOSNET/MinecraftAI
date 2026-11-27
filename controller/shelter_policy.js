@@ -8,8 +8,13 @@ function neutralSpider(b,e,standing=b.entity.position){
  if(e.name!=='spider'||typeof b.labPersistentNeutralSpider!=='function')return false;
  try{return b.labPersistentNeutralSpider(e,standing)===true;}catch{return false;}
 }
+function calmSpider(b,e){
+ if(e.name!=='spider')return false;
+ if(typeof b.labPersistentCalmSpider!=='function')return neutralSpider(b,e);
+ try{return b.labPersistentCalmSpider(e)===true;}catch{return false;}
+}
 function hostile(b,e){
- if(neutralSpider(b,e))return false;
+ if(calmSpider(b,e))return false;
  if(e.name!=='enderman')return HOSTILES.has(e.name);
  // Endermen are neutral until provoked. Default/omitted metadata is false;
  // a known angry or staring state must still trigger the normal risk policy.
@@ -56,4 +61,4 @@ function assess(b,w,t=null){
  return {mode,reason,underground:cave,night,enemies:nearby.length,pressure,capacity};
 }
 function wantsCover(b,w,t){return assess(b,w,t).mode==='cover';}
-module.exports={equipped,threats,danger,underground,assess,wantsCover,neutralSpider};
+module.exports={equipped,threats,danger,underground,assess,wantsCover,neutralSpider,calmSpider};

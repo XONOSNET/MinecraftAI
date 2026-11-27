@@ -26,7 +26,7 @@ function teacher(){
 }
 async function setup(name){
  motor.pause();await host('setup',{scenario:name});await sleep(800);await inventory.sync(bot);
- await until(()=>bot.entity.onGround&&Math.abs(bot.entity.position.y-(name==='aggressive'?80:78))<.1,5000,'grounded '+name);
+ await until(()=>bot.entity.onGround&&Math.abs(bot.entity.position.y-(['aggressive','calm_close_combat'].includes(name)?80:78))<.1,5000,'grounded '+name);
  return teacher();
 }
 async function stageCheck(name,fn){const row={name,started_at:Date.now()};report.scenarios.push(row);try{await fn(row);row.passed=true;}catch(e){row.passed=false;row.error=e.stack||e.message;row.pose=bot?.entity?pose():null;}finally{row.finished_at=Date.now();fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(report,null,2));}}
@@ -70,6 +70,26 @@ async function hidden(t){await burrow.tick(t,bot,motor,state,api,scan,tasks);ass
    assert.ok((e.metadata?.[15]||0)&4,'Native aggression must remain present');
    for(let i=0;i<3;i++){await hidden(t);await sleep(150);}
    row.observation=observation.assess(bot,e,new Vec3(.5,80,.5));row.result=pose();
+  });
+  await stageCheck('legacy close-spider provocation is replaced by native nonaggression',async row=>{
+   const defense=require('../controller/survival_defense');
+   let t=await setup('calm_close_combat');t.phase='gather';t.wilderness.burrow=null;
+   let e=await until(()=>spider(),5000,'calm close combat mob');
+   await until(()=>observation.assess(bot,e).calm,5000,'native calm close disposition');
+   const calm=bot.labPersistentCalmSpider,attack=bot.attack;let requests=0;
+   bot.attack=function(...args){requests++;return attack.apply(this,args);};
+   const before=e.metadata?.[9];delete bot.labPersistentCalmSpider;
+   try{await until(async()=>{await defense.tick(t,bot,motor,state,api,scan);await sleep(150);return e.metadata?.[9]<before;},10000,'legacy native attack confirmation');}
+   finally{bot.labPersistentCalmSpider=calm;motor.pause();}
+   row.legacy={attack_requests:requests,health_before:before,health_after:e.metadata?.[9]};
+   t=await setup('calm_close_combat');t.phase='gather';t.wilderness.burrow=null;
+   e=await until(()=>spider(),5000,'reset calm close combat mob');
+   await until(()=>observation.assess(bot,e).calm,5000,'reset native calm disposition');
+   requests=0;const reset=e.metadata?.[9];
+   try{for(let i=0;i<6;i++){assert.equal(await defense.tick(t,bot,motor,state,api,scan),false);await sleep(150);}}
+   finally{bot.attack=attack;motor.pause();}
+   assert.equal(requests,0);assert.equal(e.metadata?.[9],reset);
+   row.candidate={attack_requests:requests,health_before:reset,health_after:e.metadata?.[9],observation:observation.assess(bot,e)};
   });
   await stageCheck('real pre-torch table and pick while sealed; clear exit still works afterward',async row=>{
    const t=await setup('bootstrap');row.initial=pose();const at=Date.now();

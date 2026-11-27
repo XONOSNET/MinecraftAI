@@ -5,7 +5,7 @@
 // move the bot, open a roof, choose a route, or change the world's mechanics.
 const {Vec3}=require('vec3');
 const VERSION='1.21.4',FLAGS_INDEX=15,AGGRESSIVE=4,SETTLE_MS=500;
-const AIR=new Set(['air','cave_air','void_air']);
+const HAZARDS=new Set(['water','lava','bubble_column','fire','soul_fire','powder_snow','cobweb','sweet_berry_bush']);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const attached=new WeakMap();
 const finitePoint=p=>p&&['x','y','z'].every(k=>Number.isFinite(p[k]));
@@ -35,11 +35,15 @@ function attach(bot,{clock=Date.now}={}){
   const api={assess:(e,standing)=>assess(bot,e,standing),report:standing=>report(bot,standing)};
   state.api=api;attached.set(bot,state);
   bot.labPersistentNeutralSpider=(e,standing)=>assess(bot,e,standing).neutral;
+  // Disposition and exit clearance are different questions. A verified calm
+  // spider near the resident must not become a combat target merely because
+  // it is too close for opening a sealed refuge safely.
+  bot.labPersistentCalmSpider=e=>assess(bot,e).calm;
   return api;
 }
 
 function assess(bot,e,standing=bot.entity?.position){
-  const result={neutral:false,reason:'untracked',entity_id:e?.id,name:e?.name};
+  const result={calm:false,neutral:false,reason:'untracked',entity_id:e?.id,name:e?.name};
   const refuse=reason=>({...result,reason});
   const state=attached.get(bot);
   if(!state)return result;
@@ -61,7 +65,6 @@ function assess(bot,e,standing=bot.entity?.position){
   if(bot.isRaining!==false||bot.rainState!==0||bot.thunderState!==0)return refuse('weather_not_clear');
   if(!finitePoint(e.position)||!finitePoint(standing)||!finitePoint(bot.entity?.position))return refuse('unknown_position');
   result.distance=distance(e.position,bot.entity.position);result.exit_distance=distance(e.position,standing);
-  if(result.distance<4.5||result.exit_distance<4.5)return refuse('too_close');
   if(typeof bot.blockAt!=='function'||typeof bot.world?.getSkyLight!=='function')return refuse('light_unavailable');
   // Both body cells must be loaded, empty and receive bright daylight. The
   // clear central-day window makes skyDarken zero in NORMAL (native 1.21.4
@@ -76,11 +79,15 @@ function assess(bot,e,standing=bot.entity?.position){
   try{
     for(const q of cells){
       const block=bot.blockAt(q);
-      if(!block||!AIR.has(block.name)||block.boundingBox!=='empty')return refuse('body_not_loaded_air');
+      if(!block||!bot.registry.blocksByName?.[block.name]||HAZARDS.has(block.name)||block.boundingBox!=='empty'||block.getProperties?.().waterlogged)return refuse('body_not_loaded_air');
       const light=bot.world.getSkyLight(q);result.sky_light.push(light);
       if(!Number.isInteger(light)||light<12||light>15)return refuse('not_bright_exposed_terrain');
     }
   }catch{return refuse('light_unavailable');}
+  // Only the complete, current native identity/flags/daylight/body evidence
+  // establishes calm disposition. Proximity still vetoes the exit exception.
+  result.calm=true;
+  if(result.distance<4.5||result.exit_distance<4.5)return refuse('too_close');
   return {...result,neutral:true,reason:'observed_calm_spider_in_bright_daylight'};
 }
 

@@ -110,3 +110,46 @@ test('a native ceiling contact is not mistaken for a solid block inside the spid
   f.entity.position.y=71.3;
   assert.equal(f.check().reason,'body_not_loaded_air','actual body overlap still refuses the exception');
 });
+
+test('dry noncolliding grass is valid native body space but wet and hazardous cells are not',()=>{
+  const f=fixture();f.spawn();f.now.value+=500;
+  f.bot.blockAt=()=>({name:'short_grass',boundingBox:'empty'});f.bot.world.getSkyLight=()=>13;
+  assert.equal(f.check().calm,true);
+  for(const name of ['water','bubble_column','fire','cobweb']){
+    f.bot.blockAt=()=>({name,boundingBox:'empty'});assert.equal(f.check().calm,false);
+  }
+  f.bot.blockAt=()=>({name:'unknown_block',boundingBox:'empty'});assert.equal(f.check().calm,false);
+});
+
+test('known calm proximity does not imply hostility or permit opening a refuge',()=>{
+  const f=fixture();f.spawn();f.now.value+=500;f.entity.position=new Vec3(3,65,0);
+  const value=f.check();
+  assert.equal(value.calm,true);assert.equal(value.neutral,false);assert.equal(value.reason,'too_close');
+  assert.equal(f.bot.labPersistentCalmSpider(f.entity),true);
+  assert.equal(f.bot.labPersistentNeutralSpider(f.entity,f.standing),false);
+  f.entity.metadata[15]=4;
+  assert.equal(f.check().calm,false);assert.equal(f.check().neutral,false);assert.equal(f.check().reason,'aggressive');
+  assert.equal(f.bot.labPersistentCalmSpider(f.entity),false);
+});
+
+test('exit clearance from a proposed stance is separate from verified calm disposition',()=>{
+  const f=fixture();f.spawn();f.now.value+=500;f.standing.set(8,67,0);
+  assert.equal(f.check().calm,true);assert.equal(f.check().neutral,false);assert.equal(f.check().reason,'too_close');
+  f.standing.set(0,67,0);
+  assert.equal(f.check().calm,true);assert.equal(f.check().neutral,true);
+});
+
+for(const [name,change] of [
+  ['night',f=>{f.bot.time.timeOfDay=18000;}],
+  ['shade',f=>{f.bot.world.getSkyLight=()=>11;}],
+  ['unknown light',f=>{f.bot.world.getSkyLight=()=>undefined;}],
+  ['unknown body',f=>{f.bot.blockAt=()=>null;}],
+  ['rain',f=>{f.bot.isRaining=true;}],
+  ['aggression',f=>{f.entity.metadata[15]=4;}],
+  ['untracked native identity',f=>{f.entity.uuid='9f66ffbc-6e80-4a0f-88df-f76a5e946bc8';}],
+])test('a close spider with '+name+' has neither a calm nor an exit exception',()=>{
+  const f=fixture();f.spawn();f.now.value+=500;f.entity.position=new Vec3(3,65,0);change(f);
+  const value=f.check();assert.equal(value.calm,false);assert.equal(value.neutral,false);
+  assert.equal(f.bot.labPersistentCalmSpider(f.entity),false);
+  assert.equal(f.bot.labPersistentNeutralSpider(f.entity,f.standing),false);
+});

@@ -303,3 +303,26 @@ controller study is to reproduce a fatal cover approach or premature departure
 under a real attacker, using these traces, before changing combat difficulty or
 equipment support. The seven-day clock result must not be relabeled a successful
 home-maintenance run.
+
+### Close-spider provocation correction
+
+The follow-through also exposed a distinct selection defect: treating failed
+exit clearance as hostility could make the generic defense path target a calm
+spider nearby. A focused regression reproduces the old attack request. The
+pilot now exposes separate calm-disposition and safe-exit observations; combat
+selection and opening defense do not provoke a verified calm spider, while its
+physical occupancy and the close departure refusal remain intact. Dry,
+noncolliding grass is valid loaded body space; wet, hazardous, unknown or solid
+cells cannot establish calm disposition.
+
+The completed `logs/pilot-burrow-recovery-native-v7/owner-report.json` records all
+seven native checks passing. Its added matched close-spider control confirmed a
+real legacy attack and native health reduction, followed by zero attack requests
+and unchanged mob health with the correction. The earlier night/close/cave/
+aggressive refusal and real craft/exit checks still passed. The test mob's NoAI
+setting isolates target provocation; it is not evidence of winning an actual
+fight. Cleanup again verified the owned JVM, port and disposable worlds gone.
+**937 JavaScript tests and 630 Python tests passed**, with focused follow-up
+coverage for the final optional-hook compatibility guards. The two natural
+deaths remain recorded; this controlled reproduction does not by itself prove
+that both deaths were caused by provocation.

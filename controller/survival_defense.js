@@ -9,7 +9,7 @@ function target(t,b,w){
  const bounds=w.bounds,p=b.entity.position;
  const chosen=risk.engagement?.enemy;
  if(chosen&&chosen.position.x>bounds[0]&&chosen.position.x<bounds[1]&&chosen.position.z>bounds[2]&&chosen.position.z<bounds[3])return chosen;
- const enemies=Object.values(b.entities).filter(e=>e.isValid!==false&&HOSTILES.has(e.name)&&e.position&&e.position.x>bounds[0]&&e.position.x<bounds[1]&&e.position.z>bounds[2]&&e.position.z<bounds[3]&&e.position.distanceTo(p)<=4.5&&Date.now()>=(t.wilderness.defenseDeferred?.get(e.id)||0)&&combat.visible(b,e));
+ const enemies=Object.values(b.entities).filter(e=>e.isValid!==false&&HOSTILES.has(e.name)&&!require('./shelter_policy').calmSpider?.(b,e)&&e.position&&e.position.x>bounds[0]&&e.position.x<bounds[1]&&e.position.z>bounds[2]&&e.position.z<bounds[3]&&e.position.distanceTo(p)<=4.5&&Date.now()>=(t.wilderness.defenseDeferred?.get(e.id)||0)&&combat.visible(b,e));
  return enemies.find(e=>e.id===t.wilderness.defense?.target_id)||enemies.sort((a,c)=>a.position.distanceTo(p)-c.position.distanceTo(p))[0]||null;
 }
 function disengage(t,b,reason){

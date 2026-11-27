@@ -134,6 +134,12 @@ spiders, darkness, weather, missing data and every other hostile retain the
 existing guards. This observation is explicitly enabled only by the resident;
 the production bots keep their existing threat rules.
 
+Calm disposition and exit clearance are separate. A verified calm spider nearby
+is not selected or struck as a combat target; it can still physically block an
+opening or fail the 4.5-block departure clearance. This avoids provoking a
+daylight-neutral spider merely because it is close. Guarded combat still targets
+aggressive spiders and other actual threats normally.
+
 The initial admission location is setup, not a recovery achievement. Missing
 bed respawns use the realm spawn rule. Recovery thereafter uses actual walking,
 checked routes, nearby visible item retrieval when justified, and genuine

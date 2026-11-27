@@ -18,7 +18,7 @@ from scripts.pilot_fixture_host import Host, atomic_json, production_health
 
 WORLD = 'lab_pilot_fixture_burrow_recovery'
 PLAYER = 'PilotTest01'
-SCENARIOS = {'neutral', 'night', 'close', 'cave', 'rain', 'aggressive', 'bootstrap'}
+SCENARIOS = {'neutral', 'night', 'close', 'cave', 'rain', 'aggressive', 'bootstrap', 'calm_close_combat'}
 DIMENSION = 'minecraft:' + WORLD
 TAG = 'pilot_burrow_case'
 
@@ -26,10 +26,10 @@ TAG = 'pilot_burrow_case'
 def commands(scenario):
     if scenario not in SCENARIOS:
         raise ValueError('Unknown fixed burrow scenario')
-    player_y = 80 if scenario == 'aggressive' else 78
-    player_z = 2.5 if scenario == 'aggressive' else .5
+    player_y = 80 if scenario in ('aggressive', 'calm_close_combat') else 78
+    player_z = 2.5 if scenario in ('aggressive', 'calm_close_combat') else .5
     mob = 'cave_spider' if scenario == 'cave' else 'spider'
-    x = 3.5 if scenario == 'close' else 9.5
+    x = 2.5 if scenario == 'calm_close_combat' else 3.5 if scenario == 'close' else 9.5
     no_ai = 0 if scenario == 'aggressive' else 1
     result = [
         f'execute in {DIMENSION} run forceload add -16 -16 16 16',
