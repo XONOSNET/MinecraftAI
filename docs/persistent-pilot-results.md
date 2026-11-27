@@ -405,3 +405,65 @@ at `logs/pilot-respawn-live-followthrough.json` records a deliberate sealed
 night watch, not the old repeated `gather` exception. No bot teleport, inventory
 grant, mob removal or terrain reset was used. The read-only bounded observer
 remains active; this correction does not establish reliable home maintenance.
+
+### Forty-day shelter loop and local harvesting capability
+
+The subsequent baseline was a negative result: **40.62 observed days**, 18
+deaths, 17 physically verified cover recoveries, zero completed goals and no
+usable home. Of 14.15 active hours, **81.89%** were shelter watches, 7.25% work
+and 10.86% travel. `logs/pilot-burrow-loop-before.json` retains that snapshot.
+This is not evidence of successful autonomous survival or learned improvement.
+
+Recorded progress exposed an additional controller defect. The four-log early
+axe phase routed to the unfinished home's fixed workbench position before
+crafting. The pilot also reset early capability to require both the home table
+and an axe, so a genuine carried axe or another workbench did not resolve the
+phase. Sixteen of 50 recorded `night_bootstrap` samples already carried an axe.
+Long return failures wasted work periods before another night required cover.
+An observed visible skeleton about 13 blocks from a prospective exit remained
+an actual threat; no ranged-exposure, night, difficulty or survival guard was
+removed to make the bot appear productive.
+
+The pilot now recognizes an actual usable axe, clears stale early-tool work,
+and owns a bounded local workbench/axe pipeline during safe daylight. Its
+temporary bench uses genuine carried materials, visible supported placement,
+loaded dry footing, player/ownership checks and native inventory confirmation.
+It never walks to the old home to prepare that axe. Deferred preparation allows
+actual hand harvesting rather than the legacy four-log handoff. Workbench
+intent persists as an unverified claim. Protected burrow preparation now makes
+a missing axe first, then a pick, instead of letting an existing pick suppress
+axe preparation. No supplies or milestones are granted.
+
+Complete verification passed: **957 JavaScript tests and 630 Python tests**.
+The single bounded native block at
+`logs/pilot-tool-bootstrap-native-v1/owner-report.json` passed all **eight**
+cases, preserving the night/close/cave/aggressive-spider and calm-provocation
+controls. Starting with supplied raw stock and no tools, the sealed case crafted
+a genuine workbench, axe and pick and then exited. Starting on the surface with
+only three supplied logs, the local case placed a bench and crafted an axe in
+seven actions, about **5.36 seconds**, without moving to the supplied distant
+home. Actual final inventory was one axe, three planks and two sticks, health
+20. Supplied fixtures are not autonomous material acquisition. Owned JVM exit,
+closed private port and removed fixture worlds were verified.
+
+Reproduce with:
+
+```powershell
+.venv/Scripts/python.exe -m scripts.verify_pilot_burrow_recovery --run --duration 360 --output logs/pilot-tool-bootstrap-native
+```
+
+### Intermittent camera lag diagnosis
+
+The reported camera catch-up had cleared before any performance deployment.
+Ordinary-play observations found **20 TPS**, roughly **22–28 ms** average server
+ticks with brief **112–116 ms** peaks, and camera worker intervals near **45–54
+ms**. Its lifetime maximum gap was 1.32 seconds; that does not establish the
+cause of a particular reported burst. A bounded local 40-second Java Flight
+Recorder capture found about 45 ms total GC pauses and entity scan/tracking
+hotspots, with no evidence of a sustained server tick-rate collapse during that
+window. Earlier lag coincided with terrain restoration, but no matched restore
+profile was collected and causation is unproven. Raw profiles remain local at
+`logs/server-lag-before.jfr`, `logs/server-lag-before-stack-audit.json` and
+`logs/server-lag-recovered.json`. No performance restart, world/difficulty
+change, reduced cleanup or speculative server tuning was applied. A future
+recurrence warrants time-correlated camera-gap and native tick/restore evidence.

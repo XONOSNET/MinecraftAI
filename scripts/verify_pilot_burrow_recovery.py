@@ -18,7 +18,8 @@ from scripts.pilot_fixture_host import Host, atomic_json, production_health
 
 WORLD = 'lab_pilot_fixture_burrow_recovery'
 PLAYER = 'PilotTest01'
-SCENARIOS = {'neutral', 'night', 'close', 'cave', 'rain', 'aggressive', 'bootstrap', 'calm_close_combat'}
+SCENARIOS = {'neutral', 'night', 'close', 'cave', 'rain', 'aggressive', 'bootstrap',
+             'surface_bootstrap', 'calm_close_combat'}
 DIMENSION = 'minecraft:' + WORLD
 TAG = 'pilot_burrow_case'
 
@@ -26,7 +27,7 @@ TAG = 'pilot_burrow_case'
 def commands(scenario):
     if scenario not in SCENARIOS:
         raise ValueError('Unknown fixed burrow scenario')
-    player_y = 80 if scenario in ('aggressive', 'calm_close_combat') else 78
+    player_y = 80 if scenario in ('aggressive', 'calm_close_combat', 'surface_bootstrap') else 78
     player_z = 2.5 if scenario in ('aggressive', 'calm_close_combat') else .5
     mob = 'cave_spider' if scenario == 'cave' else 'spider'
     x = 2.5 if scenario == 'calm_close_combat' else 3.5 if scenario == 'close' else 9.5
@@ -44,17 +45,28 @@ def commands(scenario):
         f'execute in {DIMENSION} run weather {"rain" if scenario == "rain" else "clear"}',
         f'gamemode survival {PLAYER}',
         f'clear {PLAYER}',
-        f'give {PLAYER} minecraft:oak_log 9',
-        f'give {PLAYER} minecraft:acacia_log 22',
-        f'give {PLAYER} minecraft:acacia_planks 7',
-        f'give {PLAYER} minecraft:stick 4',
-        f'give {PLAYER} minecraft:wooden_axe 1',
-        f'give {PLAYER} minecraft:dirt 5',
         f'effect give {PLAYER} minecraft:instant_health 1 10 true',
         f'effect give {PLAYER} minecraft:saturation 1 10 true',
-        f'execute in {DIMENSION} run tp {PLAYER} .5 {player_y} {player_z} 0 0',
     ]
-    if scenario != 'bootstrap':
+    if scenario == 'surface_bootstrap':
+        result.extend([
+            f'execute in {DIMENSION} run fill 0 78 0 0 79 0 minecraft:dirt',
+            f'execute in {DIMENSION} run setblock 0 80 0 minecraft:air',
+            f'execute in {DIMENSION} run setblock -1 80 0 minecraft:air',
+            f'give {PLAYER} minecraft:oak_log 3',
+        ])
+    else:
+        result.extend([
+            f'give {PLAYER} minecraft:oak_log 9',
+            f'give {PLAYER} minecraft:acacia_log 22',
+            f'give {PLAYER} minecraft:acacia_planks 7',
+            f'give {PLAYER} minecraft:stick 4',
+            f'give {PLAYER} minecraft:dirt 5',
+        ])
+        if scenario != 'bootstrap':
+            result.append(f'give {PLAYER} minecraft:wooden_axe 1')
+    result.append(f'execute in {DIMENSION} run tp {PLAYER} .5 {player_y} {player_z} 0 0')
+    if scenario not in ('bootstrap', 'surface_bootstrap'):
         result.append(f'execute in {DIMENSION} run summon minecraft:{mob} {x} 80 .5 '
                       f'{{NoAI:{no_ai}b,PersistenceRequired:1b,Tags:["{TAG}"]}}')
     if scenario == 'aggressive':

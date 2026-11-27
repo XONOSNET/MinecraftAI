@@ -9,9 +9,9 @@ const access=require('../controller/resource_access');
 const shelterWork=require('../controller/shelter_work');
 const {trackedBurrow}=require('../pilot/life.cjs');
 
-function fixture(ctx,{planks=7,sticks=4,logs=31}={}){
+function fixture(ctx,{planks=7,sticks=4,logs=31,axes=1,picks=0}={}){
  let now=100000,pauses=0,checkpoints=0;
- const stock={acacia_planks:planks,stick:sticks,oak_log:logs,wooden_axe:1},cells=new Map(),calls=[];
+ const stock={acacia_planks:planks,stick:sticks,oak_log:logs,wooden_axe:axes,...(picks?{wooden_pickaxe:picks}:{})},cells=new Map(),calls=[];
  const set=(at,name)=>cells.set(at.floored().toString(),name);
  const b={username:'HomeAI01',health:20,food:20,players:{},entities:{},
   entity:{position:new Vec3(.5,65,.5),onGround:true},
@@ -28,13 +28,17 @@ function fixture(ctx,{planks=7,sticks=4,logs=31}={}){
  const s={feet:[0,67,0],cap:[0,67,0],lip:[1,67,0],stage:'hidden',waitReason:'spider 9m above shelter',
   cap_name:'dirt',lip_name:'dirt',resume:'gather'};
  const consume=(name,n)=>{assert.ok((stock[name]||0)>=n,'real modelled recipe stock: '+name);stock[name]-=n;};
+ const consumePlanks=n=>{
+  assert.ok(Object.entries(stock).filter(([name])=>name.endsWith('_planks')).reduce((total,[,count])=>total+count,0)>=n);
+  for(const name of Object.keys(stock).filter(name=>name.endsWith('_planks'))){const amount=Math.min(n,stock[name]);consume(name,amount);n-=amount;if(!n)break;}
+ };
  const t={phase:'night_burrow',wilderness:{burrow:s},milestones:[],craft:async(_b,name,times,table)=>{
   calls.push({kind:'craft',name,table:table?.position.toArray()||null});assert.equal(times,1);
   if(name.endsWith('_planks')){consume(name.replace('_planks','_log'),1);stock[name]=(stock[name]||0)+4;}
-  else if(name==='crafting_table'){consume('acacia_planks',4);stock.crafting_table=(stock.crafting_table||0)+1;}
-  else if(name==='stick'){consume('acacia_planks',2);stock.stick=(stock.stick||0)+4;}
-  else if(name==='wooden_pickaxe'){
-   assert.equal(table?.name,'crafting_table');consume('acacia_planks',3);consume('stick',2);stock.wooden_pickaxe=1;
+  else if(name==='crafting_table'){consumePlanks(4);stock.crafting_table=(stock.crafting_table||0)+1;}
+  else if(name==='stick'){consumePlanks(2);stock.stick=(stock.stick||0)+4;}
+  else if(['wooden_pickaxe','wooden_axe'].includes(name)){
+   assert.equal(table?.name,'crafting_table');consumePlanks(3);consume('stick',2);stock[name]=1;
   }else assert.fail('unexpected recipe '+name);
  }};
  const motor={pause(){pauses++;}};
@@ -66,6 +70,45 @@ test('a pre-torch resident consumes real modelled wood, installs a safe table an
  assert.deepEqual(f.t.milestones,[]);assert.equal(f.s.resume,'gather');assert.equal(f.s.stage,'hidden');
  assert.equal(await f.tick(),false);assert.equal(f.calls.length,4);
  assert.ok(f.checkpoints>=8);
+});
+
+test('a tool-less resident prepares both a real axe and pick in its verified local burrow',async ctx=>{
+ const f=fixture(ctx,{planks:10,sticks:4,logs:0,axes:0});
+ for(let i=0;i<5;i++){assert.equal(await f.tick(),true);f.advance(1000);}
+ assert.equal(f.stock.wooden_axe,1);assert.equal(f.stock.wooden_pickaxe,1);
+ assert.equal(f.stock.acacia_planks,0);assert.equal(f.stock.stick,0);
+ assert.deepEqual(f.s.pilotBootstrap.outputs,['crafting_table','wooden_axe','wooden_pickaxe']);
+ assert.equal(f.calls.filter(c=>c.kind==='place').length,1);
+ assert.equal(burrow.sealed(f.b,f.s),true);assert.equal(burrow.walls(f.b,new Vec3(...f.s.feet),f.s),true);
+ assert.equal(f.s.stage,'hidden');assert.equal(f.s.resume,'gather');assert.deepEqual(f.t.milestones,[]);
+ assert.equal(await f.tick(),false);
+});
+
+test('an existing real pick does not prevent making the missing axe at the same remembered workbench',async ctx=>{
+ const f=fixture(ctx,{planks:3,sticks:2,logs:0,axes:0,picks:1});
+ f.s.workspace={floor:[1,65,0],stationOnly:true,station:'crafting_table',attempts:0};
+ f.set(new Vec3(1,65,0),'crafting_table');
+ assert.equal(await f.tick(),true);
+ assert.equal(f.stock.wooden_axe,1);assert.equal(f.stock.wooden_pickaxe,1);
+ assert.equal(f.stock.acacia_planks,0);assert.equal(f.stock.stick,0);
+ assert.deepEqual(f.calls.map(c=>c.name),['wooden_axe']);
+ assert.deepEqual(f.s.pilotBootstrap.outputs,['wooden_axe']);assert.equal(await f.tick(),false);
+});
+
+test('preparing both tools from raw logs respects the eight-action limit and resumes the same table after backoff',async ctx=>{
+ const f=fixture(ctx,{planks:0,sticks:0,logs:3,axes:0});
+ for(let i=0;i<8;i++){assert.equal(await f.tick(),true);f.advance(1000);}
+ assert.equal(f.stock.wooden_axe,1);assert.equal(f.stock.wooden_pickaxe,undefined);
+ assert.equal(f.s.pilotBootstrap.actions,8);assert.equal(await f.tick(),false);
+ const retry=f.s.pilotBootstrap.retryAt;assert.equal(retry,f.now+60000);
+ const saved=trackedBurrow(f.s);f.t.wilderness.burrow={...saved,waitReason:'daylight'};
+ f.advance(59999);assert.equal(await f.tick(),false);f.advance(1);assert.equal(await f.tick(),true);
+ assert.equal(f.stock.wooden_pickaxe,1);assert.equal(f.stock.oak_log,0);assert.equal(f.stock.oak_planks,0);
+ assert.equal(f.stock.stick,0);assert.equal(f.calls.filter(c=>c.kind==='place').length,1);
+ assert.equal(f.t.wilderness.burrow.pilotBootstrap.actions,1);
+ assert.ok(f.t.wilderness.burrow.pilotBootstrap.outputs.includes('wooden_axe'));
+ assert.ok(f.t.wilderness.burrow.pilotBootstrap.outputs.includes('wooden_pickaxe'));
+ assert.equal(burrow.sealed(f.b,f.t.wilderness.burrow),true);assert.deepEqual(f.t.milestones,[]);
 });
 
 test('bootstrap is subordinate to an already clear daylight exit and every open/climb stage',async ctx=>{

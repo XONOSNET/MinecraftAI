@@ -13,6 +13,7 @@ const inventory = require('../controller/inventory_sync');
 const shelter = require('../controller/shelter_policy');
 const burrow = require('../controller/emergency_burrow');
 const burrowBootstrap = require('./burrow_bootstrap.cjs');
+const localBootstrap = require('./local_bootstrap.cjs');
 const {WorldStall} = require('../controller/world_stall');
 const {WorldTiming} = require('../controller/world_timing');
 const {WorldNavigation} = require('../controller/world_navigation');
@@ -105,6 +106,7 @@ function freshTeacher(b, frame, saved={}, now=Date.now()) {
     stall:new WorldStall(90),pilotStall:false});
   if(t.plot) { t.table=house.point(t.plot,'table');t.campPlots=[t.plot]; }
   firstNight.init(t,{...frame.world,memory:saved.construction?.memory||{}});
+  if(saved.construction?.pilotWorkbench)t.wilderness.pilotWorkbench=plain(saved.construction.pilotWorkbench);
   t.wilderness.lightingKitReady=count(b,'torch')>=10||!!t.plot&&require('../controller/house_lighting').missing(b,t.plot)===0;
   // Planner intent can survive a connection; physical capability cannot.
   for(const key of ['prebuildLighting','earlyLighting','lightingPrepared','resume','coverResume','forageResume','fuelTrip'])
@@ -383,6 +385,7 @@ class PilotLife {
       d.construction={...d.construction,phase:t.phase,stage:this.established?'maintaining':'building',established:this.established,
         backoff:plain(this.backoff),memory:t.wilderness?.memory.snapshot()||{},mine:trackedMine(t.wilderness?.mine),
         homeReturn:plain(this.homeReturn),woolBudget:this.woolBudget?plain(this.woolBudget):null,
+        pilotWorkbench:t.wilderness?.pilotWorkbench?plain(t.wilderness.pilotWorkbench):null,
         burrow:trackedBurrow(t.wilderness?.burrow),intendedFeatures:[...new Set([...(d.construction.intendedFeatures||[]),
           ...['chest','furnace','torch'].filter(k=>view?.[k]),...(view?.bed?['bed_home']:[])])],
         workPhase:this.resumePhase,planner:Object.fromEntries(['prebuildLighting','earlyLighting','lightingPrepared','resume','coverResume','forageResume','fuelTrip']
@@ -599,7 +602,14 @@ class PilotLife {
       if(this.homeView.bed&&this.bedProof)t.milestone('bed_home');
       if(!this.homeView.bed)this.bedProof=null;
       t.homeDamage={missing:this.homeView.missing,unknown:this.homeView.unknown,unsafe:!this.homeView.usable,checked_at:Date.now()};
-      t.wilderness.bootstrap=this.homeView.table&&tool(b,'axe');
+      // Harvesting capability is the actual usable axe, not the location of
+      // the workbench that made it. Requiring the unfinished home's table
+      // repeatedly sends the resident away from its current resources.
+      t.wilderness.bootstrap=tool(b,'axe');
+      if(t.wilderness.bootstrap&&t.phase==='night_bootstrap') {
+        t.phase='gather';t.path=[];t.navigator.lastPlan=-Infinity;
+        t.lastProgress=Date.now();t.message='Axe already available; continuing shelter harvesting';
+      }
       if(this.homeView.torch||count(b,'torch')>=10)t.wilderness.lightingKitReady=true;
       this.progress();
       const danger=shelter.assess(b,this.frame.world,t).mode!=='work';
@@ -666,7 +676,17 @@ class PilotLife {
           // Trial-only deadlines are replaced by the bounded continuing goal
           // supervisor. Native action and physical-safety deadlines are untouched.
           t.started=Date.now();t.deathRun=null;t.error=null;
-          await t.tick(b,this.motor,this.frame,this.api,this.scan,this.tasks);
+          const prepared=await localBootstrap.tick(t,b,this.motor,this.frame,{now:this.clock(),checkpoint:()=>this.save(true)});
+          if(!prepared) {
+            // The pilot owns this bounded local recipe pipeline. While it is
+            // deferred, continue genuine hand harvesting instead of entering
+            // the legacy return-to-home bootstrap on every four-log batch.
+            if(t.phase==='night_bootstrap')t.phase='gather';
+            const localHarvest=t.phase==='gather',bootstrap=t.wilderness.bootstrap;
+            if(localHarvest)t.wilderness.bootstrap=true;
+            try {await t.tick(b,this.motor,this.frame,this.api,this.scan,this.tasks);}
+            finally {if(localHarvest)t.wilderness.bootstrap=bootstrap;}
+          }
         }
         if(generation!==this.generation)return this.status();
         this.message=t.error||t.message||t.phase;this.lastMode=t.navigationActive?'travel':'work';

@@ -128,10 +128,20 @@ recovery improvements are separate from PyTorch training; this resident does
 not call the production assignment, training or demonstration APIs.
 
 Before its first torch milestone, a resident in a physically verified sealed
-burrow can craft a real workbench and wooden pickaxe from carried wood. A capped
+burrow can craft a real workbench, wooden axe and pickaxe from carried wood. A capped
 side pocket is checked before excavation and placement. Work uses an eight-action
 or 60-second budget followed by a 60-second backoff, retains the exit and
 interrupted task, and grants no lesson milestones. A clear exit takes priority.
+
+During a checked daylight work period, the resident can also prepare its axe at
+a visible nearby workbench or place a real temporary workbench using carried
+materials. This local recipe pipeline never walks to the unfinished home,
+excavates a bench cell, or changes home ownership. A carried usable axe completes
+early tool preparation regardless of where it was made. Workbench intent is
+durable and is checked against native blocks and inventory after reconnecting.
+Preparation keeps the eight-action/60-second bound; ordinary hand harvesting
+can continue during a deferred retry. Immediate threats and unsafe footing
+preempt preparation, and no completed lesson or tool is inferred from memory.
 
 The pilot also distinguishes a distant calm normal spider during a narrow bright
 daylight window. This requires a tracked native 1.21.4 spawn, a clear attack flag,

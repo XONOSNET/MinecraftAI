@@ -1,6 +1,6 @@
 'use strict';
 
-// The continuing resident may prepare its first basic tool while safely waiting
+// The continuing resident may prepare its first basic tools while safely waiting
 // in cover. This is real, verified crafting; no lesson milestone is granted.
 const {Vec3}=require('vec3');
 const burrow=require('../controller/emergency_burrow');
@@ -11,7 +11,10 @@ const space=require('../controller/resource_space');
 const {visibleBlock}=require('../controller/target_scan');
 const BUDGET_MS=60000,MAX_ACTIONS=8,RETRY_MS=60000;
 const count=(b,name)=>b.inventory.items().filter(i=>typeof name==='function'?name(i.name):i.name===name).reduce((n,i)=>n+i.count,0);
-const hasPick=b=>count(b,n=>/^(wooden|stone|iron|diamond|netherite)_pickaxe$/.test(n))>0;
+const hasTool=(b,kind)=>b.inventory.items().some(i=>
+ new RegExp('^(wooden|stone|iron|golden|diamond|netherite)_'+kind+'$').test(i.name)&&
+ (i.maxDurability==null||i.maxDurability-(i.durabilityUsed||0)>3));
+const nextTool=b=>!hasTool(b,'axe')?'wooden_axe':!hasTool(b,'pickaxe')?'wooden_pickaxe':null;
 
 function ready(t,b,s){
  if(!s||s!==t.wilderness?.burrow||s.stage!=='hidden'||!s.waitReason||t.phase!=='night_burrow'||
@@ -42,7 +45,7 @@ function room(t,b,s){
 
 async function tick(t,b,motor,{checkpoint=()=>{},now=Date.now()}={}){
  const s=t.wilderness?.burrow;
- if(!ready(t,b,s)||hasPick(b))return false;
+ if(!ready(t,b,s)||!nextTool(b))return false;
  const r=s.pilotBootstrap??={startedAt:now,actions:0,retryAt:0,outputs:[]};
  if(now<(r.retryAt||0))return false;
  if(r.retryAt){r.startedAt=now;r.actions=0;r.retryAt=0;}
@@ -61,7 +64,8 @@ async function tick(t,b,motor,{checkpoint=()=>{},now=Date.now()}={}){
  };
  try{
   await inventory.sync(b);
-  if(!valid()||hasPick(b))return false;
+  if(!valid())return false;
+  const target=nextTool(b);if(!target)return false;
   const candidate=room(t,b,s);
   if(!candidate)return false;
   const at=new Vec3(...candidate.floor),block=b.blockAt(at);
@@ -107,7 +111,7 @@ async function tick(t,b,motor,{checkpoint=()=>{},now=Date.now()}={}){
   // A recorded placement may have completed immediately before disconnection.
   if(s.workspace.station!=='crafting_table'){s.workspace.station='crafting_table';checkpoint();}
   if(count(b,'stick')<2)return await craft('stick');
-  return await craft('wooden_pickaxe',table);
+  return await craft(target,table);
  }catch(error){
   if(error.code==='PILOT_LIFE_CHANGED')throw error;
   r.lastFailure=String(error.message||error);r.retryAt=now+RETRY_MS;

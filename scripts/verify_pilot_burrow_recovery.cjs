@@ -26,7 +26,7 @@ function teacher(){
 }
 async function setup(name){
  motor.pause();await host('setup',{scenario:name});await sleep(800);await inventory.sync(bot);
- await until(()=>bot.entity.onGround&&Math.abs(bot.entity.position.y-(['aggressive','calm_close_combat'].includes(name)?80:78))<.1,5000,'grounded '+name);
+ await until(()=>bot.entity.onGround&&Math.abs(bot.entity.position.y-(['aggressive','calm_close_combat','surface_bootstrap'].includes(name)?80:78))<.1,5000,'grounded '+name);
  return teacher();
 }
 async function stageCheck(name,fn){const row={name,started_at:Date.now()};report.scenarios.push(row);try{await fn(row);row.passed=true;}catch(e){row.passed=false;row.error=e.stack||e.message;row.pose=bot?.entity?pose():null;}finally{row.finished_at=Date.now();fs.writeFileSync(path.join(output,'report.json'),JSON.stringify(report,null,2));}}
@@ -34,6 +34,9 @@ function spider(){return Object.values(bot.entities).filter(e=>e.isValid!==false
 async function hidden(t){await burrow.tick(t,bot,motor,state,api,scan,tasks);assert.equal(t.wilderness.burrow?.stage,'hidden');assert.equal(bot.blockAt(new Vec3(0,80,0)).name,'dirt');assert.equal(burrow.sealed(bot,t.wilderness.burrow),true);}
 (async()=>{
  try{
+  report.sources=Object.fromEntries(['pilot/burrow_bootstrap.cjs','pilot/local_bootstrap.cjs',
+   'scripts/verify_pilot_burrow_recovery.py','scripts/verify_pilot_burrow_recovery.cjs'].map(file=>
+   [file,crypto.createHash('sha256').update(fs.readFileSync(path.resolve(file))).digest('hex')]));
   bot=mf.createBot({host:'127.0.0.1',port:25571,username:'PilotTest01',auth:'offline',version:'1.21.4'});
   inventory.attach(bot);require('../controller/resource_space').attach(bot);observation.attach(bot);
   motor=require('../controller/locomotion').createMotor(bot,{...require('../config/permissions.json'),attack:true,break_blocks:true,place_blocks:true,inventory:true});
@@ -91,16 +94,34 @@ async function hidden(t){await burrow.tick(t,bot,motor,state,api,scan,tasks);ass
    assert.equal(requests,0);assert.equal(e.metadata?.[9],reset);
    row.candidate={attack_requests:requests,health_before:reset,health_after:e.metadata?.[9],observation:observation.assess(bot,e)};
   });
-  await stageCheck('real pre-torch table and pick while sealed; clear exit still works afterward',async row=>{
+  await stageCheck('real pre-torch table, axe and pick from bare stock while sealed; clear exit still works afterward',async row=>{
    const t=await setup('bootstrap');row.initial=pose();const at=Date.now();
-   while(!(items().wooden_pickaxe>0)&&Date.now()-at<60000){await burrow.tick(t,bot,motor,state,api,scan,tasks);await bootstrap.tick(t,bot,motor);await sleep(150);}
-   assert.ok(items().wooden_pickaxe>0);assert.deepEqual(t.milestones,[]);assert.equal(burrow.sealed(bot,t.wilderness.burrow),true);
+   assert.equal(items().wooden_axe||0,0);assert.equal(items().wooden_pickaxe||0,0);assert.equal(items().crafting_table||0,0);
+   while(!(items().wooden_pickaxe>0&&items().wooden_axe>0)&&Date.now()-at<60000){await burrow.tick(t,bot,motor,state,api,scan,tasks);await bootstrap.tick(t,bot,motor);await sleep(150);}
+   assert.ok(items().wooden_pickaxe>0);assert.ok(items().wooden_axe>0);assert.deepEqual(t.milestones,[]);assert.equal(burrow.sealed(bot,t.wilderness.burrow),true);
    assert.equal(bot.blockAt(new Vec3(...t.wilderness.burrow.workspace.floor)).name,'crafting_table');row.result=pose();row.workspace=t.wilderness.burrow.workspace;row.bootstrap=t.wilderness.burrow.pilotBootstrap;
    assert.ok((items().acacia_planks||0)<7);assert.ok((items().stick||0)<4);
    await host('daylight');await sleep(700);const exitAt=Date.now();
    while(t.wilderness.burrow&&Date.now()-exitAt<30000){await burrow.tick(t,bot,motor,state,api,scan,tasks);await sleep(100);}
    assert.equal(t.wilderness.burrow,null);assert.equal(t.phase,'gather');assert.ok(bot.entity.position.y>=80);
    row.exit_after_bootstrap=pose();
+  });
+  await stageCheck('daylight surface workbench and axe consume real raw logs before further gathering',async row=>{
+   const localBootstrap=require('../pilot/local_bootstrap.cjs');
+   const t=await setup('surface_bootstrap');t.phase='gather';t.wilderness.burrow=null;
+   row.initial=pose();assert.equal(items().wooden_axe||0,0);assert.equal(items().wooden_pickaxe||0,0);
+   assert.equal(items().crafting_table||0,0);assert.equal(items().oak_log,3);
+   const at=Date.now();row.steps=[];
+   while(!(items().wooden_axe>0)&&Date.now()-at<60000){
+    const handled=await localBootstrap.tick(t,bot,motor,state,{now:Date.now()});
+    row.steps.push({at:Date.now(),handled,pose:pose(),message:t.message,workbench:t.wilderness.pilotWorkbench});
+    assert.ok(t.wilderness.burrow==null);await sleep(150);
+   }
+   assert.ok(items().wooden_axe>0);assert.ok((items().oak_log||0)<3);assert.deepEqual(t.milestones,[]);
+   assert.equal(bot.health,20);assert.equal(bot.game.gameMode,'survival');
+   const table=t.wilderness.pilotWorkbench;assert.ok(table?.position);
+   assert.equal(bot.blockAt(new Vec3(...table.position)).name,'crafting_table');
+   row.result=pose();row.workbench=table;
   });
   report.complete=report.scenarios.every(s=>s.passed);
   if(!report.complete){report.error='One or more independent native checks failed';process.exitCode=1;}

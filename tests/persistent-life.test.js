@@ -311,6 +311,42 @@ test('a physically present bed requires native server proof and the custom world
   assert.ok(f.engine.teacher.milestones.includes('bed_home'));
 });
 
+test('a usable axe completes early harvesting capability without returning to an unfinished home table',async ctx=>{
+  quiet(ctx);const f=fixture(ctx);f.engine.established=false;
+  f.set(house.point(f.plot,'table'),'air');
+  f.engine.teacher.phase='night_bootstrap';let worked=0;
+  f.engine.teacher.tick=async()=>{
+    worked++;assert.equal(f.engine.teacher.phase,'gather');
+    assert.equal(f.engine.teacher.wilderness.bootstrap,true);
+  };
+  await f.engine.tick();assert.equal(worked,1);
+  assert.equal(f.engine.homeView.table,false);
+  assert.deepEqual(f.engine.teacher.plot,f.plot);
+});
+
+test('deferred local axe preparation continues real hand harvesting without the legacy home trip',async ctx=>{
+  quiet(ctx);const f=fixture(ctx);f.engine.established=false;f.items={oak_log:4};
+  f.engine.teacher.phase='night_bootstrap';
+  ctx.mock.method(require('../pilot/local_bootstrap.cjs'),'tick',async()=>false);
+  let worked=0;f.engine.teacher.tick=async()=>{
+    worked++;assert.equal(f.engine.teacher.phase,'gather');
+    assert.equal(f.engine.teacher.wilderness.bootstrap,true,'local pipeline owns the legacy four-log handoff');
+    assert.equal(f.b.inventory.items().some(i=>i.name==='wooden_axe'),false,'no tool is invented');
+  };
+  await f.engine.tick();assert.equal(worked,1);
+  assert.equal(f.engine.teacher.wilderness.bootstrap,false,'capability flag is restored after ordinary work');
+});
+
+test('local workbench intent survives reload as a claim without changing home or carried inventory',ctx=>{
+  const f=fixture(ctx);f.items={oak_log:1};
+  f.engine.teacher.wilderness.pilotWorkbench={owner:f.b.username,run:f.engine.run,position:[12,64,12],
+    actions:3,startedAt:f.now,retryAt:f.now+60000,outputs:['oak_planks'],placed:true};
+  f.engine.save(true);const next=f.make(open(f.filename,f.scope));
+  assert.deepEqual(next.teacher.wilderness.pilotWorkbench,{...f.engine.teacher.wilderness.pilotWorkbench,verified:false,verifiedAt:null});
+  assert.deepEqual(next.teacher.plot,f.plot);assert.deepEqual(next.status().inventory,[{name:'oak_log',count:1,slot:9}]);
+  assert.equal(next.bedProof,null);assert.equal(next.store.snapshot().metrics.completedGoals,0);
+});
+
 test('a night watch persists unfinished work and resumes it after daylight and a controller reload',async ctx=>{
   quiet(ctx);let night=true;ctx.mock.method(shelter,'danger',()=>night);
   const f=fixture(ctx);f.engine.established=false;f.engine.teacher.phase='night_wool';
