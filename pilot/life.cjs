@@ -12,6 +12,7 @@ const nav = require('../controller/field_navigation');
 const inventory = require('../controller/inventory_sync');
 const shelter = require('../controller/shelter_policy');
 const burrow = require('../controller/emergency_burrow');
+const burrowBootstrap = require('./burrow_bootstrap.cjs');
 const {WorldStall} = require('../controller/world_stall');
 const {WorldTiming} = require('../controller/world_timing');
 const {WorldNavigation} = require('../controller/world_navigation');
@@ -123,7 +124,7 @@ function trackedMine(m) {
 }
 function trackedBurrow(s) {
   if(!s)return null;
-  const keys=['feet','cap','lip','stage','resume','cap_name','lip_name','reason','shellRepairs'];
+  const keys=['feet','cap','lip','stage','resume','cap_name','lip_name','reason','shellRepairs','workspace','pilotBootstrap'];
   return Object.fromEntries(keys.filter(k=>s[k]!==undefined).map(k=>[k,plain(s[k])]));
 }
 
@@ -586,6 +587,8 @@ class PilotLife {
           this.save();return this.status();
         }
         if(await firstNight.interrupt(t,b,this.motor,this.frame,this.api,this.scan)) {
+          if(generation!==this.generation)return this.status();
+          await burrowBootstrap.tick(t,b,this.motor,{now:this.clock(),checkpoint:()=>this.save(true)});
           if(generation!==this.generation)return this.status();
           this.rememberShelter();
           this.currentGoal='survival';this.currentStatus='working';this.message=t.message;this.lastMode=t.wilderness.burrow?.stage==='hidden'?'shelter_watch':'survival';

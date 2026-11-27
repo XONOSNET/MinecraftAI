@@ -119,6 +119,12 @@ inventory acknowledgement and native bed evidence are required. Controller
 recovery improvements are separate from PyTorch training; this resident does
 not call the production assignment, training or demonstration APIs.
 
+Before its first torch milestone, a resident in a physically verified sealed
+burrow can craft a real workbench and wooden pickaxe from carried wood. A capped
+side pocket is checked before excavation and placement. Work uses an eight-action
+or 60-second budget followed by a 60-second backoff, retains the exit and
+interrupted task, and grants no lesson milestones. A clear exit takes priority.
+
 The initial admission location is setup, not a recovery achievement. Missing
 bed respawns use the realm spawn rule. Recovery thereafter uses actual walking,
 checked routes, nearby visible item retrieval when justified, and genuine
