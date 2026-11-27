@@ -2,7 +2,14 @@
 const combat=require('./combat');
 const WEAPONS=new Set(['wooden','stone','iron','golden','diamond','netherite'].flatMap(m=>[m+'_sword',m+'_axe']));
 const HOSTILES=new Set(['zombie','zombie_villager','husk','drowned','skeleton','stray','bogged','creeper','spider','cave_spider','witch','pillager','vindicator','silverfish','endermite','phantom']);
+function neutralSpider(b,e,standing=b.entity.position){
+ // The continuing pilot may supply a versioned native observation. Without
+ // that explicit opt-in, production retains its existing conservative rule.
+ if(e.name!=='spider'||typeof b.labPersistentNeutralSpider!=='function')return false;
+ try{return b.labPersistentNeutralSpider(e,standing)===true;}catch{return false;}
+}
 function hostile(b,e){
+ if(neutralSpider(b,e))return false;
  if(e.name!=='enderman')return HOSTILES.has(e.name);
  // Endermen are neutral until provoked. Default/omitted metadata is false;
  // a known angry or staring state must still trigger the normal risk policy.
@@ -49,4 +56,4 @@ function assess(b,w,t=null){
  return {mode,reason,underground:cave,night,enemies:nearby.length,pressure,capacity};
 }
 function wantsCover(b,w,t){return assess(b,w,t).mode==='cover';}
-module.exports={equipped,threats,danger,underground,assess,wantsCover};
+module.exports={equipped,threats,danger,underground,assess,wantsCover,neutralSpider};

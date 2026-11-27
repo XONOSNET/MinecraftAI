@@ -125,6 +125,15 @@ side pocket is checked before excavation and placement. Work uses an eight-actio
 or 60-second budget followed by a 60-second backoff, retains the exit and
 interrupted task, and grants no lesson milestones. A clear exit takes priority.
 
+The pilot also distinguishes a distant calm normal spider during a narrow bright
+daylight window. This requires a tracked native 1.21.4 spawn, a clear attack flag,
+loaded air around the spider with sky light at least 12, clear weather, time
+4000–8000, and six blocks of clearance from both the bot and proposed exit.
+It rechecks those observations every time. Close or aggressive spiders, cave
+spiders, darkness, weather, missing data and every other hostile retain the
+existing guards. This observation is explicitly enabled only by the resident;
+the production bots keep their existing threat rules.
+
 The initial admission location is setup, not a recovery achievement. Missing
 bed respawns use the realm spawn rule. Recovery thereafter uses actual walking,
 checked routes, nearby visible item retrieval when justified, and genuine

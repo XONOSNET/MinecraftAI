@@ -206,6 +206,7 @@ class PilotSupervisor {
       require('../controller/inventory_sync').attach(bot);
       require('../controller/resource_space').attach(bot);
       require('../controller/enderman_gaze').attach(bot);
+      require('./neutral_spiders.cjs').attach(bot);
       bot.labOxygen=20;
       bot._client.on('entity_metadata',packet=>{bot.labOxygen=require('../controller/air').ownOxygen(packet,bot.entity?.id,bot.labOxygen);});
       const permissions={...require('../config/permissions.json'),attack:true,break_blocks:true,place_blocks:true,inventory:true,server_commands:false};
@@ -361,6 +362,8 @@ class PilotSupervisor {
         look:[this.bot.entity.yaw,this.bot.entity.pitch].every(Number.isFinite)?[this.bot.entity.yaw,this.bot.entity.pitch]:null,
         speed:Math.hypot(this.bot.entity.velocity?.x||0,this.bot.entity.velocity?.z||0),camera_watch_height:cameraWatchHeight(this.bot,life)}:null,
       life,state:state || null,events:this.events.slice(-20),state_directory:this.directory,
+      spider_observations:this.bot?require('./neutral_spiders.cjs').report(this.bot,
+        this.life?.teacher?.wilderness?.burrow?.feet?new Vec3(...this.life.teacher.wilderness.burrow.feet):this.bot.entity?.position):[],
       production:this.health?{ready:this.health.server.ready,bots:this.health.server.bots_online,ram_percent:this.health.ram_percent,phase:this.health.world_learning?.phase}:null};
   }
   listen(port=8100) {

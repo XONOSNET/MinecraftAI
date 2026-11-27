@@ -17,7 +17,7 @@ function exposedThreat(b){
 function alive(b,e){const index=b.registry?.entitiesByName?.[e.name]?.metadataKeys?.indexOf('health'),health=typeof index==='number'&&index>=0?e.metadata?.[index]:undefined;return e.isValid!==false&&(typeof health!=='number'||health>0);}
 function threats(b,standing=b.entity.position){
  const proxy=Object.create(b);proxy.entity={...b.entity,position:standing};
- return Object.values(b.entities||{}).filter(e=>alive(b,e)&&MOBS.has(e.name)&&e.position?.distanceTo(standing)<18&&combat.visible(proxy,e));
+ return Object.values(b.entities||{}).filter(e=>alive(b,e)&&MOBS.has(e.name)&&!require('./shelter_policy').neutralSpider(b,e,standing)&&e.position?.distanceTo(standing)<18&&combat.visible(proxy,e));
 }
 function shellProblem(b,feet,s){
  // Two removed earth cells, an untouched floor, and a raised surface cap
